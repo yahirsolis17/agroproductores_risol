@@ -1,0 +1,25 @@
+Listado de rutas de carpetas
+El número de serie del volumen es BC46-2ECE
+C:.
+|   asgi.py
+|   estructura_limpia.txt
+|   settings.py
+|   urls.py
+|   wsgi.py
+|   __init__.py
+|   
++---middlewares
+|   |   ip_restriction.py
+|   |   security.py
+|   |   __init__.py
+|   |   
+|   \---__pycache__
+|           security.cpython-312.pyc
+|           __init__.cpython-312.pyc
+|           
+\---__pycache__
+        settings.cpython-312.pyc
+        urls.cpython-312.pyc
+        wsgi.cpython-312.pyc
+        __init__.cpython-312.pyc
+        

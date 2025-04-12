@@ -1,0 +1,130 @@
+# gestion_usuarios/serializers.py
+
+from rest_framework import serializers
+from django.contrib.auth import authenticate
+import re
+from django.contrib.auth.models import Permission
+from .models import Users, RegistroActividad
+from .validators import validate_telefono, validate_nombre
+# Login
+class LoginSerializer(serializers.Serializer):
+    telefono = serializers.CharField(max_length=10)
+    password = serializers.CharField(write_only=True, min_length=2)
+
+    def validate_telefono(self, value):
+        return validate_telefono(value)
+
+    def validate(self, data):
+        user = Users.objects.filter(telefono=data['telefono']).first()
+        if not user:
+            raise serializers.ValidationError({"telefono": "El teléfono ingresado no está registrado."})
+
+        if not user.is_active:
+            raise serializers.ValidationError({"telefono": "La cuenta asociada a este teléfono está deshabilitada."})
+
+        if user.intentos_fallidos >= 5:
+            raise serializers.ValidationError({"telefono": "Demasiados intentos fallidos. Intenta más tarde o contacta al administrador."})
+
+        user_auth = authenticate(
+            request=self.context.get('request'),
+            username=data['telefono'],  # <- Django sigue usando 'username' internamente
+            password=data['password']
+        )
+
+        if not user_auth:
+            user.intentos_fallidos += 1
+            user.save()
+            raise serializers.ValidationError({"password": "La contraseña ingresada es incorrecta."})
+
+        user.intentos_fallidos = 0
+        user.save()
+        data['user'] = user
+        data['must_change_password'] = user.must_change_password
+        return data
+
+
+
+# Crear admins
+class AdminUserCreationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Users
+        fields = ('telefono', 'nombre', 'apellido', 'password', 'is_staff')
+
+    def validate(self, data):
+        if not self.initial_data.get('is_superuser', False):
+            raise serializers.ValidationError("El administrador debe ser un superusuario.")
+        return data
+
+    def validate_telefono(self, value):
+        return validate_telefono(value)
+
+    def validate_nombre(self, value):
+        return validate_nombre(value, field_name="nombre")
+
+    def validate_apellido(self, value):
+        return validate_nombre(value, field_name="apellido")
+
+
+
+# Crear usuarios comunes
+# gestion_usuarios/serializers.py
+class CustomUserCreationSerializer(serializers.ModelSerializer):
+    """
+    • Ya no exigimos que el admin mande 'password'.
+    • Creamos al usuario con contraseña predeterminada
+      y must_change_password = True
+    """
+    class Meta:
+        model  = Users
+        fields = ('telefono', 'nombre', 'apellido', 'role')   # ← quitamos password / is_staff
+
+    # Validaciones existentes (teléfono, nombre, apellido) se mantienen…
+
+    def create(self, validated_data):
+        default_pwd = "12345678"
+
+        # obligamos a cambio de contraseña en primer login
+
+        # 1) crear instancia SIN la clave extra
+        user = Users(**validated_data)
+        # 2) asignar contraseña y flag después
+        user.set_password(default_pwd)
+        user.must_change_password = True
+        user.save()
+        return user
+
+
+
+# Serializador general para mostrar usuarios
+class UsuarioSerializer(serializers.ModelSerializer):
+    full_name = serializers.ReadOnlyField()
+    is_admin  = serializers.ReadOnlyField()
+    role      = serializers.CharField(read_only=True)
+
+    class Meta:
+        model  = Users
+        fields = [
+            'id', 'telefono', 'nombre', 'apellido',
+            'password',          # ← write_only sigue aquí
+            'is_staff', 'is_admin', 'is_active',
+            'role',
+            'full_name',
+        ]
+        extra_kwargs = {'password': {'write_only': True}}
+
+
+# Para mostrar permisos
+class UserPermissionsSerializer(serializers.ModelSerializer):
+    content_type = serializers.StringRelatedField()
+
+    class Meta:
+        model = Permission
+        fields = ['id', 'name', 'codename', 'content_type']
+
+# Serializador para logs
+class RegistroActividadSerializer(serializers.ModelSerializer):
+    usuario = UsuarioSerializer()
+
+    class Meta:
+        model = RegistroActividad
+        fields = '__all__'
