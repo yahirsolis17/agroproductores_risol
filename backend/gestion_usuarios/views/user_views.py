@@ -49,7 +49,6 @@ class LoginView(APIView):
         registrar_actividad(user, "Inicio de sesión", "Login exitoso", ip, user_agent)
 
         return NotificationHandler.generate_response(
-            success=True,
             message_key="login_success",
             data={
                 'tokens': tokens,
@@ -57,6 +56,22 @@ class LoginView(APIView):
                 'must_change_password': user.must_change_password
             },
             status_code=status.HTTP_200_OK
+        )
+
+class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            refresh_token = request.data.get("refresh_token")
+            if refresh_token:
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+        except Exception:
+            pass  # no lanzar error, simplemente continuar
+
+        return NotificationHandler.generate_response(
+            message_key="logout_success"
         )
 
         
@@ -78,19 +93,37 @@ class UsuarioViewSet(AuditUpdateMixin, ModelViewSet):
         elif self.action == 'destroy':
             return [IsAuthenticated(), IsAdmin()]
         return [IsAuthenticated()]
-    
+
     def get_serializer_class(self):
         if self.action == 'create':
             return CustomUserCreationSerializer
         return UsuarioSerializer
-    
+
+    def create(self, request, *args, **kwargs):
+        serializer = CustomUserCreationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+
+        # Se elimina la llamada a audit ya que el método no está implementado en este viewset.
+        # Si deseas registrar esta acción, implementa un método audit adecuado o úsalo en otro lugar.
+        # self.audit(request, request.user, "Registro", f"Registró a {user.telefono}")
+
+        return NotificationHandler.generate_response(
+            message_key="register_success",
+            data=UsuarioSerializer(user).data,
+            status_code=status.HTTP_201_CREATED
+        )
+
     @action(detail=True, methods=['patch'], permission_classes=[IsAdmin])
     def toggle_active(self, request, pk=None):
         user = self.get_object()
         user.is_active = not user.is_active
         user.save()
         status_str = "activado" if user.is_active else "desactivado"
-        self.audit(request, request.user, "Cambio de estado", f"{status_str} al usuario {user.telefono}")
+
+        # Si deseas auditar esta acción, asegúrate de que el método audit esté definido.
+        # self.audit(request, request.user, "Cambio de estado", f"{status_str} al usuario {user.telefono}")
+
         return Response({
             "success": True,
             "message": f"Usuario {status_str} correctamente.",
@@ -101,20 +134,25 @@ class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        # Get the new password from the request data
         new_password = request.data.get('new_password')
         if not new_password or len(new_password) < 4:
-            return Response({"error": "La contraseña debe tener al menos 4 caracteres."}, status=status.HTTP_400_BAD_REQUEST)
+            # En vez de enviar el mensaje directo, se utiliza NotificationHandler para validar y responder.
+            return NotificationHandler.generate_response(
+                message_key="validation_error",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
 
         user = request.user
         user.set_password(new_password)
         user.must_change_password = False
         user.save()
 
-        # Log the password change activity
         registrar_actividad(user, "Cambio de contraseña", detalles="El usuario cambió su contraseña.")
 
-        return Response({"success": True, "message": "Contraseña actualizada correctamente."})
+        return NotificationHandler.generate_response(
+            message_key="password_change_success"
+        )
+
 class AuditedModelViewSet(ModelViewSet, AuditMixin):
     def perform_create(self, serializer):
         instance = serializer.save()
@@ -129,6 +167,7 @@ class AuditedModelViewSet(ModelViewSet, AuditMixin):
     def perform_destroy(self, instance):
         self.audit(self.request, self.request.user, "Eliminación", f"Se eliminó {instance}")
         instance.delete()
+
 
 class MeView(APIView):
     permission_classes = [IsAuthenticated]

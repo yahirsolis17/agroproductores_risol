@@ -1,16 +1,10 @@
 NOTIFICATION_MESSAGES = {
-    # Autenticación
+    # --- Autenticación ---
     "login_success": {
         "message": "Inicio de sesión exitoso",
         "type": "success",
         "action": "redirect",
         "target": "/dashboard"
-    },
-    "password_change_required": {
-        "message": "Debe cambiar su contraseña antes de continuar",
-        "type": "warning",
-        "action": "redirect",
-        "target": "/change-password"
     },
     "logout_success": {
         "message": "Sesión cerrada correctamente",
@@ -18,8 +12,28 @@ NOTIFICATION_MESSAGES = {
         "action": "redirect",
         "target": "/login"
     },
-    
-    # Operaciones CRUD
+    "password_change_required": {
+        "message": "Debe cambiar su contraseña antes de continuar",
+        "type": "warning",
+        "action": "redirect",
+        "target": "/change-password"
+    },
+
+    # --- Usuario ---
+    "register_success": {
+        "message": "Usuario registrado exitosamente",
+        "type": "success",
+        "action": "redirect",
+        "target": "/dashboard"
+    },
+    "password_change_success": {
+        "message": "Contraseña actualizada correctamente",
+        "type": "success",
+        "action": "redirect",
+        "target": "/dashboard"
+    },
+
+    # --- CRUD generales ---
     "create_success": {
         "message": "Registro creado exitosamente",
         "type": "success"
@@ -32,8 +46,8 @@ NOTIFICATION_MESSAGES = {
         "message": "Eliminación completada",
         "type": "success"
     },
-    
-    # Errores
+
+    # --- Errores ---
     "validation_error": {
         "message": "Por favor, corrige los errores en los campos",
         "type": "error"
@@ -42,5 +56,10 @@ NOTIFICATION_MESSAGES = {
         "message": "No tienes permisos para realizar esta acción",
         "type": "error",
         "code": 403
+    },
+    "server_error": {
+        "message": "Ha ocurrido un error en el servidor",
+        "type": "error",
+        "code": 500
     }
 }

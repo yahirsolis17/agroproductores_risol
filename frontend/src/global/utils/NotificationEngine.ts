@@ -1,10 +1,11 @@
-// src/global/utils/notidicationengine.ts
+// src/global/utils/NotificationEngine.ts
 import { toast } from 'react-toastify';
 
 export const handleBackendNotification = (responseData: any) => {
-  if (!responseData) return;
+  if (!responseData || !responseData.notification) return;
 
-  const { success, message, message_key } = responseData;
+  const { success } = responseData;
+  const { message, key: message_key } = responseData.notification;
 
   if (!message) return;
 

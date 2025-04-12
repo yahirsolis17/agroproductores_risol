@@ -3,6 +3,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import authService, { User } from '../services/authService';
 import { useNavigate } from 'react-router-dom';
 import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
+import apiClient from '../../../global/api/apiClient';
 
 interface AuthContextProps {
   user: User | null;
@@ -11,127 +12,86 @@ interface AuthContextProps {
   isUser: boolean;
   loading: boolean;
   login: (telefono: string, password: string) => Promise<void>;
-  logout: () => Promise<void>;
+  logout: () => void;
   refreshSession: () => Promise<void>;
 }
+
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(authService.getUser());
+
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const loadUser = async () => {
+    const init = async () => {
       try {
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-          const parsedUser = JSON.parse(storedUser);
-          setUser(parsedUser);
-          
-          // Corregido: Usar getRefreshToken en lugar de refreshToken
-          await authService.getRefreshToken();
-          await refreshSession();
-        }
-      } catch (error) {
-        handleAuthError(error);
+        await refreshSession();
+      } catch {
+        authService.logout();
+        setUser(null);
       } finally {
         setLoading(false);
       }
     };
 
-    loadUser();
+    if (authService.getAccessToken()) {
+      init();
+    } else {
+      setLoading(false);
+    }
   }, []);
 
-  const handleAuthError = (error: any) => {
-    if (error.response?.notification) {
-      handleBackendNotification(error.response.notification);
-      
-      if (error.response.status === 401) {
-        authService.logout();
-        setUser(null);
-      }
-    } else {
-      handleBackendNotification({
-        key: 'connection_error',
-        type: 'error',
-        message: 'Error de conexión con el servidor'
-      });
-    }
-  };
-
   const refreshSession = async () => {
-    try {
-      const userData = await authService.getMe();
-      const updatedUser = { 
-        ...userData, 
-        must_change_password: userData.must_change_password 
-      };
-      
-      setUser(updatedUser);
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-    } catch (error) {
-      handleAuthError(error);
-    }
+    const me = await authService.getMe();
+    setUser(me);
+    localStorage.setItem('user', JSON.stringify(me));
   };
 
   const login = async (telefono: string, password: string) => {
-    try {
-      setLoading(true);
-      const response = await authService.login({ telefono, password });
-
-      // Acceso correcto a la estructura de la respuesta
-      if (response.notification) {
-        handleBackendNotification(response.notification);
-      }
-
-      const userData = {
-        ...response.user,
-        must_change_password: response.must_change_password
-      };
-      
-      setUser(userData);
-      localStorage.setItem('user', JSON.stringify(userData));
-
-      localStorage.setItem('access_token', response.tokens.access);
-      localStorage.setItem('refresh_token', response.tokens.refresh);
-
-      // Implementar redirección
-      if (response.must_change_password) {
-        navigate('/change-password', { replace: true });
-      } else {
-        navigate('/dashboard', { replace: true });
-      }
-
-    } catch (error) {
-      handleAuthError(error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
+    const { user: loggedIn, must_change_password, notification } = await authService.login({
+      telefono,
+      password,
+    });
+  
+    handleBackendNotification({ success: true, notification });
+  
+    const userWithFlag = { ...loggedIn, must_change_password };
+    setUser(userWithFlag);
+    localStorage.setItem('user', JSON.stringify(userWithFlag));
+  
+    navigate(must_change_password ? '/change-password' : '/dashboard', {
+      replace: true,
+    });
   };
+  
 
   const logout = async () => {
     try {
-      await authService.logout();
-      handleBackendNotification({
-        key: 'logout_success',
-        type: 'info',
-        message: 'Sesión cerrada correctamente',
-        action: 'redirect',
-        target: '/login'
+      const refreshToken = localStorage.getItem('refreshToken');
+      const response = await apiClient.post('/usuarios/logout/', {
+        refresh_token: refreshToken
       });
-      navigate('/login');
-    } catch (error) {
-      handleAuthError(error);
+  
+      handleBackendNotification(response.data); // 🔥 NOTIFICACIÓN CENTRALIZADA
+    } catch (error: any) {
+      handleBackendNotification(error.response?.data || {
+        success: false,
+        notification: {
+          key: 'logout_error',
+          message: 'No se pudo cerrar sesión correctamente',
+          type: 'error',
+        }
+      });
     } finally {
+      authService.logout();
       setUser(null);
-      localStorage.removeItem('user');
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
+      navigate('/login');
     }
   };
+  
 
   return (
     <AuthContext.Provider
@@ -143,7 +103,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loading,
         login,
         logout,
-        refreshSession
+        refreshSession,
       }}
     >
       {children}
@@ -152,9 +112,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth debe usarse dentro de un AuthProvider');
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth debe usarse dentro de <AuthProvider>');
+  return ctx;
 };
