@@ -1,6 +1,8 @@
+// src/components/layout/Navbar.tsx
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../modules/gestion_usuarios/context/AuthContext';
+import { NAV_ITEMS } from '../../global/constants/navItems';
 
 const Navbar: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -8,24 +10,9 @@ const Navbar: React.FC = () => {
   return (
     <nav className="bg-blue-600 text-white px-4 py-3 flex items-center justify-between">
       <div className="flex items-center space-x-4">
-
-        {isAuthenticated && user?.role === 'admin' && (
-          <>
-            <Link to="/dashboard" className="hover:underline">Dashboard</Link>
-            <Link to="/users-admin" className="hover:underline">Gestionar Usuarios</Link>
-            <Link to="/register" className="hover:underline">Registrar Usuario</Link>
-            <Link to="/activity-log" className="hover:underline">Historial de Actividades</Link>
-            {/* Agrega otros enlaces para admin aquí */}
-          </>
-        )}
-          {user?.role === 'usuario' && (
-            <>
-              <Link to="/dashboard" className="hover:underline">Dashboard</Link>
-              <Link to="/profile"  className="hover:underline">Perfil</Link>
-              <Link to="/huertas"  className="hover:underline">Huertas</Link>
-              <Link to="/cosechas" className="hover:underline">Cosechas</Link>
-            </>
-          )}
+        {isAuthenticated && user && NAV_ITEMS[user.role].map(({ to, label }) => (
+          <Link key={to} to={to} className="hover:underline">{label}</Link>
+        ))}
       </div>
 
       <div>

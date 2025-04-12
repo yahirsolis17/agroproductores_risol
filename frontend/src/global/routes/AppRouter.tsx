@@ -1,48 +1,52 @@
+// src/global/routes/AppRouter.tsx
+import React, { Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
+
+import PrivateRoute from '../../components/common/PrivateRoute';
+import RoleGuard from '../../components/common/RoleGuard';
+import MainLayout from '../../components/layout/MainLayout';
+
 import Login from '../../modules/gestion_usuarios/pages/Login';
 import Dashboard from '../../modules/gestion_usuarios/pages/Dashboard';
-import Profile from '../../modules/gestion_usuarios/pages/Profile';
 import ChangePassword from '../../modules/gestion_usuarios/pages/ChangePassword';
-import ActivityLog from '../../modules/gestion_usuarios/pages/ActivityLog';
-import Register from '../../modules/gestion_usuarios/pages/Register';
-import UsersAdmin from '../../modules/gestion_usuarios/pages/UsersAdmin';
-import Unauthorized from '../../../src/components/common/Unauthorized';
+import Unauthorized from '../../components/common/Unauthorized';
 
-// Layout y PrivateRoute
-import MainLayout from '../../../src/components/layout/MainLayout';
-import PrivateRoute from '../../../src/components/common/PrivateRoute';
+import { moduleRoutes } from './moduleRoutes';
 
 function AppRouter() {
   return (
     <Routes>
-      {/* Rutas públicas */}
+      {/* Públicas */}
       <Route path="/login" element={<Login />} />
       <Route path="/unauthorized" element={<Unauthorized />} />
 
-      {/* Rutas protegidas -> envueltas con PrivateRoute y MainLayout */}
+      {/* Privadas con layout */}
       <Route element={<PrivateRoute />}>
         <Route element={<MainLayout />}>
-          {/* Routes genéricas: con Navbar y Footer */}
-          <Route path="/" element={<Dashboard />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/change-password" element={<ChangePassword />} />
-          
-          {/* Rutas sólo para admin con PrivateRoute adicional si lo deseas */}
-          <Route path="/activity-log" element={<ActivityLog />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/users-admin" element={<UsersAdmin />} />
 
-          {/* Rutas para usuarios normales */}
-          <Route path="/profile" element={<Profile />} />
-
+          {moduleRoutes.map(({ path, allowedRoles, lazyComponent }, idx) => {
+            const LazyComp = React.lazy(lazyComponent);
+            return (
+              <Route
+                key={idx}
+                path={path}
+                element={
+                  <RoleGuard allowed={allowedRoles}>
+                    <Suspense fallback={<div>Cargando...</div>}>
+                      <LazyComp />
+                    </Suspense>
+                  </RoleGuard>
+                }
+              />
+            );
+          })}
         </Route>
       </Route>
 
       {/* 404 */}
-      <Route
-        path="*"
-        element={<div className="p-6 text-center">404 - Página no encontrada</div>}
-      />
+      <Route path="*" element={<div className="p-6 text-center">404 - Página no encontrada</div>} />
     </Routes>
   );
 }
