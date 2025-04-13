@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../modules/gestion_usuarios/context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
-import { Button } from '@mui/material'; // Asegúrate de tener este import arriba
+import { Button } from '@mui/material';
 
 const Navbar: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -26,13 +26,20 @@ const Navbar: React.FC = () => {
           Risol
         </Link>
 
-        {isAuthenticated && user?.role === 'admin' && (
+        {isAuthenticated && user && user.role === 'admin' && (
           <div
             className="relative"
             onMouseEnter={() => setHovering(true)}
             onMouseLeave={() => setHovering(false)}
           >
-            <button className="text-sm text-neutral-700 hover:text-primary transition-colors">
+            <button
+              className={clsx(
+                "text-sm transition-colors",
+                hovering || ['/register', '/users-admin', '/activity-log'].includes(location.pathname)
+                  ? 'text-primary font-semibold'
+                  : 'text-neutral-700'
+              )}
+            >
               Gestión de Usuarios
             </button>
 
@@ -48,7 +55,7 @@ const Navbar: React.FC = () => {
                   <Link
                     to="/register"
                     className={clsx(
-                      "block px-4 py-2 text-sm hover:bg-neutral-100 transition",
+                      "block px-4 py-2 text-sm transition hover:bg-neutral-100",
                       isActive('/register') ? 'text-primary font-semibold' : 'text-neutral-700'
                     )}
                   >
@@ -57,7 +64,7 @@ const Navbar: React.FC = () => {
                   <Link
                     to="/activity-log"
                     className={clsx(
-                      "block px-4 py-2 text-sm hover:bg-neutral-100 transition",
+                      "block px-4 py-2 text-sm transition hover:bg-neutral-100",
                       isActive('/activity-log') ? 'text-primary font-semibold' : 'text-neutral-700'
                     )}
                   >
@@ -66,7 +73,7 @@ const Navbar: React.FC = () => {
                   <Link
                     to="/users-admin"
                     className={clsx(
-                      "block px-4 py-2 text-sm hover:bg-neutral-100 transition",
+                      "block px-4 py-2 text-sm transition hover:bg-neutral-100",
                       isActive('/users-admin') ? 'text-primary font-semibold' : 'text-neutral-700'
                     )}
                   >
@@ -77,6 +84,29 @@ const Navbar: React.FC = () => {
             </AnimatePresence>
           </div>
         )}
+
+        {isAuthenticated && user?.role === 'usuario' && (
+          <div className="flex space-x-4">
+            <Link
+              to="/dashboard"
+              className={clsx(
+                'text-sm transition-colors',
+                isActive('/dashboard') ? 'text-primary font-semibold' : 'text-neutral-700'
+              )}
+            >
+              Dashboard
+            </Link>
+            <Link
+              to="/profile"
+              className={clsx(
+                'text-sm transition-colors',
+                isActive('/profile') ? 'text-primary font-semibold' : 'text-neutral-700'
+              )}
+            >
+              Mi Perfil
+            </Link>
+          </div>
+        )}
       </div>
 
       <div>
@@ -85,7 +115,7 @@ const Navbar: React.FC = () => {
             onClick={logout}
             variant="contained"
             color="primary"
-            size="large"
+            size="small"
             sx={{ textTransform: 'none', fontWeight: 500, borderRadius: '8px' }}
           >
             Cerrar Sesión

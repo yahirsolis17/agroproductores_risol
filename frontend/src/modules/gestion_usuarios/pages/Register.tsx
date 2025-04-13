@@ -1,5 +1,5 @@
-import React from 'react';
-import { Formik, Form} from 'formik';
+import React, { useEffect } from 'react';
+import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
 import { useAuth } from '../context/AuthContext';
 import authService, { RegisterData } from '../services/authService';
@@ -16,7 +16,7 @@ import {
   FormHelperText,
   Typography,
   Box,
-  Paper,
+  Paper
 } from '@mui/material';
 
 const validationSchema = Yup.object({
@@ -30,8 +30,23 @@ const Register: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = 'Registrar Usuario | Risol';
+    const meta = document.querySelector("meta[name='description']");
+    if (!meta) {
+      const newMeta = document.createElement('meta');
+      newMeta.name = 'description';
+      newMeta.content = 'Formulario para registrar nuevos usuarios en el sistema Risol.';
+      document.head.appendChild(newMeta);
+    }
+  }, []);
+
   if (user?.role !== 'admin') {
-    return <div className="p-6 text-center text-red-500">No tienes permiso para registrar usuarios.</div>;
+    return (
+      <section className="p-6 text-center text-red-500" aria-label="Acceso denegado">
+        No tienes permiso para registrar usuarios.
+      </section>
+    );
   }
 
   const handleSubmit = async (values: RegisterData, { setSubmitting, setErrors }: any) => {
@@ -49,14 +64,14 @@ const Register: React.FC = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen px-4">
+    <main className="flex items-center justify-center min-h-screen px-4">
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
         className="w-full max-w-md"
       >
-        <Paper elevation={4} className="p-8 rounded-2xl shadow-soft">
+        <Paper elevation={4} className="p-8 rounded-2xl shadow-soft" role="form" aria-labelledby="register-heading">
           <Formik
             initialValues={{ nombre: '', apellido: '', telefono: '', role: 'usuario' }}
             validationSchema={validationSchema}
@@ -64,7 +79,11 @@ const Register: React.FC = () => {
           >
             {({ isSubmitting, handleChange, values, touched, errors }) => (
               <Form noValidate>
-                <Typography variant="h5" className="text-center text-primary-dark font-bold mb-4">
+                <Typography
+                  id="register-heading"
+                  variant="h5"
+                  className="text-center text-primary-dark font-bold mb-4"
+                >
                   Registrar Usuario
                 </Typography>
 
@@ -78,6 +97,7 @@ const Register: React.FC = () => {
                     error={touched.nombre && Boolean(errors.nombre)}
                     helperText={touched.nombre && errors.nombre}
                     variant="outlined"
+                    autoComplete="given-name"
                   />
                 </Box>
 
@@ -91,6 +111,7 @@ const Register: React.FC = () => {
                     error={touched.apellido && Boolean(errors.apellido)}
                     helperText={touched.apellido && errors.apellido}
                     variant="outlined"
+                    autoComplete="family-name"
                   />
                 </Box>
 
@@ -104,11 +125,17 @@ const Register: React.FC = () => {
                     error={touched.telefono && Boolean(errors.telefono)}
                     helperText={touched.telefono && errors.telefono}
                     variant="outlined"
+                    inputProps={{ inputMode: 'numeric', pattern: '[0-9]*' }}
+                    autoComplete="tel"
                   />
                 </Box>
 
                 <Box mb={3}>
-                  <FormControl fullWidth variant="outlined" error={touched.role && Boolean(errors.role)}>
+                  <FormControl
+                    fullWidth
+                    variant="outlined"
+                    error={touched.role && Boolean(errors.role)}
+                  >
                     <InputLabel id="role-label">Rol</InputLabel>
                     <Select
                       labelId="role-label"
@@ -139,7 +166,7 @@ const Register: React.FC = () => {
           </Formik>
         </Paper>
       </motion.div>
-    </div>
+    </main>
   );
 };
 
