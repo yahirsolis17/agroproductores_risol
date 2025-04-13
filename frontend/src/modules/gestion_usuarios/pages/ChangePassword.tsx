@@ -1,9 +1,9 @@
-// src/modules/gestion_usuarios/pages/ChangePassword.tsx
 import React, { useEffect, useState } from 'react';
-import apiClient from '../../../global/api/apiClient';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
+import apiClient from '../../../global/api/apiClient';
+import { motion } from 'framer-motion';
 
 const ChangePassword: React.FC = () => {
   const [password, setPassword] = useState('');
@@ -50,28 +50,36 @@ const ChangePassword: React.FC = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <form
+    <div className="flex items-center justify-center min-h-screen bg-neutral-200 px-4">
+      <motion.form
         onSubmit={handleSubmit}
-        className="bg-white p-6 rounded shadow-md w-full max-w-md"
+        className="bg-white p-8 rounded-2xl shadow-soft w-full max-w-md space-y-6"
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
       >
-        <h2 className="text-2xl font-bold mb-4 text-center">Cambiar Contraseña</h2>
+        <div>
+          <h2 className="text-2xl font-bold text-center text-primary-dark">Cambiar Contraseña</h2>
+          <p className="text-sm text-center text-neutral-500 mt-1">Por seguridad, actualiza tu clave.</p>
+        </div>
+
         <input
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Nueva contraseña"
           required
-          className="w-full p-2 border rounded mb-4"
+          className="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-light"
         />
+
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-2 bg-blue-500 text-white font-semibold rounded hover:bg-blue-600 transition-colors"
+          className="w-full py-3 bg-primary text-white font-semibold rounded-xl hover:bg-primary-light transition-all"
         >
           {loading ? 'Cambiando...' : 'Actualizar'}
         </button>
-      </form>
+      </motion.form>
     </div>
   );
 };

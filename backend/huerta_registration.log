@@ -1799,3 +1799,1723 @@ Traceback (most recent call last):
 django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>
 Not Found: /users/
 "GET /users/ HTTP/1.1" 404 3709
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <URLPattern list> (admin:admin) 'admin/'>
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>
+Not Found: /users/
+"GET /users/ HTTP/1.1" 404 3709
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <URLPattern list> (admin:admin) 'admin/'>
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>
+Not Found: /users/
+"GET /users/ HTTP/1.1" 404 3709
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <URLPattern list> (admin:admin) 'admin/'>
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>
+Not Found: /users/
+"GET /users/ HTTP/1.1" 404 3709
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <URLPattern list> (admin:admin) 'admin/'>
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>
+Not Found: /users/
+"GET /users/ HTTP/1.1" 404 3709
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <URLPattern list> (admin:admin) 'admin/'>
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>
+Not Found: /users/
+"GET /users/ HTTP/1.1" 404 3709
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <URLPattern list> (admin:admin) 'admin/'>
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>
+Exception while resolving variable 'name' in template 'unknown'.
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 181, in _get_response
+    callback, callback_args, callback_kwargs = self.resolve_request(request)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\core\handlers\base.py", line 313, in resolve_request
+    resolver_match = resolver.resolve(request.path_info)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\urls\resolvers.py", line 725, in resolve
+    raise Resolver404({"tried": tried, "path": new_path})
+django.urls.exceptions.Resolver404: {'tried': [[<URLResolver <URLPattern list> (admin:admin) 'admin/'>], [<URLResolver <module 'django.contrib.auth.urls' from 'C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\contrib\\auth\\urls.py'> (None:None) 'accounts/'>], [<URLPattern 'accounts/login/' [name='login']>], [<URLPattern 'api/token/' [name='token_obtain_pair']>], [<URLPattern 'api/token/refresh/' [name='token_refresh']>], [<URLPattern 'api/token/verify/' [name='token_verify']>], [<URLResolver <module 'gestion_huerta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_huerta\\urls.py'> (gestion_huerta:huerta) 'huerta/'>], [<URLResolver <module 'gestion_bodega.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\urls.py'> (gestion_bodega:bodega) 'bodega/'>], [<URLResolver <module 'gestion_venta.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_venta\\urls.py'> (gestion_venta:venta) 'venta/'>], [<URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>], [<URLPattern 'api/schema/' [name='schema']>], [<URLPattern 'api/docs/swagger/' [name='swagger-ui']>], [<URLPattern 'api/docs/redoc/' [name='redoc']>], [<URLPattern '^static/(?P<path>.*)$'>]], 'path': 'users/'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 875, in _resolve_lookup
+    current = current[bit]
+              ~~~~~~~^^^^^
+TypeError: 'URLResolver' object is not subscriptable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 885, in _resolve_lookup
+    current = getattr(current, bit)
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'URLResolver' object has no attribute 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 891, in _resolve_lookup
+    current = current[int(bit)]
+                      ^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\template\base.py", line 898, in _resolve_lookup
+    raise VariableDoesNotExist(
+django.template.base.VariableDoesNotExist: Failed lookup for key [name] in <URLResolver <module 'gestion_usuarios.urls' from 'C:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_usuarios\\urls.py'> (gestion_usuarios:gestion_usuarios) 'usuarios/'>
+Not Found: /users/
+"GET /users/ HTTP/1.1" 404 3709
+(0.000) 
+                SELECT VERSION(),
+                       @@sql_mode,
+                       @@default_storage_engine,
+                       @@sql_auto_is_null,
+                       @@lower_case_table_names,
+                       CONVERT_TZ('2001-01-01 01:00:00', 'UTC', 'UTC') IS NOT NULL
+            ; args=None; alias=default
+(0.000) SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED; args=None; alias=default
+(0.000) SELECT `gestion_usuarios_users`.`id`, `gestion_usuarios_users`.`password`, `gestion_usuarios_users`.`last_login`, `gestion_usuarios_users`.`is_superuser`, `gestion_usuarios_users`.`nombre`, `gestion_usuarios_users`.`apellido`, `gestion_usuarios_users`.`telefono`, `gestion_usuarios_users`.`role`, `gestion_usuarios_users`.`is_active`, `gestion_usuarios_users`.`is_staff`, `gestion_usuarios_users`.`intentos_fallidos`, `gestion_usuarios_users`.`must_change_password` FROM `gestion_usuarios_users` WHERE `gestion_usuarios_users`.`id` = 1 LIMIT 21; args=(1,); alias=default
+"GET /usuarios/me/ HTTP/1.1" 200 144
+(0.000) SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED; args=None; alias=default
+(0.000) SELECT `gestion_usuarios_users`.`id`, `gestion_usuarios_users`.`password`, `gestion_usuarios_users`.`last_login`, `gestion_usuarios_users`.`is_superuser`, `gestion_usuarios_users`.`nombre`, `gestion_usuarios_users`.`apellido`, `gestion_usuarios_users`.`telefono`, `gestion_usuarios_users`.`role`, `gestion_usuarios_users`.`is_active`, `gestion_usuarios_users`.`is_staff`, `gestion_usuarios_users`.`intentos_fallidos`, `gestion_usuarios_users`.`must_change_password` FROM `gestion_usuarios_users` WHERE `gestion_usuarios_users`.`id` = 1 LIMIT 21; args=(1,); alias=default
+"GET /usuarios/me/ HTTP/1.1" 200 144
+(0.000) SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED; args=None; alias=default
+(0.000) SELECT `gestion_usuarios_users`.`id`, `gestion_usuarios_users`.`password`, `gestion_usuarios_users`.`last_login`, `gestion_usuarios_users`.`is_superuser`, `gestion_usuarios_users`.`nombre`, `gestion_usuarios_users`.`apellido`, `gestion_usuarios_users`.`telefono`, `gestion_usuarios_users`.`role`, `gestion_usuarios_users`.`is_active`, `gestion_usuarios_users`.`is_staff`, `gestion_usuarios_users`.`intentos_fallidos`, `gestion_usuarios_users`.`must_change_password` FROM `gestion_usuarios_users` WHERE `gestion_usuarios_users`.`id` = 1 LIMIT 21; args=(1,); alias=default
+"GET /usuarios/me/ HTTP/1.1" 200 144
+(0.000) SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED; args=None; alias=default
+(0.000) SELECT `gestion_usuarios_users`.`id`, `gestion_usuarios_users`.`password`, `gestion_usuarios_users`.`last_login`, `gestion_usuarios_users`.`is_superuser`, `gestion_usuarios_users`.`nombre`, `gestion_usuarios_users`.`apellido`, `gestion_usuarios_users`.`telefono`, `gestion_usuarios_users`.`role`, `gestion_usuarios_users`.`is_active`, `gestion_usuarios_users`.`is_staff`, `gestion_usuarios_users`.`intentos_fallidos`, `gestion_usuarios_users`.`must_change_password` FROM `gestion_usuarios_users` WHERE `gestion_usuarios_users`.`id` = 1 LIMIT 21; args=(1,); alias=default
+"GET /usuarios/me/ HTTP/1.1" 200 144
+(0.000) 
+                SELECT VERSION(),
+                       @@sql_mode,
+                       @@default_storage_engine,
+                       @@sql_auto_is_null,
+                       @@lower_case_table_names,
+                       CONVERT_TZ('2001-01-01 01:00:00', 'UTC', 'UTC') IS NOT NULL
+            ; args=None; alias=default
+(0.000) SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED; args=None; alias=default
+(0.016) SELECT `gestion_usuarios_users`.`id`, `gestion_usuarios_users`.`password`, `gestion_usuarios_users`.`last_login`, `gestion_usuarios_users`.`is_superuser`, `gestion_usuarios_users`.`nombre`, `gestion_usuarios_users`.`apellido`, `gestion_usuarios_users`.`telefono`, `gestion_usuarios_users`.`role`, `gestion_usuarios_users`.`is_active`, `gestion_usuarios_users`.`is_staff`, `gestion_usuarios_users`.`intentos_fallidos`, `gestion_usuarios_users`.`must_change_password` FROM `gestion_usuarios_users` WHERE `gestion_usuarios_users`.`id` = 1 LIMIT 21; args=(1,); alias=default
+"POST /usuarios/logout/ HTTP/1.1" 200 160
+(0.000) SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED; args=None; alias=default
+(0.000) SELECT `gestion_usuarios_users`.`id`, `gestion_usuarios_users`.`password`, `gestion_usuarios_users`.`last_login`, `gestion_usuarios_users`.`is_superuser`, `gestion_usuarios_users`.`nombre`, `gestion_usuarios_users`.`apellido`, `gestion_usuarios_users`.`telefono`, `gestion_usuarios_users`.`role`, `gestion_usuarios_users`.`is_active`, `gestion_usuarios_users`.`is_staff`, `gestion_usuarios_users`.`intentos_fallidos`, `gestion_usuarios_users`.`must_change_password` FROM `gestion_usuarios_users` WHERE `gestion_usuarios_users`.`telefono` = '4433588999' ORDER BY `gestion_usuarios_users`.`id` ASC LIMIT 1; args=('4433588999',); alias=default
+(0.000) SELECT `gestion_usuarios_users`.`id`, `gestion_usuarios_users`.`password`, `gestion_usuarios_users`.`last_login`, `gestion_usuarios_users`.`is_superuser`, `gestion_usuarios_users`.`nombre`, `gestion_usuarios_users`.`apellido`, `gestion_usuarios_users`.`telefono`, `gestion_usuarios_users`.`role`, `gestion_usuarios_users`.`is_active`, `gestion_usuarios_users`.`is_staff`, `gestion_usuarios_users`.`intentos_fallidos`, `gestion_usuarios_users`.`must_change_password` FROM `gestion_usuarios_users` WHERE `gestion_usuarios_users`.`telefono` = '4433588999' LIMIT 21; args=('4433588999',); alias=default
+(0.000) UPDATE `gestion_usuarios_users` SET `password` = 'pbkdf2_sha256$720000$BsBrKEE4CoK4uHi882q07Q$McER8W5xA75fnY3wmdXQ4fnI1YkOG3b3AxntNnTGeik=', `last_login` = NULL, `is_superuser` = 1, `nombre` = 'Victoy Yahir', `apellido` = 'Solis Rios', `telefono` = '4433588999', `role` = 'admin', `is_active` = 1, `is_staff` = 1, `intentos_fallidos` = 0, `must_change_password` = 0 WHERE `gestion_usuarios_users`.`id` = 1; args=('pbkdf2_sha256$720000$BsBrKEE4CoK4uHi882q07Q$McER8W5xA75fnY3wmdXQ4fnI1YkOG3b3AxntNnTGeik=', True, 'Victoy Yahir', 'Solis Rios', '4433588999', 'admin', True, True, 0, False, 1); alias=default
+(0.000) INSERT INTO `gestion_usuarios_registroactividad` (`usuario_id`, `accion`, `fecha_hora`, `detalles`, `ip`, `user_agent`) VALUES (1, 'Inicio de sesión', '2025-04-13 05:38:15.495383', 'Login exitoso', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36'); args=[1, 'Inicio de sesión', '2025-04-13 05:38:15.495383', 'Login exitoso', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36']; alias=default
+"POST /usuarios/login/ HTTP/1.1" 200 835
+(0.000) SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED; args=None; alias=default
+(0.000) SELECT `gestion_usuarios_users`.`id`, `gestion_usuarios_users`.`password`, `gestion_usuarios_users`.`last_login`, `gestion_usuarios_users`.`is_superuser`, `gestion_usuarios_users`.`nombre`, `gestion_usuarios_users`.`apellido`, `gestion_usuarios_users`.`telefono`, `gestion_usuarios_users`.`role`, `gestion_usuarios_users`.`is_active`, `gestion_usuarios_users`.`is_staff`, `gestion_usuarios_users`.`intentos_fallidos`, `gestion_usuarios_users`.`must_change_password` FROM `gestion_usuarios_users` WHERE `gestion_usuarios_users`.`id` = 1 LIMIT 21; args=(1,); alias=default
+"GET /usuarios/me/ HTTP/1.1" 200 144
+(0.000) SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED; args=None; alias=default
+(0.000) SELECT `gestion_usuarios_users`.`id`, `gestion_usuarios_users`.`password`, `gestion_usuarios_users`.`last_login`, `gestion_usuarios_users`.`is_superuser`, `gestion_usuarios_users`.`nombre`, `gestion_usuarios_users`.`apellido`, `gestion_usuarios_users`.`telefono`, `gestion_usuarios_users`.`role`, `gestion_usuarios_users`.`is_active`, `gestion_usuarios_users`.`is_staff`, `gestion_usuarios_users`.`intentos_fallidos`, `gestion_usuarios_users`.`must_change_password` FROM `gestion_usuarios_users` WHERE `gestion_usuarios_users`.`id` = 1 LIMIT 21; args=(1,); alias=default
+"GET /usuarios/me/ HTTP/1.1" 200 144
+(0.000) SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED; args=None; alias=default
+(0.000) SELECT `gestion_usuarios_users`.`id`, `gestion_usuarios_users`.`password`, `gestion_usuarios_users`.`last_login`, `gestion_usuarios_users`.`is_superuser`, `gestion_usuarios_users`.`nombre`, `gestion_usuarios_users`.`apellido`, `gestion_usuarios_users`.`telefono`, `gestion_usuarios_users`.`role`, `gestion_usuarios_users`.`is_active`, `gestion_usuarios_users`.`is_staff`, `gestion_usuarios_users`.`intentos_fallidos`, `gestion_usuarios_users`.`must_change_password` FROM `gestion_usuarios_users` WHERE `gestion_usuarios_users`.`id` = 1 LIMIT 21; args=(1,); alias=default
+"GET /usuarios/me/ HTTP/1.1" 200 144
+(0.000) SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED; args=None; alias=default
+(0.000) SELECT `gestion_usuarios_users`.`id`, `gestion_usuarios_users`.`password`, `gestion_usuarios_users`.`last_login`, `gestion_usuarios_users`.`is_superuser`, `gestion_usuarios_users`.`nombre`, `gestion_usuarios_users`.`apellido`, `gestion_usuarios_users`.`telefono`, `gestion_usuarios_users`.`role`, `gestion_usuarios_users`.`is_active`, `gestion_usuarios_users`.`is_staff`, `gestion_usuarios_users`.`intentos_fallidos`, `gestion_usuarios_users`.`must_change_password` FROM `gestion_usuarios_users` WHERE `gestion_usuarios_users`.`id` = 1 LIMIT 21; args=(1,); alias=default
+"GET /usuarios/me/ HTTP/1.1" 200 144
+(0.000) SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED; args=None; alias=default
+(0.000) SELECT `gestion_usuarios_users`.`id`, `gestion_usuarios_users`.`password`, `gestion_usuarios_users`.`last_login`, `gestion_usuarios_users`.`is_superuser`, `gestion_usuarios_users`.`nombre`, `gestion_usuarios_users`.`apellido`, `gestion_usuarios_users`.`telefono`, `gestion_usuarios_users`.`role`, `gestion_usuarios_users`.`is_active`, `gestion_usuarios_users`.`is_staff`, `gestion_usuarios_users`.`intentos_fallidos`, `gestion_usuarios_users`.`must_change_password` FROM `gestion_usuarios_users` WHERE `gestion_usuarios_users`.`id` = 1 LIMIT 21; args=(1,); alias=default
+"POST /usuarios/logout/ HTTP/1.1" 200 160
+(0.000) SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED; args=None; alias=default
+(0.000) SELECT `gestion_usuarios_users`.`id`, `gestion_usuarios_users`.`password`, `gestion_usuarios_users`.`last_login`, `gestion_usuarios_users`.`is_superuser`, `gestion_usuarios_users`.`nombre`, `gestion_usuarios_users`.`apellido`, `gestion_usuarios_users`.`telefono`, `gestion_usuarios_users`.`role`, `gestion_usuarios_users`.`is_active`, `gestion_usuarios_users`.`is_staff`, `gestion_usuarios_users`.`intentos_fallidos`, `gestion_usuarios_users`.`must_change_password` FROM `gestion_usuarios_users` WHERE `gestion_usuarios_users`.`telefono` = '4433588999' ORDER BY `gestion_usuarios_users`.`id` ASC LIMIT 1; args=('4433588999',); alias=default
+(0.000) SELECT `gestion_usuarios_users`.`id`, `gestion_usuarios_users`.`password`, `gestion_usuarios_users`.`last_login`, `gestion_usuarios_users`.`is_superuser`, `gestion_usuarios_users`.`nombre`, `gestion_usuarios_users`.`apellido`, `gestion_usuarios_users`.`telefono`, `gestion_usuarios_users`.`role`, `gestion_usuarios_users`.`is_active`, `gestion_usuarios_users`.`is_staff`, `gestion_usuarios_users`.`intentos_fallidos`, `gestion_usuarios_users`.`must_change_password` FROM `gestion_usuarios_users` WHERE `gestion_usuarios_users`.`telefono` = '4433588999' LIMIT 21; args=('4433588999',); alias=default
+(0.000) UPDATE `gestion_usuarios_users` SET `password` = 'pbkdf2_sha256$720000$BsBrKEE4CoK4uHi882q07Q$McER8W5xA75fnY3wmdXQ4fnI1YkOG3b3AxntNnTGeik=', `last_login` = NULL, `is_superuser` = 1, `nombre` = 'Victoy Yahir', `apellido` = 'Solis Rios', `telefono` = '4433588999', `role` = 'admin', `is_active` = 1, `is_staff` = 1, `intentos_fallidos` = 0, `must_change_password` = 0 WHERE `gestion_usuarios_users`.`id` = 1; args=('pbkdf2_sha256$720000$BsBrKEE4CoK4uHi882q07Q$McER8W5xA75fnY3wmdXQ4fnI1YkOG3b3AxntNnTGeik=', True, 'Victoy Yahir', 'Solis Rios', '4433588999', 'admin', True, True, 0, False, 1); alias=default
+(0.000) INSERT INTO `gestion_usuarios_registroactividad` (`usuario_id`, `accion`, `fecha_hora`, `detalles`, `ip`, `user_agent`) VALUES (1, 'Inicio de sesión', '2025-04-13 05:41:13.840417', 'Login exitoso', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36'); args=[1, 'Inicio de sesión', '2025-04-13 05:41:13.840417', 'Login exitoso', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36']; alias=default
+"POST /usuarios/login/ HTTP/1.1" 200 835
+(0.000) SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED; args=None; alias=default
+(0.000) SELECT `gestion_usuarios_users`.`id`, `gestion_usuarios_users`.`password`, `gestion_usuarios_users`.`last_login`, `gestion_usuarios_users`.`is_superuser`, `gestion_usuarios_users`.`nombre`, `gestion_usuarios_users`.`apellido`, `gestion_usuarios_users`.`telefono`, `gestion_usuarios_users`.`role`, `gestion_usuarios_users`.`is_active`, `gestion_usuarios_users`.`is_staff`, `gestion_usuarios_users`.`intentos_fallidos`, `gestion_usuarios_users`.`must_change_password` FROM `gestion_usuarios_users` WHERE `gestion_usuarios_users`.`id` = 1 LIMIT 21; args=(1,); alias=default
+"GET /usuarios/me/ HTTP/1.1" 200 144
+(0.000) SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED; args=None; alias=default
+(0.000) SELECT `gestion_usuarios_users`.`id`, `gestion_usuarios_users`.`password`, `gestion_usuarios_users`.`last_login`, `gestion_usuarios_users`.`is_superuser`, `gestion_usuarios_users`.`nombre`, `gestion_usuarios_users`.`apellido`, `gestion_usuarios_users`.`telefono`, `gestion_usuarios_users`.`role`, `gestion_usuarios_users`.`is_active`, `gestion_usuarios_users`.`is_staff`, `gestion_usuarios_users`.`intentos_fallidos`, `gestion_usuarios_users`.`must_change_password` FROM `gestion_usuarios_users` WHERE `gestion_usuarios_users`.`id` = 1 LIMIT 21; args=(1,); alias=default
+"GET /usuarios/me/ HTTP/1.1" 200 144
+(0.000) SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED; args=None; alias=default
+(0.000) SELECT `gestion_usuarios_users`.`id`, `gestion_usuarios_users`.`password`, `gestion_usuarios_users`.`last_login`, `gestion_usuarios_users`.`is_superuser`, `gestion_usuarios_users`.`nombre`, `gestion_usuarios_users`.`apellido`, `gestion_usuarios_users`.`telefono`, `gestion_usuarios_users`.`role`, `gestion_usuarios_users`.`is_active`, `gestion_usuarios_users`.`is_staff`, `gestion_usuarios_users`.`intentos_fallidos`, `gestion_usuarios_users`.`must_change_password` FROM `gestion_usuarios_users` WHERE `gestion_usuarios_users`.`id` = 1 LIMIT 21; args=(1,); alias=default
+"GET /usuarios/me/ HTTP/1.1" 200 144
+(0.000) SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED; args=None; alias=default
+(0.000) SELECT `gestion_usuarios_users`.`id`, `gestion_usuarios_users`.`password`, `gestion_usuarios_users`.`last_login`, `gestion_usuarios_users`.`is_superuser`, `gestion_usuarios_users`.`nombre`, `gestion_usuarios_users`.`apellido`, `gestion_usuarios_users`.`telefono`, `gestion_usuarios_users`.`role`, `gestion_usuarios_users`.`is_active`, `gestion_usuarios_users`.`is_staff`, `gestion_usuarios_users`.`intentos_fallidos`, `gestion_usuarios_users`.`must_change_password` FROM `gestion_usuarios_users` WHERE `gestion_usuarios_users`.`id` = 1 LIMIT 21; args=(1,); alias=default
+"GET /usuarios/me/ HTTP/1.1" 200 144
+(0.000) SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED; args=None; alias=default
+(0.000) SELECT `gestion_usuarios_users`.`id`, `gestion_usuarios_users`.`password`, `gestion_usuarios_users`.`last_login`, `gestion_usuarios_users`.`is_superuser`, `gestion_usuarios_users`.`nombre`, `gestion_usuarios_users`.`apellido`, `gestion_usuarios_users`.`telefono`, `gestion_usuarios_users`.`role`, `gestion_usuarios_users`.`is_active`, `gestion_usuarios_users`.`is_staff`, `gestion_usuarios_users`.`intentos_fallidos`, `gestion_usuarios_users`.`must_change_password` FROM `gestion_usuarios_users` WHERE `gestion_usuarios_users`.`id` = 1 LIMIT 21; args=(1,); alias=default
+"GET /usuarios/me/ HTTP/1.1" 200 144
+(0.000) SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED; args=None; alias=default
+(0.000) SELECT `gestion_usuarios_users`.`id`, `gestion_usuarios_users`.`password`, `gestion_usuarios_users`.`last_login`, `gestion_usuarios_users`.`is_superuser`, `gestion_usuarios_users`.`nombre`, `gestion_usuarios_users`.`apellido`, `gestion_usuarios_users`.`telefono`, `gestion_usuarios_users`.`role`, `gestion_usuarios_users`.`is_active`, `gestion_usuarios_users`.`is_staff`, `gestion_usuarios_users`.`intentos_fallidos`, `gestion_usuarios_users`.`must_change_password` FROM `gestion_usuarios_users` WHERE `gestion_usuarios_users`.`id` = 1 LIMIT 21; args=(1,); alias=default
+"GET /usuarios/me/ HTTP/1.1" 200 144
+(0.000) SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED; args=None; alias=default
+(0.000) SELECT `gestion_usuarios_users`.`id`, `gestion_usuarios_users`.`password`, `gestion_usuarios_users`.`last_login`, `gestion_usuarios_users`.`is_superuser`, `gestion_usuarios_users`.`nombre`, `gestion_usuarios_users`.`apellido`, `gestion_usuarios_users`.`telefono`, `gestion_usuarios_users`.`role`, `gestion_usuarios_users`.`is_active`, `gestion_usuarios_users`.`is_staff`, `gestion_usuarios_users`.`intentos_fallidos`, `gestion_usuarios_users`.`must_change_password` FROM `gestion_usuarios_users` WHERE `gestion_usuarios_users`.`id` = 1 LIMIT 21; args=(1,); alias=default
+"GET /usuarios/me/ HTTP/1.1" 200 144
+(0.000) SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED; args=None; alias=default
+(0.000) SELECT `gestion_usuarios_users`.`id`, `gestion_usuarios_users`.`password`, `gestion_usuarios_users`.`last_login`, `gestion_usuarios_users`.`is_superuser`, `gestion_usuarios_users`.`nombre`, `gestion_usuarios_users`.`apellido`, `gestion_usuarios_users`.`telefono`, `gestion_usuarios_users`.`role`, `gestion_usuarios_users`.`is_active`, `gestion_usuarios_users`.`is_staff`, `gestion_usuarios_users`.`intentos_fallidos`, `gestion_usuarios_users`.`must_change_password` FROM `gestion_usuarios_users` WHERE `gestion_usuarios_users`.`id` = 1 LIMIT 21; args=(1,); alias=default
+"GET /usuarios/me/ HTTP/1.1" 200 144
+(0.000) SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED; args=None; alias=default
+(0.000) SELECT `gestion_usuarios_users`.`id`, `gestion_usuarios_users`.`password`, `gestion_usuarios_users`.`last_login`, `gestion_usuarios_users`.`is_superuser`, `gestion_usuarios_users`.`nombre`, `gestion_usuarios_users`.`apellido`, `gestion_usuarios_users`.`telefono`, `gestion_usuarios_users`.`role`, `gestion_usuarios_users`.`is_active`, `gestion_usuarios_users`.`is_staff`, `gestion_usuarios_users`.`intentos_fallidos`, `gestion_usuarios_users`.`must_change_password` FROM `gestion_usuarios_users` WHERE `gestion_usuarios_users`.`id` = 1 LIMIT 21; args=(1,); alias=default
+"GET /usuarios/me/ HTTP/1.1" 200 144
+(0.000) SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED; args=None; alias=default
+(0.000) SELECT `gestion_usuarios_users`.`id`, `gestion_usuarios_users`.`password`, `gestion_usuarios_users`.`last_login`, `gestion_usuarios_users`.`is_superuser`, `gestion_usuarios_users`.`nombre`, `gestion_usuarios_users`.`apellido`, `gestion_usuarios_users`.`telefono`, `gestion_usuarios_users`.`role`, `gestion_usuarios_users`.`is_active`, `gestion_usuarios_users`.`is_staff`, `gestion_usuarios_users`.`intentos_fallidos`, `gestion_usuarios_users`.`must_change_password` FROM `gestion_usuarios_users` WHERE `gestion_usuarios_users`.`id` = 1 LIMIT 21; args=(1,); alias=default
+"GET /usuarios/me/ HTTP/1.1" 200 144

@@ -1,7 +1,6 @@
 // src/modules/gestion_usuarios/pages/Login.tsx
 import React, { useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import LoginForm from '../components/LoginForm';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
 
@@ -29,7 +28,6 @@ const Login: React.FC = () => {
           <h1 className="text-3xl font-bold text-green-700">Agrosproductores Risol</h1>
           <p className="text-gray-500 text-sm mt-1">Ingresa con tu cuenta</p>
         </div>
-        <LoginForm />
       </motion.div>
     </div>
   );

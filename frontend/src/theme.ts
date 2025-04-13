@@ -18,7 +18,7 @@ const theme = createTheme({
       primary: '#1e293b',
     },
     background: {
-      default: '#f1f5f9',
+      default: '#7E9B9A',
     },
   },
   shape: {

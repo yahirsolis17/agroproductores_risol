@@ -9,7 +9,7 @@ const Dashboard: React.FC = () => {
   const { user } = useAuth();
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 max-w-5xl bg-neutral-50 mx-auto">
       <motion.h1
         className="text-3xl font-bold text-primary-dark mb-6"
         initial={{ opacity: 0, y: -20 }}
