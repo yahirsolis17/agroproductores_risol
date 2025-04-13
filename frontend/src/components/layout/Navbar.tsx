@@ -1,16 +1,18 @@
-// src/components/layout/Navbar.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../modules/gestion_usuarios/context/AuthContext';
-import { NAV_ITEMS } from '../../global/constants/navItems';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import clsx from 'clsx';
+import { Button } from '@mui/material'; // Asegúrate de tener este import arriba
 
 const Navbar: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const location = useLocation();
+  const [hovering, setHovering] = useState(false);
 
-  // No muestres el navbar en /login o /change-password
   if (['/login', '/change-password'].includes(location.pathname)) return null;
+
+  const isActive = (path: string) => location.pathname === path;
 
   return (
     <motion.nav
@@ -19,34 +21,75 @@ const Navbar: React.FC = () => {
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.4, ease: 'easeOut' }}
     >
-      <div className="flex items-center space-x-6">
+      <div className="flex items-center space-x-6 relative">
         <Link to="/dashboard" className="text-xl font-bold text-primary-dark">
           Risol
         </Link>
 
-        {isAuthenticated && user && (
-          <div className="flex space-x-4">
-            {NAV_ITEMS[user.role].map(({ to, label }) => (
-              <Link
-                key={to}
-                to={to}
-                className="text-sm text-neutral-700 hover:text-primary transition-colors"
-              >
-                {label}
-              </Link>
-            ))}
+        {isAuthenticated && user?.role === 'admin' && (
+          <div
+            className="relative"
+            onMouseEnter={() => setHovering(true)}
+            onMouseLeave={() => setHovering(false)}
+          >
+            <button className="text-sm text-neutral-700 hover:text-primary transition-colors">
+              Gestión de Usuarios
+            </button>
+
+            <AnimatePresence>
+              {hovering && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  transition={{ duration: 0.2 }}
+                  className="absolute left-0 mt-2 w-56 bg-white border border-neutral-200 rounded-lg shadow-md z-50"
+                >
+                  <Link
+                    to="/register"
+                    className={clsx(
+                      "block px-4 py-2 text-sm hover:bg-neutral-100 transition",
+                      isActive('/register') ? 'text-primary font-semibold' : 'text-neutral-700'
+                    )}
+                  >
+                    Registrar
+                  </Link>
+                  <Link
+                    to="/activity-log"
+                    className={clsx(
+                      "block px-4 py-2 text-sm hover:bg-neutral-100 transition",
+                      isActive('/activity-log') ? 'text-primary font-semibold' : 'text-neutral-700'
+                    )}
+                  >
+                    Historial de Actividades
+                  </Link>
+                  <Link
+                    to="/users-admin"
+                    className={clsx(
+                      "block px-4 py-2 text-sm hover:bg-neutral-100 transition",
+                      isActive('/users-admin') ? 'text-primary font-semibold' : 'text-neutral-700'
+                    )}
+                  >
+                    Usuarios Registrados
+                  </Link>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         )}
       </div>
 
       <div>
         {isAuthenticated ? (
-          <button
+          <Button
             onClick={logout}
-            className="bg-primary text-white px-4 py-1.5 rounded-lg hover:bg-primary-light transition-colors"
+            variant="contained"
+            color="primary"
+            size="large"
+            sx={{ textTransform: 'none', fontWeight: 500, borderRadius: '8px' }}
           >
             Cerrar Sesión
-          </button>
+          </Button>
         ) : (
           <Link
             to="/login"
