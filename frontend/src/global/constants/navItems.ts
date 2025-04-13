@@ -8,7 +8,7 @@ interface NavItem {
 
 export const NAV_ITEMS: Record<Role, NavItem[]> = {
   admin: [
-    { to: '/dashboard', label: 'Dashboard' },
+    { to: '/dashboard', label: 'Inicio' },
     { to: '/users-admin', label: 'Gestionar Usuarios' },
     { to: '/register', label: 'Registrar Usuario' },
     { to: '/activity-log', label: 'Historial de Actividades' },

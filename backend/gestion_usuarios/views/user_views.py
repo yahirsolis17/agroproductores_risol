@@ -21,6 +21,7 @@ from rest_framework.decorators import action
 from rest_framework.decorators import api_view, permission_classes
 from django.shortcuts import redirect
 from django.contrib.auth.hashers import make_password
+from rest_framework import viewsets, filters
 
 class LoginThrottle(UserRateThrottle):
     rate = '5/min'
@@ -183,7 +184,14 @@ class UserPermissionsView(APIView):
         perms = request.user.get_all_permissions()
         return Response({"permissions": list(perms)})
 
-class RegistroActividadListView(ListAPIView):
-    queryset = RegistroActividad.objects.select_related('usuario').order_by('-fecha_hora')
+class RegistroActividadViewSet(viewsets.ModelViewSet):
+    queryset = RegistroActividad.objects.all()
     serializer_class = RegistroActividadSerializer
-    permission_classes = [IsAdminUser]
+    filter_backends = [filters.OrderingFilter]
+    ordering_fields = ['fecha_hora']
+    ordering = ['-fecha_hora']
+
+    def get_queryset(self):
+        return RegistroActividad.objects.select_related('usuario') \
+            .exclude(usuario__role='admin') \
+            .order_by('-fecha_hora')

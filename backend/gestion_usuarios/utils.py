@@ -45,15 +45,7 @@ def aplicar_filtros(queryset, filtros, operadores=None):
         logger.error(f"Error al aplicar filtros: {e}")
         raise ValidationError("Error al aplicar los filtros.")
 
-def validate_telefono(telefono):
-    """
-    Valida que el teléfono tenga 10 dígitos y solo números.
-    """
-    if not telefono.isdigit():
-        raise ValidationError("El teléfono debe contener solo números.")
-    if len(telefono) != 10:
-        raise ValidationError("El teléfono debe tener 10 dígitos.")
-    return telefono
+
 
 def get_tokens_for_user(user):
     """
