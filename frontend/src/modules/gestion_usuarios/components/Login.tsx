@@ -56,11 +56,17 @@ const Login: React.FC = () => {
             validationSchema={validationSchema}
             onSubmit={async (values, { setSubmitting, setErrors }) => {
               try {
+                // El login debería lanzarse y, en caso de error, se rechace la promesa.
                 await login(values.telefono, values.password);
               } catch (error: any) {
                 const res = error?.response?.data;
+                // Si el backend devuelve un objeto de validación con claves correspondientes
+                if (res) {
+                  setErrors(res);
+                } else {
+                  setErrors({ telefono: ' ', password: ' ' });
+                }
                 handleBackendNotification(res);
-                setErrors({ telefono: ' ', password: ' ' });
               } finally {
                 setSubmitting(false);
               }

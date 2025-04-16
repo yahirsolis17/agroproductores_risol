@@ -64,34 +64,58 @@ class AdminUserCreationSerializer(serializers.ModelSerializer):
     def validate_apellido(self, value):
         return validate_nombre(value, field_name="apellido")
 
-
-
-# Crear usuarios comunes
-# gestion_usuarios/serializers.py
 class CustomUserCreationSerializer(serializers.ModelSerializer):
     """
-    • Ya no exigimos que el admin mande 'password'.
-    • Creamos al usuario con contraseña predeterminada
+    • Ya no exigimos que el admin mande 'password'.
+    • Creamos al usuario con contraseña predeterminada
       y must_change_password = True
     """
     class Meta:
-        model  = Users
-        fields = ('telefono', 'nombre', 'apellido', 'role')   # ← quitamos password / is_staff
+        model = Users
+        fields = ('telefono', 'nombre', 'apellido', 'role')
 
-    # Validaciones existentes (teléfono, nombre, apellido) se mantienen…
+    def validate_telefono(self, value):
+        # Debe ser exactamente 10 dígitos numéricos
+        if not re.fullmatch(r'\d{10}', value):
+            raise serializers.ValidationError("El teléfono debe contener exactamente 10 dígitos numéricos.")
+        # No debe repetirse en la base de datos
+        if Users.objects.filter(telefono=value).exists():
+            raise serializers.ValidationError("El teléfono ya está registrado.")
+        return value
+
+    def validate_nombre(self, value):
+        # Solo letras (incluyendo tildes) y espacios, entre 3 y 100 caracteres
+        v = value.strip()
+        if not re.fullmatch(r'[a-zA-ZñÑáéíóúÁÉÍÓÚ\s]{3,100}', v):
+            raise serializers.ValidationError(
+                "Nombre inválido. Solo letras, mínimo 3 caracteres"
+            )
+        return v
+
+    def validate_apellido(self, value):
+        # Mismas reglas que para 'nombre'
+        v = value.strip()
+        if not re.fullmatch(r'[a-zA-ZñÑáéíóúÁÉÍÓÚ\s]{3,100}', v):
+            raise serializers.ValidationError(
+                "Apellido inválido. Solo letras, mínimo 3 caracteres."
+            )
+        return v
+
+    def validate_role(self, value):
+        # Debe ser 'admin' o 'usuario'
+        if value not in ('admin', 'usuario'):
+            raise serializers.ValidationError("Rol inválido. Debe ser 'admin' o 'usuario'.")
+        return value
 
     def create(self, validated_data):
+        # Asigna contraseña por defecto y obliga a cambio en primer login
         default_pwd = "12345678"
-
-        # obligamos a cambio de contraseña en primer login
-
-        # 1) crear instancia SIN la clave extra
         user = Users(**validated_data)
-        # 2) asignar contraseña y flag después
         user.set_password(default_pwd)
         user.must_change_password = True
         user.save()
         return user
+
 
 
 
@@ -128,3 +152,4 @@ class RegistroActividadSerializer(serializers.ModelSerializer):
     class Meta:
         model = RegistroActividad
         fields = '__all__'
+

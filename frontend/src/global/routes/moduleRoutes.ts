@@ -39,4 +39,25 @@ export const moduleRoutes: ModuleRoute[] = [
     allowedRoles: ['usuario', 'admin'],
     lazyComponent: () => import('../../modules/gestion_usuarios/pages/ChangePassword'),
   },
+
+  {
+    path: '/huertas',
+    module: 'gestion_huerta',
+    allowedRoles: ['admin', 'usuario'],
+    lazyComponent: () => import('../../modules/gestion_huerta/pages/Huertas'),
+  },
+  {
+    path: '/propietarios',
+    module: 'gestion_huerta',
+    allowedRoles: ['admin', 'usuario'],
+    lazyComponent: () => import('../../modules/gestion_huerta/pages/Propietarios'),
+  },
+  {
+    path: '/cosechas',
+    module: 'gestion_huerta',
+    allowedRoles: ['admin', 'usuario'],
+    lazyComponent: () => import('../../modules/gestion_huerta/pages/Cosechas'),
+  },
+
+
 ];

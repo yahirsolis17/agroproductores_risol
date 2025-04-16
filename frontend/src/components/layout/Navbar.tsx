@@ -1,18 +1,66 @@
+// src/components/layout/Navbar.tsx
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useAuth } from '../../modules/gestion_usuarios/context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { Button } from '@mui/material';
+import { NAV_ITEMS } from '../../global/constants/navItems';
+import { useAuth } from '../../modules/gestion_usuarios/context/AuthContext';
 
 const Navbar: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const location = useLocation();
-  const [hovering, setHovering] = useState(false);
+  const [hoverMenu, setHoverMenu] = useState<string | null>(null);
 
   if (['/login', '/change-password'].includes(location.pathname)) return null;
 
   const isActive = (path: string) => location.pathname === path;
+
+  const renderMenu = (title: string, routes: { to: string; label: string }[]) => (
+    <div
+      className="relative"
+      onMouseEnter={() => setHoverMenu(title)}
+      onMouseLeave={() => setHoverMenu(null)}
+    >
+      <button
+        className={clsx(
+          'text-sm transition-colors',
+          hoverMenu === title || routes.some(r => isActive(r.to))
+            ? 'text-primary font-semibold'
+            : 'text-neutral-700'
+        )}
+      >
+        {title}
+      </button>
+
+      <AnimatePresence>
+        {hoverMenu === title && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            transition={{ duration: 0.2 }}
+            className="absolute left-0 mt-2 w-56 bg-white border border-neutral-200 rounded-lg shadow-md z-50"
+          >
+            {routes.map(({ to, label }) => (
+              <Link
+                key={to}
+                to={to}
+                className={clsx(
+                  'block px-4 py-2 text-sm transition hover:bg-neutral-100',
+                  isActive(to) ? 'text-primary font-semibold' : 'text-neutral-700'
+                )}
+              >
+                {label}
+              </Link>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+
+  const userRole = user?.role || 'usuario';
 
   return (
     <motion.nav
@@ -26,67 +74,20 @@ const Navbar: React.FC = () => {
           Risol
         </Link>
 
-        {isAuthenticated && user && user.role === 'admin' && (
-          <div
-            className="relative"
-            onMouseEnter={() => setHovering(true)}
-            onMouseLeave={() => setHovering(false)}
-          >
-            <button
-              className={clsx(
-                "text-sm transition-colors",
-                hovering || ['/register', '/users-admin', '/activity-log'].includes(location.pathname)
-                  ? 'text-primary font-semibold'
-                  : 'text-neutral-700'
-              )}
-            >
-              Gestión de Usuarios
-            </button>
+        {isAuthenticated && NAV_ITEMS[userRole] && (
+          <>
+            {renderMenu('Gestión de Usuarios', NAV_ITEMS[userRole].filter(i =>
+              i.to.includes('user') || i.to.includes('register') || i.to.includes('activity')
+            ))}
 
-            <AnimatePresence>
-              {hovering && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                  transition={{ duration: 0.2 }}
-                  className="absolute left-0 mt-2 w-56 bg-white border border-neutral-200 rounded-lg shadow-md z-50"
-                >
-                  <Link
-                    to="/register"
-                    className={clsx(
-                      "block px-4 py-2 text-sm transition hover:bg-neutral-100",
-                      isActive('/register') ? 'text-primary font-semibold' : 'text-neutral-700'
-                    )}
-                  >
-                    Registrar
-                  </Link>
-                  <Link
-                    to="/activity-log"
-                    className={clsx(
-                      "block px-4 py-2 text-sm transition hover:bg-neutral-100",
-                      isActive('/activity-log') ? 'text-primary font-semibold' : 'text-neutral-700'
-                    )}
-                  >
-                    Historial de Actividades
-                  </Link>
-                  <Link
-                    to="/users-admin"
-                    className={clsx(
-                      "block px-4 py-2 text-sm transition hover:bg-neutral-100",
-                      isActive('/users-admin') ? 'text-primary font-semibold' : 'text-neutral-700'
-                    )}
-                  >
-                    Usuarios Registrados
-                  </Link>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+            {renderMenu('Gestión de Huerta', NAV_ITEMS[userRole].filter(i =>
+              i.to.includes('huerta') || i.to.includes('propietario') || i.to.includes('cosecha')
+            ))}
+          </>
         )}
 
-        {isAuthenticated && user?.role === 'usuario' && (
-          <div className="flex space-x-4">
+        {isAuthenticated && userRole === 'usuario' && (
+          <>
             <Link
               to="/dashboard"
               className={clsx(
@@ -105,7 +106,7 @@ const Navbar: React.FC = () => {
             >
               Mi Perfil
             </Link>
-          </div>
+          </>
         )}
       </div>
 

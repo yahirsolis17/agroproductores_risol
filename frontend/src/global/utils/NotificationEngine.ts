@@ -5,15 +5,13 @@ export const handleBackendNotification = (responseData: any) => {
   if (!responseData || !responseData.notification) return;
 
   const { success } = responseData;
-  const { message, key: message_key } = responseData.notification;
+  const { message } = responseData.notification;
 
   if (!message) return;
 
-  const msg = `[${message_key}] ${message}`;
-
   if (success) {
-    toast.success(msg);
+    toast.success(message, { autoClose: 3000 });
   } else {
-    toast.error(msg);
+    toast.error(message, { autoClose: 4000 });
   }
 };

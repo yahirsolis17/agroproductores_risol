@@ -1,180 +1,187 @@
-# agroproductores_risol/backend/gestion_huerta/models.py
-
 from django.db import models
 from django.core.validators import RegexValidator, MinValueValidator
-from django.db.models.signals import post_save, post_delete
-from django.dispatch import receiver
+from django.utils import timezone
 from django.db.models import Sum, Value
 from django.db.models.functions import Coalesce
-from django.utils import timezone
-
-# MODELOS PARA GESTIÓN DE HUERTAS
+from django.core.exceptions import ValidationError
 
 class Propietario(models.Model):
-    telefono_regex = RegexValidator(
-        regex=r'^\+?\d{7,15}$',
-        message="Formato de teléfono inválido."
-    )
+    """
+    Representa al propietario de una huerta (propia o rentada).
+    Almacena datos básicos como nombre, apellidos, teléfono y dirección.
+    """
     nombre = models.CharField(max_length=100)
-    telefono = models.CharField(max_length=15, validators=[telefono_regex])
+    apellidos = models.CharField(max_length=100)
+    telefono = models.CharField(
+        max_length=15,
+        unique=True,
+        validators=[
+            RegexValidator(regex=r'^\d{10}$',
+                           message="El teléfono debe contener exactamente 10 dígitos.")
+        ]
+    )
     direccion = models.CharField(max_length=255)
 
     def __str__(self):
-        return self.nombre
+        return f"{self.nombre} {self.apellidos}"
+
 
 class Huerta(models.Model):
+    """
+    Representa una huerta propia, con nombre, ubicación, variedades de mango,
+    histórico, hectáreas y un propietario.
+    """
     nombre = models.CharField(max_length=100)
     ubicacion = models.CharField(max_length=255)
-    variedades = models.CharField(max_length=255)
-    historial = models.TextField()
+    variedades = models.CharField(
+        max_length=255,  # Ej: "Kent, Ataulfo, Tommy"
+        help_text="Variedades de mango separadas por comas, por ejemplo: 'Kent, Ataulfo, Tommy'."
+    )
+    historial = models.TextField(blank=True, null=True)
     hectareas = models.FloatField(validators=[MinValueValidator(0.1)])
-    propietario = models.ForeignKey(Propietario, on_delete=models.CASCADE)
+    propietario = models.ForeignKey(
+        Propietario,
+        on_delete=models.CASCADE,
+        related_name="huertas"
+    )
 
     class Meta:
+        unique_together = ('nombre', 'ubicacion', 'propietario')
         ordering = ['id']
         indexes = [models.Index(fields=['nombre'])]
 
-    def save(self, *args, **kwargs):
-        if self.hectareas is not None and self.hectareas % 1 == 0:
-            self.hectareas = int(self.hectareas)
-        super().save(*args, **kwargs)
-
     def __str__(self):
-        return f"{self.nombre} - Propietario: {self.propietario.nombre}"
+        return f"{self.nombre} ({self.propietario})"
+
 
 class HuertaRentada(models.Model):
+    """
+    Representa una huerta rentada, con la misma información que una huerta normal
+    pero agregando un campo de 'monto_renta'.
+    """
     nombre = models.CharField(max_length=100)
     ubicacion = models.CharField(max_length=255)
     variedades = models.CharField(max_length=255)
-    historial = models.TextField()
+    historial = models.TextField(blank=True, null=True)
     hectareas = models.FloatField(validators=[MinValueValidator(0.1)])
-    propietario = models.ForeignKey(Propietario, on_delete=models.CASCADE)
-    monto_renta = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.01)])
+    propietario = models.ForeignKey(
+        Propietario,
+        on_delete=models.CASCADE,
+        related_name="huertas_rentadas"
+    )
+    monto_renta = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(0.01)]
+    )
 
     class Meta:
+        unique_together = ('nombre', 'ubicacion', 'propietario')
         ordering = ['id']
         indexes = [models.Index(fields=['nombre'])]
 
-    def save(self, *args, **kwargs):
-        if self.hectareas <= 0:
-            raise ValueError("El número de hectáreas debe ser positivo.")
-        if self.monto_renta <= 0:
-            raise ValueError("El monto de renta debe ser positivo.")
-        super().save(*args, **kwargs)
-
     def __str__(self):
-        return f'{self.nombre} - Rentada'
+        return f"{self.nombre} (Rentada - {self.propietario})"
 
-class CategoriaInversion(models.Model):
-    nombre = models.CharField(max_length=100, unique=True)
-
-    def __str__(self):
-        return self.nombre
 
 class Cosecha(models.Model):
+    """
+    Cada huerta (propia o rentada) puede tener múltiples cosechas.
+    'huerta' y 'huerta_rentada' son mutuamente excluyentes:
+    - Si huerta está presente, huerta_rentada debe ser None (y viceversa).
+    """
     nombre = models.CharField(max_length=100)
     huerta = models.ForeignKey(
         Huerta,
         on_delete=models.CASCADE,
-        related_name="cosechas_huerta",
         null=True,
-        blank=True
+        blank=True,
+        related_name="cosechas"
     )
     huerta_rentada = models.ForeignKey(
         HuertaRentada,
         on_delete=models.CASCADE,
-        related_name="cosechas_rentada",
         null=True,
-        blank=True
+        blank=True,
+        related_name="cosechas_rentadas"
     )
+    # Fechas
     fecha_creacion = models.DateTimeField(auto_now_add=True)
-    descripcion = models.TextField(blank=True, null=True)
-    fecha_inicio = models.DateTimeField(blank=True, null=True)
-    fecha_fin = models.DateTimeField(blank=True, null=True)
+    fecha_inicio = models.DateTimeField(null=True, blank=True)
+    fecha_fin = models.DateTimeField(null=True, blank=True)
     finalizada = models.BooleanField(default=False)
 
     class Meta:
         indexes = [models.Index(fields=['nombre'])]
 
-    def clean(self):
-        if not self.huerta and not self.huerta_rentada:
-            raise ValueError("La cosecha debe pertenecer a una Huerta o HuertaRentada.")
-
     def save(self, *args, **kwargs):
-        self.clean()
+        # Si no hay fecha de inicio, usar la fecha de creación como fallback
+        if not self.fecha_inicio:
+            self.fecha_inicio = self.fecha_creacion
         super().save(*args, **kwargs)
+
+    def clean(self):
+        """
+        Validación interna:
+        - Debe asignar una huerta o huerta_rentada, pero no ambas.
+        - (Opcional) Validar coherencia de fechas (si fecha_fin < fecha_inicio).
+        """
+        if not self.huerta and not self.huerta_rentada:
+            raise ValidationError("Debe asignar una huerta o una huerta rentada.")
+        if self.huerta and self.huerta_rentada:
+            raise ValidationError("No puede asignar ambas huertas a la vez.")
+
+    def __str__(self):
+        origen = self.huerta or self.huerta_rentada
+        return f"{self.nombre} - {origen}"
+
+
+class CategoriaInversion(models.Model):
+    """
+    Categoría para clasificar inversiones (insumos, mano de obra, etc.).
+    """
+    nombre = models.CharField(max_length=100, unique=True)
 
     def __str__(self):
         return self.nombre
 
+
 class InversionesHuerta(models.Model):
+    """
+    Registro de inversiones realizadas en una cosecha específica.
+    Se guarda un nombre, fecha, descripción, gastos en insumos y mano de obra,
+    además de su categoría y la huerta a la que pertenece.
+    """
     nombre = models.CharField(max_length=100)
     fecha = models.DateField()
-    descripcion = models.TextField(null=True, blank=True)
-    gastos_insumos = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)])
-    gastos_mano_obra = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)])
+    descripcion = models.TextField(blank=True, null=True)
+    gastos_insumos = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
+    gastos_mano_obra = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
     categoria = models.ForeignKey(CategoriaInversion, on_delete=models.CASCADE)
-    cosecha = models.ForeignKey(Cosecha, on_delete=models.CASCADE)
+    cosecha = models.ForeignKey(Cosecha, on_delete=models.CASCADE, related_name="inversiones")
     huerta = models.ForeignKey(Huerta, on_delete=models.CASCADE)
-
-    class Meta:
-        indexes = [models.Index(fields=['cosecha', 'categoria'])]
 
     @property
     def gastos_totales(self):
         return (self.gastos_insumos or 0) + (self.gastos_mano_obra or 0)
 
     def __str__(self):
-        return self.nombre
+        return f"{self.nombre} ({self.categoria})"
 
-class InformeProduccion(models.Model):
-    ESTADO_CHOICES = [
-        ('editable', 'Editable'),
-        ('revision', 'Revisión'),
-        ('finalizado', 'Finalizado'),
-    ]
-    huerta = models.ForeignKey(Huerta, on_delete=models.CASCADE)
-    fecha = models.DateField()
-    variedad_mango = models.CharField(max_length=100)
-    gastos = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='editable')
-    bloqueado = models.BooleanField(default=False)
-
-    class Meta:
-        indexes = [models.Index(fields=['fecha'])]
-
-    def save(self, *args, **kwargs):
-        recalcular = kwargs.pop('recalcular', True)
-        if recalcular:
-            self.recalcular_gastos()
-        if self.estado == 'finalizado':
-            self.bloqueado = True
-        super().save(*args, **kwargs)
-
-    def recalcular_gastos(self):
-        inversiones_totales = InversionesHuerta.objects.filter(
-            huerta=self.huerta,
-            fecha__lte=self.fecha
-        ).aggregate(
-            total=Coalesce(Sum('gastos_insumos') + Sum('gastos_mano_obra'), Value(0))
-        )['total'] or 0
-        self.gastos = inversiones_totales
-        super().save(recalcular=False)
-
-    def __str__(self):
-        return f"Informe de {self.huerta.nombre} - {self.fecha}"
 
 class Venta(models.Model):
-    cosecha = models.ForeignKey(Cosecha, on_delete=models.CASCADE, related_name='ventas')
+    """
+    Representa la venta de productos (p.ej. cajas de mango) en una cosecha dada.
+    Almacena fecha de venta, número de cajas, precio por caja, tipo de mango,
+    gastos (como transporte, empaque, etc.) y calcula la ganancia neta.
+    """
+    cosecha = models.ForeignKey(Cosecha, on_delete=models.CASCADE, related_name="ventas")
     fecha_venta = models.DateField()
     num_cajas = models.PositiveIntegerField(validators=[MinValueValidator(1)])
     precio_por_caja = models.PositiveIntegerField(validators=[MinValueValidator(1)])
     tipo_mango = models.CharField(max_length=50)
     descripcion = models.TextField(blank=True, null=True)
     gasto = models.PositiveIntegerField(validators=[MinValueValidator(0)])
-
-    class Meta:
-        indexes = [models.Index(fields=['fecha_venta']), models.Index(fields=['cosecha'])]
 
     @property
     def total_venta(self):
@@ -185,14 +192,4 @@ class Venta(models.Model):
         return self.total_venta - self.gasto
 
     def __str__(self):
-        return f"Venta de {self.num_cajas} cajas en {self.cosecha.nombre}"
-
-@receiver(post_save, sender=InversionesHuerta)
-@receiver(post_delete, sender=InversionesHuerta)
-def actualizar_informe_produccion(sender, instance, **kwargs):
-    informes_relacionados = InformeProduccion.objects.filter(
-        huerta=instance.huerta,
-        fecha__gte=instance.fecha
-    )
-    for informe in informes_relacionados:
-        informe.recalcular_gastos()
+        return f"{self.num_cajas} cajas - {self.tipo_mango} - {self.cosecha}"

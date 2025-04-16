@@ -102,13 +102,17 @@ class UsuarioViewSet(AuditUpdateMixin, ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         serializer = CustomUserCreationSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        # Validación manual sin raise_exception
+        if not serializer.is_valid():
+            return NotificationHandler.generate_response(
+                message_key="validation_error",
+                data={'errors': serializer.errors},
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
         user = serializer.save()
-
-        # Se elimina la llamada a audit ya que el método no está implementado en este viewset.
-        # Si deseas registrar esta acción, implementa un método audit adecuado o úsalo en otro lugar.
-        # self.audit(request, request.user, "Registro", f"Registró a {user.telefono}")
-
+        # Registrar actividad de creación
+        registrar_actividad(request.user, f"Registró al usuario: {user.telefono}")
+        # Respuesta de éxito
         return NotificationHandler.generate_response(
             message_key="register_success",
             data=UsuarioSerializer(user).data,
@@ -136,14 +140,40 @@ class ChangePasswordView(APIView):
 
     def post(self, request):
         new_password = request.data.get('new_password')
-        if not new_password or len(new_password) < 4:
-            # En vez de enviar el mensaje directo, se utiliza NotificationHandler para validar y responder.
+        confirm_password = request.data.get('confirm_password')
+        
+        # Corregido: se valida que la nueva contraseña tenga al menos 4 caracteres.
+        if not new_password or not confirm_password or len(new_password) < 4:
             return NotificationHandler.generate_response(
                 message_key="validation_error",
+                data={
+                    "errors": {
+                        "new_password": ["La contraseña debe tener al menos 4 caracteres."],
+                        "confirm_password": ["Campo requerido."]
+                    }
+                },
                 status_code=status.HTTP_400_BAD_REQUEST
             )
-
+        
+        # Validar que ambas contraseñas coincidan.
+        if new_password != confirm_password:
+            return NotificationHandler.generate_response(
+                message_key="validation_error",
+                data={"errors": {"confirm_password": ["Las contraseñas no coinciden."]}},
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        
         user = request.user
+        
+        # Validar que la nueva contraseña no sea igual a la actual.
+        if user.check_password(new_password):
+            return NotificationHandler.generate_response(
+                message_key="validation_error",
+                data={"errors": {"new_password": ["No se puede reutilizar la misma contraseña."]}},
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Actualizar la contraseña y eliminar el flag de cambio obligatorio.
         user.set_password(new_password)
         user.must_change_password = False
         user.save()
@@ -153,6 +183,7 @@ class ChangePasswordView(APIView):
         return NotificationHandler.generate_response(
             message_key="password_change_success"
         )
+
 
 class AuditedModelViewSet(ModelViewSet, AuditMixin):
     def perform_create(self, serializer):

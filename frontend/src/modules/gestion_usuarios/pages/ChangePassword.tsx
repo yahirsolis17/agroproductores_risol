@@ -4,10 +4,27 @@ import { useAuth } from '../context/AuthContext';
 import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
 import apiClient from '../../../global/api/apiClient';
 import { motion } from 'framer-motion';
+import {
+  TextField,
+  Button,
+  IconButton,
+  InputAdornment,
+  Box,
+  Typography,
+  CircularProgress,
+  Paper,
+} from '@mui/material';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
 
 const ChangePassword: React.FC = () => {
-  const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [newPasswordError, setNewPasswordError] = useState('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const navigate = useNavigate();
   const { refreshSession, user } = useAuth();
 
@@ -15,12 +32,18 @@ const ChangePassword: React.FC = () => {
     if (user && !user.must_change_password) {
       navigate('/dashboard');
     }
-  }, [user]);
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (password.length < 4) {
+    // Limpiar errores previos
+    setNewPasswordError('');
+    setConfirmPasswordError('');
+
+    // Validación local: nueva contraseña debe tener al menos 4 caracteres
+    if (newPassword.length < 4) {
+      setNewPasswordError('La contraseña debe tener al menos 4 caracteres.');
       handleBackendNotification({
         success: false,
         message: 'La contraseña debe tener al menos 4 caracteres.',
@@ -29,58 +52,123 @@ const ChangePassword: React.FC = () => {
       return;
     }
 
+    // Validación local: ambas contraseñas deben coincidir
+    if (newPassword !== confirmPassword) {
+      setConfirmPasswordError('Las contraseñas no coinciden.');
+      handleBackendNotification({
+        success: false,
+        message: 'Las contraseñas no coinciden.',
+        message_key: 'validation_error',
+      });
+      return;
+    }
+
     setLoading(true);
     try {
+      // Enviamos ambos campos: new_password y confirm_password
       const response = await apiClient.post('/usuarios/change-password/', {
-        new_password: password,
+        new_password: newPassword,
+        confirm_password: confirmPassword,
       });
 
       handleBackendNotification(response.data);
       await refreshSession();
       navigate('/dashboard');
     } catch (error: any) {
-      handleBackendNotification(error.response?.data || {
-        success: false,
-        message: 'Error al cambiar la contraseña.',
-        message_key: 'server_error',
-      });
+      const fieldErrors = error.response?.data?.data?.errors || {};
+      if (fieldErrors.new_password) {
+        setNewPasswordError(fieldErrors.new_password[0]);
+      }
+      if (fieldErrors.confirm_password) {
+        setConfirmPasswordError(fieldErrors.confirm_password[0]);
+      }
+      handleBackendNotification(
+        error.response?.data || {
+          success: false,
+          message: 'Error al cambiar la contraseña.',
+          message_key: 'server_error',
+        }
+      );
     } finally {
       setLoading(false);
     }
   };
 
+  const toggleShowNewPassword = () => setShowNewPassword((prev) => !prev);
+  const toggleShowConfirmPassword = () => setShowConfirmPassword((prev) => !prev);
+
   return (
-    <div className="flex items-center justify-center min-h-screen bg-neutral-200 px-4">
-      <motion.form
-        onSubmit={handleSubmit}
-        className="bg-white p-8 rounded-2xl shadow-soft w-full max-w-md space-y-6"
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <div>
-          <h2 className="text-2xl font-bold text-center text-primary-dark">Cambiar Contraseña</h2>
-          <p className="text-sm text-center text-neutral-500 mt-1">Por seguridad, actualiza tu clave.</p>
-        </div>
-
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Nueva contraseña"
-          required
-          className="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-light"
-        />
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full py-3 bg-primary text-white font-semibold rounded-xl hover:bg-primary-light transition-all"
+    <Box className="flex items-center justify-center min-h-screen bg-neutral-200 px-4">
+      <Paper elevation={3} className="w-full max-w-md rounded-2xl p-8">
+        <motion.form
+          onSubmit={handleSubmit}
+          className="space-y-6"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
         >
-          {loading ? 'Cambiando...' : 'Actualizar'}
-        </button>
-      </motion.form>
-    </div>
+          <div>
+            <Typography variant="h4" align="center" className="text-primary-dark font-bold">
+              Cambiar Contraseña
+            </Typography>
+            <Typography variant="body2" align="center" className="text-neutral-500 mt-1">
+              Por seguridad, actualiza tu clave.
+            </Typography>
+          </div>
+
+          <TextField
+            fullWidth
+            label="Nueva Contraseña"
+            type={showNewPassword ? 'text' : 'password'}
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            required
+            error={Boolean(newPasswordError)}
+            helperText={newPasswordError}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton onClick={toggleShowNewPassword} edge="end">
+                    {showNewPassword ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
+
+          <TextField
+            fullWidth
+            label="Confirmar Contraseña"
+            type={showConfirmPassword ? 'text' : 'password'}
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            required
+            error={Boolean(confirmPasswordError)}
+            helperText={confirmPasswordError}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton onClick={toggleShowConfirmPassword} edge="end">
+                    {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
+
+          <Button
+            type="submit"
+            variant="contained"
+            fullWidth
+            color="primary"
+            disabled={loading}
+            sx={{ py: 2, textTransform: 'none', fontWeight: 600 }}
+          >
+            {loading ? <CircularProgress size={24} color="inherit" /> : 'Actualizar'}
+          </Button>
+        </motion.form>
+      </Paper>
+    </Box>
   );
 };
 

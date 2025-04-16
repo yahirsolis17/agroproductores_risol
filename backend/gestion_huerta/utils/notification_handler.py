@@ -1,26 +1,35 @@
-# backend/utilsn/notification_handler.py
-
 from rest_framework.response import Response
 from rest_framework import status
 from .constants import NOTIFICATION_MESSAGES
 
 class NotificationHandler:
     @staticmethod
-    def generate_response(success: bool, message_key: str, data=None, status_code: int = 200):
-        """
-        Genera una respuesta estándar en formato JSON para notificaciones.
+    def generate_response(
+        message_key: str,
+        data=None,
+        status_code: int = None,
+        extra_data: dict = None
+    ):
+        notification = NOTIFICATION_MESSAGES.get(message_key, {
+            "message": "Operación completada",
+            "type": "info"
+        })
         
-        :param success: True si la operación fue exitosa, False en caso contrario.
-        :param message_key: Clave del mensaje en NOTIFICATION_MESSAGES.
-        :param data: Información adicional a incluir (opcional).
-        :param status_code: Código HTTP de la respuesta.
-        :return: Response de DRF.
-        """
-        message = NOTIFICATION_MESSAGES.get(message_key, "Operación realizada.")
+        http_status = status_code or notification.get("code", status.HTTP_200_OK)
+
         response = {
-            "success": success,
-            "message": message,
-            "message_key": message_key,
-            "data": data or {},
+            "success": http_status < 400,
+            "notification": {
+                "key": message_key,
+                "message": notification["message"],
+                "type": notification["type"],
+                "action": notification.get("action"),
+                "target": notification.get("target"),
+            },
+            "data": data or {}
         }
-        return Response(response, status=status_code)
+        
+        if extra_data:
+            response.update(extra_data)
+        
+        return Response(response, status=http_status)

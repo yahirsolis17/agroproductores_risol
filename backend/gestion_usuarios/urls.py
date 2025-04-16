@@ -7,7 +7,7 @@ from gestion_usuarios.views.user_views import UsuarioViewSet, \
 router = DefaultRouter()
 router.register(r'users', UsuarioViewSet, basename='users')
 router.register(r'actividad', RegistroActividadViewSet, basename='actividad')
-
+app_name = 'gestion_usuarios'
 urlpatterns = [
     path('login/', LoginView.as_view(), name='login'),
     path('me/', MeView.as_view(), name='me'),
