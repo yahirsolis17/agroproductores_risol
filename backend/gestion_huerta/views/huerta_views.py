@@ -10,6 +10,7 @@ from rest_framework.status import (
     HTTP_404_NOT_FOUND, HTTP_500_INTERNAL_SERVER_ERROR
 )
 from rest_framework.pagination import PageNumberPagination
+from django.db import IntegrityError
 
 from gestion_huerta.models import (
     Propietario, Huerta, HuertaRentada, Cosecha,
@@ -79,12 +80,21 @@ def propietario_create(request):
             data={"errors": serializer.errors},
             status_code=HTTP_400_BAD_REQUEST
         )
+    except IntegrityError as e:
+        logger.error(f"[propietario_create] Error de integridad: {str(e)}")
+        return NotificationHandler.generate_response(
+            message_key="validation_error",
+            data={"errors": {"telefono": ["Este teléfono ya está registrado."]}},
+            status_code=HTTP_400_BAD_REQUEST
+        )
+
     except Exception as e:
         logger.error(f"[propietario_create] Error: {str(e)}")
         return NotificationHandler.generate_response(
             message_key="server_error",
             status_code=HTTP_500_INTERNAL_SERVER_ERROR
         )
+
 
 
 @api_view(['PUT', 'PATCH'])

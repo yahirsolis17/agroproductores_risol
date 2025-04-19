@@ -1,4 +1,3 @@
-// src/modules/gestion_huerta/hooks/usePropietarios.ts
 import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../../global/store/store';
 import {
@@ -6,6 +5,7 @@ import {
   createPropietario,
   updatePropietario,
   deletePropietario,
+  setPage,
 } from '../../../global/store/propietariosSlice';
 import {
   PropietarioCreateData,
@@ -14,13 +14,20 @@ import {
 
 export function usePropietarios() {
   const dispatch = useAppDispatch();
-  const { list, loading, error, loaded } = useAppSelector((state) => state.propietarios);
+  const {
+    list,
+    loading,
+    error,
+    loaded,
+    page,
+    meta,
+  } = useAppSelector((state) => state.propietarios);
 
   useEffect(() => {
     if (!loaded && !loading) {
-      dispatch(fetchPropietarios());
+      dispatch(fetchPropietarios(page));
     }
-  }, [dispatch, loaded, loading]);
+  }, [dispatch, loaded, loading, page]);
 
   const addPropietario = (payload: PropietarioCreateData) =>
     dispatch(createPropietario(payload)).unwrap();
@@ -28,18 +35,22 @@ export function usePropietarios() {
   const editPropietario = (id: number, payload: PropietarioUpdateData) =>
     dispatch(updatePropietario({ id, payload }));
 
-  const removePropietario = (id: number) => dispatch(deletePropietario(id));
+  const removePropietario = (id: number) =>
+    dispatch(deletePropietario(id));
 
-  const reloadPropietarios = () => dispatch(fetchPropietarios());
+  const fetchPropietariosReload = () => dispatch(fetchPropietarios(page));
 
   return {
     propietarios: list,
     loading,
     error,
     loaded,
+    page,
+    meta,
+    setPage: (newPage: number) => dispatch(setPage(newPage)),
     addPropietario,
     editPropietario,
     removePropietario,
-    fetchPropietarios: reloadPropietarios,
+    fetchPropietarios: fetchPropietariosReload,
   };
 }

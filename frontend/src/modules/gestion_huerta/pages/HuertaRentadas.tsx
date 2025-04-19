@@ -1,36 +1,36 @@
-// src/modules/gestion_huerta/pages/Huertas.tsx
+// src/modules/gestion_huerta/pages/HuertasRentadas.tsx
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Paper, Typography, CircularProgress, Box, Pagination } from '@mui/material';
 
 /* ───── Hooks ───── */
-import { useHuertas } from '../hooks/useHuertas';
+import { useHuertaRentada } from '../hooks/useHuertaRentada';
 import { usePropietarios } from '../hooks/usePropietarios';
 
 /* ───── Componentes ───── */
-import HuertaToolbar from '../components/huerta/HuertaToolBar';
-import HuertaTable from '../components/huerta/HuertaTable';
-import HuertaFormModal from '../components/huerta/HuertaFormModal';
+import HuertaRentadaToolbar from '../components/huerta_rentada/HuertaRentadaToolbar';
+import HuertaRentadaTable from '../components/huerta_rentada/HuertaRentadaTable';
+import HuertaRentadaFormModal from '../components/huerta_rentada/HuertaRentadaFormModal';
 import PropietarioFormModal from '../components/propietario/PropietarioFormModal';
 
 /* ───── Tipos ───── */
-import { HuertaCreateData } from '../types/huertaTypes';
-import { PropietarioCreateData } from '../types/propietarioTypes';
+import { HuertaRentadaCreateData } from '../types/huertaRentadaTypes';
+import { PropietarioCreateData, Propietario } from '../types/propietarioTypes';
 
-const Huertas: React.FC = () => {
+const HuertasRentadas: React.FC = () => {
   const [openHuertaModal, setOpenHuertaModal] = useState(false);
   const [openPropietarioModal, setOpenPropietarioModal] = useState(false);
   const [defaultPropietarioId, setDefaultPropietarioId] = useState<number | undefined>(undefined);
 
   const {
-    huertas,
+    huertasRentadas,
     loading: loadingHuerta,
     meta,
     page,
     setPage,
-    addHuerta,
-    fetchHuertas
-  } = useHuertas();
+    addHuertaRentada,
+    fetchHuertasRentadas,
+  } = useHuertaRentada();
 
   const {
     propietarios,
@@ -44,39 +44,37 @@ const Huertas: React.FC = () => {
     setDefaultPropietarioId(undefined);
   };
 
-  const handleCreateHuerta = async (payload: HuertaCreateData) => {
+  const handleCreateHuerta = async (payload: HuertaRentadaCreateData) => {
     try {
-      await addHuerta(payload);
-      await fetchHuertas();
+      await addHuertaRentada(payload);
+      await fetchHuertasRentadas();
       handleCloseHuertaModal();
     } catch (error) {
-      console.error('Error al crear huerta:', error);
+      console.error('Error al crear huerta rentada:', error);
     }
   };
 
   const handleCreatePropietario = async (payload: PropietarioCreateData) => {
     try {
-      const newProp = await addPropietario(payload); // Esto sí hace unwrap
+      const newProp: Propietario = await addPropietario(payload);
       await fetchPropietarios();
       setDefaultPropietarioId(newProp.id);
-      return newProp; // Este return es necesario si usas onSuccess
+      setOpenPropietarioModal(false);
     } catch (error) {
-      throw error; // <--- ¡Este bebé es crucial!
+      console.error('Error en crear propietario:', error);
     }
   };
-  
 
   const isLoading = loadingHuerta || loadingPropietarios;
-  const totalPages = Math.ceil((meta?.count || 0) / 10);
 
   return (
     <motion.div className="p-6 max-w-6xl mx-auto" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
       <Paper elevation={4} className="p-6 sm:p-10 rounded-2xl shadow-lg bg-white">
         <Typography variant="h4" className="text-primary-dark font-bold mb-4">
-          Gestión de Huertas
+          Huertas Rentadas
         </Typography>
 
-        <HuertaToolbar onOpen={() => setOpenHuertaModal(true)} />
+        <HuertaRentadaToolbar onOpen={() => setOpenHuertaModal(true)} />
 
         {isLoading ? (
           <Box display="flex" justifyContent="center" mt={6}>
@@ -84,27 +82,25 @@ const Huertas: React.FC = () => {
           </Box>
         ) : (
           <>
-            <HuertaTable
-              data={huertas}
+            <HuertaRentadaTable
+              data={huertasRentadas}
               page={page}
-              total={meta?.count || 0}
+              total={meta.count}
               onPageChange={(_, value) => setPage(value)}
             />
-            {totalPages > 1 && (
-              <Box display="flex" justifyContent="center" mt={4}>
-                <Pagination
-                  count={totalPages}
-                  page={page}
-                  onChange={(_, value) => setPage(value)}
-                  shape="rounded"
-                  color="primary"
-                />
-              </Box>
-            )}
+            <Box display="flex" justifyContent="center" mt={4}>
+              <Pagination
+                count={Math.ceil(meta.count / 10)}
+                page={page}
+                onChange={(_, value) => setPage(value)}
+                shape="rounded"
+                color="primary"
+              />
+            </Box>
           </>
         )}
 
-        <HuertaFormModal
+        <HuertaRentadaFormModal
           open={openHuertaModal}
           onClose={handleCloseHuertaModal}
           onSubmit={handleCreateHuerta}
@@ -123,4 +119,4 @@ const Huertas: React.FC = () => {
   );
 };
 
-export default Huertas;
+export default HuertasRentadas;

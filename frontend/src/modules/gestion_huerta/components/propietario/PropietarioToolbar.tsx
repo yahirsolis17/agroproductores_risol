@@ -12,8 +12,16 @@ const PropietarioToolbar: React.FC<PropietarioToolbarProps> = ({ onCreate }) => 
   const [open, setOpen] = useState(false);
 
   const handleSubmit = async (values: PropietarioCreateData) => {
-    await onCreate(values);
+    try {
+      const nuevo = await onCreate(values);
+      setOpen(false); // ✅ solo cerrar si todo fue bien
+      return nuevo;   // 🔁 necesario si usas `onSuccess`
+    } catch (error) {
+      // No cerrar el modal, deja que Formik se encargue
+      throw error; // 🔁 esto es lo que Formik necesita
+    }
   };
+  
 
   return (
     <Box display="flex" justifyContent="flex-end" mb={2}>

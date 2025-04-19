@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/services/huertaService.ts
 import apiClient from '../../../global/api/apiClient';
 import {
   Huerta,
@@ -7,6 +8,11 @@ import {
 
 interface HuertaListData {
   huertas: Huerta[];
+  meta: {
+    count: number;
+    next: string | null;
+    previous: string | null;
+  };
 }
 
 interface HuertaCreateUpdateDeleteResponse {
@@ -15,12 +21,12 @@ interface HuertaCreateUpdateDeleteResponse {
 }
 
 export const huertaService = {
-  async list() {
+  async list(page = 1) {
     const { data } = await apiClient.get<{
       success: boolean;
       message_key: string;
       data: HuertaListData;
-    }>('/huerta/huertas/');
+    }>(`/huerta/huertas/?page=${page}`);
     return data;
   },
 

@@ -19,3 +19,4 @@ export interface PropietarioUpdateData {
   telefono?: string;
   direccion?: string;
 }
+

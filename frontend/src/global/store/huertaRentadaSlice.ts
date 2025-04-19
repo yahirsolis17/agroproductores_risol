@@ -8,25 +8,48 @@ import {
   HuertaRentadaUpdateData,
 } from '../../modules/gestion_huerta/types/huertaRentadaTypes';
 
+interface PaginationMeta {
+  count: number;
+  next: string | null;
+  previous: string | null;
+}
+
 interface HuertaRentadaState {
   list: HuertaRentada[];
   loading: boolean;
   error: string | null;
+  loaded: boolean;
+  page: number;
+  meta: PaginationMeta;
 }
 
 const initialState: HuertaRentadaState = {
   list: [],
   loading: false,
   error: null,
+  loaded: false,
+  page: 1,
+  meta: {
+    count: 0,
+    next: null,
+    previous: null,
+  },
 };
+
+// ───────────────────────────────────────────────
+// THUNKS
+// ───────────────────────────────────────────────
 
 export const fetchHuertasRentadas = createAsyncThunk(
   'huertaRentada/fetchAll',
-  async (_, { rejectWithValue }) => {
+  async (page: number, { rejectWithValue }) => {
     try {
-      const res = await huertaRentadaService.list();
-      //handleBackendNotification(res);
-      return res.data.huertas_rentadas as HuertaRentada[];
+      const res = await huertaRentadaService.list(page);
+      return {
+        huertasRentadas: res.data.huertas_rentadas,
+        meta: res.data.meta,
+        page,
+      };
     } catch (err: any) {
       handleBackendNotification(err.response?.data);
       return rejectWithValue(err.response?.data || 'Error al cargar huertas rentadas');
@@ -50,10 +73,7 @@ export const createHuertaRentada = createAsyncThunk(
 
 export const updateHuertaRentada = createAsyncThunk(
   'huertaRentada/update',
-  async (
-    { id, payload }: { id: number; payload: HuertaRentadaUpdateData },
-    { rejectWithValue }
-  ) => {
+  async ({ id, payload }: { id: number; payload: HuertaRentadaUpdateData }, { rejectWithValue }) => {
     try {
       const res = await huertaRentadaService.update(id, payload);
       handleBackendNotification(res);
@@ -79,43 +99,57 @@ export const deleteHuertaRentada = createAsyncThunk(
   }
 );
 
+// ───────────────────────────────────────────────
+// SLICE
+// ───────────────────────────────────────────────
+
 const huertaRentadaSlice = createSlice({
   name: 'huertaRentada',
   initialState,
-  reducers: {},
+  reducers: {
+    setPage: (state, action: PayloadAction<number>) => {
+      state.page = action.payload;
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(fetchHuertasRentadas.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(fetchHuertasRentadas.fulfilled, (state, action: PayloadAction<HuertaRentada[]>) => {
-        state.list = action.payload;
+      .addCase(fetchHuertasRentadas.fulfilled, (state, action) => {
+        state.list = action.payload.huertasRentadas;
+        state.meta = action.payload.meta;
+        state.page = action.payload.page;
         state.loading = false;
+        state.loaded = true;
       })
       .addCase(fetchHuertasRentadas.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
+        state.loaded = true;
       })
-      .addCase(createHuertaRentada.fulfilled, (state, action: PayloadAction<HuertaRentada>) => {
+
+      .addCase(createHuertaRentada.fulfilled, (state, action) => {
         state.list.unshift(action.payload);
       })
       .addCase(createHuertaRentada.rejected, (state, action) => {
         state.error = action.payload as string;
       })
-      .addCase(updateHuertaRentada.fulfilled, (state, action: PayloadAction<HuertaRentada>) => {
-        const idx = state.list.findIndex((h) => h.id === action.payload.id);
-        if (idx !== -1) {
-          state.list[idx] = action.payload;
-        }
+
+      .addCase(updateHuertaRentada.fulfilled, (state, action) => {
+        const idx = state.list.findIndex(h => h.id === action.payload.id);
+        if (idx !== -1) state.list[idx] = action.payload;
       })
       .addCase(updateHuertaRentada.rejected, (state, action) => {
         state.error = action.payload as string;
       })
-      .addCase(deleteHuertaRentada.fulfilled, (state, action: PayloadAction<number>) => {
-        state.list = state.list.filter((h) => h.id !== action.payload);
+
+      .addCase(deleteHuertaRentada.fulfilled, (state, action) => {
+        state.list = state.list.filter(h => h.id !== action.payload);
       });
   },
 });
 
+export const { setPage } = huertaRentadaSlice.actions;
 export default huertaRentadaSlice.reducer;

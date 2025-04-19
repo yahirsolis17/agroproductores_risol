@@ -6,41 +6,55 @@ import {
   createHuerta,
   updateHuerta,
   deleteHuerta,
+  setPage
 } from '../../../global/store/huertaSlice';
 import { Huerta, HuertaCreateData, HuertaUpdateData } from '../types/huertaTypes';
 
 export function useHuertas() {
   const dispatch = useAppDispatch();
-  const { list, loading, error, loaded } = useAppSelector((state) => state.huerta);
 
-  // Cargar sólo si aún no se ha intentado y no está cargando
-  useEffect(() => {
-    if (!loaded && !loading) {
-      dispatch(fetchHuertas());
-    }
-  }, [dispatch, loaded, loading]);
-
-  // Aquí forzamos que addHuerta retorne un Promise con el resultado de createHuerta.
-  const addHuerta = (payload: HuertaCreateData): Promise<Huerta> =>
-    dispatch(createHuerta(payload)).unwrap();
-
-  const editHuerta = (id: number, payload: HuertaUpdateData) =>
-    dispatch(updateHuerta({ id, payload }));
-
-  const removeHuerta = (id: number) =>
-    dispatch(deleteHuerta(id));
-
-  // Si deseas refrescar manual:
-  const reloadHuertas = () => dispatch(fetchHuertas());
-
-  return {
-    huertas: list,
+  const {
+    list: huertas,
     loading,
     error,
     loaded,
+    page,
+    meta,
+  } = useAppSelector((state) => state.huerta);
+
+  // Cargar huertas si no se han cargado aún
+  useEffect(() => {
+    if (!loaded && !loading) {
+      dispatch(fetchHuertas(page));
+    }
+  }, [dispatch, loaded, loading, page]);
+
+  // Agregar huerta
+  const addHuerta = (payload: HuertaCreateData): Promise<Huerta> =>
+    dispatch(createHuerta(payload)).unwrap();
+
+  // Editar huerta
+  const editHuerta = (id: number, payload: HuertaUpdateData) =>
+    dispatch(updateHuerta({ id, payload }));
+
+  // Eliminar huerta
+  const removeHuerta = (id: number) =>
+    dispatch(deleteHuerta(id));
+
+  // Refrescar lista
+  const fetchHuertasReload = () => dispatch(fetchHuertas(page));
+
+  return {
+    huertas,
+    loading,
+    error,
+    loaded,
+    meta,
+    page,
+    setPage: (newPage: number) => dispatch(setPage(newPage)),
     addHuerta,
     editHuerta,
     removeHuerta,
-    fetchHuertas: reloadHuertas,
+    fetchHuertas: fetchHuertasReload,
   };
 }

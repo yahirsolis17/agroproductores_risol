@@ -3,7 +3,7 @@ NOTIFICATION_MESSAGES = {
     # Mensajes genéricos / Errores
     # -------------------------------------------------
     "validation_error": {
-        "message": "Por favor, corrige los errores en los campos.",
+        "message": "Por favor, corrige los errores en los campos back.",
         "type": "error"
     },
     "permission_denied": {

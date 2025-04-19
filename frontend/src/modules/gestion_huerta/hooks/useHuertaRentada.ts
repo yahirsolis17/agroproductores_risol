@@ -1,38 +1,59 @@
 // src/modules/gestion_huerta/hooks/useHuertaRentada.ts
+import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../../global/store/store';
 import {
   fetchHuertasRentadas,
   createHuertaRentada,
   updateHuertaRentada,
-  deleteHuertaRentada
+  deleteHuertaRentada,
+  setPage
 } from '../../../global/store/huertaRentadaSlice';
 import {
   HuertaRentadaCreateData,
   HuertaRentadaUpdateData
 } from '../types/huertaRentadaTypes';
-import { useEffect } from 'react';
 
 export function useHuertaRentada() {
   const dispatch = useAppDispatch();
-  const { list, loading, error } = useAppSelector(state => state.huertaRentada);
 
-  useEffect(() => {
-    if (!list.length) {
-      dispatch(fetchHuertasRentadas());
-    }
-  }, [dispatch, list.length]);
-
-  const addHuertaRentada = (payload: HuertaRentadaCreateData) => dispatch(createHuertaRentada(payload));
-  const editHuertaRentada = (id: number, payload: HuertaRentadaUpdateData) => dispatch(updateHuertaRentada({ id, payload }));
-  const removeHuertaRentada = (id: number) => dispatch(deleteHuertaRentada(id));
-
-  return {
-    huertasRentadas: list,
+  const {
+    list: huertasRentadas,
     loading,
     error,
-    fetchHuertasRentadas: () => dispatch(fetchHuertasRentadas()),
+    loaded,
+    page,
+    meta
+  } = useAppSelector(state => state.huertaRentada);
+
+  useEffect(() => {
+    if (!loaded && !loading) {
+      dispatch(fetchHuertasRentadas(page));
+    }
+  }, [dispatch, loaded, loading, page]);
+
+  const addHuertaRentada = (payload: HuertaRentadaCreateData) =>
+    dispatch(createHuertaRentada(payload)).unwrap();
+
+  const editHuertaRentada = (id: number, payload: HuertaRentadaUpdateData) =>
+    dispatch(updateHuertaRentada({ id, payload }));
+
+  const removeHuertaRentada = (id: number) =>
+    dispatch(deleteHuertaRentada(id));
+
+  const fetchHuertasAgain = () =>
+    dispatch(fetchHuertasRentadas(page));
+
+  return {
+    huertasRentadas,
+    loading,
+    error,
+    loaded,
+    page,
+    meta,
+    setPage: (newPage: number) => dispatch(setPage(newPage)),
     addHuertaRentada,
     editHuertaRentada,
     removeHuertaRentada,
+    fetchHuertasRentadas: fetchHuertasAgain,
   };
 }

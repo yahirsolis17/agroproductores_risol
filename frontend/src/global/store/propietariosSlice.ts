@@ -1,4 +1,3 @@
-// src/global/store/propietariosSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { propietarioService } from '../../modules/gestion_huerta/services/propietarioService';
 import { handleBackendNotification } from '../utils/NotificationEngine';
@@ -8,11 +7,19 @@ import {
   PropietarioUpdateData,
 } from '../../modules/gestion_huerta/types/propietarioTypes';
 
+interface PaginationMeta {
+  count: number;
+  next: string | null;
+  previous: string | null;
+}
+
 interface PropietarioState {
   list: Propietario[];
   loading: boolean;
   error: string | null;
-  loaded: boolean; // Nuevo flag
+  loaded: boolean;
+  meta: PaginationMeta;
+  page: number;
 }
 
 const initialState: PropietarioState = {
@@ -20,23 +27,36 @@ const initialState: PropietarioState = {
   loading: false,
   error: null,
   loaded: false,
+  page: 1,
+  meta: {
+    count: 0,
+    next: null,
+    previous: null,
+  },
 };
 
 export const fetchPropietarios = createAsyncThunk(
   'propietarios/fetchAll',
-  async (_, { rejectWithValue }) => {
+  async (page: number, { rejectWithValue }) => {
     try {
-      const serverRes = await propietarioService.list();
-      //handleBackendNotification(serverRes);
-      return serverRes.data.propietarios; // array de Propietario
+      const res = await propietarioService.list(page);
+      return {
+        propietarios: res.data.propietarios,
+        meta: {
+          count: res.data.count,
+          next: res.data.next,
+          previous: res.data.previous,
+        },
+        page,
+      };
     } catch (err: any) {
-      handleBackendNotification(err.response?.data);
-      return rejectWithValue(err.response?.data || 'Error al cargar propietarios');
+      const data = err.response?.data;
+      handleBackendNotification(data);
+      return rejectWithValue(data);
     }
   }
 );
 
-// create, update, delete -> sin cambios, solo notificaciones
 export const createPropietario = createAsyncThunk(
   'propietarios/create',
   async (payload: PropietarioCreateData, { rejectWithValue }) => {
@@ -45,8 +65,9 @@ export const createPropietario = createAsyncThunk(
       handleBackendNotification(res);
       return res.data.propietario as Propietario;
     } catch (err: any) {
-      handleBackendNotification(err.response?.data);
-      return rejectWithValue(err.response?.data || 'Error al crear propietario');
+      const data = err.response?.data;
+      handleBackendNotification(data);
+      return rejectWithValue(data);
     }
   }
 );
@@ -59,8 +80,9 @@ export const updatePropietario = createAsyncThunk(
       handleBackendNotification(res);
       return res.data.propietario as Propietario;
     } catch (err: any) {
-      handleBackendNotification(err.response?.data);
-      return rejectWithValue(err.response?.data || 'Error al actualizar propietario');
+      const data = err.response?.data;
+      handleBackendNotification(data);
+      return rejectWithValue(data);
     }
   }
 );
@@ -73,8 +95,9 @@ export const deletePropietario = createAsyncThunk(
       handleBackendNotification(res);
       return id;
     } catch (err: any) {
-      handleBackendNotification(err.response?.data);
-      return rejectWithValue(err.response?.data || 'Error al eliminar propietario');
+      const data = err.response?.data;
+      handleBackendNotification(data);
+      return rejectWithValue(data);
     }
   }
 );
@@ -82,48 +105,48 @@ export const deletePropietario = createAsyncThunk(
 const propietariosSlice = createSlice({
   name: 'propietarios',
   initialState,
-  reducers: {},
+  reducers: {
+    setPage: (state, action: PayloadAction<number>) => {
+      state.page = action.payload;
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(fetchPropietarios.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(fetchPropietarios.fulfilled, (state, action: PayloadAction<Propietario[]>) => {
-        state.list = action.payload;
+      .addCase(fetchPropietarios.fulfilled, (state, action) => {
+        state.list = action.payload.propietarios;
+        state.meta = action.payload.meta;
+        state.page = action.payload.page;
         state.loading = false;
-        state.loaded = true; // ← Se marcó como cargado
+        state.loaded = true;
       })
-      .addCase(fetchPropietarios.rejected, (state, action) => {
+      .addCase(fetchPropietarios.rejected, (state) => {
         state.loading = false;
-        state.error = action.payload as string;
-        state.loaded = true; // ← También marcamos loaded
+        state.loaded = true;
       })
-
-      // create
-      .addCase(createPropietario.fulfilled, (state, action: PayloadAction<Propietario>) => {
+      .addCase(createPropietario.fulfilled, (state, action) => {
         state.list.unshift(action.payload);
       })
-      .addCase(createPropietario.rejected, (state, action) => {
-        state.error = action.payload as string;
+      .addCase(createPropietario.rejected, (state) => {
+        state.error = null;
       })
-
-      // update
-      .addCase(updatePropietario.fulfilled, (state, action: PayloadAction<Propietario>) => {
+      .addCase(updatePropietario.fulfilled, (state, action) => {
         const idx = state.list.findIndex((p) => p.id === action.payload.id);
         if (idx !== -1) {
           state.list[idx] = action.payload;
         }
       })
-      .addCase(updatePropietario.rejected, (state, action) => {
-        state.error = action.payload as string;
+      .addCase(updatePropietario.rejected, (state) => {
+        state.error = null;
       })
-
-      // delete
-      .addCase(deletePropietario.fulfilled, (state, action: PayloadAction<number>) => {
+      .addCase(deletePropietario.fulfilled, (state, action) => {
         state.list = state.list.filter((p) => p.id !== action.payload);
       });
   },
 });
 
+export const { setPage } = propietariosSlice.actions;
 export default propietariosSlice.reducer;

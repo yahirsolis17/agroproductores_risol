@@ -4,30 +4,44 @@ import { huertaService } from '../../modules/gestion_huerta/services/huertaServi
 import { handleBackendNotification } from '../utils/NotificationEngine';
 import { Huerta, HuertaCreateData, HuertaUpdateData } from '../../modules/gestion_huerta/types/huertaTypes';
 
+interface PaginationMeta {
+  count: number;
+  next: string | null;
+  previous: string | null;
+}
+
 interface HuertaState {
   list: Huerta[];
   loading: boolean;
   error: string | null;
-  /** Nuevo flag: indica que ya se hizo la petición (aunque sea con éxito 0 items) */
   loaded: boolean;
+  page: number;
+  meta: PaginationMeta;
 }
 
 const initialState: HuertaState = {
   list: [],
   loading: false,
   error: null,
-  loaded: false, // por defecto aún no ha cargado
+  loaded: false,
+  page: 1,
+  meta: {
+    count: 0,
+    next: null,
+    previous: null,
+  },
 };
 
-// Listar huertas
 export const fetchHuertas = createAsyncThunk(
   'huerta/fetchAll',
-  async (_, { rejectWithValue }) => {
+  async (page: number, { rejectWithValue }) => {
     try {
-      const serverRes = await huertaService.list();
-      //handleBackendNotification(serverRes);
-      // serverRes.data.huertas => Huerta[]
-      return serverRes.data.huertas;
+      const serverRes = await huertaService.list(page);
+      return {
+        huertas: serverRes.data.huertas,
+        meta: serverRes.data.meta,
+        page,
+      };
     } catch (err: any) {
       handleBackendNotification(err.response?.data);
       return rejectWithValue(err.response?.data || 'Error al cargar huertas');
@@ -35,7 +49,6 @@ export const fetchHuertas = createAsyncThunk(
   }
 );
 
-// Crear, Actualizar, Eliminar (sin cambios):
 export const createHuerta = createAsyncThunk(
   'huerta/create',
   async (payload: HuertaCreateData, { rejectWithValue }) => {
@@ -81,32 +94,36 @@ export const deleteHuerta = createAsyncThunk(
 const huertaSlice = createSlice({
   name: 'huerta',
   initialState,
-  reducers: {},
+  reducers: {
+    setPage: (state, action: PayloadAction<number>) => {
+      state.page = action.payload;
+    },
+  },
   extraReducers: (builder) => {
     builder
-      // fetchHuertas
       .addCase(fetchHuertas.pending, (state) => {
         state.loading = true;
         state.error = null;
-        // no cambiamos loaded aquí (aún no concluye)
       })
-      .addCase(fetchHuertas.fulfilled, (state, action: PayloadAction<Huerta[]>) => {
-        state.list = action.payload;
+      .addCase(fetchHuertas.fulfilled, (state, action: PayloadAction<{
+        huertas: Huerta[];
+        meta: PaginationMeta;
+        page: number;
+      }>) => {
+        state.list = action.payload.huertas;
+        state.meta = action.payload.meta;
+        state.page = action.payload.page;
         state.loading = false;
-        state.loaded = true; // ✔ se completó la carga (aunque sea vacía)
+        state.loaded = true;
       })
       .addCase(fetchHuertas.rejected, (state, action) => {
         state.loading = false;
-        // Convertir el payload a string o algo
-        if (typeof action.payload === 'object') {
-          state.error = JSON.stringify(action.payload);
-        } else {
-          state.error = action.payload as string;
-        }
-        state.loaded = true; // ✔ ya intentamos
+        state.error = typeof action.payload === 'object'
+          ? JSON.stringify(action.payload)
+          : (action.payload as string);
+        state.loaded = true;
       })
 
-      // createHuerta
       .addCase(createHuerta.fulfilled, (state, action: PayloadAction<Huerta>) => {
         state.list.unshift(action.payload);
       })
@@ -114,7 +131,6 @@ const huertaSlice = createSlice({
         state.error = action.payload as string;
       })
 
-      // updateHuerta
       .addCase(updateHuerta.fulfilled, (state, action: PayloadAction<Huerta>) => {
         const idx = state.list.findIndex((h) => h.id === action.payload.id);
         if (idx !== -1) {
@@ -125,11 +141,11 @@ const huertaSlice = createSlice({
         state.error = action.payload as string;
       })
 
-      // deleteHuerta
       .addCase(deleteHuerta.fulfilled, (state, action: PayloadAction<number>) => {
         state.list = state.list.filter((h) => h.id !== action.payload);
       });
   },
 });
 
+export const { setPage } = huertaSlice.actions;
 export default huertaSlice.reducer;

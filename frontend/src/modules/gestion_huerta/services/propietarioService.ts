@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/services/propietarioService.ts
 import apiClient from '../../../global/api/apiClient';
 import {
   Propietario,
@@ -7,15 +8,18 @@ import {
 
 interface PropietarioListResponse {
   propietarios: Propietario[];
+  count: number;
+  next: string | null;
+  previous: string | null;
 }
 
 export const propietarioService = {
-  async list() {
+  async list(page = 1) {
     const { data } = await apiClient.get<{
       success: boolean;
       message_key: string;
       data: PropietarioListResponse;
-    }>('/huerta/propietarios/');
+    }>(`/huerta/propietarios/?page=${page}`);
     return data;
   },
 

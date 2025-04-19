@@ -29,12 +29,17 @@ def validate_direccion(value):
         raise serializers.ValidationError("Dirección inválida. Debe tener entre 5 y 255 caracteres y solo caracteres permitidos.")
     return value
 
-def validate_telefono(value):
-    """
-    Valida teléfono de 10 dígitos estrictamente.
-    """
-    if not re.match(r'^\d{10}$', value):
-        raise serializers.ValidationError("El teléfono debe contener exactamente 10 dígitos.")
+def validate_telefono(self, value):
+    value = validate_telefono(value)
+
+    if self.instance is None and Propietario.objects.filter(telefono=value).exists():
+        raise serializers.ValidationError("Ya existe un propietario con este número de teléfono.")
+    
+    if self.instance is not None:
+        # Si se actualiza y el número ya pertenece a otro
+        if Propietario.objects.exclude(pk=self.instance.pk).filter(telefono=value).exists():
+            raise serializers.ValidationError("Este número ya está registrado por otro propietario.")
+    
     return value
 
 # -----------------------------
@@ -48,6 +53,7 @@ class PropietarioSerializer(serializers.ModelSerializer):
         model = Propietario
         fields = ['id', 'nombre', 'apellidos', 'telefono', 'direccion']
 
+
     def validate_nombre(self, value):
         return validate_nombre_persona(value)
 
@@ -55,10 +61,23 @@ class PropietarioSerializer(serializers.ModelSerializer):
         return validate_nombre_persona(value)
 
     def validate_telefono(self, value):
-        return validate_telefono(value)
+        value = value.strip()
+
+        if self.instance is None:
+            # Creación
+            if Propietario.objects.filter(telefono=value).exists():
+                raise serializers.ValidationError("Este teléfono ya está registrado.")
+        else:
+            # Actualización
+            if Propietario.objects.exclude(pk=self.instance.pk).filter(telefono=value).exists():
+                raise serializers.ValidationError("Este teléfono ya está registrado con otro propietario.")
+
+        return value
+    # Tu validador reutilizable
 
     def validate_direccion(self, value):
         return validate_direccion(value)
+
 
 # -----------------------------
 # HUERTA Y HUERTA RENTADA

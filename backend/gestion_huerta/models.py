@@ -14,12 +14,11 @@ class Propietario(models.Model):
     apellidos = models.CharField(max_length=100)
     telefono = models.CharField(
         max_length=15,
-        unique=True,
         validators=[
-            RegexValidator(regex=r'^\d{10}$',
-                           message="El teléfono debe contener exactamente 10 dígitos.")
+            RegexValidator(regex=r'^\d{10}$', message="El teléfono debe contener exactamente 10 dígitos.")
         ]
     )
+
     direccion = models.CharField(max_length=255)
 
     def __str__(self):

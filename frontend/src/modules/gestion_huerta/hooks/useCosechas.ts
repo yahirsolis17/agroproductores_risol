@@ -7,7 +7,7 @@ import {
   updateHuerta,
   deleteHuerta,
 } from '../../../global/store/huertaSlice';
-import { HuertaCreateData, HuertaUpdateData } from '../types/cosechaTypes';
+import { HuertaCreateData, HuertaUpdateData } from '../types/huertaTypes';
 
 export function useHuertas() {
   const dispatch = useAppDispatch();

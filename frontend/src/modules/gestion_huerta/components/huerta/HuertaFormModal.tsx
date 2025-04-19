@@ -1,4 +1,7 @@
-import React from 'react';
+// Paso actual: Fase 2 — Validaciones backend en HuertaFormModal
+// Próximos pasos: actualizar UX de errores, feedback en campos, consistencia visual
+
+import React, { useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -10,35 +13,31 @@ import {
   Typography,
 } from '@mui/material';
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
-import { Formik, Form } from 'formik';
+import { Formik, Form, FormikProps } from 'formik';
 import * as Yup from 'yup';
+
 import { HuertaCreateData } from '../../types/huertaTypes';
 import { Propietario } from '../../types/propietarioTypes';
-
-// Definir OptionType: se extiende la interfaz Propietario en las opciones normales,
-// y se define de manera especial la opción "new" para registrar un nuevo propietario.
-type OptionType = Propietario | {
-  id: "new";
-  nombre: string;
-  apellidos: string;
-};
-
-interface HuertaFormModalProps {
-  open: boolean;
-  onClose: () => void;
-  onSubmit: (values: HuertaCreateData) => Promise<void>;
-  propietarios: Propietario[]; // Lista para el selector
-  onRegisterNewPropietario: () => void; // Callback para abrir el modal de registro de propietario
-  defaultPropietarioId?: number; // Si se registra un nuevo propietario, se autoselecciona
-}
+import { handleBackendNotification } from '../../../../global/utils/NotificationEngine';
 
 const validationSchema = Yup.object().shape({
   nombre: Yup.string().required('Nombre requerido'),
   ubicacion: Yup.string().required('Ubicación requerida'),
   variedades: Yup.string().required('Variedades requeridas'),
   hectareas: Yup.number().positive('Debe ser mayor que 0').required('Requerido'),
-  propietario: Yup.number().required('Selecciona un propietario'),
+  propietario: Yup.number().min(1, 'Selecciona un propietario').required('Requerido'),
 });
+
+type OptionType = Propietario | { id: 'new'; nombre: string; apellidos: string };
+
+interface HuertaFormModalProps {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (values: HuertaCreateData) => Promise<void>;
+  propietarios: Propietario[];
+  onRegisterNewPropietario: () => void;
+  defaultPropietarioId?: number;
+}
 
 const HuertaFormModal: React.FC<HuertaFormModalProps> = ({
   open,
@@ -48,52 +47,72 @@ const HuertaFormModal: React.FC<HuertaFormModalProps> = ({
   onRegisterNewPropietario,
   defaultPropietarioId,
 }) => {
-  // Valores iniciales para el formulario.
+  const formikRef = useRef<FormikProps<HuertaCreateData>>(null);
+
   const initialValues: HuertaCreateData = {
     nombre: '',
     ubicacion: '',
     variedades: '',
     historial: '',
     hectareas: 0,
-    propietario: defaultPropietarioId || 0, // Se autoselecciona si se pasa el id
+    propietario: 0,
   };
+
+  useEffect(() => {
+    if (open && defaultPropietarioId && formikRef.current) {
+      formikRef.current.setFieldValue('propietario', defaultPropietarioId, false);
+    }
+  }, [defaultPropietarioId, open]);
+
+  useEffect(() => {
+    if (!open && formikRef.current) {
+      formikRef.current.resetForm({ values: initialValues });
+    }
+  }, [open]);
 
   const handleSubmit = async (values: HuertaCreateData, actions: any) => {
     try {
       await onSubmit(values);
-      onClose();
-    } catch (err) {
-      console.error('Error al crear huerta:', err);
+    } catch (err: any) {
+      const backend =
+        err?.response?.data?.data?.errors ||
+        err?.response?.data?.errors ||
+        {};
+  
+      const formikErrors: Record<string, string> = {};
+      const touched: Record<string, boolean> = {};
+  
+      Object.entries(backend).forEach(([field, msgs]: any) => {
+        const msg = Array.isArray(msgs) ? msgs[0] : msgs;
+        formikErrors[field] = msg;
+        touched[field] = true;
+      });
+  
+      actions.setErrors(formikErrors);
+      actions.setTouched(touched);
+  
+      handleBackendNotification(err?.response?.data);
     } finally {
       actions.setSubmitting(false);
     }
   };
+  
 
-  // Opción especial: Siempre disponible para "Registrar nuevo propietario"
-  const newOption: OptionType = {
-    id: "new",
-    nombre: "Registrar nuevo propietario",
-    apellidos: "",
-  };
-
-  // Ordenar alfabéticamente los propietarios (sin incluir la opción especial)
-  const sortedPropietarios = [...propietarios].sort((a, b) =>
-    a.nombre.localeCompare(b.nombre)
-  );
-
-  // Construir las opciones: la opción especial en primer lugar seguida de los propietarios ordenados.
-  const options: OptionType[] = [newOption, ...sortedPropietarios];
+  const newOpt: OptionType = { id: 'new', nombre: 'Registrar nuevo propietario', apellidos: '' };
+  const opciones: OptionType[] = [
+    newOpt,
+    ...[...propietarios].sort((a, b) => a.nombre.localeCompare(b.nombre)),
+  ];
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle className="text-primary-dark font-bold">
-        Nueva Huerta
-      </DialogTitle>
+      <DialogTitle className="text-primary-dark font-bold">Nueva Huerta</DialogTitle>
+
       <Formik
+        innerRef={formikRef}
         initialValues={initialValues}
         validationSchema={validationSchema}
         onSubmit={handleSubmit}
-        enableReinitialize
       >
         {({ values, errors, touched, handleChange, setFieldValue, isSubmitting }) => (
           <Form>
@@ -107,7 +126,6 @@ const HuertaFormModal: React.FC<HuertaFormModalProps> = ({
                 error={touched.nombre && Boolean(errors.nombre)}
                 helperText={touched.nombre && errors.nombre}
               />
-
               <TextField
                 fullWidth
                 name="ubicacion"
@@ -117,7 +135,6 @@ const HuertaFormModal: React.FC<HuertaFormModalProps> = ({
                 error={touched.ubicacion && Boolean(errors.ubicacion)}
                 helperText={touched.ubicacion && errors.ubicacion}
               />
-
               <TextField
                 fullWidth
                 name="variedades"
@@ -127,7 +144,6 @@ const HuertaFormModal: React.FC<HuertaFormModalProps> = ({
                 error={touched.variedades && Boolean(errors.variedades)}
                 helperText={touched.variedades && errors.variedades}
               />
-
               <TextField
                 fullWidth
                 name="hectareas"
@@ -140,50 +156,43 @@ const HuertaFormModal: React.FC<HuertaFormModalProps> = ({
               />
 
               <Autocomplete
-                options={options}
-                groupBy={(option) =>
-                  option.id === "new" ? '' : option.nombre.charAt(0).toUpperCase()
-                }
-                getOptionLabel={(option) =>
-                  option.id === "new"
-                    ? option.nombre
-                    : `${option.nombre} ${option.apellidos}`
+                options={opciones}
+                groupBy={(o) => (o.id === 'new' ? '' : o.nombre.charAt(0).toUpperCase())}
+                getOptionLabel={(o) =>
+                  o.id === 'new' ? o.nombre : `${o.nombre} ${o.apellidos}`
                 }
                 filterOptions={createFilterOptions({
                   matchFrom: 'start',
-                  stringify: (option) =>
-                    option.id === "new"
-                      ? option.nombre
-                      : `${option.nombre} ${option.apellidos}`,
+                  stringify: (o) =>
+                    o.id === 'new' ? o.nombre : `${o.nombre} ${o.apellidos}`,
                 })}
-                renderGroup={(params) => {
-                  if (params.group === '') return <div key={params.key}>{params.children}</div>;
-                  return (
-                    <div key={params.key}>
+                renderGroup={(p) =>
+                  p.group === '' ? (
+                    <div key={p.key}>{p.children}</div>
+                  ) : (
+                    <div key={p.key}>
                       <Typography variant="subtitle2" sx={{ mt: 2 }}>
-                        {params.group}
+                        {p.group}
                       </Typography>
-                      {params.children}
+                      {p.children}
                     </div>
-                  );
-                }}
-                value={
-                  options.find(o =>
-                    defaultPropietarioId ? o.id === defaultPropietarioId : o.id === values.propietario
-                  ) || null
+                  )
                 }
-                onChange={(_, value) => {
-                  if (value) {
-                    if (value.id === "new") {
-                      onRegisterNewPropietario();
-                      setFieldValue("propietario", 0);
-                    } else {
-                      setFieldValue("propietario", value.id);
-                    }
+                value={
+                  values.propietario
+                    ? propietarios.find((p) => p.id === values.propietario) || null
+                    : null
+                }
+                onChange={(_, val) => {
+                  if (val?.id === 'new') {
+                    onRegisterNewPropietario();
+                    setFieldValue('propietario', 0);
                   } else {
-                    setFieldValue("propietario", 0);
+                    setFieldValue('propietario', val ? val.id : 0);
                   }
                 }}
+                clearOnEscape
+                clearText="Limpiar"
                 renderInput={(params) => (
                   <TextField
                     {...params}
