@@ -2,11 +2,11 @@
 
 export type Role = 'admin' | 'usuario';
 
-interface NavItem {
+export interface NavItem {
   to: string;
   label: string;
+  perm?: string;        // <-  AHORA sí existe para TypeScript
 }
-
 export const NAV_ITEMS: Record<Role, NavItem[]> = {
   admin: [
     { to: '/dashboard', label: 'Inicio' },

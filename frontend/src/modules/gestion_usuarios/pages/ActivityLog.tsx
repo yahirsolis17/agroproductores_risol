@@ -112,8 +112,14 @@ const ActivityLog: React.FC = () => {
             Historial de Actividades
           </Typography>
           <Tooltip title="Ordenar">
-            <IconButton onClick={toggleSort} color="primary">
-              <Sort className={sortDesc ? 'rotate-180 transition-transform' : 'transition-transform'} />
+            <IconButton
+              onClick={toggleSort}
+              color="primary"
+              aria-label="Ordenar lista"
+            >
+              <Sort
+                className={sortDesc ? 'rotate-180 transition-transform' : 'transition-transform'}
+              />
             </IconButton>
           </Tooltip>
         </Box>

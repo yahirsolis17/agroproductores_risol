@@ -14,6 +14,8 @@ export interface User {
 export interface LoginResult {
   user: User;
   must_change_password: boolean;
+  tokens: { access: string; refresh: string };   // <── añade esto
+
 }
 
 interface LoginData {
@@ -57,7 +59,9 @@ const authService = {
       user,
       must_change_password: response.data?.data?.must_change_password === true,
       notification: response.data.notification,
+      tokens,   // <── ahora el campo existe
     };
+    
   },
   
 

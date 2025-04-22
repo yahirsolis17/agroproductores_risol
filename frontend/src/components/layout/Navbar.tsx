@@ -8,59 +8,72 @@ import { NAV_ITEMS } from '../../global/constants/navItems';
 import { useAuth } from '../../modules/gestion_usuarios/context/AuthContext';
 
 const Navbar: React.FC = () => {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout, hasPerm } = useAuth();
   const location = useLocation();
   const [hoverMenu, setHoverMenu] = useState<string | null>(null);
 
+  /* ocultar navbar en pantallas públicas */
   if (['/login', '/change-password'].includes(location.pathname)) return null;
 
   const isActive = (path: string) => location.pathname === path;
 
-  const renderMenu = (title: string, routes: { to: string; label: string }[]) => (
-    <div
-      className="relative"
-      onMouseEnter={() => setHoverMenu(title)}
-      onMouseLeave={() => setHoverMenu(null)}
-    >
-      <button
-        className={clsx(
-          'text-sm transition-colors',
-          hoverMenu === title || routes.some(r => isActive(r.to))
-            ? 'text-primary font-semibold'
-            : 'text-neutral-700'
-        )}
+  /** Filtra rutas por permisos */
+  const filterByPerm = (role: 'admin' | 'usuario') =>
+    NAV_ITEMS[role].filter(i => !i.perm || hasPerm(i.perm));
+
+  /** Renderiza un menú desplegable */
+  const renderMenu = (
+    title: string,
+    routes: { to: string; label: string }[],
+  ) =>
+    routes.length > 0 && (
+      <div
+        className="relative"
+        onMouseEnter={() => setHoverMenu(title)}
+        onMouseLeave={() => setHoverMenu(null)}
       >
-        {title}
-      </button>
+        <button
+          className={clsx(
+            'text-sm transition-colors',
+            hoverMenu === title || routes.some(r => isActive(r.to))
+              ? 'text-primary font-semibold'
+              : 'text-neutral-700',
+          )}
+        >
+          {title}
+        </button>
 
-      <AnimatePresence>
-        {hoverMenu === title && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            transition={{ duration: 0.2 }}
-            className="absolute left-0 mt-2 w-56 bg-white border border-neutral-200 rounded-lg shadow-md z-50"
-          >
-            {routes.map(({ to, label }) => (
-              <Link
-                key={to}
-                to={to}
-                className={clsx(
-                  'block px-4 py-2 text-sm transition hover:bg-neutral-100',
-                  isActive(to) ? 'text-primary font-semibold' : 'text-neutral-700'
-                )}
-              >
-                {label}
-              </Link>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
+        <AnimatePresence>
+          {hoverMenu === title && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              transition={{ duration: 0.2 }}
+              className="absolute left-0 mt-2 w-56 bg-white border border-neutral-200 rounded-lg shadow-md z-50"
+            >
+              {routes.map(({ to, label }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  className={clsx(
+                    'block px-4 py-2 text-sm transition hover:bg-neutral-100',
+                    isActive(to)
+                      ? 'text-primary font-semibold'
+                      : 'text-neutral-700',
+                  )}
+                >
+                  {label}
+                </Link>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
 
-  const userRole = user?.role || 'usuario';
+  const role = user?.role ?? 'usuario';
+  const visibleRoutes = filterByPerm(role);
 
   return (
     <motion.nav
@@ -69,47 +82,34 @@ const Navbar: React.FC = () => {
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.4, ease: 'easeOut' }}
     >
+      {/* --- Logo y menús --- */}
       <div className="flex items-center space-x-6 relative">
         <Link to="/dashboard" className="text-xl font-bold text-primary-dark">
           Risol
         </Link>
 
-        {isAuthenticated && NAV_ITEMS[userRole] && (
+        {isAuthenticated && (
           <>
-            {renderMenu('Gestión de Usuarios', NAV_ITEMS[userRole].filter(i =>
-              i.to.includes('user') || i.to.includes('register') || i.to.includes('activity')
-            ))}
+            {/* menú dinámico: Usuarios */}
+            {renderMenu(
+              'Gestión de Usuarios',
+              visibleRoutes.filter(r =>
+                r.to.match(/users?|register|activity/),
+              ),
+            )}
 
-            {renderMenu('Gestión de Huerta', NAV_ITEMS[userRole].filter(i =>
-              i.to.includes('huerta') || i.to.includes('propietario') || i.to.includes('cosecha')
-            ))}
-          </>
-        )}
-
-        {isAuthenticated && userRole === 'usuario' && (
-          <>
-            <Link
-              to="/dashboard"
-              className={clsx(
-                'text-sm transition-colors',
-                isActive('/dashboard') ? 'text-primary font-semibold' : 'text-neutral-700'
-              )}
-            >
-              Dashboard
-            </Link>
-            <Link
-              to="/profile"
-              className={clsx(
-                'text-sm transition-colors',
-                isActive('/profile') ? 'text-primary font-semibold' : 'text-neutral-700'
-              )}
-            >
-              Mi Perfil
-            </Link>
+            {/* menú dinámico: Huerta */}
+            {renderMenu(
+              'Gestión de Huerta',
+              visibleRoutes.filter(r =>
+                r.to.match(/huerta|propietario|cosecha/),
+              ),
+            )}
           </>
         )}
       </div>
 
+      {/* --- Botón Login / Logout --- */}
       <div>
         {isAuthenticated ? (
           <Button

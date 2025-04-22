@@ -43,27 +43,6 @@ class LoginSerializer(serializers.Serializer):
         return data
 
 
-
-# Crear admins
-class AdminUserCreationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Users
-        fields = ('telefono', 'nombre', 'apellido', 'password', 'is_staff')
-
-    def validate(self, data):
-        if not self.initial_data.get('is_superuser', False):
-            raise serializers.ValidationError("El administrador debe ser un superusuario.")
-        return data
-
-    def validate_telefono(self, value):
-        return validate_telefono(value)
-
-    def validate_nombre(self, value):
-        return validate_nombre(value, field_name="nombre")
-
-    def validate_apellido(self, value):
-        return validate_nombre(value, field_name="apellido")
-
 class CustomUserCreationSerializer(serializers.ModelSerializer):
     """
     • Ya no exigimos que el admin mande 'password'.
