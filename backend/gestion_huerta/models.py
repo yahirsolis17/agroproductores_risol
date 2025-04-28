@@ -1,3 +1,4 @@
+# backend/gestion_huerta/models.py
 from django.db import models
 from django.core.validators import RegexValidator, MinValueValidator
 from django.utils import timezone
@@ -18,7 +19,6 @@ class Propietario(models.Model):
             RegexValidator(regex=r'^\d{10}$', message="El teléfono debe contener exactamente 10 dígitos.")
         ]
     )
-
     direccion = models.CharField(max_length=255)
 
     def __str__(self):
@@ -104,7 +104,6 @@ class Cosecha(models.Model):
         blank=True,
         related_name="cosechas_rentadas"
     )
-    # Fechas
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_inicio = models.DateTimeField(null=True, blank=True)
     fecha_fin = models.DateTimeField(null=True, blank=True)
@@ -114,17 +113,11 @@ class Cosecha(models.Model):
         indexes = [models.Index(fields=['nombre'])]
 
     def save(self, *args, **kwargs):
-        # Si no hay fecha de inicio, usar la fecha de creación como fallback
         if not self.fecha_inicio:
             self.fecha_inicio = self.fecha_creacion
         super().save(*args, **kwargs)
 
     def clean(self):
-        """
-        Validación interna:
-        - Debe asignar una huerta o huerta_rentada, pero no ambas.
-        - (Opcional) Validar coherencia de fechas (si fecha_fin < fecha_inicio).
-        """
         if not self.huerta and not self.huerta_rentada:
             raise ValidationError("Debe asignar una huerta o una huerta rentada.")
         if self.huerta and self.huerta_rentada:

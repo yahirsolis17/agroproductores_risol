@@ -1,6 +1,7 @@
-from rest_framework.viewsets import ModelViewSet
+from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from django.contrib.auth.models import Permission
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.throttling import UserRateThrottle
@@ -9,7 +10,6 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 from gestion_usuarios.permissions import IsAdmin, IsSelfOrAdmin
 from gestion_usuarios.models import Users, RegistroActividad
-from gestion_usuarios.serializers import UsuarioSerializer, LoginSerializer, CustomUserCreationSerializer
 from gestion_usuarios.utils.activity import registrar_actividad
 from gestion_usuarios.utils.notification_handler import NotificationHandler
 from rest_framework.viewsets import ModelViewSet
@@ -22,6 +22,15 @@ from rest_framework.decorators import api_view, permission_classes
 from django.shortcuts import redirect
 from django.contrib.auth.hashers import make_password
 from rest_framework import viewsets, filters
+from django.contrib.auth.models import Permission
+from rest_framework.viewsets import ReadOnlyModelViewSet
+from gestion_usuarios.serializers import (
+    UsuarioSerializer,
+    LoginSerializer,
+    CustomUserCreationSerializer,
+    PermisoSerializer,
+    RegistroActividadSerializer,
+)
 
 class LoginThrottle(UserRateThrottle):
     rate = '5/min'
@@ -75,7 +84,17 @@ class LogoutView(APIView):
             message_key="logout_success"
         )
 
-        
+class PermisoViewSet(ReadOnlyModelViewSet):
+    """
+    Lee todos los permisos de Django.
+    """
+    queryset           = Permission.objects.all().order_by('name')
+    serializer_class   = PermisoSerializer
+    permission_classes = [IsAuthenticated, IsAdmin]
+    pagination_class   = None
+
+
+
 class RefreshTokenThrottle(UserRateThrottle):
     scope = 'refresh_token'
     
@@ -83,57 +102,79 @@ class CustomTokenRefreshView(TokenRefreshView):
     throttle_classes = [RefreshTokenThrottle]
 
 class UsuarioViewSet(AuditUpdateMixin, ModelViewSet):
-    queryset = Users.objects.all()
+    queryset         = Users.objects.all()
     serializer_class = UsuarioSerializer
 
+    # ----- permisos por acción -----
     def get_permissions(self):
         if self.action == 'list':
             return [IsAuthenticated(), IsAdmin()]
-        elif self.action in ['retrieve', 'update', 'partial_update']:
+        if self.action in ('retrieve', 'update', 'partial_update'):
             return [IsAuthenticated(), IsSelfOrAdmin()]
-        elif self.action == 'destroy':
+        if self.action == 'destroy':
             return [IsAuthenticated(), IsAdmin()]
         return [IsAuthenticated()]
 
+    # ----- serializer dinámico -----
     def get_serializer_class(self):
         if self.action == 'create':
             return CustomUserCreationSerializer
         return UsuarioSerializer
 
+    # ----- asignar permisos -----
+    @action(detail=True, methods=['patch'], permission_classes=[IsAdmin], url_path='set-permisos')
+    def set_permisos(self, request, pk=None):
+        user_obj = self.get_object()
+
+        # ❗ evita que un admin sin superuser se quite sus propios permisos
+        if user_obj == request.user and not request.user.is_superuser:
+            return Response(
+                {"detail": "No puedes modificar tus propios permisos."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        codenames = request.data.get('permisos', [])
+        permisos  = Permission.objects.filter(codename__in=codenames)
+        user_obj.user_permissions.set(permisos)
+
+        return Response({'status': 'permisos actualizados'})
+
+    # ----- creación personalizada -----
     def create(self, request, *args, **kwargs):
         serializer = CustomUserCreationSerializer(data=request.data)
-        # Validación manual sin raise_exception
         if not serializer.is_valid():
             return NotificationHandler.generate_response(
-                message_key="validation_error",
+                "validation_error",
                 data={'errors': serializer.errors},
-                status_code=status.HTTP_400_BAD_REQUEST
+                status_code=status.HTTP_400_BAD_REQUEST,
             )
+
         user = serializer.save()
-        # Registrar actividad de creación
         registrar_actividad(request.user, f"Registró al usuario: {user.telefono}")
-        # Respuesta de éxito
+
         return NotificationHandler.generate_response(
-            message_key="register_success",
+            "register_success",
             data=UsuarioSerializer(user).data,
-            status_code=status.HTTP_201_CREATED
+            status_code=status.HTTP_201_CREATED,
         )
 
+    # ----- activar/desactivar -----
     @action(detail=True, methods=['patch'], permission_classes=[IsAdmin])
     def toggle_active(self, request, pk=None):
-        user = self.get_object()
+        user           = self.get_object()
         user.is_active = not user.is_active
         user.save()
-        status_str = "activado" if user.is_active else "desactivado"
+        msg = "activado" if user.is_active else "desactivado"
 
-        # Si deseas auditar esta acción, asegúrate de que el método audit esté definido.
-        # self.audit(request, request.user, "Cambio de estado", f"{status_str} al usuario {user.telefono}")
+        return Response(
+            {
+                "success": True,
+                "message": f"Usuario {msg} correctamente.",
+                "user": UsuarioSerializer(user).data,
+            },
+            status=status.HTTP_200_OK,
+        )
 
-        return Response({
-            "success": True,
-            "message": f"Usuario {status_str} correctamente.",
-            "user": UsuarioSerializer(user).data
-        }, status=status.HTTP_200_OK)
 
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]

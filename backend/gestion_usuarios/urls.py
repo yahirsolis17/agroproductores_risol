@@ -2,11 +2,13 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from gestion_usuarios.views.user_views import UsuarioViewSet, \
     LoginView, MeView, UserPermissionsView, ChangePasswordView, \
-    CustomTokenRefreshView, RegistroActividadViewSet, LogoutView
+    CustomTokenRefreshView, RegistroActividadViewSet, LogoutView, PermisoViewSet
 
 router = DefaultRouter()
-router.register(r'users', UsuarioViewSet, basename='users')
-router.register(r'actividad', RegistroActividadViewSet, basename='actividad')
+router.register(r'users',      UsuarioViewSet,      basename='users')
+router.register(r'actividad',  RegistroActividadViewSet, basename='actividad')
+router.register(r'permisos',  PermisoViewSet,           basename='permisos')  # ← y esto
+
 app_name = 'gestion_usuarios'
 urlpatterns = [
     path('login/', LoginView.as_view(), name='login'),

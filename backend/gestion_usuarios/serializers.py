@@ -5,7 +5,7 @@ from django.contrib.auth import authenticate
 import re
 from django.contrib.auth.models import Permission
 from .models import Users, RegistroActividad
-from .validators import validate_telefono, validate_nombre
+from .validators import validate_telefono
 # Login
 class LoginSerializer(serializers.Serializer):
     telefono = serializers.CharField(max_length=10)
@@ -103,26 +103,23 @@ class UsuarioSerializer(serializers.ModelSerializer):
     full_name = serializers.ReadOnlyField()
     is_admin  = serializers.ReadOnlyField()
     role      = serializers.CharField(read_only=True)
+    permisos = serializers.SlugRelatedField(
+        many=True,
+        read_only=True,
+        slug_field='codename',
+        source='user_permissions'
+    )
 
     class Meta:
         model  = Users
         fields = [
             'id', 'telefono', 'nombre', 'apellido',
-            'password',          # ← write_only sigue aquí
+            'password',
             'is_staff', 'is_admin', 'is_active',
             'role',
-            'full_name',
+            'full_name', 'permisos'
         ]
         extra_kwargs = {'password': {'write_only': True}}
-
-
-# Para mostrar permisos
-class UserPermissionsSerializer(serializers.ModelSerializer):
-    content_type = serializers.StringRelatedField()
-
-    class Meta:
-        model = Permission
-        fields = ['id', 'name', 'codename', 'content_type']
 
 # Serializador para logs
 class RegistroActividadSerializer(serializers.ModelSerializer):
@@ -132,3 +129,8 @@ class RegistroActividadSerializer(serializers.ModelSerializer):
         model = RegistroActividad
         fields = '__all__'
 
+class PermisoSerializer(serializers.ModelSerializer):
+    content_type = serializers.StringRelatedField()
+    class Meta:
+        model  = Permission
+        fields = ['id', 'name', 'codename', 'content_type']

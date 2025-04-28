@@ -12,12 +12,14 @@ interface User {
 interface AuthState {
   user: User | null;
   token: string | null;
+  permissions: string[];     // ← NEW
   isAuthenticated: boolean;
 }
 
 const initialState: AuthState = {
   user: null,
   token: null,
+  permissions: JSON.parse(localStorage.getItem('permissions') ?? '[]'),
   isAuthenticated: false,
 };
 
@@ -25,10 +27,14 @@ export const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    loginSuccess: (state, action: PayloadAction<{ user: User; token: string }>) => {
-      const { user, token } = action.payload;
+    loginSuccess: (
+      state,
+      action: PayloadAction<{ user: User; token: string; permissions: string[] }>
+    ) => {
+      const { user, token, permissions } = action.payload;
       state.user = user;
       state.token = token;
+      state.permissions = permissions;
       state.isAuthenticated = true;
     },
     logout: (state) => {

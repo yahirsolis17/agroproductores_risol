@@ -1,5 +1,5 @@
 from rest_framework.permissions import BasePermission, DjangoModelPermissions
-from gestion_usuarios.permissions import IsAdmin, IsUser, RolePermissionMixin
+from gestion_usuarios.permissions import IsAdmin, IsUser
 
 
 class IsAdminForHuerta(IsAdmin):
@@ -16,7 +16,7 @@ class IsUserForHuerta(IsUser):
     pass
 
 
-class RolePermissionHuertaMixin(RolePermissionMixin):
+class RolePermissionHuertaMixin():
     """
     Permiso por rol para huerta (admin y usuario por defecto).
     """
@@ -28,17 +28,25 @@ class RolePermissionHuertaMixin(RolePermissionMixin):
 
 class HasHuertaModulePermission(BasePermission):
     """
-    Verifica si el usuario tiene permiso general para entrar al módulo de huerta.
+    Admin siempre puede.
+    Usuario normal puede si tiene permiso para ver huertas o propietarios.
     """
+
     def has_permission(self, request, view):
-        if not request.user.is_authenticated:
+        user = request.user
+        # no autenticado → bloqueado
+        if not user or not user.is_authenticated:
             return False
 
-        if request.user.role == 'admin':
+        # admin → acceso total
+        if user.role == 'admin':
             return True
 
-        return request.user.has_perm('gestion_huerta.access_module')
-
+        # usuarios comunes necesitan al menos uno de estos permisos
+        return (
+            user.has_perm('gestion_huerta.view_huerta') or
+            user.has_perm('gestion_huerta.view_propietario')
+        )
 
 class HuertaGranularPermission(DjangoModelPermissions):
     """

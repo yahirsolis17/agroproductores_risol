@@ -44,21 +44,21 @@ class GenericPagination(PageNumberPagination):
 # ----------------------------------------------------------------
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
+@permission_classes([IsAuthenticated, HasHuertaModulePermission])
 def propietario_list(request):
     try:
-        propietarios = Propietario.objects.all().order_by('nombre')
-        serializer = PropietarioSerializer(propietarios, many=True)
+        qs = Propietario.objects.all().order_by('nombre')
+        data = PropietarioSerializer(qs, many=True).data
         return NotificationHandler.generate_response(
-            message_key="data_processed_success",
-            data={"propietarios": serializer.data},
-            status_code=HTTP_200_OK
+          message_key="data_processed_success",
+          data={"propietarios": data},
+          status_code=HTTP_200_OK
         )
     except Exception as e:
-        logger.error(f"[propietario_list] Error: {str(e)}")
+        logger.error(f"[propietario_list] {e}")
         return NotificationHandler.generate_response(
-            message_key="server_error",
-            status_code=HTTP_500_INTERNAL_SERVER_ERROR
+          message_key="server_error",
+          status_code=HTTP_500_INTERNAL_SERVER_ERROR
         )
 
 
@@ -66,61 +66,59 @@ def propietario_list(request):
 @permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
 def propietario_create(request):
     try:
-        serializer = PropietarioSerializer(data=request.data)
-        if serializer.is_valid():
-            propietario = serializer.save()
-            registrar_actividad(request.user, f"Creó al propietario: {propietario.nombre}")
+        ser = PropietarioSerializer(data=request.data)
+        if not ser.is_valid():
             return NotificationHandler.generate_response(
-                message_key="propietario_create_success",
-                data={"propietario": serializer.data},
-                status_code=HTTP_201_CREATED
+              message_key="validation_error",
+              data={"errors": ser.errors},
+              status_code=HTTP_400_BAD_REQUEST
             )
+        obj = ser.save()
+        registrar_actividad(request.user, f"Creó al propietario: {obj.nombre}")
         return NotificationHandler.generate_response(
-            message_key="validation_error",
-            data={"errors": serializer.errors},
-            status_code=HTTP_400_BAD_REQUEST
+          message_key="propietario_create_success",
+          data={"propietario": ser.data},
+          status_code=HTTP_201_CREATED
         )
     except IntegrityError as e:
-        logger.error(f"[propietario_create] Error de integridad: {str(e)}")
+        logger.error(f"[propietario_create] {e}")
         return NotificationHandler.generate_response(
-            message_key="validation_error",
-            data={"errors": {"telefono": ["Este teléfono ya está registrado."]}},
-            status_code=HTTP_400_BAD_REQUEST
+          message_key="validation_error",
+          data={"errors": {"telefono": ["Este teléfono ya está registrado."]}},
+          status_code=HTTP_400_BAD_REQUEST
         )
-
     except Exception as e:
-        logger.error(f"[propietario_create] Error: {str(e)}")
+        logger.error(f"[propietario_create] {e}")
         return NotificationHandler.generate_response(
-            message_key="server_error",
-            status_code=HTTP_500_INTERNAL_SERVER_ERROR
+          message_key="server_error",
+          status_code=HTTP_500_INTERNAL_SERVER_ERROR
         )
-
 
 
 @api_view(['PUT', 'PATCH'])
 @permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
 def propietario_update(request, pk):
     try:
-        propietario = get_object_or_404(Propietario, pk=pk)
-        serializer = PropietarioSerializer(propietario, data=request.data, partial=True)
-        if serializer.is_valid():
-            propietario = serializer.save()
-            registrar_actividad(request.user, f"Actualizó al propietario: {propietario.nombre}")
+        inst = get_object_or_404(Propietario, pk=pk)
+        ser = PropietarioSerializer(inst, data=request.data, partial=True)
+        if not ser.is_valid():
             return NotificationHandler.generate_response(
-                message_key="propietario_update_success",
-                data={"propietario": serializer.data},
-                status_code=HTTP_200_OK
+              message_key="validation_error",
+              data={"errors": ser.errors},
+              status_code=HTTP_400_BAD_REQUEST
             )
+        obj = ser.save()
+        registrar_actividad(request.user, f"Actualizó al propietario: {obj.nombre}")
         return NotificationHandler.generate_response(
-            message_key="validation_error",
-            data={"errors": serializer.errors},
-            status_code=HTTP_400_BAD_REQUEST
+          message_key="propietario_update_success",
+          data={"propietario": ser.data},
+          status_code=HTTP_200_OK
         )
     except Exception as e:
-        logger.error(f"[propietario_update] Error: {str(e)}")
+        logger.error(f"[propietario_update] {e}")
         return NotificationHandler.generate_response(
-            message_key="server_error",
-            status_code=HTTP_500_INTERNAL_SERVER_ERROR
+          message_key="server_error",
+          status_code=HTTP_500_INTERNAL_SERVER_ERROR
         )
 
 
@@ -128,20 +126,20 @@ def propietario_update(request, pk):
 @permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
 def propietario_delete(request, pk):
     try:
-        propietario = get_object_or_404(Propietario, pk=pk)
-        nombre_propietario = propietario.nombre
-        propietario.delete()
-        registrar_actividad(request.user, f"Eliminó al propietario: {nombre_propietario}")
+        inst = get_object_or_404(Propietario, pk=pk)
+        nombre = str(inst)
+        inst.delete()
+        registrar_actividad(request.user, f"Eliminó al propietario: {nombre}")
         return NotificationHandler.generate_response(
-            message_key="propietario_delete_success",
-            data={"info": f"Propietario '{nombre_propietario}' eliminado."},
-            status_code=HTTP_200_OK
+          message_key="propietario_delete_success",
+          data={"info": f"Propietario '{nombre}' eliminado."},
+          status_code=HTTP_200_OK
         )
     except Exception as e:
-        logger.error(f"[propietario_delete] Error: {str(e)}")
+        logger.error(f"[propietario_delete] {e}")
         return NotificationHandler.generate_response(
-            message_key="server_error",
-            status_code=HTTP_500_INTERNAL_SERVER_ERROR
+          message_key="server_error",
+          status_code=HTTP_500_INTERNAL_SERVER_ERROR
         )
 
 
@@ -150,21 +148,21 @@ def propietario_delete(request, pk):
 # ----------------------------------------------------------------
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
+@permission_classes([IsAuthenticated, HasHuertaModulePermission])
 def huerta_list(request):
     try:
-        huertas = Huerta.objects.all().select_related('propietario').order_by('nombre')
-        serializer = HuertaSerializer(huertas, many=True)
+        qs = Huerta.objects.all().select_related('propietario').order_by('nombre')
+        data = HuertaSerializer(qs, many=True).data
         return NotificationHandler.generate_response(
-            message_key="data_processed_success",
-            data={"huertas": serializer.data},
-            status_code=HTTP_200_OK
+          message_key="data_processed_success",
+          data={"huertas": data},
+          status_code=HTTP_200_OK
         )
     except Exception as e:
-        logger.error(f"[huerta_list] Error: {str(e)}")
+        logger.error(f"[huerta_list] {e}")
         return NotificationHandler.generate_response(
-            message_key="server_error",
-            status_code=HTTP_500_INTERNAL_SERVER_ERROR
+          message_key="server_error",
+          status_code=HTTP_500_INTERNAL_SERVER_ERROR
         )
 
 
@@ -172,25 +170,25 @@ def huerta_list(request):
 @permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
 def huerta_create(request):
     try:
-        serializer = HuertaSerializer(data=request.data)
-        if serializer.is_valid():
-            huerta = serializer.save()
-            registrar_actividad(request.user, f"Creó la huerta: {huerta.nombre}")
+        ser = HuertaSerializer(data=request.data)
+        if not ser.is_valid():
             return NotificationHandler.generate_response(
-                message_key="huerta_create_success",
-                data={"huerta": serializer.data},
-                status_code=HTTP_201_CREATED
+              message_key="validation_error",
+              data={"errors": ser.errors},
+              status_code=HTTP_400_BAD_REQUEST
             )
+        obj = ser.save()
+        registrar_actividad(request.user, f"Creó la huerta: {obj.nombre}")
         return NotificationHandler.generate_response(
-            message_key="validation_error",
-            data={"errors": serializer.errors},
-            status_code=HTTP_400_BAD_REQUEST
+          message_key="huerta_create_success",
+          data={"huerta": ser.data},
+          status_code=HTTP_201_CREATED
         )
     except Exception as e:
-        logger.error(f"[huerta_create] Error: {str(e)}")
+        logger.error(f"[huerta_create] {e}")
         return NotificationHandler.generate_response(
-            message_key="server_error",
-            status_code=HTTP_500_INTERNAL_SERVER_ERROR
+          message_key="server_error",
+          status_code=HTTP_500_INTERNAL_SERVER_ERROR
         )
 
 
@@ -198,26 +196,26 @@ def huerta_create(request):
 @permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
 def huerta_update(request, pk):
     try:
-        huerta = get_object_or_404(Huerta, pk=pk)
-        serializer = HuertaSerializer(huerta, data=request.data, partial=True)
-        if serializer.is_valid():
-            huerta = serializer.save()
-            registrar_actividad(request.user, f"Actualizó la huerta: {huerta.nombre}")
+        inst = get_object_or_404(Huerta, pk=pk)
+        ser = HuertaSerializer(inst, data=request.data, partial=True)
+        if not ser.is_valid():
             return NotificationHandler.generate_response(
-                message_key="huerta_update_success",
-                data={"huerta": serializer.data},
-                status_code=HTTP_200_OK
+              message_key="validation_error",
+              data={"errors": ser.errors},
+              status_code=HTTP_400_BAD_REQUEST
             )
+        obj = ser.save()
+        registrar_actividad(request.user, f"Actualizó la huerta: {obj.nombre}")
         return NotificationHandler.generate_response(
-            message_key="validation_error",
-            data={"errors": serializer.errors},
-            status_code=HTTP_400_BAD_REQUEST
+          message_key="huerta_update_success",
+          data={"huerta": ser.data},
+          status_code=HTTP_200_OK
         )
     except Exception as e:
-        logger.error(f"[huerta_update] Error: {str(e)}")
+        logger.error(f"[huerta_update] {e}")
         return NotificationHandler.generate_response(
-            message_key="server_error",
-            status_code=HTTP_500_INTERNAL_SERVER_ERROR
+          message_key="server_error",
+          status_code=HTTP_500_INTERNAL_SERVER_ERROR
         )
 
 
@@ -225,22 +223,21 @@ def huerta_update(request, pk):
 @permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
 def huerta_delete(request, pk):
     try:
-        huerta = get_object_or_404(Huerta, pk=pk)
-        nombre = huerta.nombre
-        huerta.delete()
+        inst = get_object_or_404(Huerta, pk=pk)
+        nombre = inst.nombre
+        inst.delete()
         registrar_actividad(request.user, f"Eliminó la huerta: {nombre}")
         return NotificationHandler.generate_response(
-            message_key="huerta_delete_success",
-            data={"info": f"Huerta '{nombre}' eliminada."},
-            status_code=HTTP_200_OK
+          message_key="huerta_delete_success",
+          data={"info": f"Huerta '{nombre}' eliminada."},
+          status_code=HTTP_200_OK
         )
     except Exception as e:
-        logger.error(f"[huerta_delete] Error: {str(e)}")
+        logger.error(f"[huerta_delete] {e}")
         return NotificationHandler.generate_response(
-            message_key="server_error",
-            status_code=HTTP_500_INTERNAL_SERVER_ERROR
+          message_key="server_error",
+          status_code=HTTP_500_INTERNAL_SERVER_ERROR
         )
-
 
 # ----------------------------------------------------------------
 # HUERTA RENTADA CRUD

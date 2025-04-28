@@ -56,7 +56,6 @@ class Users(AbstractBaseUser, PermissionsMixin):
 
     def get_short_name(self):
         return self.nombre
-
     
 class RegistroActividad(models.Model):
     usuario = models.ForeignKey(Users, on_delete=models.CASCADE)

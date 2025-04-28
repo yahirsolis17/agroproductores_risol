@@ -36,10 +36,15 @@ const AuthContext = createContext<AuthContextProps | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
-  const [user, setUser] = useState<User | null>(authService.getUser());
-  const [permissions, setPermissions] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+
+  // Carga inicial desde localStorage para que no se “pierdan” permisos si recargas la página
+  const storedUser = authService.getUser();
+  const storedPerms = JSON.parse(localStorage.getItem('permissions') || '[]');
+
+  const [user, setUser] = useState<User | null>(storedUser);
+  const [permissions, setPermissions] = useState<string[]>(storedPerms);
+  const [loading, setLoading] = useState(true);
 
   /* helper para UI */
   const hasPerm = (perm: string) => permissions.includes(perm);
@@ -48,42 +53,47 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   useEffect(() => {
     const init = async () => {
       try {
-        await refreshSession();
+        // Si ya hay token, refresca sesión y permisos
+        if (authService.getAccessToken()) {
+          await refreshSession();
+        }
       } catch {
+        // Si falla, limpia todo
         authService.logout();
         setUser(null);
         setPermissions([]);
+        localStorage.removeItem('permissions');
       } finally {
         setLoading(false);
       }
     };
-
-    if (authService.getAccessToken()) {
-      init();
-    } else {
-      setLoading(false);
-    }
+    init();
   }, []);
 
   /* ---------- helpers internos ---------- */
-  const fetchPermissions = async () => {
-    try {
-      const res = await apiClient.get('/usuarios/me/permissions/');
-      setPermissions(res.data.permissions ?? []);
-      localStorage.setItem(
-        'permissions',
-        JSON.stringify(res.data.permissions ?? []),
-      );
-    } catch {
-      setPermissions([]);
-    }
-  };
+// después
+const fetchPermissions = async () => {
+  try {
+    const response = await apiClient.get('/usuarios/me/permissions/');
+    const permisos: string[] = response.data.data.permisos;
+    setPermissions(permisos);           // ← ¡aquí guardas el array en tu estado!
+    return permisos;
+  } catch (error) {
+    console.error('Error fetching permissions:', error);
+    setPermissions([]);                 // en caso de fallo, tampoco te quedes con los anteriores
+    return [];
+  }
+};
+
 
   /* ---------- acciones ---------- */
   const refreshSession = async () => {
+    // obtiene datos básicos de usuario
     const me = await authService.getMe();
     setUser(me);
     localStorage.setItem('user', JSON.stringify(me));
+
+    // obtiene permisos dinámicamente
     await fetchPermissions();
   };
 
@@ -100,11 +110,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     /* guardar tokens y usuario */
     localStorage.setItem('accessToken', tokens.access);
     localStorage.setItem('refreshToken', tokens.refresh);
+
     const userWithFlag = { ...loggedIn, must_change_password };
     setUser(userWithFlag);
     localStorage.setItem('user', JSON.stringify(userWithFlag));
 
-    /* permisos */
+    /* permisos dinámicos */
     await fetchPermissions();
 
     navigate(
@@ -126,11 +137,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         },
       });
     } catch {
-      /* ignoramos fallo de logout */
+      // ignoramos fallo de logout
     } finally {
       authService.logout();
       setUser(null);
       setPermissions([]);
+      localStorage.removeItem('permissions');
       navigate('/login');
     }
   };
