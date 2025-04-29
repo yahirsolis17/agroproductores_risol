@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/components/huerta/HuertaTable.tsx
 import React from 'react';
 import {
   Table,
@@ -14,6 +15,7 @@ import {
 } from '@mui/material';
 import { Edit, Delete } from '@mui/icons-material';
 import { Huerta } from '../../types/huertaTypes';
+import { PermissionButton } from '../../../../components/common/PermissionButton';
 
 interface HuertaTableProps {
   data: Huerta[];
@@ -39,10 +41,7 @@ const HuertaTable: React.FC<HuertaTableProps> = ({
 
   return (
     <>
-      <TableContainer
-        component={Paper}
-        className="rounded-xl border border-neutral-200"
-      >
+      <TableContainer component={Paper} className="rounded-xl border border-neutral-200">
         <Table size="small">
           <TableHead className="bg-neutral-100">
             <TableRow>
@@ -79,22 +78,26 @@ const HuertaTable: React.FC<HuertaTableProps> = ({
                   <TableCell>
                     <Box display="flex" gap={1}>
                       <Tooltip title="Editar">
-                        <IconButton
-                          color="primary"
+                        <PermissionButton
+                          perm="change_huerta"
+                          component={IconButton}
                           size="small"
+                          color="primary"
                           onClick={() => onEdit?.(huerta)}
                         >
                           <Edit fontSize="small" />
-                        </IconButton>
+                        </PermissionButton>
                       </Tooltip>
                       <Tooltip title="Eliminar">
-                        <IconButton
-                          color="error"
+                        <PermissionButton
+                          perm="delete_huerta"
+                          component={IconButton}
                           size="small"
+                          color="error"
                           onClick={() => onDelete?.(huerta.id)}
                         >
                           <Delete fontSize="small" />
-                        </IconButton>
+                        </PermissionButton>
                       </Tooltip>
                     </Box>
                   </TableCell>

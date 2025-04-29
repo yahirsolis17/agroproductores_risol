@@ -15,26 +15,40 @@ interface PaginatedVentaResponse {
 
 export const ventaService = {
   async listByCosecha(cosechaId: number, page: number = 1) {
-    // GET /api/ventas/<cosecha_id>/?page=N
-    const { data } = await apiClient.get<PaginatedVentaResponse>(`/api/ventas/${cosechaId}/?page=${page}`);
+    // GET /huerta/ventas/<cosecha_id>/?page=N
+    const { data } = await apiClient.get<PaginatedVentaResponse>(
+      `/huerta/ventas/${cosechaId}/?page=${page}`
+    );
     return data;
   },
 
   async create(payload: VentaCreateData) {
-    // POST /api/venta/create/
-    const { data } = await apiClient.post('/api/venta/create/', payload);
-    return data; // => { success, message_key, data: { venta: {...} } }
+    // POST /huerta/venta/create/
+    const { data } = await apiClient.post<{
+      success: boolean;
+      message_key: string;
+      data: { venta?: Venta };
+    }>('/huerta/venta/create/', payload);
+    return data;
   },
 
   async update(id: number, payload: VentaUpdateData) {
-    // PUT /api/venta/<id>/update/
-    const { data } = await apiClient.put(`/api/venta/${id}/update/`, payload);
+    // PUT /huerta/venta/<id>/update/
+    const { data } = await apiClient.put<{
+      success: boolean;
+      message_key: string;
+      data: { venta?: Venta };
+    }>(`/huerta/venta/${id}/update/`, payload);
     return data;
   },
 
   async delete(id: number) {
-    // DELETE /api/venta/<id>/delete/
-    const { data } = await apiClient.delete(`/api/venta/${id}/delete/`);
+    // DELETE /huerta/venta/<id>/delete/
+    const { data } = await apiClient.delete<{
+      success: boolean;
+      message_key: string;
+      data: { info?: string };
+    }>(`/huerta/venta/${id}/delete/`);
     return data;
   },
 };

@@ -1,5 +1,8 @@
 // src/modules/gestion_usuarios/pages/PermissionsDialog.tsx
 import React, { useEffect, useState, forwardRef } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import type { AppDispatch, RootState } from '../../../global/store/store';
+import { setPermissions } from '../../../global/store/authSlice';
 import {
   Dialog,
   DialogTitle,
@@ -21,7 +24,6 @@ interface PermissionsDialogProps {
   open: boolean;
   onClose: () => void;
   userId: number;
-  currentPerms: string[];
 }
 
 const Transition = forwardRef(function Transition(
@@ -35,38 +37,63 @@ const PermissionsDialog: React.FC<PermissionsDialogProps> = ({
   open,
   onClose,
   userId,
-  currentPerms,
 }) => {
+  const dispatch = useDispatch<AppDispatch>();
+  const currentUserId = useSelector((s: RootState) => s.auth.user?.id);
+
   const [allPerms, setAllPerms] = useState<Permiso[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loadingAll, setLoadingAll] = useState(false);
+  const [loadingUser, setLoadingUser] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  // ───────── cargar permisos ─────────
+  /** Carga inicial: lista de todos los permisos y permisos del usuario */
   useEffect(() => {
     if (!open) return;
 
-    setSelected(currentPerms);
-
-    permisoService
-      .getAllPermisos()
-      .then(setAllPerms)
-      .catch(err => {
-        console.error('[PermissionsDialog] error cargando permisos:', err);
+    const load = async () => {
+      setLoadingAll(true);
+      setLoadingUser(true);
+      try {
+        const [all, userPerms] = await Promise.all([
+          permisoService.getAllPermisos(),
+          permisoService.getUserPermisos(userId),
+        ]);
+        setAllPerms(all);
+        setSelected(userPerms);
+      } catch (err) {
+        console.error('[PermissionsDialog] carga inicial:', err);
         setAllPerms([]);
-      });
-  }, [open, userId, currentPerms]);
+        setSelected([]);
+      } finally {
+        setLoadingAll(false);
+        setLoadingUser(false);
+      }
+    };
 
-  // ───────── toggle checkbox ─────────
+    load();
+  }, [open, userId]);
+
+  /** Toggle de un permiso en local */
   const toggle = (codename: string) =>
     setSelected(prev =>
-      prev.includes(codename) ? prev.filter(p => p !== codename) : [...prev, codename],
+      prev.includes(codename) ? prev.filter(p => p !== codename) : [...prev, codename]
     );
 
-  // ───────── guardar ─────────
+  /** Guardar cambios: asigna en el back, luego recarga permisos del usuario */
   const onSave = async () => {
-    setLoading(true);
+    setSaving(true);
     try {
       await permisoService.setUserPermisos(userId, selected);
+
+      // 🔄 Recarga los permisos **actualizados** del usuario
+      const updatedPerms = await permisoService.getUserPermisos(userId);
+      setSelected(updatedPerms);
+
+      // Si edité mis propios permisos, actualizo el store global
+      if (userId === currentUserId) {
+        dispatch(setPermissions(updatedPerms));
+      }
 
       handleBackendNotification({
         success: true,
@@ -76,15 +103,18 @@ const PermissionsDialog: React.FC<PermissionsDialogProps> = ({
           type: 'success',
         },
       });
+
+      // Finalmente cerramos el modal
       onClose();
     } catch (err: any) {
       handleBackendNotification(err.response?.data);
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  // ────────────────────────────────────────────────────────────────────────────
+  const loading = loadingAll || loadingUser;
+
   return (
     <Dialog
       open={open}
@@ -96,7 +126,7 @@ const PermissionsDialog: React.FC<PermissionsDialogProps> = ({
       <DialogTitle>Editar permisos</DialogTitle>
 
       <DialogContent dividers>
-        {allPerms.length === 0 ? (
+        {loading ? (
           <Box display="flex" justifyContent="center" py={4}>
             <CircularProgress />
           </Box>
@@ -119,15 +149,14 @@ const PermissionsDialog: React.FC<PermissionsDialogProps> = ({
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={onClose} disabled={loading}>
+        <Button onClick={onClose} disabled={saving}>
           Cancelar
         </Button>
         <Button
           onClick={onSave}
           variant="contained"
-          color="primary"
-          disabled={loading}
-          startIcon={loading ? <CircularProgress size={16} /> : null}
+          disabled={saving || loading}
+          startIcon={saving ? <CircularProgress size={16} /> : null}
         >
           Guardar cambios
         </Button>

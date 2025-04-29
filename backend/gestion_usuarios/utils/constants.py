@@ -32,7 +32,12 @@ NOTIFICATION_MESSAGES = {
         "action": "redirect",
         "target": "/dashboard"
     },
-
+    "permission_update_success": {
+        "message": "Permisos actualizados correctamente",
+        "type": "success",
+        "action": "redirect",
+        "target": "/user-permissions"
+    },
     # --- CRUD generales ---
     "create_success": {
         "message": "Registro creado exitosamente",

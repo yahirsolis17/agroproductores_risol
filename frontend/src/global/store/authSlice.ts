@@ -1,4 +1,6 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+// global/store/authSlice.ts
+import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
+import apiClient from '../../global/api/apiClient';  // Ajusta ruta si hace falta
 
 interface User {
   id: number;
@@ -12,8 +14,9 @@ interface User {
 interface AuthState {
   user: User | null;
   token: string | null;
-  permissions: string[];     // ← NEW
+  permissions: string[];
   isAuthenticated: boolean;
+  loadingPermissions: boolean;    // ← NUEVO: estado para el thunk
 }
 
 const initialState: AuthState = {
@@ -21,7 +24,18 @@ const initialState: AuthState = {
   token: null,
   permissions: JSON.parse(localStorage.getItem('permissions') ?? '[]'),
   isAuthenticated: false,
+  loadingPermissions: false,
 };
+
+// ─── Thunk para refetch de permisos ───
+export const fetchPermissionsThunk = createAsyncThunk<string[]>(
+  'auth/fetchPermissions',
+  async () => {
+    const res = await apiClient.get('/usuarios/me/permissions/');
+    // La ruta devuelve { permissions: string[] }
+    return res.data.permissions;
+  }
+);
 
 export const authSlice = createSlice({
   name: 'auth',
@@ -36,14 +50,35 @@ export const authSlice = createSlice({
       state.token = token;
       state.permissions = permissions;
       state.isAuthenticated = true;
+      localStorage.setItem('permissions', JSON.stringify(permissions));
     },
     logout: (state) => {
       state.user = null;
       state.token = null;
+      state.permissions = [];
       state.isAuthenticated = false;
+      localStorage.removeItem('permissions');
     },
+    setPermissions: (state, action: PayloadAction<string[]>) => {
+      state.permissions = action.payload;
+      localStorage.setItem('permissions', JSON.stringify(action.payload));
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchPermissionsThunk.pending, (state) => {
+        state.loadingPermissions = true;
+      })
+      .addCase(fetchPermissionsThunk.fulfilled, (state, action) => {
+        state.permissions = action.payload;
+        state.loadingPermissions = false;
+        localStorage.setItem('permissions', JSON.stringify(action.payload));
+      })
+      .addCase(fetchPermissionsThunk.rejected, (state) => {
+        state.loadingPermissions = false;
+      });
   },
 });
 
-export const { loginSuccess, logout } = authSlice.actions;
+export const { loginSuccess, logout, setPermissions } = authSlice.actions;
 export default authSlice.reducer;

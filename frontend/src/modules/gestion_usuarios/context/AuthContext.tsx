@@ -75,12 +75,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 const fetchPermissions = async () => {
   try {
     const response = await apiClient.get('/usuarios/me/permissions/');
-    const permisos: string[] = response.data.data.permisos;
-    setPermissions(permisos);           // ← ¡aquí guardas el array en tu estado!
+    const permisos: string[] = response.data.permissions; // ← CORREGIDO aquí
+    setPermissions(permisos);
     return permisos;
   } catch (error) {
     console.error('Error fetching permissions:', error);
-    setPermissions([]);                 // en caso de fallo, tampoco te quedes con los anteriores
+    setPermissions([]);
     return [];
   }
 };

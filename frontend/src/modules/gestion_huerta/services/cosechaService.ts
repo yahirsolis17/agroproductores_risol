@@ -2,44 +2,64 @@
 import apiClient from '../../../global/api/apiClient';
 import { Cosecha, CosechaCreateData, CosechaUpdateData } from '../types/cosechaTypes';
 
-// No estás paginando las cosechas, excepto al listarlas con un huerta_id
-// GET /api/cosechas/<huerta_id> => returns an array directly or simple JSON?
-// Observé que devuelves un simple:  [ {...}, {...} ]
-
 export const cosechaService = {
   async listByHuerta(huertaId: number) {
-    // GET /api/cosechas/<huerta_id>/
-    const { data } = await apiClient.get<Cosecha[]>(`/api/cosechas/${huertaId}/`);
-    return data; // array de Cosecha
+    // GET /huerta/cosechas/<huerta_id>/
+    const { data } = await apiClient.get<{
+      success: boolean;
+      message_key: string;
+      data: { cosechas: Cosecha[] };
+    }>(`/huerta/cosechas/${huertaId}/`);
+    return data;
   },
 
   async create(payload: CosechaCreateData) {
-    // POST /api/cosecha/create/
-    const { data } = await apiClient.post('/api/cosecha/create/', payload);
-    return data; // Podrías tiparlo con success, message_key, data: { ... }
+    // POST /huerta/cosecha/create/
+    const { data } = await apiClient.post<{
+      success: boolean;
+      message_key: string;
+      data: { cosecha?: Cosecha };
+    }>('/huerta/cosecha/create/', payload);
+    return data;
   },
 
   async get(id: number) {
-    // GET /api/cosecha/<id>/
-    const { data } = await apiClient.get(`/api/cosecha/${id}/`);
-    return data; // { ...Cosecha }
+    // GET /huerta/cosecha/<id>/
+    const { data } = await apiClient.get<{
+      success: boolean;
+      message_key: string;
+      data: { cosecha: Cosecha };
+    }>(`/huerta/cosecha/${id}/`);
+    return data;
   },
 
   async update(id: number, payload: CosechaUpdateData) {
-    // PUT /api/cosecha/<id>/update/
-    const { data } = await apiClient.put(`/api/cosecha/${id}/update/`, payload);
+    // PUT /huerta/cosecha/<id>/update/
+    const { data } = await apiClient.put<{
+      success: boolean;
+      message_key: string;
+      data: { cosecha?: Cosecha };
+    }>(`/huerta/cosecha/${id}/update/`, payload);
     return data;
   },
 
   async delete(id: number) {
-    // DELETE /api/cosecha/<id>/delete/
-    const { data } = await apiClient.delete(`/api/cosecha/${id}/delete/`);
+    // DELETE /huerta/cosecha/<id>/delete/
+    const { data } = await apiClient.delete<{
+      success: boolean;
+      message_key: string;
+      data: { info?: string };
+    }>(`/huerta/cosecha/${id}/delete/`);
     return data;
   },
 
   async toggle(id: number) {
-    // POST /api/cosecha/<id>/toggle/
-    const { data } = await apiClient.post(`/api/cosecha/${id}/toggle/`);
+    // POST /huerta/cosecha/<id>/toggle/
+    const { data } = await apiClient.post<{
+      success: boolean;
+      message_key: string;
+      data: { cosecha: Cosecha };
+    }>(`/huerta/cosecha/${id}/toggle/`);
     return data;
   },
 };

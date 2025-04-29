@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/components/propietario/PropietarioTable.tsx
 import React from 'react';
 import {
   Table,
@@ -12,6 +13,7 @@ import {
   Typography,
 } from '@mui/material';
 import { Propietario } from '../../types/propietarioTypes';
+import { PermissionButton } from '../../../../components/common/PermissionButton'; // ← Import
 
 interface PropietarioTableProps {
   data: Propietario[];
@@ -30,7 +32,6 @@ const PropietarioTable: React.FC<PropietarioTableProps> = ({
 }) => {
   const totalPages = Math.max(1, Math.ceil(count / pageSize));
 
-  // ☢️ Defensa básica: ¿es un arreglo real?
   const isValidData =
     Array.isArray(data) &&
     data.every(
@@ -76,9 +77,10 @@ const PropietarioTable: React.FC<PropietarioTableProps> = ({
                   <TableCell>{prop.telefono}</TableCell>
                   <TableCell>{prop.direccion}</TableCell>
                   <TableCell>
-                    <span className="text-sm text-neutral-500">
+                    {/* Aquí podrías tener Edit/Delete, pero al menos deshabilitamos “Acciones” */}
+                    <PermissionButton perm="change_propietario" variant="text">
                       🔧 Acciones
-                    </span>
+                    </PermissionButton>
                   </TableCell>
                 </TableRow>
               ))

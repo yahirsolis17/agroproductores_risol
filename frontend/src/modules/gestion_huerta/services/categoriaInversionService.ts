@@ -12,30 +12,42 @@ interface CategoriaListResponse {
 
 export const categoriaInversionService = {
   async list() {
-    // GET /api/categorias/
+    // GET /huerta/categorias/
     const { data } = await apiClient.get<{
       success: boolean;
       message_key: string;
       data: CategoriaListResponse;
-    }>('/api/categorias/');
+    }>('/huerta/categorias/');
     return data;
   },
 
   async create(payload: { nombre: string }) {
-    // POST /api/categoria/create/
-    const { data } = await apiClient.post('/api/categoria/create/', payload);
+    // POST /huerta/categoria/create/
+    const { data } = await apiClient.post<{
+      success: boolean;
+      message_key: string;
+      data: { categoria?: CategoriaInversion };
+    }>('/huerta/categoria/create/', payload);
     return data;
   },
 
   async update(id: number, payload: { nombre: string }) {
-    // PUT /api/categoria/update/<id>/
-    const { data } = await apiClient.put(`/api/categoria/update/${id}/`, payload);
+    // PUT /huerta/categoria/update/<id>/
+    const { data } = await apiClient.put<{
+      success: boolean;
+      message_key: string;
+      data: { categoria?: CategoriaInversion };
+    }>(`/huerta/categoria/update/${id}/`, payload);
     return data;
   },
 
   async delete(id: number) {
-    // DELETE /api/categoria/delete/<id>/
-    const { data } = await apiClient.delete(`/api/categoria/delete/${id}/`);
+    // DELETE /huerta/categoria/delete/<id>/
+    const { data } = await apiClient.delete<{
+      success: boolean;
+      message_key: string;
+      data: { info?: string };
+    }>(`/huerta/categoria/delete/${id}/`);
     return data;
   },
 };

@@ -8,12 +8,9 @@ import {
   Pagination,
   Box,
   Paper,
-  Button,
-  IconButton,
-  Tooltip,
 } from '@mui/material';
-import { MdSettings } from 'react-icons/md';
 import PermissionsDialog from './PermissionsDialog';
+import UserActionsMenu from '../components/UserActionsMenu';
 
 interface User {
   id: number;
@@ -22,7 +19,7 @@ interface User {
   telefono: string;
   role: 'admin' | 'usuario';
   is_active: boolean;
-  permisos: string[]; // vendrá del backend
+  permisos: string[];
 }
 
 interface PaginationMeta {
@@ -40,7 +37,7 @@ const UsersAdmin: React.FC = () => {
   const [delayedLoading, setDelayedLoading] = useState(false);
   const pageSize = 10;
 
-  // Estados para el dialog de permisos
+  // Diálogo de permisos
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selUserId, setSelUserId] = useState<number>(0);
   const [selUserPerms, setSelUserPerms] = useState<string[]>([]);
@@ -55,7 +52,6 @@ const UsersAdmin: React.FC = () => {
       setDelayedLoading(false);
       const res = await apiClient.get(`/usuarios/users/?page=${pageNumber}`);
       const results: any[] = res.data.results || [];
-      // Mapeamos y excluimos al admin actual
       const mapped: User[] = results
         .filter(u => u.id !== currentUser?.id)
         .map(u => ({
@@ -65,7 +61,7 @@ const UsersAdmin: React.FC = () => {
           telefono: u.telefono,
           role: u.role,
           is_active: u.is_active,
-          permisos: u.permisos || [], 
+          permisos: u.permisos || [],
         }));
       setUsers(mapped);
       setMeta({ count: res.data.count, next: res.data.next, previous: res.data.previous });
@@ -81,18 +77,36 @@ const UsersAdmin: React.FC = () => {
   const totalPages = Math.max(1, Math.ceil(meta.count / pageSize));
   const handlePageChange = (_: any, newPage: number) => setPage(newPage);
 
-  const toggleActive = async (userId: number) => {
+  const handleToggleActive = async (userId: number) => {
     try {
       await apiClient.patch(`/usuarios/users/${userId}/toggle_active/`);
       fetchUsers(page);
     } catch {
-      setError('Error al actualizar el usuario');
+      setError('Error al actualizar el estado del usuario');
     }
   };
 
-  const openDialog = (u: User) => {
-    setSelUserId(u.id);
-    setSelUserPerms(u.permisos);
+  const handleArchiveUser = async (userId: number) => {
+    try {
+      await apiClient.patch(`/usuarios/users/${userId}/archive/`); // Ajusta endpoint si es otro
+      fetchUsers(page);
+    } catch {
+      setError('Error al archivar el usuario');
+    }
+  };
+
+  const handleDeleteUser = async (userId: number) => {
+    try {
+      await apiClient.delete(`/usuarios/users/${userId}/`);
+      fetchUsers(page);
+    } catch {
+      setError('Error al eliminar el usuario');
+    }
+  };
+
+  const handleManagePermissions = (userId: number, permisos: string[]) => {
+    setSelUserId(userId);
+    setSelUserPerms(permisos);
     setDialogOpen(true);
   };
 
@@ -141,23 +155,13 @@ const UsersAdmin: React.FC = () => {
                         <td className="px-4 py-2 border">{u.telefono}</td>
                         <td className="px-4 py-2 border capitalize">{u.role}</td>
                         <td className="px-4 py-2 border">{u.is_active ? 'Sí' : 'No'}</td>
-                        <td className="px-4 py-2 border space-x-2">
-                          <Button
-                            onClick={() => toggleActive(u.id)}
-                            variant="contained"
-                            color={u.is_active ? 'warning' : 'success'}
-                            size="small"
-                          >
-                            {u.is_active ? 'Desactivar' : 'Activar'}
-                          </Button>
-                          <Tooltip title="Editar permisos">
-                            <IconButton
-                              size="small"
-                              onClick={() => openDialog(u)}
-                            >
-                              <MdSettings />
-                            </IconButton>
-                          </Tooltip>
+                        <td className="px-4 py-2 border">
+                          <UserActionsMenu
+                            onDeactivate={() => handleToggleActive(u.id)}
+                            onArchive={() => handleArchiveUser(u.id)}
+                            onDelete={() => handleDeleteUser(u.id)}
+                            onManagePermissions={() => handleManagePermissions(u.id, u.permisos)}
+                          />
                         </td>
                       </tr>
                     ))
@@ -186,7 +190,7 @@ const UsersAdmin: React.FC = () => {
         </Paper>
       </motion.div>
 
-      {/* Dialog de permisos */}
+      {/* Diálogo de permisos */}
       <PermissionsDialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}

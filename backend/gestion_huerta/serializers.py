@@ -14,10 +14,10 @@ from gestion_huerta.models import (
 # -----------------------------
 def validate_nombre_persona(value):
     """
-    Valida que el nombre contenga entre 3 y 100 caracteres, solo letras y espacios.
+    Valida que el nombre contenga entre 3 y 100 caracteres, letras, números y espacios.
     """
-    if not re.match(r'^[a-zA-ZñÑáéíóúÁÉÍÓÚ\s]{3,100}$', value.strip()):
-        raise serializers.ValidationError("Nombre inválido. Solo letras y mínimo 3 caracteres.")
+    if not re.match(r'^[a-zA-Z0-9ñÑáéíóúÁÉÍÓÚ\s]', value.strip()):
+        raise serializers.ValidationError("Nombre inválido. Solo letras, números y mínimo 3 caracteres.")
     return value
 
 def validate_direccion(value):

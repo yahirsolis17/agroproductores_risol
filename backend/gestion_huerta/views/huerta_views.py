@@ -1,797 +1,519 @@
-# huerta_views.py
+# gestion_huerta/views/viewsets.py
+# ---------------------------------------------------------------------------
+#  ██████╗ ██╗   ██╗██████╗ ███████╗████████╗ █████╗     ██████╗ ██╗   ██╗
+#  ██╔══██╗██║   ██║██╔══██╗██╔════╝╚══██╔══╝██╔══██╗    ██╔══██╗██║   ██║
+#  ██████╔╝██║   ██║██║  ██║█████╗     ██║   ███████║    ██████╔╝██║   ██║
+#  ██╔══██╗██║   ██║██║  ██║██╔══╝     ██║   ██╔══██║    ██╔══██╗██║   ██║
+#  ██████╔╝╚██████╔╝██████╔╝███████╗   ██║   ██║  ██║    ██████╔╝╚██████╔╝
+#  ╚═════╝  ╚═════╝ ╚═════╝ ╚══════╝   ╚═╝   ╚═╝  ╚═╝    ╚═════╝  ╚═════╝
+#
+#  Vista unificada (ModelViewSet) para todo el módulo de huertas.
+#  Cada método devuelve el mismo JSON que ya usa tu frontend
+#  (NotificationHandler.generate_response), por lo que NO tendrás
+#  que cambiar nada en React/Redux.
+# ---------------------------------------------------------------------------
 
 import logging
+from django.db import IntegrityError
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.status import (
-    HTTP_200_OK, HTTP_201_CREATED, HTTP_400_BAD_REQUEST,
-    HTTP_404_NOT_FOUND, HTTP_500_INTERNAL_SERVER_ERROR
-)
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
-from django.db import IntegrityError
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
+# Modelos
 from gestion_huerta.models import (
     Propietario, Huerta, HuertaRentada, Cosecha,
     InversionesHuerta, CategoriaInversion, Venta
 )
+
+# Serializadores
 from gestion_huerta.serializers import (
     PropietarioSerializer, HuertaSerializer, HuertaRentadaSerializer,
-    InversionesHuertaSerializer, VentaSerializer,
-    CategoriaInversionSerializer, CosechaSerializer
+    CosechaSerializer, InversionesHuertaSerializer,
+    CategoriaInversionSerializer, VentaSerializer
 )
-from gestion_huerta.utils.activity import registrar_actividad
-from gestion_huerta.utils.notification_handler import NotificationHandler
 
 # Permisos
 from gestion_huerta.permissions import (
-    HasHuertaModulePermission,
-    HuertaGranularPermission
+    HasHuertaModulePermission, HuertaGranularPermission
 )
+
+# Utilidades
+from gestion_huerta.utils.activity import registrar_actividad
+from gestion_huerta.utils.notification_handler import NotificationHandler
 
 logger = logging.getLogger(__name__)
 
-# -------------------- PAGINATION HELPER --------------------
+
+# ---------------------------------------------------------------------------
+# Paginar 100 → máximo y permitir ?page_size=
+# ---------------------------------------------------------------------------
 class GenericPagination(PageNumberPagination):
     page_size = 10
-    page_size_query_param = 'page_size'
+    page_size_query_param = "page_size"
     max_page_size = 100
 
 
-# ----------------------------------------------------------------
-# PROPIETARIO CRUD
-# ----------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Mix-in que centraliza las respuestas uniformes
+# ---------------------------------------------------------------------------
+class NotificationMixin:
+    """
+    Injecta el método notify() para que todos los ViewSets devuelvan el
+    mismo formato de respuesta sin repetir código.
+    """
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission])
-def propietario_list(request):
-    try:
-        qs = Propietario.objects.all().order_by('nombre')
-        data = PropietarioSerializer(qs, many=True).data
+    def notify(self, *, key: str, data=None, status_code=status.HTTP_200_OK):
+        """
+        Simple wrapper para mantener la compatibilidad con tu
+        NotificationHandler.
+        """
         return NotificationHandler.generate_response(
-          message_key="data_processed_success",
-          data={"propietarios": data},
-          status_code=HTTP_200_OK
-        )
-    except Exception as e:
-        logger.error(f"[propietario_list] {e}")
-        return NotificationHandler.generate_response(
-          message_key="server_error",
-          status_code=HTTP_500_INTERNAL_SERVER_ERROR
+            message_key=key,
+            data=data or {},
+            status_code=status_code,
         )
 
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
-def propietario_create(request):
-    try:
-        ser = PropietarioSerializer(data=request.data)
-        if not ser.is_valid():
-            return NotificationHandler.generate_response(
-              message_key="validation_error",
-              data={"errors": ser.errors},
-              status_code=HTTP_400_BAD_REQUEST
+# ---------------------------------------------------------------------------
+#  🏠  PROPIETARIOS
+# ---------------------------------------------------------------------------
+class PropietarioViewSet(NotificationMixin, viewsets.ModelViewSet):
+    queryset = Propietario.objects.all().order_by("nombre")
+    serializer_class = PropietarioSerializer
+    pagination_class = GenericPagination
+    permission_classes = [
+        IsAuthenticated,
+        HasHuertaModulePermission,
+        HuertaGranularPermission,
+    ]
+
+    # ---------- LIST ----------
+    def list(self, request, *args, **kwargs):
+        page = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
+        serializer = self.get_serializer(page, many=True)
+        return self.notify(
+            key="data_processed_success",
+            data={"propietarios": serializer.data},
+            status_code=status.HTTP_200_OK,
+        )
+
+    # ---------- CREATE ----------
+    def create(self, request, *args, **kwargs):
+        try:
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            obj = serializer.save()
+            registrar_actividad(request.user, f"Creó al propietario: {obj.nombre}")
+            return self.notify(
+                key="propietario_create_success",
+                data={"propietario": serializer.data},
+                status_code=status.HTTP_201_CREATED,
             )
-        obj = ser.save()
-        registrar_actividad(request.user, f"Creó al propietario: {obj.nombre}")
-        return NotificationHandler.generate_response(
-          message_key="propietario_create_success",
-          data={"propietario": ser.data},
-          status_code=HTTP_201_CREATED
-        )
-    except IntegrityError as e:
-        logger.error(f"[propietario_create] {e}")
-        return NotificationHandler.generate_response(
-          message_key="validation_error",
-          data={"errors": {"telefono": ["Este teléfono ya está registrado."]}},
-          status_code=HTTP_400_BAD_REQUEST
-        )
-    except Exception as e:
-        logger.error(f"[propietario_create] {e}")
-        return NotificationHandler.generate_response(
-          message_key="server_error",
-          status_code=HTTP_500_INTERNAL_SERVER_ERROR
-        )
-
-
-@api_view(['PUT', 'PATCH'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
-def propietario_update(request, pk):
-    try:
-        inst = get_object_or_404(Propietario, pk=pk)
-        ser = PropietarioSerializer(inst, data=request.data, partial=True)
-        if not ser.is_valid():
-            return NotificationHandler.generate_response(
-              message_key="validation_error",
-              data={"errors": ser.errors},
-              status_code=HTTP_400_BAD_REQUEST
+        except IntegrityError:
+            return self.notify(
+                key="validation_error",
+                data={"errors": {"telefono": ["Este teléfono ya está registrado."]}},
+                status_code=status.HTTP_400_BAD_REQUEST,
             )
-        obj = ser.save()
+
+    # ---------- UPDATE / PARTIAL_UPDATE ----------
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        obj = serializer.save()
         registrar_actividad(request.user, f"Actualizó al propietario: {obj.nombre}")
-        return NotificationHandler.generate_response(
-          message_key="propietario_update_success",
-          data={"propietario": ser.data},
-          status_code=HTTP_200_OK
-        )
-    except Exception as e:
-        logger.error(f"[propietario_update] {e}")
-        return NotificationHandler.generate_response(
-          message_key="server_error",
-          status_code=HTTP_500_INTERNAL_SERVER_ERROR
+        return self.notify(
+            key="propietario_update_success",
+            data={"propietario": serializer.data},
+            status_code=status.HTTP_200_OK,
         )
 
-
-@api_view(['DELETE'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
-def propietario_delete(request, pk):
-    try:
-        inst = get_object_or_404(Propietario, pk=pk)
-        nombre = str(inst)
-        inst.delete()
+    # ---------- DESTROY ----------
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        nombre = str(instance)
+        instance.delete()
         registrar_actividad(request.user, f"Eliminó al propietario: {nombre}")
-        return NotificationHandler.generate_response(
-          message_key="propietario_delete_success",
-          data={"info": f"Propietario '{nombre}' eliminado."},
-          status_code=HTTP_200_OK
-        )
-    except Exception as e:
-        logger.error(f"[propietario_delete] {e}")
-        return NotificationHandler.generate_response(
-          message_key="server_error",
-          status_code=HTTP_500_INTERNAL_SERVER_ERROR
+        return self.notify(
+            key="propietario_delete_success",
+            data={"info": f"Propietario '{nombre}' eliminado."},
+            status_code=status.HTTP_200_OK,
         )
 
 
-# ----------------------------------------------------------------
-# HUERTA PROPIA CRUD
-# ----------------------------------------------------------------
+# ---------------------------------------------------------------------------
+#  🌳  HUERTAS PROPIAS
+# ---------------------------------------------------------------------------
+class HuertaViewSet(NotificationMixin, viewsets.ModelViewSet):
+    queryset = Huerta.objects.select_related("propietario").order_by("nombre")
+    serializer_class = HuertaSerializer
+    pagination_class = GenericPagination
+    permission_classes = [
+        IsAuthenticated,
+        HasHuertaModulePermission,
+        HuertaGranularPermission,
+    ]
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission])
-def huerta_list(request):
-    try:
-        qs = Huerta.objects.all().select_related('propietario').order_by('nombre')
-        data = HuertaSerializer(qs, many=True).data
-        return NotificationHandler.generate_response(
-          message_key="data_processed_success",
-          data={"huertas": data},
-          status_code=HTTP_200_OK
+    def list(self, request, *args, **kwargs):
+        page = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
+        serializer = self.get_serializer(page, many=True)
+        return self.notify(
+            key="data_processed_success",
+            data={"huertas": serializer.data},
+            status_code=status.HTTP_200_OK,
         )
-    except Exception as e:
-        logger.error(f"[huerta_list] {e}")
-        return NotificationHandler.generate_response(
-          message_key="server_error",
-          status_code=HTTP_500_INTERNAL_SERVER_ERROR
-        )
 
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
-def huerta_create(request):
-    try:
-        ser = HuertaSerializer(data=request.data)
-        if not ser.is_valid():
-            return NotificationHandler.generate_response(
-              message_key="validation_error",
-              data={"errors": ser.errors},
-              status_code=HTTP_400_BAD_REQUEST
-            )
-        obj = ser.save()
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        obj = serializer.save()
         registrar_actividad(request.user, f"Creó la huerta: {obj.nombre}")
-        return NotificationHandler.generate_response(
-          message_key="huerta_create_success",
-          data={"huerta": ser.data},
-          status_code=HTTP_201_CREATED
-        )
-    except Exception as e:
-        logger.error(f"[huerta_create] {e}")
-        return NotificationHandler.generate_response(
-          message_key="server_error",
-          status_code=HTTP_500_INTERNAL_SERVER_ERROR
+        return self.notify(
+            key="huerta_create_success",
+            data={"huerta": serializer.data},
+            status_code=status.HTTP_201_CREATED,
         )
 
-
-@api_view(['PUT', 'PATCH'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
-def huerta_update(request, pk):
-    try:
-        inst = get_object_or_404(Huerta, pk=pk)
-        ser = HuertaSerializer(inst, data=request.data, partial=True)
-        if not ser.is_valid():
-            return NotificationHandler.generate_response(
-              message_key="validation_error",
-              data={"errors": ser.errors},
-              status_code=HTTP_400_BAD_REQUEST
-            )
-        obj = ser.save()
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        obj = serializer.save()
         registrar_actividad(request.user, f"Actualizó la huerta: {obj.nombre}")
-        return NotificationHandler.generate_response(
-          message_key="huerta_update_success",
-          data={"huerta": ser.data},
-          status_code=HTTP_200_OK
-        )
-    except Exception as e:
-        logger.error(f"[huerta_update] {e}")
-        return NotificationHandler.generate_response(
-          message_key="server_error",
-          status_code=HTTP_500_INTERNAL_SERVER_ERROR
+        return self.notify(
+            key="huerta_update_success",
+            data={"huerta": serializer.data},
+            status_code=status.HTTP_200_OK,
         )
 
-
-@api_view(['DELETE'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
-def huerta_delete(request, pk):
-    try:
-        inst = get_object_or_404(Huerta, pk=pk)
-        nombre = inst.nombre
-        inst.delete()
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        nombre = instance.nombre
+        instance.delete()
         registrar_actividad(request.user, f"Eliminó la huerta: {nombre}")
-        return NotificationHandler.generate_response(
-          message_key="huerta_delete_success",
-          data={"info": f"Huerta '{nombre}' eliminada."},
-          status_code=HTTP_200_OK
-        )
-    except Exception as e:
-        logger.error(f"[huerta_delete] {e}")
-        return NotificationHandler.generate_response(
-          message_key="server_error",
-          status_code=HTTP_500_INTERNAL_SERVER_ERROR
+        return self.notify(
+            key="huerta_delete_success",
+            data={"info": f"Huerta '{nombre}' eliminada."},
+            status_code=status.HTTP_200_OK,
         )
 
-# ----------------------------------------------------------------
-# HUERTA RENTADA CRUD
-# ----------------------------------------------------------------
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
-def huerta_rentada_list(request):
-    try:
-        huertas_rentadas = HuertaRentada.objects.all().select_related('propietario').order_by('nombre')
-        serializer = HuertaRentadaSerializer(huertas_rentadas, many=True)
-        return NotificationHandler.generate_response(
-            message_key="data_processed_success",
+# ---------------------------------------------------------------------------
+#  🏡  HUERTAS RENTADAS
+# ---------------------------------------------------------------------------
+class HuertaRentadaViewSet(NotificationMixin, viewsets.ModelViewSet):
+    queryset = HuertaRentada.objects.select_related("propietario").order_by("nombre")
+    serializer_class = HuertaRentadaSerializer
+    pagination_class = GenericPagination
+    permission_classes = [
+        IsAuthenticated,
+        HasHuertaModulePermission,
+        HuertaGranularPermission,
+    ]
+
+    def list(self, request, *args, **kwargs):
+        page = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
+        serializer = self.get_serializer(page, many=True)
+        return self.notify(
+            key="data_processed_success",
             data={"huertas_rentadas": serializer.data},
-            status_code=HTTP_200_OK
-        )
-    except Exception as e:
-        logger.error(f"[huerta_rentada_list] Error: {str(e)}")
-        return NotificationHandler.generate_response(
-            message_key="server_error",
-            status_code=HTTP_500_INTERNAL_SERVER_ERROR
+            status_code=status.HTTP_200_OK,
         )
 
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
-def huerta_rentada_create(request):
-    try:
-        serializer = HuertaRentadaSerializer(data=request.data)
-        if serializer.is_valid():
-            huerta = serializer.save()
-            registrar_actividad(request.user, f"Creó la huerta rentada: {huerta.nombre}")
-            return NotificationHandler.generate_response(
-                message_key="huerta_rentada_create_success",
-                data={"huerta_rentada": serializer.data},
-                status_code=HTTP_201_CREATED
-            )
-        return NotificationHandler.generate_response(
-            message_key="validation_error",
-            data={"errors": serializer.errors},
-            status_code=HTTP_400_BAD_REQUEST
-        )
-    except Exception as e:
-        logger.error(f"[huerta_rentada_create] Error: {str(e)}")
-        return NotificationHandler.generate_response(
-            message_key="server_error",
-            status_code=HTTP_500_INTERNAL_SERVER_ERROR
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        obj = serializer.save()
+        registrar_actividad(request.user, f"Creó la huerta rentada: {obj.nombre}")
+        return self.notify(
+            key="huerta_rentada_create_success",
+            data={"huerta_rentada": serializer.data},
+            status_code=status.HTTP_201_CREATED,
         )
 
-
-@api_view(['PUT', 'PATCH'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
-def huerta_rentada_update(request, pk):
-    try:
-        huerta = get_object_or_404(HuertaRentada, pk=pk)
-        serializer = HuertaRentadaSerializer(huerta, data=request.data, partial=True)
-        if serializer.is_valid():
-            huerta = serializer.save()
-            registrar_actividad(request.user, f"Actualizó la huerta rentada: {huerta.nombre}")
-            return NotificationHandler.generate_response(
-                message_key="huerta_rentada_update_success",
-                data={"huerta_rentada": serializer.data},
-                status_code=HTTP_200_OK
-            )
-        return NotificationHandler.generate_response(
-            message_key="validation_error",
-            data={"errors": serializer.errors},
-            status_code=HTTP_400_BAD_REQUEST
-        )
-    except Exception as e:
-        logger.error(f"[huerta_rentada_update] Error: {str(e)}")
-        return NotificationHandler.generate_response(
-            message_key="server_error",
-            status_code=HTTP_500_INTERNAL_SERVER_ERROR
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        obj = serializer.save()
+        registrar_actividad(request.user, f"Actualizó la huerta rentada: {obj.nombre}")
+        return self.notify(
+            key="huerta_rentada_update_success",
+            data={"huerta_rentada": serializer.data},
+            status_code=status.HTTP_200_OK,
         )
 
-
-@api_view(['DELETE'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
-def huerta_rentada_delete(request, pk):
-    try:
-        huerta = get_object_or_404(HuertaRentada, pk=pk)
-        nombre = huerta.nombre
-        huerta.delete()
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        nombre = instance.nombre
+        instance.delete()
         registrar_actividad(request.user, f"Eliminó la huerta rentada: {nombre}")
-        return NotificationHandler.generate_response(
-            message_key="huerta_rentada_delete_success",
+        return self.notify(
+            key="huerta_rentada_delete_success",
             data={"info": f"Huerta rentada '{nombre}' eliminada."},
-            status_code=HTTP_200_OK
-        )
-    except Exception as e:
-        logger.error(f"[huerta_rentada_delete] Error: {str(e)}")
-        return NotificationHandler.generate_response(
-            message_key="server_error",
-            status_code=HTTP_500_INTERNAL_SERVER_ERROR
+            status_code=status.HTTP_200_OK,
         )
 
 
-# ----------------------------------------------------------------
-# COSECHAS
-# ----------------------------------------------------------------
+# ---------------------------------------------------------------------------
+#  🌾  COSECHAS
+# ---------------------------------------------------------------------------
+class CosechaViewSet(NotificationMixin, viewsets.ModelViewSet):
+    queryset = Cosecha.objects.select_related("huerta").prefetch_related(
+        "inversiones", "ventas"
+    ).order_by("-fecha_creacion")
+    serializer_class = CosechaSerializer
+    pagination_class = GenericPagination
+    permission_classes = [
+        IsAuthenticated,
+        HasHuertaModulePermission,
+        HuertaGranularPermission,
+    ]
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
-def listar_cosechas_por_huerta(request, huerta_id):
-    try:
-        huerta = get_object_or_404(Huerta, id=huerta_id)
-        cosechas = (
-            Cosecha.objects.filter(huerta=huerta)
-            .order_by('-fecha_creacion')
-            .prefetch_related('inversiones', 'ventas')
-        )
-        serializer = CosechaSerializer(cosechas, many=True)
-        return NotificationHandler.generate_response(
-            message_key="data_processed_success",
-            data={"cosechas": serializer.data},
-            status_code=HTTP_200_OK
-        )
-    except Exception as e:
-        logger.error(f"[listar_cosechas_por_huerta] Error: {e}")
-        return NotificationHandler.generate_response(
-            message_key="server_error",
-            status_code=HTTP_500_INTERNAL_SERVER_ERROR
-        )
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
-def crear_cosecha(request):
-    try:
+    # --- CREATE ---
+    def create(self, request, *args, **kwargs):
         data = request.data.copy()
-        data['fecha_inicio'] = data.get('fecha_inicio') or timezone.now()
-        data['fecha_creacion'] = timezone.now()
-
-        serializer = CosechaSerializer(data=data)
-        if serializer.is_valid():
-            cosecha = serializer.save()
-            registrar_actividad(request.user, f"Registró la cosecha: {cosecha.nombre}")
-            return NotificationHandler.generate_response(
-                message_key="cosecha_create_success",
-                data={"cosecha": serializer.data},
-                status_code=HTTP_201_CREATED
-            )
-        return NotificationHandler.generate_response(
-            message_key="validation_error",
-            data={"errors": serializer.errors},
-            status_code=HTTP_400_BAD_REQUEST
-        )
-    except Exception as e:
-        logger.error(f"[crear_cosecha] Error: {e}")
-        return NotificationHandler.generate_response(
-            message_key="server_error",
-            status_code=HTTP_500_INTERNAL_SERVER_ERROR
-        )
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
-def obtener_cosecha(request, id):
-    try:
-        cosecha = get_object_or_404(Cosecha, id=id)
-        serializer = CosechaSerializer(cosecha)
-        return NotificationHandler.generate_response(
-            message_key="data_processed_success",
+        data.setdefault("fecha_inicio", timezone.now())
+        data["fecha_creacion"] = timezone.now()
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        obj = serializer.save()
+        registrar_actividad(request.user, f"Registró la cosecha: {obj.nombre}")
+        return self.notify(
+            key="cosecha_create_success",
             data={"cosecha": serializer.data},
-            status_code=HTTP_200_OK
-        )
-    except Exception as e:
-        logger.error(f"[obtener_cosecha] Error: {e}")
-        return NotificationHandler.generate_response(
-            message_key="server_error",
-            status_code=HTTP_404_NOT_FOUND
+            status_code=status.HTTP_201_CREATED,
         )
 
-
-@api_view(['PUT', 'PATCH'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
-def actualizar_cosecha(request, id):
-    try:
-        cosecha = get_object_or_404(Cosecha, id=id)
-        serializer = CosechaSerializer(cosecha, data=request.data, partial=True)
-        if serializer.is_valid():
-            cosecha = serializer.save()
-            registrar_actividad(request.user, f"Actualizó la cosecha: {cosecha.nombre}")
-            return NotificationHandler.generate_response(
-                message_key="cosecha_update_success",
-                data={"cosecha": serializer.data},
-                status_code=HTTP_200_OK
-            )
-        return NotificationHandler.generate_response(
-            message_key="validation_error",
-            data={"errors": serializer.errors},
-            status_code=HTTP_400_BAD_REQUEST
-        )
-    except Exception as e:
-        logger.error(f"[actualizar_cosecha] Error: {e}")
-        return NotificationHandler.generate_response(
-            message_key="server_error",
-            status_code=HTTP_500_INTERNAL_SERVER_ERROR
+    # --- UPDATE ---
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        obj = serializer.save()
+        registrar_actividad(request.user, f"Actualizó la cosecha: {obj.nombre}")
+        return self.notify(
+            key="cosecha_update_success",
+            data={"cosecha": serializer.data},
+            status_code=status.HTTP_200_OK,
         )
 
-
-@api_view(['DELETE'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
-def eliminar_cosecha(request, id):
-    try:
-        cosecha = get_object_or_404(Cosecha, id=id)
-        nombre = cosecha.nombre
-        cosecha.delete()
+    # --- DESTROY ---
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        nombre = instance.nombre
+        instance.delete()
         registrar_actividad(request.user, f"Eliminó la cosecha: {nombre}")
-        return NotificationHandler.generate_response(
-            message_key="cosecha_delete_success",
+        return self.notify(
+            key="cosecha_delete_success",
             data={"info": f"Cosecha '{nombre}' eliminada con éxito."},
-            status_code=HTTP_200_OK
-        )
-    except Exception as e:
-        logger.error(f"[eliminar_cosecha] Error: {e}")
-        return NotificationHandler.generate_response(
-            message_key="server_error",
-            status_code=HTTP_500_INTERNAL_SERVER_ERROR
+            status_code=status.HTTP_200_OK,
         )
 
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
-def toggle_estado_cosecha(request, id):
-    try:
-        cosecha = get_object_or_404(Cosecha, id=id)
+    # --- ACCIÓN EXTRA: TOGGLE ESTADO ---
+    @action(detail=True, methods=["post"], url_path="toggle")
+    def toggle_estado(self, request, pk=None):
+        cosecha = self.get_object()
         cosecha.finalizada = not cosecha.finalizada
         cosecha.fecha_fin = timezone.now() if cosecha.finalizada else None
         cosecha.save()
+        estado = "finalizada" if cosecha.finalizada else "en progreso"
         registrar_actividad(
-            request.user,
-            f"Marcó la cosecha '{cosecha.nombre}' como {'finalizada' if cosecha.finalizada else 'en progreso'}"
+            request.user, f"Marcó la cosecha '{cosecha.nombre}' como {estado}"
         )
-        serializer = CosechaSerializer(cosecha)
-        return NotificationHandler.generate_response(
-            message_key="toggle_cosecha_success",
+        serializer = self.get_serializer(cosecha)
+        return self.notify(
+            key="toggle_cosecha_success",
             data={"cosecha": serializer.data},
-            status_code=HTTP_200_OK
-        )
-    except Exception as e:
-        logger.error(f"[toggle_estado_cosecha] Error: {e}")
-        return NotificationHandler.generate_response(
-            message_key="server_error",
-            status_code=HTTP_500_INTERNAL_SERVER_ERROR
+            status_code=status.HTTP_200_OK,
         )
 
 
-# ----------------------------------------------------------------
-# CATEGORÍAS DE INVERSIÓN
-# ----------------------------------------------------------------
+# ---------------------------------------------------------------------------
+#  💰  CATEGORÍAS DE INVERSIÓN
+# ---------------------------------------------------------------------------
+class CategoriaInversionViewSet(NotificationMixin, viewsets.ModelViewSet):
+    queryset = CategoriaInversion.objects.all().order_by("nombre")
+    serializer_class = CategoriaInversionSerializer
+    pagination_class = GenericPagination
+    permission_classes = [
+        IsAuthenticated,
+        HasHuertaModulePermission,
+        HuertaGranularPermission,
+    ]
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
-def listar_categorias_inversion(request):
-    try:
-        categorias = CategoriaInversion.objects.all().order_by('nombre')
-        serializer = CategoriaInversionSerializer(categorias, many=True)
-        return NotificationHandler.generate_response(
-            message_key="data_processed_success",
+    def list(self, request, *args, **kwargs):
+        serializer = self.get_serializer(self.get_queryset(), many=True)
+        return self.notify(
+            key="data_processed_success",
             data={"categorias": serializer.data},
-            status_code=HTTP_200_OK
-        )
-    except Exception as e:
-        logger.error(f"[listar_categorias_inversion] Error: {e}")
-        return NotificationHandler.generate_response(
-            message_key="server_error",
-            status_code=HTTP_500_INTERNAL_SERVER_ERROR
+            status_code=status.HTTP_200_OK,
         )
 
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
-def crear_categoria_inversion(request):
-    try:
-        serializer = CategoriaInversionSerializer(data=request.data)
-        if serializer.is_valid():
-            categoria = serializer.save()
-            registrar_actividad(request.user, f"Creó la categoría de inversión: {categoria.nombre}")
-            return NotificationHandler.generate_response(
-                message_key="categoria_inversion_create_success",
-                data={"categoria": serializer.data},
-                status_code=HTTP_201_CREATED
-            )
-        return NotificationHandler.generate_response(
-            message_key="validation_error",
-            data={"errors": serializer.errors},
-            status_code=HTTP_400_BAD_REQUEST
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        obj = serializer.save()
+        registrar_actividad(
+            request.user, f"Creó la categoría de inversión: {obj.nombre}"
         )
-    except Exception as e:
-        logger.error(f"[crear_categoria_inversion] Error: {e}")
-        return NotificationHandler.generate_response(
-            message_key="server_error",
-            status_code=HTTP_500_INTERNAL_SERVER_ERROR
+        return self.notify(
+            key="categoria_inversion_create_success",
+            data={"categoria": serializer.data},
+            status_code=status.HTTP_201_CREATED,
         )
 
-
-@api_view(['PUT', 'PATCH'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
-def actualizar_categoria_inversion(request, id):
-    try:
-        categoria = get_object_or_404(CategoriaInversion, id=id)
-        serializer = CategoriaInversionSerializer(categoria, data=request.data, partial=True)
-        if serializer.is_valid():
-            categoria = serializer.save()
-            registrar_actividad(request.user, f"Actualizó la categoría de inversión: {categoria.nombre}")
-            return NotificationHandler.generate_response(
-                message_key="categoria_inversion_update_success",
-                data={"categoria": serializer.data},
-                status_code=HTTP_200_OK
-            )
-        return NotificationHandler.generate_response(
-            message_key="validation_error",
-            data={"errors": serializer.errors},
-            status_code=HTTP_400_BAD_REQUEST
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        obj = serializer.save()
+        registrar_actividad(
+            request.user, f"Actualizó la categoría de inversión: {obj.nombre}"
         )
-    except Exception as e:
-        logger.error(f"[actualizar_categoria_inversion] Error: {e}")
-        return NotificationHandler.generate_response(
-            message_key="server_error",
-            status_code=HTTP_500_INTERNAL_SERVER_ERROR
+        return self.notify(
+            key="categoria_inversion_update_success",
+            data={"categoria": serializer.data},
+            status_code=status.HTTP_200_OK,
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        nombre = instance.nombre
+        instance.delete()
+        registrar_actividad(
+            request.user, f"Eliminó la categoría de inversión: {nombre}"
+        )
+        return self.notify(
+            key="categoria_inversion_delete_success",
+            data={"info": f"Categoría '{nombre}' eliminada."},
+            status_code=status.HTTP_200_OK,
         )
 
 
-@api_view(['DELETE'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
-def eliminar_categoria_inversion(request, id):
-    try:
-        categoria = get_object_or_404(CategoriaInversion, id=id)
-        nombre_categoria = categoria.nombre
-        categoria.delete()
-        registrar_actividad(request.user, f"Eliminó la categoría de inversión: {nombre_categoria}")
-        return NotificationHandler.generate_response(
-            message_key="categoria_inversion_delete_success",
-            data={"info": f"Categoría '{nombre_categoria}' eliminada."},
-            status_code=HTTP_200_OK
-        )
-    except Exception as e:
-        logger.error(f"[eliminar_categoria_inversion] Error: {e}")
-        return NotificationHandler.generate_response(
-            message_key="server_error",
-            status_code=HTTP_500_INTERNAL_SERVER_ERROR
-        )
+# ---------------------------------------------------------------------------
+#  🪙  INVERSIONES
+# ---------------------------------------------------------------------------
+class InversionViewSet(NotificationMixin, viewsets.ModelViewSet):
+    queryset = InversionesHuerta.objects.select_related(
+        "categoria", "huerta"
+    ).order_by("-fecha")
+    serializer_class = InversionesHuertaSerializer
+    pagination_class = GenericPagination
+    permission_classes = [
+        IsAuthenticated,
+        HasHuertaModulePermission,
+        HuertaGranularPermission,
+    ]
 
+    # -------- FILTRO POR COSECHA --------
+    def get_queryset(self):
+        qs = super().get_queryset()
+        cosecha_id = self.request.query_params.get("cosecha")
+        if cosecha_id:
+            qs = qs.filter(cosecha_id=cosecha_id)
+        return qs
 
-# ----------------------------------------------------------------
-# INVERSIONES
-# ----------------------------------------------------------------
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
-def crear_inversion(request):
-    try:
-        serializer = InversionesHuertaSerializer(data=request.data)
-        if serializer.is_valid():
-            inversion = serializer.save()
-            registrar_actividad(request.user, f"Registró una inversión: {inversion.nombre}")
-            return NotificationHandler.generate_response(
-                message_key="inversion_create_success",
-                data={"inversion": serializer.data},
-                status_code=HTTP_201_CREATED
-            )
-        return NotificationHandler.generate_response(
-            message_key="validation_error",
-            data={"errors": serializer.errors},
-            status_code=HTTP_400_BAD_REQUEST
-        )
-    except Exception as e:
-        logger.error(f"[crear_inversion] Error: {e}")
-        return NotificationHandler.generate_response(
-            message_key="server_error",
-            status_code=HTTP_500_INTERNAL_SERVER_ERROR
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        obj = serializer.save()
+        registrar_actividad(request.user, f"Registró una inversión: {obj.nombre}")
+        return self.notify(
+            key="inversion_create_success",
+            data={"inversion": serializer.data},
+            status_code=status.HTTP_201_CREATED,
         )
 
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
-def listar_inversiones_por_cosecha(request, cosecha_id):
-    try:
-        cosecha = get_object_or_404(Cosecha, id=cosecha_id)
-        inversiones = (cosecha.inversiones
-                       .select_related('categoria', 'huerta')
-                       .order_by('fecha'))
-        paginator = GenericPagination()
-        page = paginator.paginate_queryset(inversiones, request)
-        serializer = InversionesHuertaSerializer(page, many=True)
-        paginated_data = {
-            "count": paginator.page.paginator.count,
-            "next": paginator.get_next_link(),
-            "previous": paginator.get_previous_link(),
-            "results": serializer.data
-        }
-        return NotificationHandler.generate_response(
-            message_key="data_processed_success",
-            data={"inversiones": paginated_data},
-            status_code=HTTP_200_OK
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        obj = serializer.save()
+        registrar_actividad(request.user, f"Actualizó la inversión: {obj.nombre}")
+        return self.notify(
+            key="inversion_update_success",
+            data={"inversion": serializer.data},
+            status_code=status.HTTP_200_OK,
         )
-    except Exception as e:
-        logger.error(f"[listar_inversiones_por_cosecha] Error: {e}")
-        return NotificationHandler.generate_response(
-            message_key="server_error",
-            status_code=HTTP_500_INTERNAL_SERVER_ERROR
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        nombre = instance.nombre
+        instance.delete()
+        registrar_actividad(request.user, f"Eliminó la inversión: {nombre}")
+        return self.notify(
+            key="inversion_delete_success",
+            data={"info": f"Inversión '{nombre}' eliminada."},
+            status_code=status.HTTP_200_OK,
         )
 
 
-@api_view(['PUT', 'PATCH'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
-def actualizar_inversion(request, id):
-    try:
-        inversion = get_object_or_404(InversionesHuerta, id=id)
-        serializer = InversionesHuertaSerializer(inversion, data=request.data, partial=True)
-        if serializer.is_valid():
-            inversion = serializer.save()
-            registrar_actividad(request.user, f"Actualizó la inversión: {inversion.nombre}")
-            return NotificationHandler.generate_response(
-                message_key="inversion_update_success",
-                data={"inversion": serializer.data},
-                status_code=HTTP_200_OK
-            )
-        return NotificationHandler.generate_response(
-            message_key="validation_error",
-            data={"errors": serializer.errors},
-            status_code=HTTP_400_BAD_REQUEST
-        )
-    except Exception as e:
-        logger.error(f"[actualizar_inversion] Error: {e}")
-        return NotificationHandler.generate_response(
-            message_key="server_error",
-            status_code=HTTP_500_INTERNAL_SERVER_ERROR
-        )
+# ---------------------------------------------------------------------------
+#  💵  VENTAS
+# ---------------------------------------------------------------------------
+class VentaViewSet(NotificationMixin, viewsets.ModelViewSet):
+    queryset = Venta.objects.select_related("cosecha", "huerta").order_by("-fecha_venta")
+    serializer_class = VentaSerializer
+    pagination_class = GenericPagination
+    permission_classes = [
+        IsAuthenticated,
+        HasHuertaModulePermission,
+        HuertaGranularPermission,
+    ]
 
+    # ----- FILTRO POR COSECHA -----
+    def get_queryset(self):
+        qs = super().get_queryset()
+        cosecha_id = self.request.query_params.get("cosecha")
+        if cosecha_id:
+            qs = qs.filter(cosecha_id=cosecha_id)
+        return qs
 
-@api_view(['DELETE'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
-def eliminar_inversion(request, id):
-    try:
-        inversion = get_object_or_404(InversionesHuerta, id=id)
-        nombre_inversion = inversion.nombre
-        inversion.delete()
-        registrar_actividad(request.user, f"Eliminó la inversión: {nombre_inversion}")
-        return NotificationHandler.generate_response(
-            message_key="inversion_delete_success",
-            data={"info": f"Inversión '{nombre_inversion}' eliminada."},
-            status_code=HTTP_200_OK
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        obj = serializer.save()
+        registrar_actividad(
+            request.user, f"Registró una venta de {obj.num_cajas} cajas"
         )
-    except Exception as e:
-        logger.error(f"[eliminar_inversion] Error: {e}")
-        return NotificationHandler.generate_response(
-            message_key="server_error",
-            status_code=HTTP_500_INTERNAL_SERVER_ERROR
+        return self.notify(
+            key="venta_create_success",
+            data={"venta": serializer.data},
+            status_code=status.HTTP_201_CREATED,
         )
 
-
-# ----------------------------------------------------------------
-# VENTAS
-# ----------------------------------------------------------------
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
-def listar_ventas_por_cosecha(request, cosecha_id):
-    try:
-        ventas = Venta.objects.filter(cosecha_id=cosecha_id).order_by('-fecha_venta')
-        paginator = GenericPagination()
-        page = paginator.paginate_queryset(ventas, request)
-        serializer = VentaSerializer(page, many=True)
-        paginated_data = {
-            "count": paginator.page.paginator.count,
-            "next": paginator.get_next_link(),
-            "previous": paginator.get_previous_link(),
-            "results": serializer.data
-        }
-        return NotificationHandler.generate_response(
-            message_key="data_processed_success",
-            data={"ventas": paginated_data},
-            status_code=HTTP_200_OK
-        )
-    except Exception as e:
-        logger.error(f"[listar_ventas_por_cosecha] Error: {e}")
-        return NotificationHandler.generate_response(
-            message_key="server_error",
-            status_code=HTTP_500_INTERNAL_SERVER_ERROR
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        obj = serializer.save()
+        registrar_actividad(request.user, f"Actualizó la venta ID: {obj.id}")
+        return self.notify(
+            key="venta_update_success",
+            data={"venta": serializer.data},
+            status_code=status.HTTP_200_OK,
         )
 
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
-def registrar_venta(request):
-    try:
-        serializer = VentaSerializer(data=request.data)
-        if serializer.is_valid():
-            venta = serializer.save()
-            registrar_actividad(request.user, f"Registró una venta de {venta.num_cajas} cajas")
-            return NotificationHandler.generate_response(
-                message_key="venta_create_success",
-                data={"venta": serializer.data},
-                status_code=HTTP_201_CREATED
-            )
-        return NotificationHandler.generate_response(
-            message_key="validation_error",
-            data={"errors": serializer.errors},
-            status_code=HTTP_400_BAD_REQUEST
-        )
-    except Exception as e:
-        logger.error(f"[registrar_venta] Error: {e}")
-        return NotificationHandler.generate_response(
-            message_key="server_error",
-            status_code=HTTP_500_INTERNAL_SERVER_ERROR
-        )
-
-
-@api_view(['PUT', 'PATCH'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
-def actualizar_venta(request, id):
-    try:
-        venta = get_object_or_404(Venta, id=id)
-        serializer = VentaSerializer(venta, data=request.data, partial=True)
-        if serializer.is_valid():
-            venta = serializer.save()
-            registrar_actividad(request.user, f"Actualizó la venta ID: {venta.id}")
-            return NotificationHandler.generate_response(
-                message_key="venta_update_success",
-                data={"venta": serializer.data},
-                status_code=HTTP_200_OK
-            )
-        return NotificationHandler.generate_response(
-            message_key="validation_error",
-            data={"errors": serializer.errors},
-            status_code=HTTP_400_BAD_REQUEST
-        )
-    except Exception as e:
-        logger.error(f"[actualizar_venta] Error: {e}")
-        return NotificationHandler.generate_response(
-            message_key="server_error",
-            status_code=HTTP_500_INTERNAL_SERVER_ERROR
-        )
-
-
-@api_view(['DELETE'])
-@permission_classes([IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission])
-def eliminar_venta(request, id):
-    try:
-        venta = get_object_or_404(Venta, id=id)
-        venta_id = venta.id
-        venta.delete()
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        venta_id = instance.id
+        instance.delete()
         registrar_actividad(request.user, f"Eliminó la venta ID: {venta_id}")
-        return NotificationHandler.generate_response(
-            message_key="venta_delete_success",
+        return self.notify(
+            key="venta_delete_success",
             data={"info": "Venta eliminada correctamente."},
-            status_code=HTTP_200_OK
-        )
-    except Exception as e:
-        logger.error(f"[eliminar_venta] Error: {e}")
-        return NotificationHandler.generate_response(
-            message_key="server_error",
-            status_code=HTTP_500_INTERNAL_SERVER_ERROR
+            status_code=status.HTTP_200_OK,
         )

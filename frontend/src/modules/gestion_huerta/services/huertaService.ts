@@ -1,4 +1,3 @@
-// src/modules/gestion_huerta/services/huertaService.ts
 import apiClient from '../../../global/api/apiClient';
 import {
   Huerta,
@@ -22,6 +21,7 @@ interface HuertaCreateUpdateDeleteResponse {
 
 export const huertaService = {
   async list(page = 1) {
+    // GET a /huerta/huertas/ (list + pagination)
     const { data } = await apiClient.get<{
       success: boolean;
       message_key: string;
@@ -31,29 +31,32 @@ export const huertaService = {
   },
 
   async create(payload: HuertaCreateData) {
+    // POST a /huerta/huertas/ (creación)
     const { data } = await apiClient.post<{
       success: boolean;
       message_key: string;
       data: HuertaCreateUpdateDeleteResponse;
-    }>('/huerta/huerta/create/', payload);
+    }>('/huerta/huertas/', payload);
     return data;
   },
 
   async update(id: number, payload: HuertaUpdateData) {
+    // PUT a /huerta/huertas/{id}/ (update)
     const { data } = await apiClient.put<{
       success: boolean;
       message_key: string;
       data: HuertaCreateUpdateDeleteResponse;
-    }>(`/huerta/huerta/update/${id}/`, payload);
+    }>(`/huerta/huertas/${id}/`, payload);
     return data;
   },
 
   async delete(id: number) {
+    // DELETE a /huerta/huertas/{id}/
     const { data } = await apiClient.delete<{
       success: boolean;
       message_key: string;
       data: HuertaCreateUpdateDeleteResponse;
-    }>(`/huerta/huerta/delete/${id}/`);
+    }>(`/huerta/huertas/${id}/`);
     return data;
   },
 };

@@ -8,7 +8,7 @@ import MainLayout   from '../../components/layout/MainLayout';
 import  ErrorBoundary  from '../../components/common/ErrorBoundary';   // 🆕
 
 // páginas públicas
-import Login         from '../../modules/gestion_usuarios/components/Login';
+import Login         from '../../modules/gestion_usuarios/pages/Login';
 import Dashboard     from '../../modules/gestion_usuarios/pages/Dashboard';
 import ChangePassword from '../../modules/gestion_usuarios/pages/ChangePassword';
 import Unauthorized  from '../../components/common/Unauthorized';

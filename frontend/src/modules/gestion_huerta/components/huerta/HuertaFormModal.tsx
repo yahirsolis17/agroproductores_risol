@@ -1,6 +1,4 @@
-// Paso actual: Fase 2 — Validaciones backend en HuertaFormModal
-// Próximos pasos: actualizar UX de errores, feedback en campos, consistencia visual
-
+// src/modules/gestion_huerta/components/huerta/HuertaFormModal.tsx
 import React, { useEffect, useRef } from 'react';
 import {
   Dialog,
@@ -19,6 +17,7 @@ import * as Yup from 'yup';
 import { HuertaCreateData } from '../../types/huertaTypes';
 import { Propietario } from '../../types/propietarioTypes';
 import { handleBackendNotification } from '../../../../global/utils/NotificationEngine';
+import { PermissionButton } from '../../../../components/common/PermissionButton';
 
 const validationSchema = Yup.object().shape({
   nombre: Yup.string().required('Nombre requerido'),
@@ -78,25 +77,24 @@ const HuertaFormModal: React.FC<HuertaFormModalProps> = ({
         err?.response?.data?.data?.errors ||
         err?.response?.data?.errors ||
         {};
-  
+
       const formikErrors: Record<string, string> = {};
       const touched: Record<string, boolean> = {};
-  
+
       Object.entries(backend).forEach(([field, msgs]: any) => {
         const msg = Array.isArray(msgs) ? msgs[0] : msgs;
         formikErrors[field] = msg;
         touched[field] = true;
       });
-  
+
       actions.setErrors(formikErrors);
       actions.setTouched(touched);
-  
+
       handleBackendNotification(err?.response?.data);
     } finally {
       actions.setSubmitting(false);
     }
   };
-  
 
   const newOpt: OptionType = { id: 'new', nombre: 'Registrar nuevo propietario', apellidos: '' };
   const opciones: OptionType[] = [
@@ -208,9 +206,17 @@ const HuertaFormModal: React.FC<HuertaFormModalProps> = ({
               <Button onClick={onClose} variant="outlined" color="secondary">
                 Cancelar
               </Button>
-              <Button type="submit" variant="contained" color="primary" disabled={isSubmitting}>
-                {isSubmitting ? <CircularProgress size={22} color="inherit" /> : 'Guardar'}
-              </Button>
+              <PermissionButton
+                perm="add_huerta"
+                type="submit"
+                variant="contained"
+                color="primary"
+                disabled={isSubmitting}
+              >
+                {isSubmitting
+                  ? <CircularProgress size={22} color="inherit" />
+                  : 'Guardar'}
+              </PermissionButton>
             </DialogActions>
           </Form>
         )}

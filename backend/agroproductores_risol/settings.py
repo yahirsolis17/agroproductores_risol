@@ -56,8 +56,6 @@ SPECTACULAR_SETTINGS = {
     # Otras configuraciones...
 }
 
-
-
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
