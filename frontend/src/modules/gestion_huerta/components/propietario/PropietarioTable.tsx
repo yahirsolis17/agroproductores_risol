@@ -1,7 +1,7 @@
 // src/modules/gestion_huerta/components/propietario/PropietarioTable.tsx
 import React from 'react';
 import { Chip } from '@mui/material';
-import PropietarioActionsMenu from './PropietarioActionsMenu';
+import PropietarioActionsMenu from '../common/PropietarioActionsMenu';
 import { Propietario } from '../../types/propietarioTypes';
 import { TableLayout, Column } from '../../../../components/common/TableLayout';
 

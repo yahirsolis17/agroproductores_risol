@@ -31,32 +31,42 @@ const validationSchema = Yup.object({
   telefono: Yup.string()
     .matches(/^\d{10}$/, 'Debe tener 10 dígitos')
     .required('Teléfono requerido'),
-  role: Yup.string().oneOf(['usuario','admin'], 'Rol inválido').required('Rol requerido'),
+  role: Yup.string()
+    .oneOf(['usuario', 'admin'], 'Rol inválido')
+    .required('Rol requerido'),
 });
 
 const Register: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  /* SEO / meta */
   useEffect(() => {
     document.title = 'Registrar Usuario | Risol';
-    const meta = document.querySelector("meta[name='description']");
-    if (!meta) {
-      const newMeta = document.createElement('meta');
-      newMeta.name = 'description';
-      newMeta.content = 'Formulario para registrar nuevos usuarios en el sistema Risol.';
-      document.head.appendChild(newMeta);
+    if (!document.querySelector("meta[name='description']")) {
+      const meta = document.createElement('meta');
+      meta.name = 'description';
+      meta.content =
+        'Formulario para registrar nuevos usuarios en el sistema Risol.';
+      document.head.appendChild(meta);
     }
   }, []);
 
+  /* Guard — solo admin */
   if (user?.role !== 'admin') {
     return (
-      <section className="p-6 text-center text-red-500" aria-label="Acceso denegado">
+      <section
+        className="p-6 text-center text-red-500"
+        aria-label="Acceso denegado"
+      >
         No tienes permiso para registrar usuarios.
       </section>
     );
   }
 
+  /* ------------------------------------------------- */
+  /*                    RENDER                         */
+  /* ------------------------------------------------- */
   return (
     <main className="flex items-center justify-center min-h-screen px-4">
       <motion.div
@@ -65,7 +75,12 @@ const Register: React.FC = () => {
         transition={{ duration: 0.6, ease: 'easeOut' }}
         className="w-full max-w-md"
       >
-        <Paper elevation={4} className="p-8 rounded-2xl shadow-soft" role="form" aria-labelledby="register-heading">
+        <Paper
+          elevation={4}
+          className="p-8 rounded-2xl shadow-soft"
+          role="form"
+          aria-labelledby="register-heading"
+        >
           <Typography
             id="register-heading"
             variant="h5"
@@ -75,23 +90,31 @@ const Register: React.FC = () => {
           </Typography>
 
           <Formik
-            initialValues={{ nombre: '', apellido: '', telefono: '', role: 'usuario' }}
+            initialValues={{
+              nombre: '',
+              apellido: '',
+              telefono: '',
+              role: 'usuario',
+            }}
             validationSchema={validationSchema}
-            onSubmit={async (values: RegisterData, { setSubmitting, setErrors }) => {
+            onSubmit={async (
+              values: RegisterData,
+              { setSubmitting, setErrors },
+            ) => {
               try {
                 const res = await authService.register(values);
                 handleBackendNotification(res);
                 navigate('/users-admin');
               } catch (error: any) {
-                // 1) Extraer los errores de validación enviados por el backend
-                const fieldErrors = error.response?.data?.data?.errors || {};
-                // 2) Hacer que Formik marque en rojo y muestre helperText
+                const backendErrors =
+                  error.response?.data?.data?.errors || {};
                 setErrors(
                   Object.fromEntries(
-                    Object.entries(fieldErrors).map(([field, msgs]: any) => [field, msgs[0]])
-                  )
+                    Object.entries(backendErrors).map(
+                      ([field, msgs]: any) => [field, msgs[0]],
+                    ),
+                  ),
                 );
-                // 3) Mostrar notificación genérica
                 handleBackendNotification(error.response?.data);
               } finally {
                 setSubmitting(false);
@@ -109,7 +132,6 @@ const Register: React.FC = () => {
                     onChange={handleChange}
                     error={touched.nombre && Boolean(errors.nombre)}
                     helperText={touched.nombre && errors.nombre}
-                    variant="outlined"
                   />
                 </Box>
 
@@ -122,7 +144,6 @@ const Register: React.FC = () => {
                     onChange={handleChange}
                     error={touched.apellido && Boolean(errors.apellido)}
                     helperText={touched.apellido && errors.apellido}
-                    variant="outlined"
                   />
                 </Box>
 
@@ -135,13 +156,15 @@ const Register: React.FC = () => {
                     onChange={handleChange}
                     error={touched.telefono && Boolean(errors.telefono)}
                     helperText={touched.telefono && errors.telefono}
-                    variant="outlined"
                     inputProps={{ inputMode: 'numeric', pattern: '[0-9]*' }}
                   />
                 </Box>
 
                 <Box>
-                  <FormControl fullWidth variant="outlined" error={touched.role && Boolean(errors.role)}>
+                  <FormControl
+                    fullWidth
+                    error={touched.role && Boolean(errors.role)}
+                  >
                     <InputLabel id="role-label">Rol</InputLabel>
                     <Select
                       labelId="role-label"
@@ -153,7 +176,9 @@ const Register: React.FC = () => {
                       <MenuItem value="usuario">Usuario</MenuItem>
                       <MenuItem value="admin">Administrador</MenuItem>
                     </Select>
-                    {touched.role && <FormHelperText>{errors.role}</FormHelperText>}
+                    {touched.role && (
+                      <FormHelperText>{errors.role}</FormHelperText>
+                    )}
                   </FormControl>
                 </Box>
 
@@ -161,13 +186,16 @@ const Register: React.FC = () => {
                   type="submit"
                   fullWidth
                   variant="contained"
-                  color="primary"
                   disabled={isSubmitting}
                   size="large"
                   className="py-3 font-bold"
-                  startIcon={isSubmitting ? <CircularProgress size={20} color="inherit" /> : null}
+                  startIcon={
+                    isSubmitting ? (
+                      <CircularProgress size={20} color="inherit" />
+                    ) : null
+                  }
                 >
-                  {isSubmitting ? 'Registrando...' : 'Registrar'}
+                  {isSubmitting ? 'Registrando…' : 'Registrar'}
                 </Button>
               </Form>
             )}

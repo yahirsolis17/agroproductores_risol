@@ -1,3 +1,4 @@
+// src/modules/gestion_usuarios/components/Login.tsx
 import React from 'react';
 import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
@@ -26,6 +27,7 @@ const Login: React.FC = () => {
   const { isAuthenticated, login } = useAuth();
   const location = useLocation();
 
+  /* Evito que vuelva al login si ya inició sesión */
   if (isAuthenticated && !location.state?.fromLoginRedirect) {
     return <Navigate to="/dashboard" replace />;
   }
@@ -56,16 +58,11 @@ const Login: React.FC = () => {
             validationSchema={validationSchema}
             onSubmit={async (values, { setSubmitting, setErrors }) => {
               try {
-                // El login debería lanzarse y, en caso de error, se rechace la promesa.
                 await login(values.telefono, values.password);
               } catch (error: any) {
                 const res = error?.response?.data;
-                // Si el backend devuelve un objeto de validación con claves correspondientes
-                if (res) {
-                  setErrors(res);
-                } else {
-                  setErrors({ telefono: ' ', password: ' ' });
-                }
+                /* Monto los posibles errores field-level */
+                setErrors(res || { telefono: ' ', password: ' ' });
                 handleBackendNotification(res);
               } finally {
                 setSubmitting(false);
@@ -87,7 +84,6 @@ const Login: React.FC = () => {
                     id="telefono"
                     name="telefono"
                     label="Teléfono"
-                    variant="outlined"
                     value={values.telefono}
                     onChange={handleChange}
                     onBlur={handleBlur}
@@ -103,7 +99,6 @@ const Login: React.FC = () => {
                     name="password"
                     label="Contraseña"
                     type="password"
-                    variant="outlined"
                     value={values.password}
                     onChange={handleChange}
                     onBlur={handleBlur}
@@ -116,7 +111,6 @@ const Login: React.FC = () => {
                   fullWidth
                   type="submit"
                   variant="contained"
-                  color="primary"
                   size="large"
                   disabled={isSubmitting}
                   className="py-3 font-bold"

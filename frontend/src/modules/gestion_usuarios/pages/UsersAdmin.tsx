@@ -1,11 +1,10 @@
 // src/modules/gestion_usuarios/pages/UsersAdmin.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Fragment } from 'react';
 import apiClient from '../../../global/api/apiClient';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
 import {
   Typography,
-  CircularProgress,
   Box,
   Paper,
   Dialog,
@@ -16,16 +15,14 @@ import {
   Chip,
   Tabs,
   Tab,
+  Skeleton,
 } from '@mui/material';
 import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
 import PermissionsDialog from './PermissionsDialog';
 import UserActionsMenu from '../components/UserActionsMenu';
 
 /* tabla unificada */
-import {
-  TableLayout,
-  Column,
-} from '../../../components/common/TableLayout';
+import { TableLayout, Column } from '../../../components/common/TableLayout';
 
 interface User {
   id: number;
@@ -192,7 +189,7 @@ const UsersAdmin: React.FC = () => {
 
   /* ---------- render ---------- */
   return (
-    <>
+    <Fragment>
       <motion.div
         className="p-6 max-w-6xl mx-auto"
         initial={{ opacity: 0 }}
@@ -222,9 +219,18 @@ const UsersAdmin: React.FC = () => {
 
           {error && <div className="text-red-600 mb-2">{error}</div>}
 
+          {/* ---------- tabla ---------- */}
           {delayedLoading ? (
-            <Box display="flex" justifyContent="center" mt={6}>
-              <CircularProgress />
+            /* Skeleton rows (reduce flash) */
+            <Box className="space-y-2">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton
+                  key={i}
+                  variant="rectangular"
+                  height={48}
+                  animation="wave"
+                />
+              ))}
             </Box>
           ) : (
             <TableLayout<User>
@@ -285,7 +291,7 @@ const UsersAdmin: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </>
+    </Fragment>
   );
 };
 

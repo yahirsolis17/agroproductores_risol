@@ -1,16 +1,15 @@
 // src/modules/gestion_usuarios/pages/PermissionsDialog.tsx
-import React, { useEffect, useState, forwardRef } from 'react';
-
-interface PermissionsDialogProps {
-  open: boolean;
-  onClose: () => void;
-  userId: number;
-  currentPerms: string[];
-
-}
+import React, {
+  useEffect,
+  useState,
+  forwardRef,
+} from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../../../global/store/store';
 import { setPermissions } from '../../../global/store/authSlice';
+import permisoService, { Permiso } from '../services/permisoService';
+import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
+
 import {
   Dialog,
   DialogTitle,
@@ -22,11 +21,10 @@ import {
   Button,
   CircularProgress,
   Box,
+  Skeleton,
   Slide,
   SlideProps,
 } from '@mui/material';
-import permisoService, { Permiso } from '../services/permisoService';
-import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
 
 const Transition = forwardRef(function Transition(
   props: SlideProps & { children: React.ReactElement<any, any> },
@@ -35,11 +33,21 @@ const Transition = forwardRef(function Transition(
   return <Slide direction="down" ref={ref} {...props} />;
 });
 
+interface PermissionsDialogProps {
+  open: boolean;
+  onClose: () => void;
+  userId: number;
+  currentPerms: string[];
+}
+
 const PermissionsDialog: React.FC<PermissionsDialogProps> = ({
   open,
   onClose,
   userId,
 }) => {
+  /* ------------------------------------------------- */
+  /*                       STATE                       */
+  /* ------------------------------------------------- */
   const dispatch = useDispatch<AppDispatch>();
   const currentUserId = useSelector((s: RootState) => s.auth.user?.id);
 
@@ -49,11 +57,21 @@ const PermissionsDialog: React.FC<PermissionsDialogProps> = ({
   const [loadingUser, setLoadingUser] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  /* Skeleton delay — mismos 400 ms que en UsersAdmin  */
+  const [delayedLoading, setDelayedLoading] = useState(false);
+
+  /* ------------------------------------------------- */
+  /*                    EFFECTS                        */
+  /* ------------------------------------------------- */
   useEffect(() => {
     if (!open) return;
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
     (async () => {
       setLoadingAll(true);
       setLoadingUser(true);
+      timer = setTimeout(() => setDelayedLoading(true), 400);
+
       try {
         const [allRes, userPerms] = await Promise.all([
           permisoService.getAllPermisos(),
@@ -66,46 +84,83 @@ const PermissionsDialog: React.FC<PermissionsDialogProps> = ({
         setAllPerms([]);
         setSelected([]);
       } finally {
+        clearTimeout(timer);
         setLoadingAll(false);
         setLoadingUser(false);
+        setDelayedLoading(false);
       }
     })();
+
+    return () => clearTimeout(timer);
   }, [open, userId]);
 
+  /* ------------------------------------------------- */
+  /*                     HANDLERS                      */
+  /* ------------------------------------------------- */
   const toggle = (codename: string) =>
-    setSelected(prev =>
-      prev.includes(codename) ? prev.filter(p => p !== codename) : [...prev, codename]
+    setSelected((prev) =>
+      prev.includes(codename)
+        ? prev.filter((p) => p !== codename)
+        : [...prev, codename],
     );
 
-    const onSave = async () => {
-      setSaving(true);
-      try {
-        const res = await permisoService.setUserPermisos(userId, selected);
-        handleBackendNotification(res);
-        const updatedPerms = await permisoService.getUserPermisos(userId);
-        setSelected(updatedPerms);
-        if (userId === currentUserId) dispatch(setPermissions(updatedPerms));
-        onClose();
-      } catch (err: any) {
-        handleBackendNotification(err.response?.data);
-      } finally {
-        setSaving(false);
-      }
-    };
+  const onSave = async () => {
+    setSaving(true);
+    try {
+      const res = await permisoService.setUserPermisos(userId, selected);
+      handleBackendNotification(res);
+
+      const updated = await permisoService.getUserPermisos(userId);
+      setSelected(updated);
+
+      /* si edito mis propios permisos → sincronizar Redux */
+      if (userId === currentUserId) dispatch(setPermissions(updated));
+
+      onClose();
+    } catch (err: any) {
+      handleBackendNotification(err.response?.data);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const loading = loadingAll || loadingUser;
 
+  /* ------------------------------------------------- */
+  /*                     RENDER                        */
+  /* ------------------------------------------------- */
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm" TransitionComponent={Transition}>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth="sm"
+      TransitionComponent={Transition}
+    >
       <DialogTitle>Editar permisos</DialogTitle>
+
       <DialogContent dividers>
         {loading ? (
-          <Box display="flex" justifyContent="center" py={4}>
-            <CircularProgress />
+          /* Skeleton list */
+          <Box py={2}>
+            {delayedLoading ? (
+              Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton
+                  key={i}
+                  variant="rectangular"
+                  height={32}
+                  sx={{ mb: 1, borderRadius: 1 }}
+                />
+              ))
+            ) : (
+              <Box display="flex" justifyContent="center" py={4}>
+                <CircularProgress />
+              </Box>
+            )}
           </Box>
         ) : (
           <FormGroup row className="gap-4">
-            {allPerms.map(p => (
+            {allPerms.map((p) => (
               <FormControlLabel
                 key={p.codename}
                 control={
@@ -120,6 +175,7 @@ const PermissionsDialog: React.FC<PermissionsDialogProps> = ({
           </FormGroup>
         )}
       </DialogContent>
+
       <DialogActions>
         <Button onClick={onClose} disabled={saving}>
           Cancelar

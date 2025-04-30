@@ -1,3 +1,4 @@
+// src/modules/gestion_usuarios/pages/ChangePassword.tsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -17,139 +18,118 @@ import {
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 
 const ChangePassword: React.FC = () => {
+  /* ------------------------------ State ------------------------------ */
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
   const [newPasswordError, setNewPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  /* ------------------------------ Auth / nav ------------------------- */
   const navigate = useNavigate();
   const { refreshSession, user } = useAuth();
 
   useEffect(() => {
-    if (user && !user.must_change_password) {
-      navigate('/dashboard');
-    }
+    if (user && !user.must_change_password) navigate('/dashboard');
   }, [user, navigate]);
 
+  /* ------------------------------ Submit ----------------------------- */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Limpiar errores previos
     setNewPasswordError('');
     setConfirmPasswordError('');
 
-    // Validación local: nueva contraseña debe tener al menos 4 caracteres
     if (newPassword.length < 4) {
-      setNewPasswordError('La contraseña debe tener al menos 4 caracteres.');
-      handleBackendNotification({
-        success: false,
-        message: 'La contraseña debe tener al menos 4 caracteres.',
-        message_key: 'validation_error',
-      });
+      const msg = 'La contraseña debe tener al menos 4 caracteres.';
+      setNewPasswordError(msg);
+      handleBackendNotification({ success: false, message: msg });
       return;
     }
-
-    // Validación local: ambas contraseñas deben coincidir
     if (newPassword !== confirmPassword) {
-      setConfirmPasswordError('Las contraseñas no coinciden.');
-      handleBackendNotification({
-        success: false,
-        message: 'Las contraseñas no coinciden.',
-        message_key: 'validation_error',
-      });
+      const msg = 'Las contraseñas no coinciden.';
+      setConfirmPasswordError(msg);
+      handleBackendNotification({ success: false, message: msg });
       return;
     }
 
     setLoading(true);
     try {
-      // Enviamos ambos campos: new_password y confirm_password
-      const response = await apiClient.post('/usuarios/change-password/', {
+      const res = await apiClient.post('/usuarios/change-password/', {
         new_password: newPassword,
         confirm_password: confirmPassword,
       });
-
-      handleBackendNotification(response.data);
+      handleBackendNotification(res.data);
       await refreshSession();
       navigate('/dashboard');
-    } catch (error: any) {
-      const fieldErrors = error.response?.data?.data?.errors || {};
-      if (fieldErrors.new_password) {
-        setNewPasswordError(fieldErrors.new_password[0]);
-      }
-      if (fieldErrors.confirm_password) {
-        setConfirmPasswordError(fieldErrors.confirm_password[0]);
-      }
-      handleBackendNotification(
-        error.response?.data || {
-          success: false,
-          message: 'Error al cambiar la contraseña.',
-          message_key: 'server_error',
-        }
-      );
+    } catch (err: any) {
+      const errs = err.response?.data?.data?.errors || {};
+      if (errs.new_password) setNewPasswordError(errs.new_password[0]);
+      if (errs.confirm_password) setConfirmPasswordError(errs.confirm_password[0]);
+      handleBackendNotification(err.response?.data);
     } finally {
       setLoading(false);
     }
   };
 
-  const toggleShowNewPassword = () => setShowNewPassword((prev) => !prev);
-  const toggleShowConfirmPassword = () => setShowConfirmPassword((prev) => !prev);
-
+  /* ------------------------------ Render ----------------------------- */
   return (
     <Box className="flex items-center justify-center min-h-screen bg-neutral-200 px-4">
       <Paper elevation={3} className="w-full max-w-md rounded-2xl p-8">
         <motion.form
           onSubmit={handleSubmit}
-          className="space-y-6"
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
+          className="space-y-6"
         >
-          <div>
+          <header>
             <Typography variant="h4" align="center" className="text-primary-dark font-bold">
               Cambiar Contraseña
             </Typography>
             <Typography variant="body2" align="center" className="text-neutral-500 mt-1">
               Por seguridad, actualiza tu clave.
             </Typography>
-          </div>
+          </header>
 
+          {/* Nueva */}
           <TextField
             fullWidth
             label="Nueva Contraseña"
-            type={showNewPassword ? 'text' : 'password'}
+            type={showNew ? 'text' : 'password'}
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            required
             error={Boolean(newPasswordError)}
             helperText={newPasswordError}
             InputProps={{
               endAdornment: (
                 <InputAdornment position="end">
-                  <IconButton onClick={toggleShowNewPassword} edge="end">
-                    {showNewPassword ? <VisibilityOff /> : <Visibility />}
+                  <IconButton onClick={() => setShowNew(!showNew)} edge="end">
+                    {showNew ? <VisibilityOff /> : <Visibility />}
                   </IconButton>
                 </InputAdornment>
               ),
             }}
           />
 
+          {/* Confirmar */}
           <TextField
             fullWidth
             label="Confirmar Contraseña"
-            type={showConfirmPassword ? 'text' : 'password'}
+            type={showConfirm ? 'text' : 'password'}
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            required
             error={Boolean(confirmPasswordError)}
             helperText={confirmPasswordError}
             InputProps={{
               endAdornment: (
                 <InputAdornment position="end">
-                  <IconButton onClick={toggleShowConfirmPassword} edge="end">
-                    {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                  <IconButton onClick={() => setShowConfirm(!showConfirm)} edge="end">
+                    {showConfirm ? <VisibilityOff /> : <Visibility />}
                   </IconButton>
                 </InputAdornment>
               ),
@@ -157,10 +137,9 @@ const ChangePassword: React.FC = () => {
           />
 
           <Button
-            type="submit"
             variant="contained"
             fullWidth
-            color="primary"
+            type="submit"
             disabled={loading}
             sx={{ py: 2, textTransform: 'none', fontWeight: 600 }}
           >

@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { IconButton, Menu, MenuItem, Tooltip } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 
-interface UserActionsMenuProps {
+export interface UserActionsMenuProps {
   isArchived: boolean;
   onArchiveOrRestore: () => void;
   onDelete: () => void;
@@ -16,23 +16,19 @@ const UserActionsMenu: React.FC<UserActionsMenuProps> = ({
   onDelete,
   onManagePermissions,
 }) => {
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
 
-  const handleOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleClose = () => {
-    setAnchorEl(null);
-  };
+  const handleOpen = (e: React.MouseEvent<HTMLElement>) => setAnchorEl(e.currentTarget);
+  const handleClose = () => setAnchorEl(null);
 
   return (
     <>
       <Tooltip title="Más acciones">
-        <IconButton onClick={handleOpen} size="small">
+        <IconButton size="small" onClick={handleOpen}>
           <MoreVertIcon />
         </IconButton>
       </Tooltip>
+
       <Menu
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
@@ -49,7 +45,6 @@ const UserActionsMenu: React.FC<UserActionsMenuProps> = ({
           {isArchived ? 'Restaurar' : 'Archivar'}
         </MenuItem>
 
-        {/* Mostrar Eliminar solo si está archivado */}
         {isArchived && (
           <MenuItem
             onClick={() => {
