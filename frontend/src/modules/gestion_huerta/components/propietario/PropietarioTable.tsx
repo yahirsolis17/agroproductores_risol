@@ -1,113 +1,72 @@
 // src/modules/gestion_huerta/components/propietario/PropietarioTable.tsx
 import React from 'react';
-import {
-  Table,
-  TableContainer,
-  TableHead,
-  TableBody,
-  TableCell,
-  TableRow,
-  Paper,
-  Box,
-  Pagination,
-  Typography,
-} from '@mui/material';
+import { Chip } from '@mui/material';
+import PropietarioActionsMenu from './PropietarioActionsMenu';
 import { Propietario } from '../../types/propietarioTypes';
-import { PermissionButton } from '../../../../components/common/PermissionButton'; // ← Import
+import { TableLayout, Column } from '../../../../components/common/TableLayout';
 
-interface PropietarioTableProps {
+interface Props {
   data: Propietario[];
   page: number;
   pageSize: number;
-  onPageChange: (newPage: number) => void;
   count: number;
+  onPageChange: (newPage: number) => void;
+  onArchiveOrRestore: (id: number, isArchived: boolean) => void;
+  onDelete: (id: number) => void;
+  /** Mensaje que aparece cuando no hay filas */
+  emptyMessage?: string;
 }
 
-const PropietarioTable: React.FC<PropietarioTableProps> = ({
+const columns: Column<Propietario>[] = [
+  { label: 'Nombre', key: 'nombre' },
+  { label: 'Apellidos', key: 'apellidos' },
+  { label: 'Teléfono', key: 'telefono' },
+  { label: 'Dirección', key: 'direccion' },
+  {
+    label: 'Estado',
+    key: 'archivado_en',
+    align: 'center',
+    render: (p) =>
+      p.archivado_en ? (
+        <Chip label="Archivado" size="small" color="warning" />
+      ) : (
+        <Chip label="Activo" size="small" color="success" />
+      ),
+  },
+];
+
+const PropietarioTable: React.FC<Props> = ({
   data,
   page,
   pageSize,
-  onPageChange,
   count,
+  onPageChange,
+  onArchiveOrRestore,
+  onDelete,
+  emptyMessage = 'No hay propietarios registrados.',
 }) => {
-  const totalPages = Math.max(1, Math.ceil(count / pageSize));
-
-  const isValidData =
-    Array.isArray(data) &&
-    data.every(
-      (item) =>
-        typeof item === 'object' &&
-        'id' in item &&
-        'nombre' in item &&
-        'telefono' in item
-    );
-
-  if (!isValidData) {
-    return (
-      <Typography color="error" mt={4} textAlign="center">
-        Algo salió mal al cargar los propietarios. Intenta recargar la página.
-      </Typography>
-    );
-  }
-
   return (
-    <Box>
-      <TableContainer
-        component={Paper}
-        className="rounded-xl border border-neutral-200"
-      >
-        <Table size="small">
-          <TableHead className="bg-neutral-100">
-            <TableRow>
-              <TableCell className="font-semibold">#</TableCell>
-              <TableCell className="font-semibold">Nombre</TableCell>
-              <TableCell className="font-semibold">Apellidos</TableCell>
-              <TableCell className="font-semibold">Teléfono</TableCell>
-              <TableCell className="font-semibold">Dirección</TableCell>
-              <TableCell className="font-semibold">Acciones</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {data.length > 0 ? (
-              data.map((prop, index) => (
-                <TableRow key={prop.id} hover>
-                  <TableCell>{(page - 1) * pageSize + index + 1}</TableCell>
-                  <TableCell>{prop.nombre}</TableCell>
-                  <TableCell>{prop.apellidos}</TableCell>
-                  <TableCell>{prop.telefono}</TableCell>
-                  <TableCell>{prop.direccion}</TableCell>
-                  <TableCell>
-                    {/* Aquí podrías tener Edit/Delete, pero al menos deshabilitamos “Acciones” */}
-                    <PermissionButton perm="change_propietario" variant="text">
-                      🔧 Acciones
-                    </PermissionButton>
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center text-neutral-500 py-6">
-                  No hay propietarios registrados.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      {totalPages > 1 && (
-        <Box display="flex" justifyContent="center" mt={4}>
-          <Pagination
-            count={totalPages}
-            page={page}
-            onChange={(_, newPage) => onPageChange(newPage)}
-            variant="outlined"
-            shape="rounded"
-            color="primary"
+    <TableLayout<Propietario>
+      data={data}
+      page={page}
+      pageSize={pageSize}
+      count={count}
+      columns={columns}
+      onPageChange={onPageChange}
+      emptyMessage={emptyMessage}
+      renderActions={(p) => {
+        const isArchived = Boolean(p.archivado_en);
+        return (
+          <PropietarioActionsMenu
+            isArchived={isArchived}
+            onArchiveOrRestore={() =>
+              onArchiveOrRestore(p.id, isArchived)
+            }
+            onDelete={() => onDelete(p.id)}
           />
-        </Box>
-      )}
-    </Box>
+        );
+      }}
+    />
   );
 };
 

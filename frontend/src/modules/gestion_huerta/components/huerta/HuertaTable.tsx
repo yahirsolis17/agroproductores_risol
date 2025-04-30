@@ -1,126 +1,107 @@
 // src/modules/gestion_huerta/components/huerta/HuertaTable.tsx
 import React from 'react';
-import {
-  Table,
-  TableContainer,
-  TableHead,
-  TableBody,
-  TableCell,
-  TableRow,
-  Paper,
-  IconButton,
-  Tooltip,
-  Box,
-  Pagination,
-} from '@mui/material';
-import { Edit, Delete } from '@mui/icons-material';
+import { Chip } from '@mui/material';
+import { TableLayout, Column } from '../../../../components/common/TableLayout';
 import { Huerta } from '../../types/huertaTypes';
-import { PermissionButton } from '../../../../components/common/PermissionButton';
+import HuertaActionsMenu from './HuertaActionsMenu';
 
-interface HuertaTableProps {
+interface Props {
   data: Huerta[];
   page: number;
-  total: number;
-  onPageChange: (event: React.ChangeEvent<unknown>, value: number) => void;
-  onEdit?: (huerta: Huerta) => void;
+  pageSize: number;
+  /** total filas para paginación */
+  count: number;
+  onPageChange: (newPage: number) => void;
+  onEdit?: (h: Huerta) => void;
+  onArchive?: (id: number) => void;
+  onRestore?: (id: number) => void;
   onDelete?: (id: number) => void;
-  pageSize?: number;
+  /** mensaje vacío personalizado */
+  emptyMessage?: string;
 }
 
-const HuertaTable: React.FC<HuertaTableProps> = ({
+const columns: Column<Huerta>[] = [
+  { label: 'Nombre', key: 'nombre' },
+  { label: 'Ubicación', key: 'ubicacion' },
+  { label: 'Variedades', key: 'variedades' },
+  { label: 'Hectáreas', key: 'hectareas', align: 'center' },
+  {
+    label: 'Propietario',
+    key: 'propietario',
+    render: (h) => {
+      const ownerName = h.propietario_detalle
+        ? `${h.propietario_detalle.nombre} ${h.propietario_detalle.apellidos}`
+        : `ID: ${h.propietario}`;
+
+      const ownerArchived =
+        h.propietario_detalle &&
+        (h.propietario_detalle as unknown as { is_active?: boolean })
+          .is_active === false;
+
+      return (
+        <>
+          {ownerName}{' '}
+          {ownerArchived && (
+            <Chip
+              label="Propietario archivado"
+              size="small"
+              color="warning"
+              sx={{ ml: 0.5 }}
+            />
+          )}
+        </>
+      );
+    },
+  },
+  {
+    label: 'Estado',
+    key: 'is_active',
+    align: 'center',
+    render: (h) =>
+      h.is_active ? (
+        <Chip label="Activa" size="small" color="success" />
+      ) : (
+        <Chip label="Archivada" size="small" color="warning" />
+      ),
+  },
+];
+
+const HuertaTable: React.FC<Props> = ({
   data,
   page,
-  total,
+  pageSize,
+  count,
   onPageChange,
   onEdit,
+  onArchive,
+  onRestore,
   onDelete,
-  pageSize = 10,
+  emptyMessage = 'No hay huertas registradas.',
 }) => {
-  const showEmptyMessage = data.length === 0;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-
   return (
-    <>
-      <TableContainer component={Paper} className="rounded-xl border border-neutral-200">
-        <Table size="small">
-          <TableHead className="bg-neutral-100">
-            <TableRow>
-              <TableCell className="font-semibold">#</TableCell>
-              <TableCell className="font-semibold">Nombre</TableCell>
-              <TableCell className="font-semibold">Ubicación</TableCell>
-              <TableCell className="font-semibold">Variedades</TableCell>
-              <TableCell className="font-semibold">Hectáreas</TableCell>
-              <TableCell className="font-semibold">Propietario</TableCell>
-              <TableCell className="font-semibold">Acciones</TableCell>
-            </TableRow>
-          </TableHead>
+    <TableLayout<Huerta>
+      data={data}
+      page={page}
+      pageSize={pageSize}
+      count={count}
+      columns={columns}
+      onPageChange={onPageChange}
+      emptyMessage={emptyMessage}
+      renderActions={(h) => {
+        const isArchived = !h.is_active;
+        const handleArchiveOrRestore = () =>
+          isArchived ? onRestore?.(h.id) : onArchive?.(h.id);
 
-          <TableBody>
-            {showEmptyMessage ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center text-neutral-500 py-6">
-                  No hay huertas registradas.
-                </TableCell>
-              </TableRow>
-            ) : (
-              data.map((huerta, index) => (
-                <TableRow key={huerta.id} hover className="text-sm">
-                  <TableCell>{(page - 1) * pageSize + index + 1}</TableCell>
-                  <TableCell>{huerta.nombre}</TableCell>
-                  <TableCell>{huerta.ubicacion}</TableCell>
-                  <TableCell>{huerta.variedades}</TableCell>
-                  <TableCell>{huerta.hectareas}</TableCell>
-                  <TableCell>
-                    {huerta.propietario_detalle
-                      ? `${huerta.propietario_detalle.nombre} ${huerta.propietario_detalle.apellidos}`
-                      : `ID: ${huerta.propietario}`}
-                  </TableCell>
-                  <TableCell>
-                    <Box display="flex" gap={1}>
-                      <Tooltip title="Editar">
-                        <PermissionButton
-                          perm="change_huerta"
-                          component={IconButton}
-                          size="small"
-                          color="primary"
-                          onClick={() => onEdit?.(huerta)}
-                        >
-                          <Edit fontSize="small" />
-                        </PermissionButton>
-                      </Tooltip>
-                      <Tooltip title="Eliminar">
-                        <PermissionButton
-                          perm="delete_huerta"
-                          component={IconButton}
-                          size="small"
-                          color="error"
-                          onClick={() => onDelete?.(huerta.id)}
-                        >
-                          <Delete fontSize="small" />
-                        </PermissionButton>
-                      </Tooltip>
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      {!showEmptyMessage && totalPages > 1 && (
-        <Box display="flex" justifyContent="center" mt={4}>
-          <Pagination
-            count={totalPages}
-            page={page}
-            onChange={onPageChange}
-            variant="outlined"
-            shape="rounded"
-            color="primary"
+        return (
+          <HuertaActionsMenu
+            isArchived={isArchived}
+            onEdit={() => onEdit?.(h)}
+            onArchiveOrRestore={handleArchiveOrRestore}
+            onDelete={() => onDelete?.(h.id)}
           />
-        </Box>
-      )}
-    </>
+        );
+      }}
+    />
   );
 };
 

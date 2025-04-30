@@ -1,3 +1,4 @@
+// src/global/store/propietariosSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { propietarioService } from '../../modules/gestion_huerta/services/propietarioService';
 import { handleBackendNotification } from '../utils/NotificationEngine';
@@ -7,6 +8,7 @@ import {
   PropietarioUpdateData,
 } from '../../modules/gestion_huerta/types/propietarioTypes';
 
+/* ---------- State ---------- */
 interface PaginationMeta {
   count: number;
   next: string | null;
@@ -28,13 +30,10 @@ const initialState: PropietarioState = {
   error: null,
   loaded: false,
   page: 1,
-  meta: {
-    count: 0,
-    next: null,
-    previous: null,
-  },
+  meta: { count: 0, next: null, previous: null },
 };
 
+/* ---------- Thunks ---------- */
 export const fetchPropietarios = createAsyncThunk(
   'propietarios/fetchAll',
   async (page: number, { rejectWithValue }) => {
@@ -42,11 +41,7 @@ export const fetchPropietarios = createAsyncThunk(
       const res = await propietarioService.list(page);
       return {
         propietarios: res.data.propietarios,
-        meta: {
-          count: res.data.count,
-          next: res.data.next,
-          previous: res.data.previous,
-        },
+        meta: { count: res.data.count, next: res.data.next, previous: res.data.previous },
         page,
       };
     } catch (err: any) {
@@ -74,7 +69,10 @@ export const createPropietario = createAsyncThunk(
 
 export const updatePropietario = createAsyncThunk(
   'propietarios/update',
-  async ({ id, payload }: { id: number; payload: PropietarioUpdateData }, { rejectWithValue }) => {
+  async (
+    { id, payload }: { id: number; payload: PropietarioUpdateData },
+    { rejectWithValue }
+  ) => {
     try {
       const res = await propietarioService.update(id, payload);
       handleBackendNotification(res);
@@ -102,6 +100,38 @@ export const deletePropietario = createAsyncThunk(
   }
 );
 
+/* ---- NUEVOS ---- */
+export const archivePropietario = createAsyncThunk(
+  'propietarios/archive',
+  async (id: number, { rejectWithValue }) => {
+    try {
+      const res = await propietarioService.archive(id);
+      handleBackendNotification(res);
+      return res.data.propietario as Propietario;
+    } catch (err: any) {
+      const data = err.response?.data;
+      handleBackendNotification(data);
+      return rejectWithValue(data);
+    }
+  }
+);
+
+export const restorePropietario = createAsyncThunk(
+  'propietarios/restore',
+  async (id: number, { rejectWithValue }) => {
+    try {
+      const res = await propietarioService.restore(id);
+      handleBackendNotification(res);
+      return res.data.propietario as Propietario;
+    } catch (err: any) {
+      const data = err.response?.data;
+      handleBackendNotification(data);
+      return rejectWithValue(data);
+    }
+  }
+);
+
+/* ---------- Slice ---------- */
 const propietariosSlice = createSlice({
   name: 'propietarios',
   initialState,
@@ -112,9 +142,9 @@ const propietariosSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      /* fetch */
       .addCase(fetchPropietarios.pending, (state) => {
         state.loading = true;
-        state.error = null;
       })
       .addCase(fetchPropietarios.fulfilled, (state, action) => {
         state.list = action.payload.propietarios;
@@ -127,23 +157,27 @@ const propietariosSlice = createSlice({
         state.loading = false;
         state.loaded = true;
       })
-      .addCase(createPropietario.fulfilled, (state, action) => {
-        state.list.unshift(action.payload);
+      /* create */
+      .addCase(createPropietario.fulfilled, (state, { payload }) => {
+        state.list.unshift(payload);
       })
-      .addCase(createPropietario.rejected, (state) => {
-        state.error = null;
+      /* update */
+      .addCase(updatePropietario.fulfilled, (state, { payload }) => {
+        const i = state.list.findIndex((p) => p.id === payload.id);
+        if (i !== -1) state.list[i] = payload;
       })
-      .addCase(updatePropietario.fulfilled, (state, action) => {
-        const idx = state.list.findIndex((p) => p.id === action.payload.id);
-        if (idx !== -1) {
-          state.list[idx] = action.payload;
-        }
+      /* delete */
+      .addCase(deletePropietario.fulfilled, (state, { payload }) => {
+        state.list = state.list.filter((p) => p.id !== payload);
       })
-      .addCase(updatePropietario.rejected, (state) => {
-        state.error = null;
+      /* archive / restore */
+      .addCase(archivePropietario.fulfilled, (state, { payload }) => {
+        const i = state.list.findIndex((p) => p.id === payload.id);
+        if (i !== -1) state.list[i] = payload;
       })
-      .addCase(deletePropietario.fulfilled, (state, action) => {
-        state.list = state.list.filter((p) => p.id !== action.payload);
+      .addCase(restorePropietario.fulfilled, (state, { payload }) => {
+        const i = state.list.findIndex((p) => p.id === payload.id);
+        if (i !== -1) state.list[i] = payload;
       });
   },
 });

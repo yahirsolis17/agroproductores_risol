@@ -1,14 +1,8 @@
 // src/modules/gestion_huerta/components/huerta/HuertaFormModal.tsx
 import React, { useEffect, useRef } from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-  CircularProgress,
-  Typography,
+  Dialog, DialogTitle, DialogContent, DialogActions,
+  Button, TextField, CircularProgress, Typography,
 } from '@mui/material';
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import { Formik, Form, FormikProps } from 'formik';
@@ -18,26 +12,31 @@ import { HuertaCreateData } from '../../types/huertaTypes';
 import { Propietario } from '../../types/propietarioTypes';
 import { handleBackendNotification } from '../../../../global/utils/NotificationEngine';
 
-const validationSchema = Yup.object().shape({
-  nombre: Yup.string().required('Nombre requerido'),
-  ubicacion: Yup.string().required('Ubicación requerida'),
-  variedades: Yup.string().required('Variedades requeridas'),
-  hectareas: Yup.number().positive('Debe ser mayor que 0').required('Requerido'),
+/* ---------- Validación ---------- */
+const validationSchema = Yup.object({
+  nombre:      Yup.string().required('Nombre requerido'),
+  ubicacion:   Yup.string().required('Ubicación requerida'),
+  variedades:  Yup.string().required('Variedades requeridas'),
+  hectareas:   Yup.number().positive('Debe ser mayor que 0').required('Requerido'),
   propietario: Yup.number().min(1, 'Selecciona un propietario').required('Requerido'),
 });
 
-type OptionType = Propietario | { id: 'new'; nombre: string; apellidos: string };
+/* ---------- Tipos ---------- */
+type NewOption = { id: 'new'; label: string };
+type PropOption = Propietario & { label: string };
+type OptionType = NewOption | PropOption;
 
-interface HuertaFormModalProps {
+interface Props {
   open: boolean;
   onClose: () => void;
-  onSubmit: (values: HuertaCreateData) => Promise<void>;
+  onSubmit: (vals: HuertaCreateData) => Promise<void>;
   propietarios: Propietario[];
   onRegisterNewPropietario: () => void;
   defaultPropietarioId?: number;
 }
 
-const HuertaFormModal: React.FC<HuertaFormModalProps> = ({
+/* -------------------------------------------------------------------- */
+const HuertaFormModal: React.FC<Props> = ({
   open,
   onClose,
   onSubmit,
@@ -45,8 +44,10 @@ const HuertaFormModal: React.FC<HuertaFormModalProps> = ({
   onRegisterNewPropietario,
   defaultPropietarioId,
 }) => {
+  /* ---------- refs ---------- */
   const formikRef = useRef<FormikProps<HuertaCreateData>>(null);
 
+  /* ---------- valores iniciales ---------- */
   const initialValues: HuertaCreateData = {
     nombre: '',
     ubicacion: '',
@@ -56,6 +57,7 @@ const HuertaFormModal: React.FC<HuertaFormModalProps> = ({
     propietario: 0,
   };
 
+  /* ---------- side-effects ---------- */
   useEffect(() => {
     if (open && defaultPropietarioId && formikRef.current) {
       formikRef.current.setFieldValue('propietario', defaultPropietarioId, false);
@@ -68,26 +70,23 @@ const HuertaFormModal: React.FC<HuertaFormModalProps> = ({
     }
   }, [open]);
 
-  const handleSubmit = async (values: HuertaCreateData, actions: any) => {
+  /* ---------- submit ---------- */
+  const handleSubmit = async (vals: HuertaCreateData, actions: any) => {
     try {
-      await onSubmit(values);
+      await onSubmit(vals);
       onClose();
     } catch (err: any) {
-      const backend = err?.data || err?.response?.data || {};
+      const backend       = err?.data || err?.response?.data || {};
       const backendErrors = backend.errors || backend.data?.errors || {};
       const formikErrors: Record<string, string> = {};
 
       if (Array.isArray(backendErrors.non_field_errors)) {
         const msg = backendErrors.non_field_errors[0];
-        ['nombre', 'ubicacion', 'propietario'].forEach((field) => {
-          formikErrors[field] = msg;
-        });
+        ['nombre', 'ubicacion', 'propietario'].forEach((f) => (formikErrors[f] = msg));
       }
-
       Object.entries(backendErrors).forEach(([field, msgs]: any) => {
         if (field === 'non_field_errors') return;
-        const msg = Array.isArray(msgs) ? msgs[0] : String(msgs);
-        formikErrors[field] = msg;
+        formikErrors[field] = Array.isArray(msgs) ? msgs[0] : String(msgs);
       });
 
       actions.setErrors(formikErrors);
@@ -97,12 +96,22 @@ const HuertaFormModal: React.FC<HuertaFormModalProps> = ({
     }
   };
 
-  const newOpt: OptionType = { id: 'new', nombre: 'Registrar nuevo propietario', apellidos: '' };
-  const opciones: OptionType[] = [
-    newOpt,
-    ...[...propietarios].sort((a, b) => a.nombre.localeCompare(b.nombre)),
-  ];
+  /* ---------- opciones de propietario ---------- */
+  const registroNuevo: NewOption = { id: 'new', label: 'Registrar nuevo propietario' };
 
+  const opciones: OptionType[] = [
+    registroNuevo,
+    ...propietarios
+      .filter((p) => !p.archivado_en) // ← Excluir propietarios archivados
+      .sort((a, b) => a.nombre.localeCompare(b.nombre))
+      .map((p) => ({
+        ...p,
+        label: `${p.nombre} ${p.apellidos}`,
+      })),
+  ];
+  
+
+  /* ---------- render ---------- */
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle className="text-primary-dark font-bold">Nueva Huerta</DialogTitle>
@@ -111,62 +120,54 @@ const HuertaFormModal: React.FC<HuertaFormModalProps> = ({
         innerRef={formikRef}
         initialValues={initialValues}
         validationSchema={validationSchema}
-        onSubmit={handleSubmit}
         validateOnChange={false}
         validateOnBlur={false}
+        onSubmit={handleSubmit}
       >
         {({ values, errors, handleChange, setFieldValue, isSubmitting }) => (
           <Form>
             <DialogContent dividers className="space-y-4">
-              <TextField
-                fullWidth
-                name="nombre"
-                label="Nombre"
-                value={values.nombre}
-                onChange={handleChange}
-                error={Boolean(errors.nombre)}
-                helperText={errors.nombre || ''}
-              />
-              <TextField
-                fullWidth
-                name="ubicacion"
-                label="Ubicación"
-                value={values.ubicacion}
-                onChange={handleChange}
-                error={Boolean(errors.ubicacion)}
-                helperText={errors.ubicacion || ''}
-              />
-              <TextField
-                fullWidth
-                name="variedades"
-                label="Variedades (ej. Kent, Ataulfo)"
-                value={values.variedades}
-                onChange={handleChange}
-                error={Boolean(errors.variedades)}
-                helperText={errors.variedades || ''}
-              />
-              <TextField
-                fullWidth
-                name="hectareas"
-                label="Hectáreas"
-                type="number"
-                value={values.hectareas}
-                onChange={handleChange}
-                error={Boolean(errors.hectareas)}
-                helperText={errors.hectareas || ''}
-              />
+              <TextField fullWidth name="nombre"     label="Nombre"
+                value={values.nombre}     onChange={handleChange}
+                error={!!errors.nombre}   helperText={errors.nombre || ''} />
+              <TextField fullWidth name="ubicacion"  label="Ubicación"
+                value={values.ubicacion}  onChange={handleChange}
+                error={!!errors.ubicacion} helperText={errors.ubicacion || ''} />
+              <TextField fullWidth name="variedades" label="Variedades (ej. Kent, Ataulfo)"
+                value={values.variedades} onChange={handleChange}
+                error={!!errors.variedades} helperText={errors.variedades || ''} />
+              <TextField fullWidth name="hectareas"  label="Hectáreas" type="number"
+                value={values.hectareas}  onChange={handleChange}
+                error={!!errors.hectareas} helperText={errors.hectareas || ''} />
 
               <Autocomplete
                 options={opciones}
-                groupBy={(o) => (o.id === 'new' ? '' : o.nombre.charAt(0).toUpperCase())}
-                getOptionLabel={(o) =>
-                  o.id === 'new' ? o.nombre : `${o.nombre} ${o.apellidos}`
+                getOptionLabel={(o) => o.label}
+                isOptionEqualToValue={(o, v) => o.id === v.id}
+                groupBy={(o) =>
+                  o.id === 'new' ? '' : o.label.charAt(0).toUpperCase()
                 }
                 filterOptions={createFilterOptions({
                   matchFrom: 'start',
-                  stringify: (o) =>
-                    o.id === 'new' ? o.nombre : `${o.nombre} ${o.apellidos}`,
+                  stringify: (o) => o.label,
                 })}
+                value={
+                  values.propietario
+                    ? (opciones.find((o) => o.id === values.propietario) as OptionType)
+                    : null
+                }
+                onChange={(_, val) => {
+                  if (val && val.id === 'new') {
+                    onRegisterNewPropietario();
+                    setFieldValue('propietario', 0);
+                  } else if (val && typeof val.id === 'number') {
+                    setFieldValue('propietario', val.id);
+                  } else {
+                    setFieldValue('propietario', 0);
+                  }
+                }}
+                clearOnEscape
+                clearText="Limpiar"
                 renderGroup={(p) =>
                   p.group === '' ? (
                     <div key={p.key}>{p.children}</div>
@@ -179,26 +180,11 @@ const HuertaFormModal: React.FC<HuertaFormModalProps> = ({
                     </div>
                   )
                 }
-                value={
-                  values.propietario
-                    ? propietarios.find((p) => p.id === values.propietario) || null
-                    : null
-                }
-                onChange={(_, val) => {
-                  if (val?.id === 'new') {
-                    onRegisterNewPropietario();
-                    setFieldValue('propietario', 0);
-                  } else {
-                    setFieldValue('propietario', val ? val.id : 0);
-                  }
-                }}
-                clearOnEscape
-                clearText="Limpiar"
                 renderInput={(params) => (
                   <TextField
                     {...params}
                     label="Propietario"
-                    error={Boolean(errors.propietario)}
+                    error={!!errors.propietario}
                     helperText={errors.propietario || ''}
                   />
                 )}

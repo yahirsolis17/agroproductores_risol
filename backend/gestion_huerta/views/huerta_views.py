@@ -80,30 +80,33 @@ class NotificationMixin:
 
 # ---------------------------------------------------------------------------
 #  🏠  PROPIETARIOS
+# ---------------------------------------------------------------------------# gestion_huerta/views/huerta_views.py
+# gestion_huerta/views/huerta_views.py  ── solo la clase PropietarioViewSet
+# ---------------------------------------------------------------------------
+#  🏠  PROPIETARIOS
 # ---------------------------------------------------------------------------
 class PropietarioViewSet(NotificationMixin, viewsets.ModelViewSet):
-    queryset = Propietario.objects.all().order_by("nombre")
-    serializer_class = PropietarioSerializer
-    pagination_class = GenericPagination
+    queryset           = Propietario.objects.all().order_by("nombre")
+    serializer_class   = PropietarioSerializer
+    pagination_class   = GenericPagination
     permission_classes = [
         IsAuthenticated,
         HasHuertaModulePermission,
         HuertaGranularPermission,
     ]
 
+    # ---------- LIST ----------
     def list(self, request, *args, **kwargs):
-        page = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
+        page       = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
         serializer = self.get_serializer(page, many=True)
         return self.notify(
             key="data_processed_success",
             data={"propietarios": serializer.data},
-            status_code=status.HTTP_200_OK,
         )
 
+    # ---------- CREATE ----------
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-
-        # 1) Validación pura desde el serializer
         try:
             serializer.is_valid(raise_exception=True)
         except serializers.ValidationError:
@@ -112,9 +115,6 @@ class PropietarioViewSet(NotificationMixin, viewsets.ModelViewSet):
                 data={"errors": serializer.errors},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
-
-        # 2) Guardado (si el serializer detectó duplicados en validate_telefono
-        #    aquí ya no llega IntegrityError)
         obj = serializer.save()
         registrar_actividad(request.user, f"Creó al propietario: {obj.nombre}")
         return self.notify(
@@ -123,11 +123,11 @@ class PropietarioViewSet(NotificationMixin, viewsets.ModelViewSet):
             status_code=status.HTTP_201_CREATED,
         )
 
+    # ---------- UPDATE ----------
     def update(self, request, *args, **kwargs):
-        partial = kwargs.pop("partial", False)
-        inst = self.get_object()
-        serializer = self.get_serializer(inst, data=request.data, partial=partial)
-
+        partial    = kwargs.pop("partial", False)
+        instance   = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
         try:
             serializer.is_valid(raise_exception=True)
         except serializers.ValidationError:
@@ -136,49 +136,95 @@ class PropietarioViewSet(NotificationMixin, viewsets.ModelViewSet):
                 data={"errors": serializer.errors},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
-
         obj = serializer.save()
         registrar_actividad(request.user, f"Actualizó al propietario: {obj.nombre}")
         return self.notify(
             key="propietario_update_success",
             data={"propietario": serializer.data},
-            status_code=status.HTTP_200_OK,
         )
 
+    # ---------- DELETE ----------
     def destroy(self, request, *args, **kwargs):
-        inst = self.get_object()
-        nombre = str(inst)
-        inst.delete()
+        instance = self.get_object()
+
+        # 🚫 Bloqueo duro: aún tiene huertas vinculadas
+        if instance.huertas.exists():
+            return self.notify(
+                key="propietario_con_dependencias",
+                data={"info": "No se puede eliminar un propietario con huertas registradas."},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        nombre = str(instance)
+        instance.delete()
         registrar_actividad(request.user, f"Eliminó al propietario: {nombre}")
         return self.notify(
             key="propietario_delete_success",
             data={"info": f"Propietario '{nombre}' eliminado."},
-            status_code=status.HTTP_200_OK,
         )
+
+    # ---------- ARCHIVAR ----------
+    @action(detail=True, methods=["patch"], url_path="archivar")
+    def archivar(self, request, pk=None):
+        propietario = self.get_object()
+
+        if propietario.archivado_en:
+            return self.notify(
+                key="propietario_ya_archivado",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        propietario.archivar()
+        registrar_actividad(request.user, f"Archivó al propietario: {propietario.nombre}")
+        return self.notify(
+            key="propietario_archivado",
+            data={"propietario": self.get_serializer(propietario).data},
+        )
+
+    # ---------- RESTAURAR ----------
+    @action(detail=True, methods=["patch"], url_path="restaurar")
+    def restaurar(self, request, pk=None):
+        propietario = self.get_object()
+
+        if propietario.is_active:
+            return self.notify(
+                key="propietario_no_archivado",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        propietario.desarchivar()
+        registrar_actividad(request.user, f"Restauró al propietario: {propietario.nombre}")
+        return self.notify(
+            key="propietario_restaurado",
+            data={"propietario": self.get_serializer(propietario).data},
+        )
+
+
 # ---------------------------------------------------------------------------
 #  🌳  HUERTAS PROPIAS
 # ---------------------------------------------------------------------------
 class HuertaViewSet(NotificationMixin, viewsets.ModelViewSet):
-    queryset = Huerta.objects.select_related("propietario").order_by("nombre")
-    serializer_class = HuertaSerializer
-    pagination_class = GenericPagination
+    queryset           = Huerta.objects.select_related("propietario").order_by("nombre")
+    serializer_class   = HuertaSerializer
+    pagination_class   = GenericPagination
     permission_classes = [
         IsAuthenticated,
         HasHuertaModulePermission,
         HuertaGranularPermission,
     ]
 
+    # ---------- LIST ----------
     def list(self, request, *args, **kwargs):
-        page = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
+        page       = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
         serializer = self.get_serializer(page, many=True)
         return self.notify(
             key="data_processed_success",
             data={"huertas": serializer.data},
         )
 
+    # ---------- CREATE ----------
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        # 1) validación pura desde el serializer
         try:
             serializer.is_valid(raise_exception=True)
         except serializers.ValidationError:
@@ -187,7 +233,6 @@ class HuertaViewSet(NotificationMixin, viewsets.ModelViewSet):
                 data={"errors": serializer.errors},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
-        # 2) guardado
         obj = serializer.save()
         registrar_actividad(request.user, f"Creó la huerta: {obj.nombre}")
         return self.notify(
@@ -196,10 +241,11 @@ class HuertaViewSet(NotificationMixin, viewsets.ModelViewSet):
             status_code=status.HTTP_201_CREATED,
         )
 
+    # ---------- UPDATE ----------
     def update(self, request, *args, **kwargs):
-        partial = kwargs.pop("partial", False)
-        inst = self.get_object()
-        serializer = self.get_serializer(inst, data=request.data, partial=partial)
+        partial    = kwargs.pop("partial", False)
+        instance   = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
         try:
             serializer.is_valid(raise_exception=True)
         except serializers.ValidationError:
@@ -214,16 +260,54 @@ class HuertaViewSet(NotificationMixin, viewsets.ModelViewSet):
             key="huerta_update_success",
             data={"huerta": serializer.data},
         )
-
+        
+        
     def destroy(self, request, *args, **kwargs):
-        inst = self.get_object()
-        nombre = inst.nombre
-        inst.delete()
+        instance = self.get_object()
+        if instance.is_active:
+            return self.notify(
+                key="huerta_debe_estar_archivada",
+                data={"error": "Debes archivar la huerta antes de eliminarla."},
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if instance.cosecha_set.exists():  # asumiendo relación inversa "cosecha_set"
+            return self.notify(
+                key="huerta_con_dependencias",
+                data={"error": "No se puede eliminar. Tiene cosechas registradas."},
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        nombre = instance.nombre
+        instance.delete()
         registrar_actividad(request.user, f"Eliminó la huerta: {nombre}")
-        return self.notify(
-            key="huerta_delete_success",
-            data={"info": f"Huerta '{nombre}' eliminada."},
-        )
+        return self.notify(key="huerta_delete_success", data={"info": f"Huerta '{nombre}' eliminada."})
+
+
+    @action(detail=True, methods=["post"], url_path="archivar")
+    def archivar(self, request, pk=None):
+        instance = self.get_object()
+        if not instance.is_active:
+            return self.notify(key="ya_esta_archivado")
+        
+        instance.is_active = False
+        instance.archivado_en = timezone.now()
+        instance.save()
+        registrar_actividad(request.user, f"Archivó la huerta: {instance.nombre}")
+        return self.notify(key="huerta_archivada", data={"huerta_id": instance.id})
+
+    @action(detail=True, methods=["post"], url_path="restaurar")
+    def restaurar(self, request, pk=None):
+        instance = self.get_object()
+        if instance.is_active:
+            return self.notify(key="ya_esta_activa")
+        
+        instance.is_active = True
+        instance.archivado_en = None
+        instance.save()
+        registrar_actividad(request.user, f"Restauró la huerta: {instance.nombre}")
+        return self.notify(key="huerta_restaurada", data={"huerta_id": instance.id})
+
 # ---------------------------------------------------------------------------
 #  🏡  HUERTAS RENTADAS
 # ---------------------------------------------------------------------------
@@ -270,16 +354,6 @@ class HuertaRentadaViewSet(NotificationMixin, viewsets.ModelViewSet):
             status_code=status.HTTP_200_OK,
         )
 
-    def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        nombre = instance.nombre
-        instance.delete()
-        registrar_actividad(request.user, f"Eliminó la huerta rentada: {nombre}")
-        return self.notify(
-            key="huerta_rentada_delete_success",
-            data={"info": f"Huerta rentada '{nombre}' eliminada."},
-            status_code=status.HTTP_200_OK,
-        )
 
 
 # ---------------------------------------------------------------------------

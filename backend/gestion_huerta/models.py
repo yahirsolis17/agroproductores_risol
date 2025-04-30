@@ -6,37 +6,44 @@ from django.db.models import Sum, Value
 from django.db.models.functions import Coalesce
 from django.core.exceptions import ValidationError
 
+# ────────────── PROPIETARIO ────────────────────────────────────────────────
 class Propietario(models.Model):
-    """
-    Representa al propietario de una huerta (propia o rentada).
-    Almacena datos básicos como nombre, apellidos, teléfono y dirección.
-    """
-    nombre = models.CharField(max_length=100)
-    apellidos = models.CharField(max_length=100)
-    telefono = models.CharField(
-        max_length=15,
-        validators=[
-            RegexValidator(regex=r'^\d{10}$', message="El teléfono debe contener exactamente 10 dígitos.")
-        ]
-    )
-    direccion = models.CharField(max_length=255)
+    # ───── datos básicos ─────
+    nombre     = models.CharField(max_length=100)
+    apellidos  = models.CharField(max_length=100)
+    telefono   = models.CharField(max_length=15, unique=True)
+    direccion  = models.CharField(max_length=255)
 
+    # ───── soft-delete ─────
+    is_active   = models.BooleanField(default=True)
+    archivado_en = models.DateTimeField(null=True, blank=True)
+
+    # ───── helpers ─────
     def __str__(self):
-        return f"{self.nombre} {self.apellidos}"
+        return f'{self.nombre} {self.apellidos}'
+
+    def archivar(self):
+        if self.is_active:
+            self.is_active   = False
+            self.archivado_en = timezone.now()
+            self.save(update_fields=['is_active', 'archivado_en'])
+
+    def desarchivar(self):
+        if not self.is_active:
+            self.is_active   = True
+            self.archivado_en = None
+            self.save(update_fields=['is_active', 'archivado_en'])
 
 
+# ────────────── HUERTA PROPIA ──────────────────────────────────────────────
 class Huerta(models.Model):
-    """
-    Representa una huerta propia, con nombre, ubicación, variedades de mango,
-    histórico, hectáreas y un propietario.
-    """
-    nombre = models.CharField(max_length=100)
-    ubicacion = models.CharField(max_length=255)
-    variedades = models.CharField(
-        max_length=255,  # Ej: "Kent, Ataulfo, Tommy"
-    )
-    historial = models.TextField(blank=True, null=True)
-    hectareas = models.FloatField(validators=[MinValueValidator(0.1)])
+    nombre      = models.CharField(max_length=100)
+    ubicacion   = models.CharField(max_length=255)
+    variedades  = models.CharField(max_length=255)
+    historial   = models.TextField(blank=True, null=True)
+    hectareas   = models.FloatField(validators=[MinValueValidator(0.1)])
+    is_active    = models.BooleanField(default=True)
+    archivado_en = models.DateTimeField(null=True, blank=True)
     propietario = models.ForeignKey(
         Propietario,
         on_delete=models.CASCADE,
@@ -45,8 +52,8 @@ class Huerta(models.Model):
 
     class Meta:
         unique_together = ('nombre', 'ubicacion', 'propietario')
-        ordering = ['id']
-        indexes = [models.Index(fields=['nombre'])]
+        ordering        = ['id']
+        indexes         = [models.Index(fields=['nombre'])]
 
     def __str__(self):
         return f"{self.nombre} ({self.propietario})"

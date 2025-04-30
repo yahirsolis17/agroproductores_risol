@@ -11,6 +11,11 @@ interface HuertaListResponse {
   count: number;
   next: string | null;
   previous: string | null;
+  meta: {
+    count: number;
+    next: string | null;
+    previous: string | null;
+  };
 }
 
 interface HuertaPayload {
@@ -19,6 +24,7 @@ interface HuertaPayload {
 }
 
 export const huertaService = {
+  /* ---------- CRUD básico ---------- */
   async list(page = 1) {
     const { data } = await apiClient.get<{
       success: boolean;
@@ -52,6 +58,17 @@ export const huertaService = {
       message_key: string;
       data: HuertaPayload;
     }>(`/huerta/huertas/${id}/`);
+    return data;
+  },
+
+  /* ---------- NUEVO: archivar / restaurar ---------- */
+  async archivar(id: number) {
+    const { data } = await apiClient.post(`/huerta/huertas/${id}/archivar/`);
+    return data;
+  },
+
+  async restaurar(id: number) {
+    const { data } = await apiClient.post(`/huerta/huertas/${id}/restaurar/`);
     return data;
   },
 };

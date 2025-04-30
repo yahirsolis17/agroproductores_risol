@@ -1,31 +1,44 @@
 // src/modules/gestion_huerta/pages/Huertas.tsx
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Paper, Typography, CircularProgress, Box, Pagination } from '@mui/material';
+import {
+  Paper,
+  Typography,
+  CircularProgress,
+  Box,
+  Tabs,
+  Tab,
+} from '@mui/material';
 
-/* ───── Hooks ───── */
+/* hooks */
 import { useHuertas } from '../hooks/useHuertas';
 import { usePropietarios } from '../hooks/usePropietarios';
 
-/* ───── Componentes ───── */
+/* componentes */
 import HuertaToolbar from '../components/huerta/HuertaToolBar';
 import HuertaTable from '../components/huerta/HuertaTable';
 import HuertaFormModal from '../components/huerta/HuertaFormModal';
 import PropietarioFormModal from '../components/propietario/PropietarioFormModal';
 
-/* ───── Tipos ───── */
+/* tipos y helpers */
 import { HuertaCreateData } from '../types/huertaTypes';
 import { PropietarioCreateData } from '../types/propietarioTypes';
+import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
+import { huertaService } from '../services/huertaService';
+
+type ViewFilter = 'activas' | 'archivadas' | 'todas';
 
 const Huertas: React.FC = () => {
+  /* ---------- state ---------- */
   const [openHuertaModal, setOpenHuertaModal] = useState(false);
-  const [openPropietarioModal, setOpenPropietarioModal] = useState(false);
-  const [defaultPropietarioId, setDefaultPropietarioId] = useState<number | undefined>(undefined);
+  const [openPropModal, setOpenPropModal] = useState(false);
+  const [defaultPropId, setDefaultPropId] = useState<number | undefined>();
+  const [filter, setFilter] = useState<ViewFilter>('activas');
 
+  /* ---------- hooks ---------- */
   const {
     huertas,
     loading: loadingHuerta,
-    meta,
     page,
     setPage,
     addHuerta,
@@ -34,42 +47,49 @@ const Huertas: React.FC = () => {
 
   const {
     propietarios,
-    loading: loadingPropietarios,
+    loading: loadingProps,
     fetchPropietarios,
     addPropietario,
   } = usePropietarios();
 
-  const handleCloseHuertaModal = () => {
+  const isLoading = loadingHuerta || loadingProps;
+  const pageSize = 10;
+
+  /* ---------- handlers ---------- */
+  const closeHuertaModal = () => {
     setOpenHuertaModal(false);
-    setDefaultPropietarioId(undefined);
+    setDefaultPropId(undefined);
   };
 
-  // Ahora devuelve Promise<void> para coincidir con Formik
-  const handleCreateHuerta = async (payload: HuertaCreateData): Promise<void> => {
-    try {
-      await addHuerta(payload);        // unwrap() arrojará ValidationError si existe
-      await fetchHuertas();
-      handleCloseHuertaModal();
-    } catch (error) {
-      console.error('Error al crear huerta:', error);
-      throw error; // para que Formik capture y pinte los errores en el formulario
-    }
+  const createHuerta = async (payload: HuertaCreateData) => {
+    await addHuerta(payload);
+    await fetchHuertas();
+    closeHuertaModal();
   };
 
-  const handleCreatePropietario = async (payload: PropietarioCreateData) => {
-    try {
-      const newProp = await addPropietario(payload); // unwrap() lanzará si hay validación
-      await fetchPropietarios();
-      setDefaultPropietarioId(newProp.id);
-      return newProp; // necesario para onSuccess de PropietarioFormModal
-    } catch (error) {
-      throw error; // para que PropietarioFormModal capture el error
-    }
+  const createPropietario = async (payload: PropietarioCreateData) => {
+    const nuevo = await addPropietario(payload);
+    await fetchPropietarios();
+    setDefaultPropId(nuevo.id);
+    return nuevo;
   };
 
-  const isLoading = loadingHuerta || loadingPropietarios;
-  const totalPages = Math.ceil((meta?.count || 0) / 10);
+  /* ---------- filtro ---------- */
+  const filteredHuertas = huertas.filter((h) => {
+    if (filter === 'activas') return h.is_active;
+    if (filter === 'archivadas') return !h.is_active;
+    return true;
+  });
 
+  /* ---------- mensaje vacío según pestaña ---------- */
+  const emptyMessage =
+    filter === 'activas'
+      ? 'No hay huertas activas.'
+      : filter === 'archivadas'
+      ? 'No hay huertas archivadas.'
+      : 'No hay huertas registradas.';
+
+  /* ---------- render ---------- */
   return (
     <motion.div
       className="p-6 max-w-6xl mx-auto"
@@ -77,52 +97,85 @@ const Huertas: React.FC = () => {
       animate={{ opacity: 1 }}
       transition={{ duration: 0.4 }}
     >
-      <Paper elevation={4} className="p-6 sm:p-10 rounded-2xl shadow-lg bg-white">
+      <Paper
+        elevation={4}
+        className="p-6 sm:p-10 rounded-2xl shadow-lg bg-white"
+      >
         <Typography variant="h4" className="text-primary-dark font-bold mb-4">
           Gestión de Huertas
         </Typography>
 
         <HuertaToolbar onOpen={() => setOpenHuertaModal(true)} />
 
+        {/* ----- Pestañas filtro ----- */}
+        <Tabs
+          value={filter}
+          onChange={(_, v) => setFilter(v)}
+          textColor="primary"
+          indicatorColor="primary"
+          className="mb-4"
+        >
+          <Tab value="activas" label="Activas" />
+          <Tab value="archivadas" label="Archivadas" />
+          <Tab value="todas" label="Todas" />
+        </Tabs>
+
         {isLoading ? (
           <Box display="flex" justifyContent="center" mt={6}>
             <CircularProgress />
           </Box>
         ) : (
-          <>
-            <HuertaTable
-              data={huertas}
-              page={page}
-              total={meta?.count || 0}
-              onPageChange={(_, value) => setPage(value)}
-            />
-            {totalPages > 1 && (
-              <Box display="flex" justifyContent="center" mt={4}>
-                <Pagination
-                  count={totalPages}
-                  page={page}
-                  onChange={(_, value) => setPage(value)}
-                  shape="rounded"
-                  color="primary"
-                />
-              </Box>
-            )}
-          </>
+          <HuertaTable
+            data={filteredHuertas}
+            page={page}
+            pageSize={pageSize}
+            count={filteredHuertas.length}
+            onPageChange={setPage}          
+            emptyMessage={emptyMessage}
+            onArchive={async (id) => {
+              try {
+                const res = await huertaService.archivar(id);
+                handleBackendNotification(res);
+                await fetchHuertas();
+              } catch (err: any) {
+                handleBackendNotification(err.response?.data);
+              }
+            }}
+            onRestore={async (id) => {
+              try {
+                const res = await huertaService.restaurar(id);
+                handleBackendNotification(res);
+                await fetchHuertas();
+              } catch (err: any) {
+                handleBackendNotification(err.response?.data);
+              }
+            }}
+            onDelete={async (id) => {
+              try {
+                const res = await huertaService.delete(id);
+                handleBackendNotification(res);
+                await fetchHuertas();
+              } catch (err: any) {
+                handleBackendNotification(err.response?.data);
+              }
+            }}
+          />
         )}
 
+        {/* ---- Modales ---- */}
         <HuertaFormModal
           open={openHuertaModal}
-          onClose={handleCloseHuertaModal}
-          onSubmit={handleCreateHuerta}
+          onClose={closeHuertaModal}
+          onSubmit={createHuerta}
           propietarios={propietarios}
-          onRegisterNewPropietario={() => setOpenPropietarioModal(true)}
-          defaultPropietarioId={defaultPropietarioId}
+          onRegisterNewPropietario={() => setOpenPropModal(true)}
+          defaultPropietarioId={defaultPropId}
         />
 
         <PropietarioFormModal
-          open={openPropietarioModal}
-          onClose={() => setOpenPropietarioModal(false)}
-          onSubmit={handleCreatePropietario}
+          open={openPropModal}
+          onClose={() => setOpenPropModal(false)}
+          onSubmit={createPropietario}
         />
       </Paper>
     </motion.div>

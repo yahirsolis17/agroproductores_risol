@@ -135,5 +135,42 @@ NOTIFICATION_MESSAGES = {
     "venta_delete_success": {
         "message": "Venta eliminada correctamente.",
         "type": "success"
-    }
+    },
+    
+    "propietario_archivado":       {"message": "Propietario archivado correctamente", "type": "success"},
+    "propietario_ya_archivado":    {"message": "El propietario ya está archivado",   "type": "info"},
+    "propietario_restaurado":      {"message": "Propietario restaurado",             "type": "success"},
+    "propietario_no_archivado":    {"message": "El propietario no está archivado",   "type": "info"},
+    "propietario_con_dependencias":{"message": "No se puede elimina este propietario, tiene huertas registradas","type": "error"},
+    "propietario_delete_success":  {"message": "Propietario eliminado",              "type": "success"},
+
+    # -------------------------------------------------
+    # Acciones de Archivado / Restaurado / Restricciones - Huertas
+    # -------------------------------------------------
+    "huerta_archivada": {
+        "message": "Huerta archivada correctamente.",
+        "type": "success"
+    },
+    "huerta_restaurada": {
+        "message": "Huerta restaurada correctamente.",
+        "type": "success"
+    },
+    "ya_esta_archivada": {
+        "message": "La huerta ya está archivada.",
+        "type": "info"
+    },
+    "ya_esta_activa": {
+        "message": "La huerta ya está activa.",
+        "type": "info"
+    },
+    "huerta_debe_estar_archivada": {
+        "message": "Debes archivar la huerta antes de poder eliminarla.",
+        "type": "error"
+    },
+    "huerta_con_dependencias": {
+        "message": "No se puede eliminar esta huerta, tiene cosechas registradas.",
+        "type": "error"
+    },
+
+
 }

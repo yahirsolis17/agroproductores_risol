@@ -14,6 +14,7 @@ interface PropietarioListResponse {
 }
 
 export const propietarioService = {
+  /* ---------------- LISTADO ---------------- */
   async list(page = 1) {
     const { data } = await apiClient.get<{
       success: boolean;
@@ -23,8 +24,8 @@ export const propietarioService = {
     return data;
   },
 
+  /* ---------------- CREAR ---------------- */
   async create(payload: PropietarioCreateData) {
-    // Llamada a POST /huerta/propietarios/
     const { data } = await apiClient.post<{
       success: boolean;
       message_key: string;
@@ -33,8 +34,8 @@ export const propietarioService = {
     return data;
   },
 
+  /* ---------------- ACTUALIZAR ---------------- */
   async update(id: number, payload: PropietarioUpdateData) {
-    // PUT /huerta/propietarios/{id}/
     const { data } = await apiClient.put<{
       success: boolean;
       message_key: string;
@@ -43,13 +44,32 @@ export const propietarioService = {
     return data;
   },
 
+  /* ---------------- ELIMINAR ---------------- */
   async delete(id: number) {
-    // DELETE /huerta/propietarios/{id}/
     const { data } = await apiClient.delete<{
       success: boolean;
       message_key: string;
       data: { info: string };
     }>(`/huerta/propietarios/${id}/`);
+    return data;
+  },
+
+  /* ------------- ARCHIVAR / RESTAURAR ------------- */
+  async archive(id: number) {
+    const { data } = await apiClient.patch<{
+      success: boolean;
+      message_key: string;
+      data: { propietario: Propietario };
+    }>(`/huerta/propietarios/${id}/archivar/`);
+    return data;
+  },
+
+  async restore(id: number) {
+    const { data } = await apiClient.patch<{
+      success: boolean;
+      message_key: string;
+      data: { propietario: Propietario };
+    }>(`/huerta/propietarios/${id}/restaurar/`);
     return data;
   },
 };

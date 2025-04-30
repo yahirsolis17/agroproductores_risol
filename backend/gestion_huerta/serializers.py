@@ -46,62 +46,47 @@ def validate_telefono(self, value):
 # -----------------------------
 # PROPIETARIO
 # -----------------------------
+# --------------------------- PROPIETARIO -----------------------------------
 class PropietarioSerializer(serializers.ModelSerializer):
-    """
-    Serializa y valida los datos de un propietario.
-    """
+    archivado_en = serializers.DateTimeField(read_only=True)
+    is_active    = serializers.BooleanField(read_only=True)
+
     class Meta:
-        model = Propietario
-        fields = ['id', 'nombre', 'apellidos', 'telefono', 'direccion']
+        model  = Propietario
+        fields = [
+            'id', 'nombre', 'apellidos', 'telefono', 'direccion',
+            'archivado_en', 'is_active'
+        ]
 
-
-    def validate_nombre(self, value):
-        return validate_nombre_persona(value)
-
-    def validate_apellidos(self, value):
-        return validate_nombre_persona(value)
+    # … (validadores tal cual los tenías) …
+    def validate_nombre(self, value):      return validate_nombre_persona(value)
+    def validate_apellidos(self, value):   return validate_nombre_persona(value)
 
     def validate_telefono(self, value):
         value = value.strip()
-
         if self.instance is None:
-            # Creación
             if Propietario.objects.filter(telefono=value).exists():
                 raise serializers.ValidationError("Este teléfono ya está registrado.")
         else:
-            # Actualización
             if Propietario.objects.exclude(pk=self.instance.pk).filter(telefono=value).exists():
                 raise serializers.ValidationError("Este teléfono ya está registrado con otro propietario.")
-
         return value
-    # Tu validador reutilizable
 
-    def validate_direccion(self, value):
-        return validate_direccion(value)
+    def validate_direccion(self, value):   return validate_direccion(value)
 
 
-# -----------------------------
-# HUERTA Y HUERTA RENTADA
-# -----------------------------
+# ---------------------------- HUERTA ---------------------------------------
 class HuertaSerializer(serializers.ModelSerializer):
-    """
-    Serializa la huerta propia, con detalle opcional del propietario,
-    validaciones inline y validación unique_together.
-    """
-    propietario_detalle = PropietarioSerializer(source='propietario', read_only=True)
-    variedades = serializers.CharField()
-
+    propietario_detalle    = PropietarioSerializer(source='propietario', read_only=True)
+    propietario_archivado  = serializers.SerializerMethodField()   # ← NUEVO
+    is_active             = serializers.BooleanField(read_only=True)
+    archivado_en          = serializers.DateTimeField(read_only=True)
     class Meta:
-        model = Huerta
+        model  = Huerta
         fields = [
-            'id',
-            'nombre',
-            'ubicacion',
-            'variedades',
-            'historial',
-            'hectareas',
-            'propietario',
-            'propietario_detalle',
+            'id', 'nombre', 'ubicacion', 'variedades', 'historial',
+            'hectareas', 'propietario', 'propietario_detalle',
+            'propietario_archivado', 'is_active', 'archivado_en'
         ]
         validators = [
             UniqueTogetherValidator(
@@ -111,34 +96,50 @@ class HuertaSerializer(serializers.ModelSerializer):
             )
         ]
 
+    # ----- getters -----
+    def get_propietario_archivado(self, obj):
+        return not obj.propietario.is_active
+
+    # ----- validaciones -----
     def validate_nombre(self, value):
-        text = value.strip()
-        if len(text) < 3:
+        txt = value.strip()
+        if len(txt) < 3:
             raise serializers.ValidationError("El nombre debe tener al menos 3 caracteres.")
-        if not re.match(r'^[A-Za-z0-9ñÑáéíóúÁÉÍÓÚ\s]+$', text):
+        if not re.match(r'^[A-Za-z0-9ñÑáéíóúÁÉÍÓÚ\s]+$', txt):
             raise serializers.ValidationError("Nombre inválido. Solo letras, números y espacios.")
-        return text
+        return txt
 
     def validate_ubicacion(self, value):
-        text = value.strip()
-        if len(text) < 5:
+        txt = value.strip()
+        if len(txt) < 5:
             raise serializers.ValidationError("La ubicación debe tener al menos 5 caracteres.")
-        if not re.match(r'^[\w\s\-,.#áéíóúÁÉÍÓÚñÑ]+$', text):
+        if not re.match(r'^[\w\s\-,.#áéíóúÁÉÍÓÚñÑ]+$', txt):
             raise serializers.ValidationError(
                 "Ubicación inválida. Solo caracteres permitidos (letras, números, espacios, ,- .#)."
             )
-        return text
+        return txt
 
     def validate_variedades(self, value):
-        text = value.strip()
-        if len(text) < 3:
+        txt = value.strip()
+        if len(txt) < 3:
             raise serializers.ValidationError("Debes indicar al menos una variedad de mango (mínimo 3 caracteres).")
-        return text
+        return txt
 
     def validate_hectareas(self, value):
         if value is None or value <= 0:
             raise serializers.ValidationError("El número de hectáreas debe ser mayor a 0.")
         return value
+
+    def validate(self, data):
+        """
+        Evita registrar / mover una huerta a un propietario archivado.
+        """
+        propietario = data.get('propietario') or getattr(self.instance, 'propietario', None)
+        if propietario and not propietario.is_active:
+            raise serializers.ValidationError(
+                "No puedes asignar huertas a un propietario archivado."
+            )
+        return data
 
 
 class HuertaRentadaSerializer(HuertaSerializer):

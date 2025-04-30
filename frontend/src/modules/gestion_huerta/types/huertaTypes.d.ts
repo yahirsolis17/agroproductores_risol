@@ -9,6 +9,8 @@ export interface Huerta {
   hectareas: number;
   propietario: number;
   propietario_detalle?: Propietario;
+  is_active: boolean;              // true = activa, false = archivada
+  archivado_en?: string | null;
 }
 
 export interface HuertaCreateData {
