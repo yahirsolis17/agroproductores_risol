@@ -102,7 +102,7 @@ class CustomTokenRefreshView(TokenRefreshView):
     throttle_classes = [RefreshTokenThrottle]
 
 class UsuarioViewSet(AuditUpdateMixin, ModelViewSet):
-    queryset         = Users.objects.all()
+    queryset = Users.objects.all()
     serializer_class = UsuarioSerializer
 
     # ----- permisos por acción -----
@@ -126,25 +126,30 @@ class UsuarioViewSet(AuditUpdateMixin, ModelViewSet):
     def set_permisos(self, request, pk=None):
         user_obj = self.get_object()
 
-        # ❗ evita que un admin sin superuser se quite sus propios permisos
+        # evita que un admin sin superuser se quite sus propios permisos
         if user_obj == request.user and not request.user.is_superuser:
-            return Response(
-                {"detail": "No puedes modificar tus propios permisos."},
-                status=status.HTTP_400_BAD_REQUEST,
+            return NotificationHandler.generate_response(
+                message_key="permission_denied",
+                status_code=status.HTTP_400_BAD_REQUEST
             )
 
         codenames = request.data.get('permisos', [])
-        permisos  = Permission.objects.filter(codename__in=codenames)
+        permisos = Permission.objects.filter(codename__in=codenames)
         user_obj.user_permissions.set(permisos)
 
-        return Response({'status': 'permisos actualizados'})
+        registrar_actividad(request.user, f"Actualizó permisos de usuario {user_obj.id}")
+
+        return NotificationHandler.generate_response(
+            message_key="permission_update_success",
+            data={"user": UsuarioSerializer(user_obj).data}
+        )
 
     # ----- creación personalizada -----
     def create(self, request, *args, **kwargs):
         serializer = CustomUserCreationSerializer(data=request.data)
         if not serializer.is_valid():
             return NotificationHandler.generate_response(
-                "validation_error",
+                message_key="validation_error",
                 data={'errors': serializer.errors},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
@@ -153,7 +158,7 @@ class UsuarioViewSet(AuditUpdateMixin, ModelViewSet):
         registrar_actividad(request.user, f"Registró al usuario: {user.telefono}")
 
         return NotificationHandler.generate_response(
-            "register_success",
+            message_key="register_success",
             data=UsuarioSerializer(user).data,
             status_code=status.HTTP_201_CREATED,
         )
@@ -161,20 +166,27 @@ class UsuarioViewSet(AuditUpdateMixin, ModelViewSet):
     # ----- activar/desactivar -----
     @action(detail=True, methods=['patch'], permission_classes=[IsAdmin])
     def toggle_active(self, request, pk=None):
-        user           = self.get_object()
+        user = self.get_object()
         user.is_active = not user.is_active
         user.save()
-        msg = "activado" if user.is_active else "desactivado"
 
-        return Response(
-            {
-                "success": True,
-                "message": f"Usuario {msg} correctamente.",
-                "user": UsuarioSerializer(user).data,
-            },
-            status=status.HTTP_200_OK,
+        registrar_actividad(request.user, f"{'Activó' if user.is_active else 'Desactivó'} usuario {user.id}")
+
+        return NotificationHandler.generate_response(
+            message_key="update_success",
+            data={"user": UsuarioSerializer(user).data}
         )
 
+    # ----- eliminar usuario con notificación -----
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+
+        registrar_actividad(request.user, f"Eliminó usuario {instance.id}")
+
+        return NotificationHandler.generate_response(
+            message_key="delete_success"
+        )
 
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]

@@ -1,3 +1,4 @@
+// src/modules/gestion_usuarios/pages/UsersAdmin.tsx
 import React, { useEffect, useState } from 'react';
 import apiClient from '../../../global/api/apiClient';
 import { useAuth } from '../context/AuthContext';
@@ -8,7 +9,13 @@ import {
   Pagination,
   Box,
   Paper,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
 } from '@mui/material';
+import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
 import PermissionsDialog from './PermissionsDialog';
 import UserActionsMenu from '../components/UserActionsMenu';
 
@@ -37,10 +44,14 @@ const UsersAdmin: React.FC = () => {
   const [delayedLoading, setDelayedLoading] = useState(false);
   const pageSize = 10;
 
-  // Diálogo de permisos
+  // Permisos dialog
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selUserId, setSelUserId] = useState<number>(0);
   const [selUserPerms, setSelUserPerms] = useState<string[]>([]);
+
+  // Confirm delete modal
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmUserId, setConfirmUserId] = useState<number>(0);
 
   useEffect(() => {
     if (currentUser?.role === 'admin') fetchUsers(page);
@@ -52,22 +63,24 @@ const UsersAdmin: React.FC = () => {
       setDelayedLoading(false);
       const res = await apiClient.get(`/usuarios/users/?page=${pageNumber}`);
       const results: any[] = res.data.results || [];
-      const mapped: User[] = results
-        .filter(u => u.id !== currentUser?.id)
-        .map(u => ({
-          id: u.id,
-          nombre: u.nombre,
-          apellido: u.apellido,
-          telefono: u.telefono,
-          role: u.role,
-          is_active: u.is_active,
-          permisos: u.permisos || [],
-        }));
-      setUsers(mapped);
+      setUsers(
+        results
+          .filter(u => u.id !== currentUser?.id)
+          .map(u => ({
+            id: u.id,
+            nombre: u.nombre,
+            apellido: u.apellido,
+            telefono: u.telefono,
+            role: u.role,
+            is_active: u.is_active,
+            permisos: u.permisos || [],
+          }))
+      );
       setMeta({ count: res.data.count, next: res.data.next, previous: res.data.previous });
       localStorage.setItem('usersPage', String(pageNumber));
-    } catch {
-      setError('No se pudo obtener la lista de usuarios');
+    } catch (err: any) {
+      handleBackendNotification(err.response?.data);
+      setError('No se pudo obtener usuarios');
     } finally {
       clearTimeout(timer);
       setDelayedLoading(false);
@@ -79,28 +92,31 @@ const UsersAdmin: React.FC = () => {
 
   const handleToggleActive = async (userId: number) => {
     try {
-      await apiClient.patch(`/usuarios/users/${userId}/toggle_active/`);
+      const res = await apiClient.patch(`/usuarios/users/${userId}/toggle_active/`);
+      handleBackendNotification(res.data);
       fetchUsers(page);
-    } catch {
-      setError('Error al actualizar el estado del usuario');
+    } catch (err: any) {
+      handleBackendNotification(err.response?.data);
     }
   };
 
   const handleArchiveUser = async (userId: number) => {
     try {
-      await apiClient.patch(`/usuarios/users/${userId}/archive/`); // Ajusta endpoint si es otro
+      const res = await apiClient.patch(`/usuarios/users/${userId}/archive/`);
+      handleBackendNotification(res.data);
       fetchUsers(page);
-    } catch {
-      setError('Error al archivar el usuario');
+    } catch (err: any) {
+      handleBackendNotification(err.response?.data);
     }
   };
 
   const handleDeleteUser = async (userId: number) => {
     try {
-      await apiClient.delete(`/usuarios/users/${userId}/`);
+      const res = await apiClient.delete(`/usuarios/users/${userId}/`);
+      handleBackendNotification(res.data);
       fetchUsers(page);
-    } catch {
-      setError('Error al eliminar el usuario');
+    } catch (err: any) {
+      handleBackendNotification(err.response?.data);
     }
   };
 
@@ -110,25 +126,23 @@ const UsersAdmin: React.FC = () => {
     setDialogOpen(true);
   };
 
+  const openConfirm = (userId: number) => {
+    setConfirmUserId(userId);
+    setConfirmOpen(true);
+  };
+
   if (currentUser?.role !== 'admin') {
     return <div className="p-6 text-center text-red-500">Acceso denegado</div>;
   }
 
   return (
     <>
-      <motion.div
-        className="p-6 max-w-6xl mx-auto"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.4 }}
-      >
+      <motion.div className="p-6 max-w-6xl mx-auto" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
         <Paper elevation={4} className="p-6 sm:p-10 rounded-2xl shadow-lg bg-white">
           <Typography variant="h4" className="text-primary-dark font-bold mb-4">
             Administrar Usuarios
           </Typography>
-
           {error && <div className="text-red-600 mb-2">{error}</div>}
-
           {delayedLoading ? (
             <Box display="flex" justifyContent="center" mt={6}>
               <CircularProgress />
@@ -159,7 +173,7 @@ const UsersAdmin: React.FC = () => {
                           <UserActionsMenu
                             onDeactivate={() => handleToggleActive(u.id)}
                             onArchive={() => handleArchiveUser(u.id)}
-                            onDelete={() => handleDeleteUser(u.id)}
+                            onDelete={() => openConfirm(u.id)}
                             onManagePermissions={() => handleManagePermissions(u.id, u.permisos)}
                           />
                         </td>
@@ -174,7 +188,6 @@ const UsersAdmin: React.FC = () => {
                   )}
                 </tbody>
               </table>
-
               <Box display="flex" justifyContent="center" mt={4}>
                 <Pagination
                   count={totalPages}
@@ -190,13 +203,38 @@ const UsersAdmin: React.FC = () => {
         </Paper>
       </motion.div>
 
-      {/* Diálogo de permisos */}
+      {/* Dialog de permisos */}
       <PermissionsDialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
         userId={selUserId}
         currentPerms={selUserPerms}
       />
+
+      {/* Modal de confirmación de eliminación */}
+      <Dialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+      >
+        <DialogTitle>Confirmar eliminación</DialogTitle>
+        <DialogContent>
+          ¿Estás seguro de que deseas eliminar este usuario?
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmOpen(false)}>
+            Cancelar
+          </Button>
+          <Button
+            color="error"
+            onClick={() => {
+              handleDeleteUser(confirmUserId);
+              setConfirmOpen(false);
+            }}
+          >
+            Eliminar
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 };

@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/services/propietarioService.ts
 import apiClient from '../../../global/api/apiClient';
 import {
   Propietario,
@@ -14,7 +15,6 @@ interface PropietarioListResponse {
 
 export const propietarioService = {
   async list(page = 1) {
-    // GET a /huerta/propietarios/ (list + pagination)
     const { data } = await apiClient.get<{
       success: boolean;
       message_key: string;
@@ -24,7 +24,7 @@ export const propietarioService = {
   },
 
   async create(payload: PropietarioCreateData) {
-    // POST a /huerta/propietarios/ (creación)
+    // Llamada a POST /huerta/propietarios/
     const { data } = await apiClient.post<{
       success: boolean;
       message_key: string;
@@ -34,7 +34,7 @@ export const propietarioService = {
   },
 
   async update(id: number, payload: PropietarioUpdateData) {
-    // PUT a /huerta/propietarios/{id}/ (update)
+    // PUT /huerta/propietarios/{id}/
     const { data } = await apiClient.put<{
       success: boolean;
       message_key: string;
@@ -44,7 +44,7 @@ export const propietarioService = {
   },
 
   async delete(id: number) {
-    // DELETE a /huerta/propietarios/{id}/
+    // DELETE /huerta/propietarios/{id}/
     const { data } = await apiClient.delete<{
       success: boolean;
       message_key: string;

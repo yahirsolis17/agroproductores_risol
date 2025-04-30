@@ -1,5 +1,13 @@
 // src/modules/gestion_usuarios/pages/PermissionsDialog.tsx
 import React, { useEffect, useState, forwardRef } from 'react';
+
+interface PermissionsDialogProps {
+  open: boolean;
+  onClose: () => void;
+  userId: number;
+  currentPerms: string[];
+
+}
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../../../global/store/store';
 import { setPermissions } from '../../../global/store/authSlice';
@@ -19,12 +27,6 @@ import {
 } from '@mui/material';
 import permisoService, { Permiso } from '../services/permisoService';
 import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
-
-interface PermissionsDialogProps {
-  open: boolean;
-  onClose: () => void;
-  userId: number;
-}
 
 const Transition = forwardRef(function Transition(
   props: SlideProps & { children: React.ReactElement<any, any> },
@@ -47,84 +49,55 @@ const PermissionsDialog: React.FC<PermissionsDialogProps> = ({
   const [loadingUser, setLoadingUser] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  /** Carga inicial: lista de todos los permisos y permisos del usuario */
   useEffect(() => {
     if (!open) return;
-
-    const load = async () => {
+    (async () => {
       setLoadingAll(true);
       setLoadingUser(true);
       try {
-        const [all, userPerms] = await Promise.all([
+        const [allRes, userPerms] = await Promise.all([
           permisoService.getAllPermisos(),
           permisoService.getUserPermisos(userId),
         ]);
-        setAllPerms(all);
+        setAllPerms(allRes);
         setSelected(userPerms);
       } catch (err) {
-        console.error('[PermissionsDialog] carga inicial:', err);
+        console.error(err);
         setAllPerms([]);
         setSelected([]);
       } finally {
         setLoadingAll(false);
         setLoadingUser(false);
       }
-    };
-
-    load();
+    })();
   }, [open, userId]);
 
-  /** Toggle de un permiso en local */
   const toggle = (codename: string) =>
     setSelected(prev =>
       prev.includes(codename) ? prev.filter(p => p !== codename) : [...prev, codename]
     );
 
-  /** Guardar cambios: asigna en el back, luego recarga permisos del usuario */
-  const onSave = async () => {
-    setSaving(true);
-    try {
-      await permisoService.setUserPermisos(userId, selected);
-
-      // 🔄 Recarga los permisos **actualizados** del usuario
-      const updatedPerms = await permisoService.getUserPermisos(userId);
-      setSelected(updatedPerms);
-
-      // Si edité mis propios permisos, actualizo el store global
-      if (userId === currentUserId) {
-        dispatch(setPermissions(updatedPerms));
+    const onSave = async () => {
+      setSaving(true);
+      try {
+        const res = await permisoService.setUserPermisos(userId, selected);
+        handleBackendNotification(res);
+        const updatedPerms = await permisoService.getUserPermisos(userId);
+        setSelected(updatedPerms);
+        if (userId === currentUserId) dispatch(setPermissions(updatedPerms));
+        onClose();
+      } catch (err: any) {
+        handleBackendNotification(err.response?.data);
+      } finally {
+        setSaving(false);
       }
-
-      handleBackendNotification({
-        success: true,
-        notification: {
-          key: 'permisos_update',
-          message: 'Permisos actualizados',
-          type: 'success',
-        },
-      });
-
-      // Finalmente cerramos el modal
-      onClose();
-    } catch (err: any) {
-      handleBackendNotification(err.response?.data);
-    } finally {
-      setSaving(false);
-    }
-  };
+    };
 
   const loading = loadingAll || loadingUser;
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      fullWidth
-      maxWidth="sm"
-      TransitionComponent={Transition}
-    >
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm" TransitionComponent={Transition}>
       <DialogTitle>Editar permisos</DialogTitle>
-
       <DialogContent dividers>
         {loading ? (
           <Box display="flex" justifyContent="center" py={4}>
@@ -147,7 +120,6 @@ const PermissionsDialog: React.FC<PermissionsDialogProps> = ({
           </FormGroup>
         )}
       </DialogContent>
-
       <DialogActions>
         <Button onClick={onClose} disabled={saving}>
           Cancelar

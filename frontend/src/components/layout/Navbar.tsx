@@ -37,7 +37,7 @@ const Navbar: React.FC = () => {
             'text-sm transition-colors',
             hoverMenu === title || routes.some(r => isActive(r.to))
               ? 'text-primary font-semibold'
-              : 'text-neutral-700',
+              : 'text-neutral-500',
           )}
         >
           {title}

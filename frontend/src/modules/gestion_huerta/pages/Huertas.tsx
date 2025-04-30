@@ -29,7 +29,7 @@ const Huertas: React.FC = () => {
     page,
     setPage,
     addHuerta,
-    fetchHuertas
+    fetchHuertas,
   } = useHuertas();
 
   const {
@@ -44,33 +44,39 @@ const Huertas: React.FC = () => {
     setDefaultPropietarioId(undefined);
   };
 
-  const handleCreateHuerta = async (payload: HuertaCreateData) => {
+  // Ahora devuelve Promise<void> para coincidir con Formik
+  const handleCreateHuerta = async (payload: HuertaCreateData): Promise<void> => {
     try {
-      await addHuerta(payload);
+      await addHuerta(payload);        // unwrap() arrojará ValidationError si existe
       await fetchHuertas();
       handleCloseHuertaModal();
     } catch (error) {
       console.error('Error al crear huerta:', error);
+      throw error; // para que Formik capture y pinte los errores en el formulario
     }
   };
 
   const handleCreatePropietario = async (payload: PropietarioCreateData) => {
     try {
-      const newProp = await addPropietario(payload); // Esto sí hace unwrap
+      const newProp = await addPropietario(payload); // unwrap() lanzará si hay validación
       await fetchPropietarios();
       setDefaultPropietarioId(newProp.id);
-      return newProp; // Este return es necesario si usas onSuccess
+      return newProp; // necesario para onSuccess de PropietarioFormModal
     } catch (error) {
-      throw error; // <--- ¡Este bebé es crucial!
+      throw error; // para que PropietarioFormModal capture el error
     }
   };
-  
 
   const isLoading = loadingHuerta || loadingPropietarios;
   const totalPages = Math.ceil((meta?.count || 0) / 10);
 
   return (
-    <motion.div className="p-6 max-w-6xl mx-auto" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
+    <motion.div
+      className="p-6 max-w-6xl mx-auto"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+    >
       <Paper elevation={4} className="p-6 sm:p-10 rounded-2xl shadow-lg bg-white">
         <Typography variant="h4" className="text-primary-dark font-bold mb-4">
           Gestión de Huertas

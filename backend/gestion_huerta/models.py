@@ -34,7 +34,6 @@ class Huerta(models.Model):
     ubicacion = models.CharField(max_length=255)
     variedades = models.CharField(
         max_length=255,  # Ej: "Kent, Ataulfo, Tommy"
-        help_text="Variedades de mango separadas por comas, por ejemplo: 'Kent, Ataulfo, Tommy'."
     )
     historial = models.TextField(blank=True, null=True)
     hectareas = models.FloatField(validators=[MinValueValidator(0.1)])

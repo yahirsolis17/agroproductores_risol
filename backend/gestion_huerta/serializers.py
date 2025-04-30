@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework.validators import UniqueTogetherValidator
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from num2words import num2words
@@ -84,35 +85,58 @@ class PropietarioSerializer(serializers.ModelSerializer):
 # -----------------------------
 class HuertaSerializer(serializers.ModelSerializer):
     """
-    Serializa la huerta propia, con detalle opcional del propietario.
+    Serializa la huerta propia, con detalle opcional del propietario,
+    validaciones inline y validación unique_together.
     """
     propietario_detalle = PropietarioSerializer(source='propietario', read_only=True)
-    # Unificamos 'variedades' (que en el modelo se llama 'variedades')
-    variedades = serializers.CharField()  
+    variedades = serializers.CharField()
 
     class Meta:
         model = Huerta
         fields = [
-            'id', 'nombre', 'ubicacion', 'variedades', 'historial',
-            'hectareas', 'propietario', 'propietario_detalle'
+            'id',
+            'nombre',
+            'ubicacion',
+            'variedades',
+            'historial',
+            'hectareas',
+            'propietario',
+            'propietario_detalle',
+        ]
+        validators = [
+            UniqueTogetherValidator(
+                queryset=Huerta.objects.all(),
+                fields=['nombre', 'ubicacion', 'propietario'],
+                message="back Los campos nombre, ubicacion, propietario deben formar un conjunto único."
+            )
         ]
 
     def validate_nombre(self, value):
-        return validate_nombre_persona(value)
+        text = value.strip()
+        if len(text) < 3:
+            raise serializers.ValidationError("El nombre debe tener al menos 3 caracteres.")
+        if not re.match(r'^[A-Za-z0-9ñÑáéíóúÁÉÍÓÚ\s]+$', text):
+            raise serializers.ValidationError("Nombre inválido. Solo letras, números y espacios.")
+        return text
 
     def validate_ubicacion(self, value):
-        return validate_direccion(value)
+        text = value.strip()
+        if len(text) < 5:
+            raise serializers.ValidationError("La ubicación debe tener al menos 5 caracteres.")
+        if not re.match(r'^[\w\s\-,.#áéíóúÁÉÍÓÚñÑ]+$', text):
+            raise serializers.ValidationError(
+                "Ubicación inválida. Solo caracteres permitidos (letras, números, espacios, ,- .#)."
+            )
+        return text
 
     def validate_variedades(self, value):
-        """
-        Valida que la variedad tenga al menos 3 caracteres y no sea solo espacios.
-        """
-        if not value or len(value.strip()) < 3:
-            raise serializers.ValidationError("Debes indicar al menos una variedad de mango.")
-        return value
+        text = value.strip()
+        if len(text) < 3:
+            raise serializers.ValidationError("Debes indicar al menos una variedad de mango (mínimo 3 caracteres).")
+        return text
 
     def validate_hectareas(self, value):
-        if value <= 0:
+        if value is None or value <= 0:
             raise serializers.ValidationError("El número de hectáreas debe ser mayor a 0.")
         return value
 

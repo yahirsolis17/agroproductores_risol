@@ -77,11 +77,17 @@ export default function PropietarioFormModal({
             onSuccess?.(nuevo);
             onClose();
           } catch (error: any) {
-            const erroresDelBackend = error?.data?.errors || error?.errors || {};
+            // Capturamos el payload de error que viene del thunk/unwrap
+            const backend = error?.data || error?.response?.data || {};
+            // Backend monta los errores en backend.data.errors
+            const erroresDelBackend =
+              backend.errors || backend.data?.errors || {};
             const formikErrors: Record<string, string> = {};
+
             Object.entries(erroresDelBackend).forEach(([key, value]) => {
               formikErrors[key] = Array.isArray(value) ? value[0] : String(value);
             });
+
             setErrors(formikErrors);
           } finally {
             setSubmitting(false);

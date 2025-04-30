@@ -17,7 +17,6 @@ import * as Yup from 'yup';
 import { HuertaCreateData } from '../../types/huertaTypes';
 import { Propietario } from '../../types/propietarioTypes';
 import { handleBackendNotification } from '../../../../global/utils/NotificationEngine';
-import { PermissionButton } from '../../../../components/common/PermissionButton';
 
 const validationSchema = Yup.object().shape({
   nombre: Yup.string().required('Nombre requerido'),
@@ -72,25 +71,27 @@ const HuertaFormModal: React.FC<HuertaFormModalProps> = ({
   const handleSubmit = async (values: HuertaCreateData, actions: any) => {
     try {
       await onSubmit(values);
+      onClose();
     } catch (err: any) {
-      const backend =
-        err?.response?.data?.data?.errors ||
-        err?.response?.data?.errors ||
-        {};
-
+      const backend = err?.data || err?.response?.data || {};
+      const backendErrors = backend.errors || backend.data?.errors || {};
       const formikErrors: Record<string, string> = {};
-      const touched: Record<string, boolean> = {};
 
-      Object.entries(backend).forEach(([field, msgs]: any) => {
-        const msg = Array.isArray(msgs) ? msgs[0] : msgs;
+      if (Array.isArray(backendErrors.non_field_errors)) {
+        const msg = backendErrors.non_field_errors[0];
+        ['nombre', 'ubicacion', 'propietario'].forEach((field) => {
+          formikErrors[field] = msg;
+        });
+      }
+
+      Object.entries(backendErrors).forEach(([field, msgs]: any) => {
+        if (field === 'non_field_errors') return;
+        const msg = Array.isArray(msgs) ? msgs[0] : String(msgs);
         formikErrors[field] = msg;
-        touched[field] = true;
       });
 
       actions.setErrors(formikErrors);
-      actions.setTouched(touched);
-
-      handleBackendNotification(err?.response?.data);
+      handleBackendNotification(backend);
     } finally {
       actions.setSubmitting(false);
     }
@@ -111,8 +112,10 @@ const HuertaFormModal: React.FC<HuertaFormModalProps> = ({
         initialValues={initialValues}
         validationSchema={validationSchema}
         onSubmit={handleSubmit}
+        validateOnChange={false}
+        validateOnBlur={false}
       >
-        {({ values, errors, touched, handleChange, setFieldValue, isSubmitting }) => (
+        {({ values, errors, handleChange, setFieldValue, isSubmitting }) => (
           <Form>
             <DialogContent dividers className="space-y-4">
               <TextField
@@ -121,8 +124,8 @@ const HuertaFormModal: React.FC<HuertaFormModalProps> = ({
                 label="Nombre"
                 value={values.nombre}
                 onChange={handleChange}
-                error={touched.nombre && Boolean(errors.nombre)}
-                helperText={touched.nombre && errors.nombre}
+                error={Boolean(errors.nombre)}
+                helperText={errors.nombre || ''}
               />
               <TextField
                 fullWidth
@@ -130,8 +133,8 @@ const HuertaFormModal: React.FC<HuertaFormModalProps> = ({
                 label="Ubicación"
                 value={values.ubicacion}
                 onChange={handleChange}
-                error={touched.ubicacion && Boolean(errors.ubicacion)}
-                helperText={touched.ubicacion && errors.ubicacion}
+                error={Boolean(errors.ubicacion)}
+                helperText={errors.ubicacion || ''}
               />
               <TextField
                 fullWidth
@@ -139,8 +142,8 @@ const HuertaFormModal: React.FC<HuertaFormModalProps> = ({
                 label="Variedades (ej. Kent, Ataulfo)"
                 value={values.variedades}
                 onChange={handleChange}
-                error={touched.variedades && Boolean(errors.variedades)}
-                helperText={touched.variedades && errors.variedades}
+                error={Boolean(errors.variedades)}
+                helperText={errors.variedades || ''}
               />
               <TextField
                 fullWidth
@@ -149,8 +152,8 @@ const HuertaFormModal: React.FC<HuertaFormModalProps> = ({
                 type="number"
                 value={values.hectareas}
                 onChange={handleChange}
-                error={touched.hectareas && Boolean(errors.hectareas)}
-                helperText={touched.hectareas && errors.hectareas}
+                error={Boolean(errors.hectareas)}
+                helperText={errors.hectareas || ''}
               />
 
               <Autocomplete
@@ -195,8 +198,8 @@ const HuertaFormModal: React.FC<HuertaFormModalProps> = ({
                   <TextField
                     {...params}
                     label="Propietario"
-                    error={touched.propietario && Boolean(errors.propietario)}
-                    helperText={touched.propietario && errors.propietario}
+                    error={Boolean(errors.propietario)}
+                    helperText={errors.propietario || ''}
                   />
                 )}
               />
@@ -206,17 +209,9 @@ const HuertaFormModal: React.FC<HuertaFormModalProps> = ({
               <Button onClick={onClose} variant="outlined" color="secondary">
                 Cancelar
               </Button>
-              <PermissionButton
-                perm="add_huerta"
-                type="submit"
-                variant="contained"
-                color="primary"
-                disabled={isSubmitting}
-              >
-                {isSubmitting
-                  ? <CircularProgress size={22} color="inherit" />
-                  : 'Guardar'}
-              </PermissionButton>
+              <Button type="submit" variant="contained" color="primary" disabled={isSubmitting}>
+                {isSubmitting ? <CircularProgress size={22} color="inherit" /> : 'Guardar'}
+              </Button>
             </DialogActions>
           </Form>
         )}

@@ -7,12 +7,12 @@ NOTIFICATION_MESSAGES = {
         "type": "error"
     },
     "permission_denied": {
-        "message": "No tienes permisos para realizar esta acción en el módulo de huertas.",
+        "message": "No tienes permisos para realizar esta acción en el módulo de huertas. back",
         "type": "error",
         "code": 403
     },
     "server_error": {
-        "message": "Ha ocurrido un error en el servidor al procesar la solicitud de huerta.",
+        "message": "Ha ocurrido un error en el servidor al procesar la solicitud de huerta. back",
         "type": "error",
         "code": 500
     },
@@ -25,15 +25,15 @@ NOTIFICATION_MESSAGES = {
     # Propietarios
     # -------------------------------------------------
     "propietario_create_success": {
-        "message": "Propietario creado con éxito.",
+        "message": "Propietario creado con éxito. back",
         "type": "success"
     },
     "propietario_update_success": {
-        "message": "Propietario actualizado con éxito.",
+        "message": "Propietario actualizado con éxito. back",
         "type": "success"
     },
     "propietario_delete_success": {
-        "message": "Propietario eliminado correctamente.",
+        "message": "Propietario eliminado correctamente. back",
         "type": "success"
     },
 
@@ -41,15 +41,15 @@ NOTIFICATION_MESSAGES = {
     # Huertas propias
     # -------------------------------------------------
     "huerta_create_success": {
-        "message": "Huerta registrada con éxito.",
+        "message": "Huerta registrada con éxito. back",
         "type": "success"
     },
     "huerta_update_success": {
-        "message": "Huerta actualizada con éxito.",
+        "message": "Huerta actualizada con éxito. back",
         "type": "success"
     },
     "huerta_delete_success": {
-        "message": "Huerta eliminada correctamente.",
+        "message": "Huerta eliminada correctamente. back",
         "type": "success"
     },
 

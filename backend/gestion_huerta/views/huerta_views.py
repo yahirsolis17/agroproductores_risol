@@ -17,7 +17,7 @@ import logging
 from django.db import IntegrityError
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from rest_framework import status, viewsets
+from rest_framework import status, viewsets, serializers
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
@@ -91,7 +91,6 @@ class PropietarioViewSet(NotificationMixin, viewsets.ModelViewSet):
         HuertaGranularPermission,
     ]
 
-    # ---------- LIST ----------
     def list(self, request, *args, **kwargs):
         page = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
         serializer = self.get_serializer(page, many=True)
@@ -101,31 +100,43 @@ class PropietarioViewSet(NotificationMixin, viewsets.ModelViewSet):
             status_code=status.HTTP_200_OK,
         )
 
-    # ---------- CREATE ----------
     def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+
+        # 1) Validación pura desde el serializer
         try:
-            serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
-            obj = serializer.save()
-            registrar_actividad(request.user, f"Creó al propietario: {obj.nombre}")
-            return self.notify(
-                key="propietario_create_success",
-                data={"propietario": serializer.data},
-                status_code=status.HTTP_201_CREATED,
-            )
-        except IntegrityError:
+        except serializers.ValidationError:
             return self.notify(
                 key="validation_error",
-                data={"errors": {"telefono": ["Este teléfono ya está registrado."]}},
+                data={"errors": serializer.errors},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-    # ---------- UPDATE / PARTIAL_UPDATE ----------
+        # 2) Guardado (si el serializer detectó duplicados en validate_telefono
+        #    aquí ya no llega IntegrityError)
+        obj = serializer.save()
+        registrar_actividad(request.user, f"Creó al propietario: {obj.nombre}")
+        return self.notify(
+            key="propietario_create_success",
+            data={"propietario": serializer.data},
+            status_code=status.HTTP_201_CREATED,
+        )
+
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop("partial", False)
-        instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
-        serializer.is_valid(raise_exception=True)
+        inst = self.get_object()
+        serializer = self.get_serializer(inst, data=request.data, partial=partial)
+
+        try:
+            serializer.is_valid(raise_exception=True)
+        except serializers.ValidationError:
+            return self.notify(
+                key="validation_error",
+                data={"errors": serializer.errors},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
         obj = serializer.save()
         registrar_actividad(request.user, f"Actualizó al propietario: {obj.nombre}")
         return self.notify(
@@ -134,19 +145,16 @@ class PropietarioViewSet(NotificationMixin, viewsets.ModelViewSet):
             status_code=status.HTTP_200_OK,
         )
 
-    # ---------- DESTROY ----------
     def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        nombre = str(instance)
-        instance.delete()
+        inst = self.get_object()
+        nombre = str(inst)
+        inst.delete()
         registrar_actividad(request.user, f"Eliminó al propietario: {nombre}")
         return self.notify(
             key="propietario_delete_success",
             data={"info": f"Propietario '{nombre}' eliminado."},
             status_code=status.HTTP_200_OK,
         )
-
-
 # ---------------------------------------------------------------------------
 #  🌳  HUERTAS PROPIAS
 # ---------------------------------------------------------------------------
@@ -166,12 +174,20 @@ class HuertaViewSet(NotificationMixin, viewsets.ModelViewSet):
         return self.notify(
             key="data_processed_success",
             data={"huertas": serializer.data},
-            status_code=status.HTTP_200_OK,
         )
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        # 1) validación pura desde el serializer
+        try:
+            serializer.is_valid(raise_exception=True)
+        except serializers.ValidationError:
+            return self.notify(
+                key="validation_error",
+                data={"errors": serializer.errors},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        # 2) guardado
         obj = serializer.save()
         registrar_actividad(request.user, f"Creó la huerta: {obj.nombre}")
         return self.notify(
@@ -182,29 +198,32 @@ class HuertaViewSet(NotificationMixin, viewsets.ModelViewSet):
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop("partial", False)
-        instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
-        serializer.is_valid(raise_exception=True)
+        inst = self.get_object()
+        serializer = self.get_serializer(inst, data=request.data, partial=partial)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except serializers.ValidationError:
+            return self.notify(
+                key="validation_error",
+                data={"errors": serializer.errors},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
         obj = serializer.save()
         registrar_actividad(request.user, f"Actualizó la huerta: {obj.nombre}")
         return self.notify(
             key="huerta_update_success",
             data={"huerta": serializer.data},
-            status_code=status.HTTP_200_OK,
         )
 
     def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        nombre = instance.nombre
-        instance.delete()
+        inst = self.get_object()
+        nombre = inst.nombre
+        inst.delete()
         registrar_actividad(request.user, f"Eliminó la huerta: {nombre}")
         return self.notify(
             key="huerta_delete_success",
             data={"info": f"Huerta '{nombre}' eliminada."},
-            status_code=status.HTTP_200_OK,
         )
-
-
 # ---------------------------------------------------------------------------
 #  🏡  HUERTAS RENTADAS
 # ---------------------------------------------------------------------------

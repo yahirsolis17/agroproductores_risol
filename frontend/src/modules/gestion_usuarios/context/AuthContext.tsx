@@ -78,6 +78,7 @@ const fetchPermissions = async () => {
     const permisos: string[] = response.data.permissions; // ← CORREGIDO aquí
     setPermissions(permisos);
     return permisos;
+  
   } catch (error) {
     console.error('Error fetching permissions:', error);
     setPermissions([]);
@@ -127,17 +128,10 @@ const fetchPermissions = async () => {
   const logout = async () => {
     try {
       const refreshToken = localStorage.getItem('refreshToken');
-      await apiClient.post('/usuarios/logout/', { refresh_token: refreshToken });
-      handleBackendNotification({
-        success: true,
-        notification: {
-          key: 'logout_success',
-          message: 'Sesión cerrada correctamente',
-          type: 'info',
-        },
-      });
-    } catch {
-      // ignoramos fallo de logout
+      const res = await apiClient.post('/usuarios/logout/', { refresh_token: refreshToken });
+      handleBackendNotification(res.data);
+    } catch (err: any) {
+      handleBackendNotification(err.response?.data);
     } finally {
       authService.logout();
       setUser(null);
@@ -146,7 +140,6 @@ const fetchPermissions = async () => {
       navigate('/login');
     }
   };
-
   /* ---------- expose ---------- */
   return (
     <AuthContext.Provider
