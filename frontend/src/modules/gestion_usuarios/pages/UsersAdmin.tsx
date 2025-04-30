@@ -14,6 +14,9 @@ import {
   DialogContent,
   DialogActions,
   Button,
+  Chip,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
 import PermissionsDialog from './PermissionsDialog';
@@ -25,7 +28,7 @@ interface User {
   apellido: string;
   telefono: string;
   role: 'admin' | 'usuario';
-  is_active: boolean;
+  archivado_en: string | null;
   permisos: string[];
 }
 
@@ -35,6 +38,8 @@ interface PaginationMeta {
   previous: string | null;
 }
 
+type ViewFilter = 'activos' | 'archivados' | 'todos';
+
 const UsersAdmin: React.FC = () => {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
@@ -42,6 +47,7 @@ const UsersAdmin: React.FC = () => {
   const [error, setError] = useState('');
   const [page, setPage] = useState(() => Number(localStorage.getItem('usersPage')) || 1);
   const [delayedLoading, setDelayedLoading] = useState(false);
+  const [filter, setFilter] = useState<ViewFilter>('activos');
   const pageSize = 10;
 
   // Permisos dialog
@@ -53,6 +59,9 @@ const UsersAdmin: React.FC = () => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmUserId, setConfirmUserId] = useState<number>(0);
 
+  /* -------------------------------------------------------------------- */
+  /*                       FETCH & PAGINACIÓN                              */
+  /* -------------------------------------------------------------------- */
   useEffect(() => {
     if (currentUser?.role === 'admin') fetchUsers(page);
   }, [currentUser, page]);
@@ -72,7 +81,7 @@ const UsersAdmin: React.FC = () => {
             apellido: u.apellido,
             telefono: u.telefono,
             role: u.role,
-            is_active: u.is_active,
+            archivado_en: u.archivado_en,
             permisos: u.permisos || [],
           }))
       );
@@ -90,19 +99,13 @@ const UsersAdmin: React.FC = () => {
   const totalPages = Math.max(1, Math.ceil(meta.count / pageSize));
   const handlePageChange = (_: any, newPage: number) => setPage(newPage);
 
-  const handleToggleActive = async (userId: number) => {
+  /* -------------------------------------------------------------------- */
+  /*                         ACCIONES BACKEND                              */
+  /* -------------------------------------------------------------------- */
+  const handleArchiveOrRestore = async (userId: number, isArchived: boolean) => {
+    const endpoint = isArchived ? 'restaurar' : 'archivar';
     try {
-      const res = await apiClient.patch(`/usuarios/users/${userId}/toggle_active/`);
-      handleBackendNotification(res.data);
-      fetchUsers(page);
-    } catch (err: any) {
-      handleBackendNotification(err.response?.data);
-    }
-  };
-
-  const handleArchiveUser = async (userId: number) => {
-    try {
-      const res = await apiClient.patch(`/usuarios/users/${userId}/archive/`);
+      const res = await apiClient.patch(`/usuarios/users/${userId}/${endpoint}/`);
       handleBackendNotification(res.data);
       fetchUsers(page);
     } catch (err: any) {
@@ -131,18 +134,48 @@ const UsersAdmin: React.FC = () => {
     setConfirmOpen(true);
   };
 
+  /* -------------------------------------------------------------------- */
+  /*                              RENDER                                   */
+  /* -------------------------------------------------------------------- */
   if (currentUser?.role !== 'admin') {
     return <div className="p-6 text-center text-red-500">Acceso denegado</div>;
   }
 
+  // 🔍 Filtrado por estado
+  const filteredUsers = users.filter(u => {
+    if (filter === 'activos') return !u.archivado_en;
+    if (filter === 'archivados') return Boolean(u.archivado_en);
+    return true;
+  });
+
   return (
     <>
-      <motion.div className="p-6 max-w-6xl mx-auto" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
+      <motion.div
+        className="p-6 max-w-6xl mx-auto"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.4 }}
+      >
         <Paper elevation={4} className="p-6 sm:p-10 rounded-2xl shadow-lg bg-white">
           <Typography variant="h4" className="text-primary-dark font-bold mb-4">
             Administrar Usuarios
           </Typography>
+
+          {/* Tabs de filtro */}
+          <Tabs
+            value={filter}
+            onChange={(_, value) => setFilter(value)}
+            indicatorColor="primary"
+            textColor="primary"
+            sx={{ mb: 2 }}
+          >
+            <Tab label="Activos" value="activos" />
+            <Tab label="Archivados" value="archivados" />
+            <Tab label="Todos" value="todos" />
+          </Tabs>
+
           {error && <div className="text-red-600 mb-2">{error}</div>}
+
           {delayedLoading ? (
             <Box display="flex" justifyContent="center" mt={6}>
               <CircularProgress />
@@ -156,38 +189,57 @@ const UsersAdmin: React.FC = () => {
                     <th className="px-4 py-2 border">Nombre</th>
                     <th className="px-4 py-2 border">Teléfono</th>
                     <th className="px-4 py-2 border">Rol</th>
-                    <th className="px-4 py-2 border">Activo</th>
+                    <th className="px-4 py-2 border">Estado</th>
                     <th className="px-4 py-2 border">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {users.length > 0 ? (
-                    users.map((u, i) => (
-                      <tr key={u.id} className="text-center text-sm hover:bg-neutral-50 transition-colors">
-                        <td className="px-4 py-2 border">{(page - 1) * pageSize + i + 1}</td>
-                        <td className="px-4 py-2 border">{u.nombre} {u.apellido}</td>
-                        <td className="px-4 py-2 border">{u.telefono}</td>
-                        <td className="px-4 py-2 border capitalize">{u.role}</td>
-                        <td className="px-4 py-2 border">{u.is_active ? 'Sí' : 'No'}</td>
-                        <td className="px-4 py-2 border">
-                          <UserActionsMenu
-                            onDeactivate={() => handleToggleActive(u.id)}
-                            onArchive={() => handleArchiveUser(u.id)}
-                            onDelete={() => openConfirm(u.id)}
-                            onManagePermissions={() => handleManagePermissions(u.id, u.permisos)}
-                          />
-                        </td>
-                      </tr>
-                    ))
+                  {filteredUsers.length > 0 ? (
+                    filteredUsers.map((u, i) => {
+                      const isArchived = !!u.archivado_en;
+                      return (
+                        <tr
+                          key={u.id}
+                          className="text-center text-sm hover:bg-neutral-50 transition-colors"
+                        >
+                          <td className="px-4 py-2 border">{(page - 1) * pageSize + i + 1}</td>
+                          <td className="px-4 py-2 border">
+                            {u.nombre} {u.apellido}
+                          </td>
+                          <td className="px-4 py-2 border">{u.telefono}</td>
+                          <td className="px-4 py-2 border capitalize">{u.role}</td>
+                          <td className="px-4 py-2 border">
+                            {isArchived ? (
+                              <Chip label="Archivado" size="small" color="warning" />
+                            ) : (
+                              <Chip label="Activo" size="small" color="success" />
+                            )}
+                          </td>
+                          <td className="px-4 py-2 border">
+                            <UserActionsMenu
+                              isArchived={isArchived}
+                              onArchiveOrRestore={() => handleArchiveOrRestore(u.id, isArchived)}
+                              onDelete={() => openConfirm(u.id)}
+                              onManagePermissions={() =>
+                                handleManagePermissions(u.id, u.permisos)
+                              }
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })
                   ) : (
                     <tr>
                       <td colSpan={6} className="text-center py-4 text-neutral-400">
-                        No hay otros usuarios registrados.
+                        {filter === 'archivados'
+                          ? 'No hay usuarios archivados.'
+                          : 'No hay usuarios registrados.'}
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
+
               <Box display="flex" justifyContent="center" mt={4}>
                 <Pagination
                   count={totalPages}
@@ -212,18 +264,11 @@ const UsersAdmin: React.FC = () => {
       />
 
       {/* Modal de confirmación de eliminación */}
-      <Dialog
-        open={confirmOpen}
-        onClose={() => setConfirmOpen(false)}
-      >
+      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
         <DialogTitle>Confirmar eliminación</DialogTitle>
-        <DialogContent>
-          ¿Estás seguro de que deseas eliminar este usuario?
-        </DialogContent>
+        <DialogContent>¿Estás seguro de que deseas eliminar este usuario?</DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmOpen(false)}>
-            Cancelar
-          </Button>
+          <Button onClick={() => setConfirmOpen(false)}>Cancelar</Button>
           <Button
             color="error"
             onClick={() => {

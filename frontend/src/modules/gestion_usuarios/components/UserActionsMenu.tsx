@@ -1,19 +1,20 @@
+// src/modules/gestion_usuarios/components/UserActionsMenu.tsx
 import React, { useState } from 'react';
-import { IconButton, Menu, MenuItem } from '@mui/material';
+import { IconButton, Menu, MenuItem, Tooltip } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 
 interface UserActionsMenuProps {
-  onDeactivate: () => void;
-  onArchive: () => void;
+  isArchived: boolean;
+  onArchiveOrRestore: () => void;
   onDelete: () => void;
   onManagePermissions: () => void;
 }
 
 const UserActionsMenu: React.FC<UserActionsMenuProps> = ({
-  onDeactivate,
-  onArchive,
+  isArchived,
+  onArchiveOrRestore,
   onDelete,
-  onManagePermissions
+  onManagePermissions,
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
@@ -27,9 +28,11 @@ const UserActionsMenu: React.FC<UserActionsMenuProps> = ({
 
   return (
     <>
-      <IconButton onClick={handleOpen} size="small">
-        <MoreVertIcon />
-      </IconButton>
+      <Tooltip title="Más acciones">
+        <IconButton onClick={handleOpen} size="small">
+          <MoreVertIcon />
+        </IconButton>
+      </Tooltip>
       <Menu
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
@@ -37,16 +40,33 @@ const UserActionsMenu: React.FC<UserActionsMenuProps> = ({
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
-        <MenuItem onClick={() => { handleClose(); onDeactivate(); }}>
-          Desactivar / Activar
+        <MenuItem
+          onClick={() => {
+            handleClose();
+            onArchiveOrRestore();
+          }}
+        >
+          {isArchived ? 'Restaurar' : 'Archivar'}
         </MenuItem>
-        <MenuItem onClick={() => { handleClose(); onArchive(); }}>
-          Archivar
-        </MenuItem>
-        <MenuItem onClick={() => { handleClose(); onDelete(); }}>
-          Eliminar
-        </MenuItem>
-        <MenuItem onClick={() => { handleClose(); onManagePermissions(); }}>
+
+        {/* Mostrar Eliminar solo si está archivado */}
+        {isArchived && (
+          <MenuItem
+            onClick={() => {
+              handleClose();
+              onDelete();
+            }}
+          >
+            Eliminar
+          </MenuItem>
+        )}
+
+        <MenuItem
+          onClick={() => {
+            handleClose();
+            onManagePermissions();
+          }}
+        >
           Gestionar permisos
         </MenuItem>
       </Menu>

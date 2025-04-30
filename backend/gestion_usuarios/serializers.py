@@ -103,6 +103,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
     full_name = serializers.ReadOnlyField()
     is_admin  = serializers.ReadOnlyField()
     role      = serializers.CharField(read_only=True)
+    archivado_en = serializers.DateTimeField(read_only=True)   # 👈 añade
     permisos = serializers.SlugRelatedField(
         many=True,
         read_only=True,
@@ -116,8 +117,8 @@ class UsuarioSerializer(serializers.ModelSerializer):
             'id', 'telefono', 'nombre', 'apellido',
             'password',
             'is_staff', 'is_admin', 'is_active',
-            'role',
-            'full_name', 'permisos'
+            'archivado_en',               # 👈 incluye aquí
+            'role', 'full_name', 'permisos'
         ]
         extra_kwargs = {'password': {'write_only': True}}
 
