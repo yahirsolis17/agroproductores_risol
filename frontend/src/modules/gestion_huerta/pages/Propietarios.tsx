@@ -144,7 +144,7 @@ const Propietarios: React.FC = () => {
         <DialogTitle>Confirmar eliminación</DialogTitle>
         <DialogContent>¿Eliminar propietario definitivamente?</DialogContent>
         <DialogActions>
-          <Button onClick={()=>setConfirm(false)}>Cancelar</Button>
+          <Button color="inherit" onClick={() => setConfirm(false)}>Cancelar</Button>
           <Button color="error" onClick={confirmDelete}>Eliminar</Button>
         </DialogActions>
       </Dialog>

@@ -2,8 +2,17 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Paper, Typography, CircularProgress,
-  Box, Tabs, Tab,
+  Paper,
+  Typography,
+  CircularProgress,
+  Box,
+  Tabs,
+  Tab,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
 } from '@mui/material';
 
 import { useHuertas }      from '../hooks/useHuertas';
@@ -32,9 +41,13 @@ const Huertas: React.FC = () => {
   const [filter, setFilter] = useState<ViewFilter>('activas');
 
   /* Modales alta / edición */
-  const [openNew, setOpenNew] = useState(false);
+  const [openNew,  setOpenNew]  = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<HuertaType | null>(null);
+
+  /* Confirm-delete */
+  const [confirmOpen, setConfirm] = useState(false);
+  const [confirmId,   setConfirmId]   = useState<number | null>(null);
 
   /* Modal alta propietario (desde autocomplete) */
   const [openPropModal, setOpenPropModal] = useState(false);
@@ -55,40 +68,53 @@ const Huertas: React.FC = () => {
   const [delayedLoading, setDelayedLoading] = useState(false);
   useEffect(() => {
     let t: ReturnType<typeof setTimeout>;
-    if (loadHuertas || loadProps) t = setTimeout(() => setDelayedLoading(true), 300);
-    else                          setDelayedLoading(false);
+    if (loadHuertas || loadProps)
+      t = setTimeout(() => setDelayedLoading(true), 300);
+    else
+      setDelayedLoading(false);
     return () => { if (t) clearTimeout(t); };
   }, [loadHuertas, loadProps]);
 
   /* ------------ CRUD ------------ */
   /* Alta huerta */
   const saveNewHuerta = async (vals: HuertaCreateData) => {
-    await addHuerta(vals); await fetchHuertas(); setOpenNew(false);
+    await addHuerta(vals);
+    await fetchHuertas();
+    setOpenNew(false);
   };
 
   /* Edición huerta */
   const launchEdit = (h: HuertaType) => { setEditTarget(h); setEditOpen(true); };
   const saveEditHuerta = async (vals: HuertaCreateData) => {
     if (!editTarget) return;
-    await editHuerta(editTarget.id, vals); setEditOpen(false);
+    await editHuerta(editTarget.id, vals);
+    setEditOpen(false);
   };
 
   /* Archivado / restauración (optimista) */
   const archive = async (id: number) => {
     toggleActivoLocal(id, false);
     try { handleBackendNotification(await huertaService.archivar(id)); }
-    catch (e:any){ toggleActivoLocal(id,true); handleBackendNotification(e.response?.data); }
+    catch (e: any) { toggleActivoLocal(id, true); handleBackendNotification(e.response?.data); }
   };
   const restore = async (id: number) => {
     toggleActivoLocal(id, true);
     try { handleBackendNotification(await huertaService.restaurar(id)); }
-    catch (e:any){ toggleActivoLocal(id,false); handleBackendNotification(e.response?.data); }
+    catch (e: any) { toggleActivoLocal(id, false); handleBackendNotification(e.response?.data); }
   };
 
-  /* Delete */
-  const remove = async (id: number) => {
-    try { handleBackendNotification(await huertaService.delete(id)); await fetchHuertas(); }
-    catch(e:any){ handleBackendNotification(e.response?.data); }
+  /* Delete con confirmación */
+  const askDelete = (id: number) => { setConfirmId(id); setConfirm(true); };
+  const confirmDelete = async () => {
+    if (confirmId == null) return;
+    try {
+      handleBackendNotification(await huertaService.delete(confirmId));
+      await fetchHuertas();
+    } catch (e: any) {
+      handleBackendNotification(e.response?.data);
+    } finally {
+      setConfirm(false);
+    }
   };
 
   /* Alta propietario inline */
@@ -101,20 +127,20 @@ const Huertas: React.FC = () => {
 
   /* ------------ Filtro & mensajes ------------ */
   const filtered = huertas.filter(h =>
-    filter === 'activas'     ?  h.is_active :
-    filter === 'archivadas'  ? !h.is_active :
-    true
+    filter === 'activas'    ?  h.is_active :
+    filter === 'archivadas' ? !h.is_active :
+                              true
   );
 
   const emptyMsg =
-    filter === 'activas'      ? 'No hay huertas activas.'     :
-    filter === 'archivadas'   ? 'No hay huertas archivadas.'  :
-                                'No hay huertas registradas.';
+    filter === 'activas'    ? 'No hay huertas activas.'     :
+    filter === 'archivadas' ? 'No hay huertas archivadas.'  :
+                              'No hay huertas registradas.';
 
   /* ------------ Render ------------ */
   return (
     <motion.div className="p-6 max-w-6xl mx-auto"
-      initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ duration:.4 }}>
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: .4 }}>
       <Paper elevation={4} className="p-6 sm:p-10 rounded-2xl shadow-lg bg-white">
         <Typography variant="h4" className="text-primary-dark font-bold mb-4">
           Gestión de Huertas
@@ -122,15 +148,15 @@ const Huertas: React.FC = () => {
 
         <HuertaToolbar onOpen={() => setOpenNew(true)} />
 
-        <Tabs value={filter} onChange={(_,v)=>setFilter(v)}
-              textColor="primary" indicatorColor="primary" sx={{ mb:2 }}>
-          <Tab value="activas"    label="Activas"/>
-          <Tab value="archivadas" label="Archivadas"/>
-          <Tab value="todas"      label="Todas"/>
+        <Tabs value={filter} onChange={(_, v) => setFilter(v)}
+              textColor="primary" indicatorColor="primary" sx={{ mb: 2 }}>
+          <Tab value="activas"    label="Activas" />
+          <Tab value="archivadas" label="Archivadas" />
+          <Tab value="todas"      label="Todas" />
         </Tabs>
 
         {delayedLoading ? (
-          <Box display="flex" justifyContent="center" mt={6}><CircularProgress/></Box>
+          <Box display="flex" justifyContent="center" mt={6}><CircularProgress /></Box>
         ) : (
           <HuertaTable
             data={filtered}
@@ -142,46 +168,58 @@ const Huertas: React.FC = () => {
             onEdit={launchEdit}
             onArchive={archive}
             onRestore={restore}
-            onDelete={remove}
+            onDelete={askDelete}         
           />
         )}
 
         {/* ----- Modal ALTA Huerta ----- */}
         <HuertaFormModal
           open={openNew}
-          onClose={()=>setOpenNew(false)}
+          onClose={() => setOpenNew(false)}
           onSubmit={saveNewHuerta}
           propietarios={propietarios}
-          onRegisterNewPropietario={()=>setOpenPropModal(true)}
+          onRegisterNewPropietario={() => setOpenPropModal(true)}
           defaultPropietarioId={defaultPropId}
         />
 
         {/* ----- Modal EDICIÓN Huerta ----- */}
         <HuertaFormModal
           open={editOpen}
-          onClose={()=>setEditOpen(false)}
+          onClose={() => setEditOpen(false)}
           onSubmit={saveEditHuerta}
           propietarios={propietarios}
-          onRegisterNewPropietario={()=>setOpenPropModal(true)}
+          onRegisterNewPropietario={() => setOpenPropModal(true)}
           isEdit
           initialValues={
-            editTarget ? {
-              nombre: editTarget.nombre,
-              ubicacion: editTarget.ubicacion,
-              variedades: editTarget.variedades,
-              historial: editTarget.historial ?? undefined,
-              hectareas: editTarget.hectareas,
-              propietario: editTarget.propietario,
-            } : undefined
+            editTarget
+              ? {
+                  nombre:      editTarget.nombre,
+                  ubicacion:   editTarget.ubicacion,
+                  variedades:  editTarget.variedades,
+                  historial:   editTarget.historial ?? undefined,
+                  hectareas:   editTarget.hectareas,
+                  propietario: editTarget.propietario,
+                }
+              : undefined
           }
         />
 
         {/* ----- Modal ALTA Propietario (inline) ----- */}
         <PropietarioFormModal
           open={openPropModal}
-          onClose={()=>setOpenPropModal(false)}
+          onClose={() => setOpenPropModal(false)}
           onSubmit={saveNewProp}
         />
+
+        {/* ----- Confirmar eliminación ----- */}
+        <Dialog open={confirmOpen} onClose={() => setConfirm(false)}>
+          <DialogTitle>Confirmar eliminación</DialogTitle>
+          <DialogContent>¿Eliminar esta huerta permanentemente?</DialogContent>
+          <DialogActions>
+            <Button color="inherit" onClick={() => setConfirm(false)}>Cancelar</Button>
+            <Button color="error" onClick={confirmDelete}>Eliminar</Button>
+          </DialogActions>
+        </Dialog>
       </Paper>
     </motion.div>
   );

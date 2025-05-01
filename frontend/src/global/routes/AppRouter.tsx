@@ -10,7 +10,6 @@ import  ErrorBoundary  from '../../components/common/ErrorBoundary';   // 🆕
 // páginas públicas
 import Login         from '../../modules/gestion_usuarios/pages/Login';
 import Dashboard     from '../../modules/gestion_usuarios/pages/Dashboard';
-import ChangePassword from '../../modules/gestion_usuarios/pages/ChangePassword';
 import Unauthorized  from '../../components/common/Unauthorized';
 
 import { moduleRoutes } from './moduleRoutes';
@@ -28,7 +27,6 @@ function AppRouter() {
         <Route element={<PrivateRoute />}>
           <Route element={<MainLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/change-password" element={<ChangePassword />} />
 
             {moduleRoutes.map(({ path, allowedRoles, lazyComponent }, idx) => {
               const LazyComp = React.lazy(lazyComponent);

@@ -12,12 +12,17 @@ const Navbar: React.FC = () => {
   const location = useLocation();
   const [hoverMenu, setHoverMenu] = useState<string | null>(null);
 
-  /* ocultar navbar en pantallas públicas */
-  if (['/login', '/change-password'].includes(location.pathname)) return null;
+/* ────────────────── visibilidad del navbar ────────────────── */
+const isPublicScreen = ['/login'].includes(location.pathname);
+const isForcedToChangePassword =
+  location.pathname === '/change-password' && user?.must_change_password;
 
+if (isPublicScreen || isForcedToChangePassword) return null;
+
+  /* ────────────────── helpers ────────────────── */
   const isActive = (path: string) => location.pathname === path;
 
-  /** Filtra rutas por permisos */
+  /** Rutas visibles según permiso (NAV_ITEMS separamos por rol) */
   const filterByPerm = (role: 'admin' | 'usuario') =>
     NAV_ITEMS[role].filter(i => !i.perm || hasPerm(i.perm));
 
@@ -46,7 +51,7 @@ const Navbar: React.FC = () => {
         <AnimatePresence>
           {hoverMenu === title && (
             <>
-              {/* Espacio invisible para conectar el botón con el menú */}
+              {/* puente invisible entre botón y menú */}
               <div className="absolute h-2 w-full top-full" />
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -76,9 +81,10 @@ const Navbar: React.FC = () => {
       </div>
     );
 
-  const role = user?.role ?? 'usuario';
+  const role: 'admin' | 'usuario' = user?.role ?? 'usuario';
   const visibleRoutes = filterByPerm(role);
 
+  /* ────────────────── render ────────────────── */
   return (
     <motion.nav
       className="bg-white shadow-md px-6 py-3 flex items-center justify-between sticky top-0 z-50"
@@ -94,26 +100,35 @@ const Navbar: React.FC = () => {
 
         {isAuthenticated && (
           <>
-            {/* menú dinámico: Usuarios */}
+
+            <Link
+              to="/profile"
+              className={clsx(
+                'text-sm transition-colors',
+                isActive('/profile')
+                  ? 'text-primary font-semibold'
+                  : 'text-neutral-500',
+              )}
+            >
+              Mi Perfil
+              
+            </Link>
             {renderMenu(
               'Gestión de Usuarios',
-              visibleRoutes.filter(r =>
-                r.to.match(/users?|register|activity/),
-              ),
+              visibleRoutes.filter(r => r.to.match(/users?|register|activity/)),
             )}
 
-            {/* menú dinámico: Huerta */}
+
+
             {renderMenu(
               'Gestión de Huerta',
-              visibleRoutes.filter(r =>
-                r.to.match(/huerta|propietario|cosecha/),
-              ),
+              visibleRoutes.filter(r => r.to.match(/huerta|propietario|cosecha/)),
             )}
           </>
         )}
       </div>
 
-      {/* --- Botón Login / Logout --- */}
+      {/* --- Login / Logout --- */}
       <div>
         {isAuthenticated ? (
           <Button

@@ -118,7 +118,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
             'password',
             'is_staff', 'is_admin', 'is_active',
             'archivado_en',               # 👈 incluye aquí
-            'role', 'full_name', 'permisos'
+            'role', 'full_name', 'permisos', 'must_change_password'
         ]
         extra_kwargs = {'password': {'write_only': True}}
 
