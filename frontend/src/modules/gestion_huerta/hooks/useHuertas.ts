@@ -1,5 +1,6 @@
 // src/modules/gestion_huerta/hooks/useHuertas.ts
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom'; // ← para detectar ruta actual
 import { useAppDispatch, useAppSelector } from '../../../global/store/store';
 import {
   fetchHuertas,
@@ -14,17 +15,10 @@ import {
   HuertaUpdateData,
 } from '../types/huertaTypes';
 
-/**
- * Hook centralizado para la gestión de huertas.
- *   – Mantiene una copia local ("localHuertas") que se sincroniza con el slice
- *     pero que podemos modificar optimistamente sin que la UI parpadee.
- *   – Devuelve helpers CRUD + toggleActivoLocal() para archivar/restaurar
- *     de forma instantánea.
- */
 export function useHuertas() {
   const dispatch = useAppDispatch();
+  const location = useLocation();
 
-  /* ───────────────────────────── slice ─────────────────────────────── */
   const {
     list: globalHuertas,
     loading,
@@ -34,20 +28,31 @@ export function useHuertas() {
     meta,
   } = useAppSelector((state) => state.huerta);
 
-  /* ─────────────── copia local reactiva para updates rápidos ────────── */
   const [localHuertas, setLocalHuertas] = useState<Huerta[]>([]);
+  const [lastPath, setLastPath] = useState<string>(''); // ← detectar navegación entre rutas
 
-  // 1) cuando el slice cambia → actualizamos la copia local
+  // 1) sincronizar lista local
   useEffect(() => {
     setLocalHuertas(globalHuertas);
   }, [globalHuertas]);
 
-  // 2) carga inicial (si aún no se cargó)
+  // 2) recarga forzada al volver a esta ruta
   useEffect(() => {
-    if (!loaded && !loading) dispatch(fetchHuertas(page));
+    const currentPath = location.pathname;
+    if (currentPath.includes('/huertas') && lastPath !== currentPath) {
+      dispatch(fetchHuertas(page));
+    }
+    setLastPath(currentPath);
+  }, [location.pathname]);
+
+  // 3) primera carga (por si nunca se ha cargado)
+  useEffect(() => {
+    if (!loaded && !loading) {
+      dispatch(fetchHuertas(page));
+    }
   }, [dispatch, loaded, loading, page]);
 
-  /* ───────────────────────────── acciones ───────────────────────────── */
+  // CRUD
   const addHuerta = (payload: HuertaCreateData): Promise<Huerta> =>
     dispatch(createHuerta(payload)).unwrap();
 
@@ -58,33 +63,24 @@ export function useHuertas() {
 
   const refetchHuertas = () => dispatch(fetchHuertas(page));
 
-  /**
-   * Cambia el flag `is_active` de la huerta localmente para “responder” al
-   * usuario al instante.  Si luego el server falla, el caller podrá revertir.
-   */
+  // Archivar/restaurar visual inmediato
   const toggleActivoLocal = (id: number, nuevoEstado: boolean) =>
     setLocalHuertas((hs) =>
       hs.map((h) => (h.id === id ? { ...h, is_active: nuevoEstado } : h))
     );
 
-  /* ───────────────────────────── return ─────────────────────────────── */
   return {
-    /* datos */
     huertas: localHuertas,
     loading,
     error,
     loaded,
     meta,
     page,
-
-    /* setters / helpers */
     setPage: (newPage: number) => dispatch(setPage(newPage)),
     addHuerta,
     editHuerta,
     removeHuerta,
     fetchHuertas: refetchHuertas,
-
-    /* optimista */
     toggleActivoLocal,
   };
 }

@@ -45,28 +45,32 @@ const Navbar: React.FC = () => {
 
         <AnimatePresence>
           {hoverMenu === title && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              transition={{ duration: 0.2 }}
-              className="absolute left-0 mt-2 w-56 bg-white border border-neutral-200 rounded-lg shadow-md z-50"
-            >
-              {routes.map(({ to, label }) => (
-                <Link
-                  key={to}
-                  to={to}
-                  className={clsx(
-                    'block px-4 py-2 text-sm transition hover:bg-neutral-100',
-                    isActive(to)
-                      ? 'text-primary font-semibold'
-                      : 'text-neutral-700',
-                  )}
-                >
-                  {label}
-                </Link>
-              ))}
-            </motion.div>
+            <>
+              {/* Espacio invisible para conectar el botón con el menú */}
+              <div className="absolute h-2 w-full top-full" />
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                transition={{ duration: 0.2 }}
+                className="absolute left-0 top-[calc(100%+0.5rem)] w-56 bg-white border border-neutral-200 rounded-lg shadow-md z-50"
+              >
+                {routes.map(({ to, label }) => (
+                  <Link
+                    key={to}
+                    to={to}
+                    className={clsx(
+                      'block px-4 py-2 text-sm transition',
+                      isActive(to)
+                        ? 'text-primary-light font-semibold bg-neutral-100'
+                        : 'text-primary-dark hover:bg-neutral-200',
+                    )}
+                  >
+                    {label}
+                  </Link>
+                ))}
+              </motion.div>
+            </>
           )}
         </AnimatePresence>
       </div>

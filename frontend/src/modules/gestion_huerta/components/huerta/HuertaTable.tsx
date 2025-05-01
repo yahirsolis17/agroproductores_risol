@@ -3,21 +3,9 @@ import React from 'react';
 import { Chip } from '@mui/material';
 import { TableLayout, Column } from '../../../../components/common/TableLayout';
 import { Huerta } from '../../types/huertaTypes';
-import HuertaActionsMenu from '../common/HuertaActionsMenu';
+import ActionsMenu from '../common/ActionsMenu';
 
-interface Props {
-  data: Huerta[];
-  page: number;
-  pageSize: number;
-  count: number;
-  onPageChange: (n: number) => void;
-  onEdit?: (h: Huerta) => void;
-  onArchive?: (id: number) => void;
-  onRestore?: (id: number) => void;
-  onDelete?: (id: number) => void;
-  emptyMessage?: string;
-}
-
+/* ─────────────────── Columnas base ─────────────────── */
 const columns: Column<Huerta>[] = [
   { label: 'Nombre',     key: 'nombre' },
   { label: 'Ubicación',  key: 'ubicacion' },
@@ -38,7 +26,14 @@ const columns: Column<Huerta>[] = [
       return (
         <>
           {ownerName}{' '}
-          {ownerArchived && <Chip label="Propietario archivado" size="small" color="warning" sx={{ ml: 0.5 }} />}
+          {ownerArchived && (
+            <Chip
+              label="Propietario archivado"
+              size="small"
+              color="warning"
+              sx={{ ml: .5 }}
+            />
+          )}
         </>
       );
     },
@@ -53,6 +48,23 @@ const columns: Column<Huerta>[] = [
         : <Chip label="Archivada" size="small" color="warning" />,
   },
 ];
+
+/* ─────────────────── Componente ─────────────────── */
+interface Props {
+  data: Huerta[];
+  page: number;
+  pageSize: number;
+  count: number;
+  onPageChange: (n: number) => void;
+
+  /* CRUD */
+  onEdit?:    (h: Huerta) => void;
+  onArchive?: (id: number) => void;
+  onRestore?: (id: number) => void;
+  onDelete?:  (id: number) => void;
+
+  emptyMessage?: string;
+}
 
 const HuertaTable: React.FC<Props> = ({
   data, page, pageSize, count, onPageChange,
@@ -70,13 +82,13 @@ const HuertaTable: React.FC<Props> = ({
     renderActions={(h) => {
       const isArchived = !h.is_active;
       return (
-        <HuertaActionsMenu
+        <ActionsMenu
           isArchived={isArchived}
-          onEdit={() => onEdit?.(h)}
+          onEdit={!isArchived && onEdit ? () => onEdit(h) : undefined}
           onArchiveOrRestore={() =>
             isArchived ? onRestore?.(h.id) : onArchive?.(h.id)
           }
-          onDelete={() => onDelete?.(h.id)}
+          onDelete={onDelete ? () => onDelete(h.id) : undefined}
         />
       );
     }}

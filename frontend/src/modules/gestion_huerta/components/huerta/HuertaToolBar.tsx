@@ -4,9 +4,7 @@ import { Box } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import { PermissionButton } from '../../../../components/common/PermissionButton';
 
-interface Props {
-  onOpen: () => void;
-}
+interface Props { onOpen: () => void; }
 
 const HuertaToolbar: React.FC<Props> = ({ onOpen }) => (
   <Box display="flex" justifyContent="flex-end" mb={2}>

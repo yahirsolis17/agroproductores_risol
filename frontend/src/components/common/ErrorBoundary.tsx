@@ -41,7 +41,7 @@ class ErrorBoundary extends Component<Props, State> {
       return (
         fallback ?? (
           <div className="p-6 text-center text-red-600">
-            Ha ocurrido un error inesperado.
+            Ha ocurrido un error inesperado puta.
           </div>
         )
       );

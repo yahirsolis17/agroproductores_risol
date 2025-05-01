@@ -122,6 +122,15 @@ export default function PropietarioFormModal({
             </DialogContent>
 
             <DialogActions className="px-6 py-4">
+            <PermissionButton
+                perm="change_propietario" /* o 'add_propietario', pero cancelar no requiere permiso */
+                variant="outlined"
+                color="primary"
+                onClick={onClose}
+                disabled={isSubmitting}
+              >
+                Cancelar
+              </PermissionButton>
               <PermissionButton
                 perm={isEdit ? 'change_propietario' : 'add_propietario'}
                 type="submit"
@@ -135,15 +144,7 @@ export default function PropietarioFormModal({
                   'Guardar'
                 )}
               </PermissionButton>
-              <PermissionButton
-                perm="change_propietario" /* o 'add_propietario', pero cancelar no requiere permiso */
-                variant="outlined"
-                color="secondary"
-                onClick={onClose}
-                disabled={isSubmitting}
-              >
-                Cancelar
-              </PermissionButton>
+
             </DialogActions>
           </Form>
         )}

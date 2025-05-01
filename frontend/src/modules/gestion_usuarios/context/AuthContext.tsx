@@ -1,4 +1,3 @@
-// src/modules/gestion_usuarios/context/AuthContext.tsx
 import React, {
   createContext,
   useContext,
@@ -6,14 +5,16 @@ import React, {
   useState,
   ReactNode,
 } from 'react';
-import authService, { User } from '../services/authService';
 import { useNavigate } from 'react-router-dom';
-import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
-import apiClient from '../../../global/api/apiClient';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../../../global/store/store';
 
-/* --------- API de contexto --------- */
+import authService, { User } from '../services/authService';
+import apiClient from '../../../global/api/apiClient';
+import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
+
+/* --------- API del contexto --------- */
 interface AuthContextProps {
-  /* estado */
   user: User | null;
   permissions: string[];
   loading: boolean;
@@ -32,33 +33,38 @@ interface AuthContextProps {
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
 
-/* ---------- Provider ---------- */
+/* ------------------------------------------------------------------------ */
+/*                         PROVIDER                                         */
+/* ------------------------------------------------------------------------ */
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const navigate = useNavigate();
 
-  // Carga inicial desde localStorage para que no se “pierdan” permisos si recargas la página
-  const storedUser = authService.getUser();
+  /* --- localStorage para sesión persistente --- */
+  const storedUser  = authService.getUser();
   const storedPerms = JSON.parse(localStorage.getItem('permissions') || '[]');
 
-  const [user, setUser] = useState<User | null>(storedUser);
+  /* --- estado local del contexto --- */
+  const [user, setUser]               = useState<User | null>(storedUser);
   const [permissions, setPermissions] = useState<string[]>(storedPerms);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]         = useState(true);
 
-  /* helper para UI */
+  /* --- 🔄  Sincronizar con Redux en tiempo real --- */
+  const reduxPerms = useSelector((s: RootState) => s.auth.permissions);
+  useEffect(() => setPermissions(reduxPerms), [reduxPerms]);
+
+  /* --- helpers --- */
   const hasPerm = (perm: string) => permissions.includes(perm);
 
-  /* ---------- montar ---------- */
+  /* -------------------------------------------------------------------- */
+  /*                             life-cycle                               */
+  /* -------------------------------------------------------------------- */
   useEffect(() => {
     const init = async () => {
       try {
-        // Si ya hay token, refresca sesión y permisos
-        if (authService.getAccessToken()) {
-          await refreshSession();
-        }
+        if (authService.getAccessToken()) await refreshSession();
       } catch {
-        // Si falla, limpia todo
         authService.logout();
         setUser(null);
         setPermissions([]);
@@ -70,37 +76,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     init();
   }, []);
 
-  /* ---------- helpers internos ---------- */
-// después
-const fetchPermissions = async () => {
-  try {
-    const response = await apiClient.get('/usuarios/me/permissions/');
-    const permisos: string[] = response.data.permissions; // ← CORREGIDO aquí
-    setPermissions(permisos);
-    return permisos;
-  
-  } catch (error) {
-    console.error('Error fetching permissions:', error);
-    setPermissions([]);
-    return [];
-  }
-};
+  /* -------------------------------------------------------------------- */
+  /*                     helpers internos                                  */
+  /* -------------------------------------------------------------------- */
+  const fetchPermissions = async (): Promise<string[]> => {
+    try {
+      const { data } = await apiClient.get('/usuarios/me/permissions/');
+      setPermissions(data.permissions);
+      return data.permissions;
+    } catch (err) {
+      console.error('Error fetching permissions', err);
+      setPermissions([]);
+      return [];
+    }
+  };
 
-
-  /* ---------- acciones ---------- */
+  /* -------------------------------------------------------------------- */
+  /*                             acciones                                  */
+  /* -------------------------------------------------------------------- */
   const refreshSession = async () => {
-    // obtiene datos básicos de usuario
     const me = await authService.getMe();
     setUser(me);
     localStorage.setItem('user', JSON.stringify(me));
-
-    // obtiene permisos dinámicamente
     await fetchPermissions();
   };
 
   const login = async (telefono: string, password: string) => {
     const {
-      user: loggedIn,
+      user: logged,
       must_change_password,
       notification,
       tokens,
@@ -108,30 +111,26 @@ const fetchPermissions = async () => {
 
     handleBackendNotification({ success: true, notification });
 
-    /* guardar tokens y usuario */
     localStorage.setItem('accessToken', tokens.access);
     localStorage.setItem('refreshToken', tokens.refresh);
 
-    const userWithFlag = { ...loggedIn, must_change_password };
-    setUser(userWithFlag);
-    localStorage.setItem('user', JSON.stringify(userWithFlag));
+    const loggedWithFlag = { ...logged, must_change_password };
+    setUser(loggedWithFlag);
+    localStorage.setItem('user', JSON.stringify(loggedWithFlag));
 
-    /* permisos dinámicos */
     await fetchPermissions();
 
-    navigate(
-      must_change_password ? '/change-password' : '/dashboard',
-      { replace: true },
-    );
+    navigate(must_change_password ? '/change-password' : '/dashboard', {
+      replace: true,
+    });
   };
 
   const logout = async () => {
     try {
-      const refreshToken = localStorage.getItem('refreshToken');
-      const res = await apiClient.post('/usuarios/logout/', { refresh_token: refreshToken });
-      handleBackendNotification(res.data);
+      const refresh = localStorage.getItem('refreshToken');
+      await apiClient.post('/usuarios/logout/', { refresh_token: refresh });
     } catch (err: any) {
-      handleBackendNotification(err.response?.data);
+      handleBackendNotification(err?.response?.data);
     } finally {
       authService.logout();
       setUser(null);
@@ -140,7 +139,10 @@ const fetchPermissions = async () => {
       navigate('/login');
     }
   };
-  /* ---------- expose ---------- */
+
+  /* -------------------------------------------------------------------- */
+  /*                            expose                                     */
+  /* -------------------------------------------------------------------- */
   return (
     <AuthContext.Provider
       value={{
@@ -161,10 +163,9 @@ const fetchPermissions = async () => {
   );
 };
 
-/* ---------- Hook ---------- */
+/* ---------------- Hook ---------------- */
 export const useAuth = () => {
   const ctx = useContext(AuthContext);
-  if (!ctx)
-    throw new Error('useAuth debe usarse dentro de <AuthProvider>');
+  if (!ctx) throw new Error('useAuth debe usarse dentro de <AuthProvider>');
   return ctx;
 };

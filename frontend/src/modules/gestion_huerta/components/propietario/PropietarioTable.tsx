@@ -1,9 +1,8 @@
-// src/modules/gestion_huerta/components/propietario/PropietarioTable.tsx
 import React from 'react';
 import { Chip } from '@mui/material';
-import PropietarioActionsMenu from '../common/PropietarioActionsMenu';
-import { Propietario } from '../../types/propietarioTypes';
 import { TableLayout, Column } from '../../../../components/common/TableLayout';
+import { Propietario } from '../../types/propietarioTypes';
+import ActionsMenu from '../common/ActionsMenu';
 
 interface Props {
   data: Propietario[];
@@ -11,20 +10,23 @@ interface Props {
   pageSize: number;
   count: number;
   onPageChange: (newPage: number) => void;
+
+  /* CRUD */
+  onEdit:   (p: Propietario) => void;
   onArchiveOrRestore: (id: number, isArchived: boolean) => void;
-  onDelete: (id: number) => void;
-  /** Mensaje que aparece cuando no hay filas */
+  onDelete:           (id: number) => void;
+
   emptyMessage?: string;
 }
 
 const columns: Column<Propietario>[] = [
-  { label: 'Nombre', key: 'nombre' },
-  { label: 'Apellidos', key: 'apellidos' },
-  { label: 'Teléfono', key: 'telefono' },
-  { label: 'Dirección', key: 'direccion' },
+  { label: 'Nombre',     key: 'nombre' },
+  { label: 'Apellidos',  key: 'apellidos' },
+  { label: 'Teléfono',   key: 'telefono' },
+  { label: 'Dirección',  key: 'direccion' },
   {
     label: 'Estado',
-    key: 'archivado_en',
+    key:   'archivado_en',
     align: 'center',
     render: (p) =>
       p.archivado_en ? (
@@ -41,33 +43,32 @@ const PropietarioTable: React.FC<Props> = ({
   pageSize,
   count,
   onPageChange,
+  onEdit,
   onArchiveOrRestore,
   onDelete,
   emptyMessage = 'No hay propietarios registrados.',
-}) => {
-  return (
-    <TableLayout<Propietario>
-      data={data}
-      page={page}
-      pageSize={pageSize}
-      count={count}
-      columns={columns}
-      onPageChange={onPageChange}
-      emptyMessage={emptyMessage}
-      renderActions={(p) => {
-        const isArchived = Boolean(p.archivado_en);
-        return (
-          <PropietarioActionsMenu
-            isArchived={isArchived}
-            onArchiveOrRestore={() =>
-              onArchiveOrRestore(p.id, isArchived)
-            }
-            onDelete={() => onDelete(p.id)}
-          />
-        );
-      }}
-    />
-  );
-};
+}) => (
+  <TableLayout<Propietario>
+    data={data}
+    columns={columns}
+    page={page}
+    pageSize={pageSize}
+    count={count}
+    onPageChange={onPageChange}
+    emptyMessage={emptyMessage}
+    renderActions={(p) => {
+      const isArchived = Boolean(p.archivado_en);
+      return (
+        <ActionsMenu
+          isArchived={isArchived}
+          /* Editar solo si está activo */
+          onEdit={!isArchived ? () => onEdit(p) : undefined}
+          onArchiveOrRestore={() => onArchiveOrRestore(p.id, isArchived)}
+          onDelete={() => onDelete(p.id)}
+        />
+      );
+    }}
+  />
+);
 
 export default PropietarioTable;

@@ -1,16 +1,18 @@
+// src/components/common/PermissionButton.tsx
 import { Tooltip, Button, ButtonProps } from '@mui/material';
-import { useSelector, shallowEqual } from 'react-redux';
+import { shallowEqual, useSelector } from 'react-redux';
 import type { RootState } from '../../global/store/store';
 import { useAuth } from '../../modules/gestion_usuarios/context/AuthContext';
 
+/**
+ * Uso:
+ * <PermissionButton perm="add_huerta" ... />
+ */
 export const PermissionButton = (
   props: ButtonProps & { perm: string }
 ) => {
-  /* 1️⃣  AuthContext primero */
-  const { user: ctxUser, permissions: ctxPerms } = useAuth();
-
-  /* 2️⃣  Redux respaldo */
-  const roleRedux = useSelector(
+  /* 🎯 1) Primero Redux (siempre está actualizado) */
+  const roleRedux  = useSelector(
     (s: RootState) => s.auth.user?.role,
     shallowEqual
   );
@@ -19,31 +21,24 @@ export const PermissionButton = (
     shallowEqual
   );
 
-  /* 3️⃣  Resolver rol / permisos finales */
-  const role = ctxUser?.role ?? roleRedux;
-  const rawPermissions = ctxPerms.length ? ctxPerms : permsRedux;
+  /* 🎯 2) Context como respaldo  */
+  const { user: ctxUser, permissions: ctxPerms } = useAuth();
 
-  /* 4️⃣  Normalizar: quedarnos con la parte posterior al último punto */
-  const normalized = rawPermissions.map((p) =>
-    p.includes('.') ? p.split('.').pop()! : p
-  );
+  /* 🎯 3) Resolver finales */
+  const role = roleRedux ?? ctxUser?.role;
+  const raw  = permsRedux.length ? permsRedux : ctxPerms;
 
-  /* 5️⃣  Regla central */
-  const has = role === 'admin' || normalized.includes(props.perm);
-  const isDisabled = !has || props.disabled;
+  /* 🎯 4) Normalizar codenames */
+  const normalized = raw.map(p => p.includes('.') ? p.split('.').pop()! : p);
+
+  /* 🎯 5) Regla */
+  const has       = role === 'admin' || normalized.includes(props.perm);
+  const disabled  = !has || props.disabled;
 
   return (
-    <Tooltip
-      title={has ? '' : 'No tienes permiso'}
-      disableHoverListener={has}
-    >
-      <span
-        style={{
-          display: 'inline-block',
-          cursor: isDisabled ? 'not-allowed' : 'pointer',
-        }}
-      >
-        <Button {...props} disabled={isDisabled} />
+    <Tooltip title={has ? '' : 'No tienes permiso'} disableHoverListener={has}>
+      <span style={{ display:'inline-block', cursor: disabled ? 'not-allowed':'pointer' }}>
+        <Button {...props} disabled={disabled}/>
       </span>
     </Tooltip>
   );
