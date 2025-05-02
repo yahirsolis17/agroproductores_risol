@@ -222,6 +222,20 @@ class HuertaViewSet(NotificationMixin, viewsets.ModelViewSet):
         HasHuertaModulePermission,
         HuertaGranularPermission,
     ]
+    def get_queryset(self):
+        qs = Huerta.objects.select_related("propietario").order_by("nombre")
+        params = self.request.query_params
+
+        if propietario_id := params.get("propietario"):
+            qs = qs.filter(propietario_id=propietario_id)
+
+        if nombre := params.get("nombre"):
+            qs = qs.filter(nombre__icontains=nombre)
+
+        if (arch := params.get("archivado")) is not None:
+            qs = qs.exclude(archivado_en__isnull=(arch.lower() == "false"))
+
+        return qs
 
     # -------------------------------------------------- LIST
     def list(self, request, *args, **kwargs):
