@@ -68,9 +68,9 @@ const Register: React.FC = () => {
   /*                    RENDER                         */
   /* ------------------------------------------------- */
   return (
-    <main className="flex items-center justify-center min-h-screen px-4">
+    <main className="flex items-center justify-center min-h-[80vh] px-4">
       <motion.div
-        initial={{ opacity: 0, y: 30 }}
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
         className="w-full max-w-md"

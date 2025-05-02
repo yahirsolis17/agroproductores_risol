@@ -2,7 +2,7 @@ from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
 from django.core.exceptions import ValidationError
 from django.utils import timezone
-from num2words import num2words
+from num2words import num2words   
 import re
 
 from gestion_huerta.models import (
@@ -142,21 +142,78 @@ class HuertaSerializer(serializers.ModelSerializer):
         return data
 
 
-class HuertaRentadaSerializer(HuertaSerializer):
-    """
-    Hereda la mayoría de validaciones de 'HuertaSerializer',
-    pero añade el campo 'monto_renta' y su conversión a palabras.
-    """
+# gestion_huerta/serializers/huerta.py
+class HuertaRentadaSerializer(serializers.ModelSerializer):
+    propietario_detalle = PropietarioSerializer(source='propietario', read_only=True)
+    propietario_archivado = serializers.SerializerMethodField()
     monto_renta_palabras = serializers.SerializerMethodField()
+    is_active = serializers.BooleanField(read_only=True)
+    archivado_en = serializers.DateTimeField(read_only=True)
 
-    class Meta(HuertaSerializer.Meta):
+    class Meta:
         model = HuertaRentada
-        fields = HuertaSerializer.Meta.fields + ['monto_renta', 'monto_renta_palabras']
+        fields = [
+            'id', 'nombre', 'ubicacion', 'variedades', 'historial', 'hectareas',
+            'propietario', 'propietario_detalle', 'propietario_archivado',
+            'monto_renta', 'monto_renta_palabras',
+            'is_active', 'archivado_en'
+        ]
+        validators = [
+            UniqueTogetherValidator(
+                queryset=HuertaRentada.objects.all(),
+                fields=['nombre', 'ubicacion', 'propietario'],
+                message="Ya existe una huerta rentada con ese nombre, ubicación y propietario."
+            )
+        ]
+
+    def get_propietario_archivado(self, obj):
+        return not obj.propietario.is_active
 
     def get_monto_renta_palabras(self, obj):
-        if obj.monto_renta:
-            return f"{num2words(obj.monto_renta, lang='es').capitalize()} pesos"
-        return None
+        return num2words(obj.monto_renta, lang='es').capitalize() + " pesos"
+
+    def validate_nombre(self, value):
+        txt = value.strip()
+        if len(txt) < 3:
+            raise serializers.ValidationError("El nombre debe tener al menos 3 caracteres.")
+        if not re.match(r'^[A-Za-z0-9ñÑáéíóúÁÉÍÓÚ\s]+$', txt):
+            raise serializers.ValidationError("Nombre inválido. Solo letras, números y espacios.")
+        return txt
+
+    def validate_ubicacion(self, value):
+        txt = value.strip()
+        if len(txt) < 5:
+            raise serializers.ValidationError("La ubicación debe tener al menos 5 caracteres.")
+        if not re.match(r'^[\w\s\-,.#áéíóúÁÉÍÓÚñÑ]+$', txt):
+            raise serializers.ValidationError(
+                "Ubicación inválida. Solo caracteres permitidos (letras, números, espacios, ,- .#)."
+            )
+        return txt
+
+    def validate_variedades(self, value):
+        txt = value.strip()
+        if len(txt) < 3:
+            raise serializers.ValidationError("Debes indicar al menos una variedad de mango (mínimo 3 caracteres).")
+        return txt
+
+    def validate_hectareas(self, value):
+        if value is None or value <= 0:
+            raise serializers.ValidationError("El número de hectáreas debe ser mayor a 0.")
+        return value
+
+    def validate_monto_renta(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("El monto de la renta debe ser mayor a 0.")
+        return value
+
+    def validate(self, data):
+        propietario = data.get('propietario') or getattr(self.instance, 'propietario', None)
+        if propietario and not propietario.is_active:
+            raise serializers.ValidationError(
+                "No puedes asignar huertas rentadas a un propietario archivado."
+            )
+        return data
+
 
 # -----------------------------
 # COSECHA

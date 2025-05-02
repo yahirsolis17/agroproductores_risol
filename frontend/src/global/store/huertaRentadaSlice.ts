@@ -1,4 +1,3 @@
-// src/global/store/huertaRentadaSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { huertaRentadaService } from '../../modules/gestion_huerta/services/huertaRentadaService';
 import { handleBackendNotification } from '../utils/NotificationEngine';
@@ -36,18 +35,18 @@ const initialState: HuertaRentadaState = {
   },
 };
 
-// ───────────────────────────────────────────────
-// THUNKS
-// ───────────────────────────────────────────────
+/* -------------------------------------------------------------------------- */
+/*                                 THUNKS                                     */
+/* -------------------------------------------------------------------------- */
 
 export const fetchHuertasRentadas = createAsyncThunk(
   'huertaRentada/fetchAll',
   async (page: number, { rejectWithValue }) => {
     try {
-      const res = await huertaRentadaService.list(page);
+      const serverRes = await huertaRentadaService.list(page);
       return {
-        huertasRentadas: res.data.huertas_rentadas,
-        meta: res.data.meta,
+        huertas: serverRes.data.huertas_rentadas,
+        meta: serverRes.data.meta,
         page,
       };
     } catch (err: any) {
@@ -73,7 +72,10 @@ export const createHuertaRentada = createAsyncThunk(
 
 export const updateHuertaRentada = createAsyncThunk(
   'huertaRentada/update',
-  async ({ id, payload }: { id: number; payload: HuertaRentadaUpdateData }, { rejectWithValue }) => {
+  async (
+    { id, payload }: { id: number; payload: HuertaRentadaUpdateData },
+    { rejectWithValue }
+  ) => {
     try {
       const res = await huertaRentadaService.update(id, payload);
       handleBackendNotification(res);
@@ -99,9 +101,9 @@ export const deleteHuertaRentada = createAsyncThunk(
   }
 );
 
-// ───────────────────────────────────────────────
-// SLICE
-// ───────────────────────────────────────────────
+/* -------------------------------------------------------------------------- */
+/*                                 SLICE                                      */
+/* -------------------------------------------------------------------------- */
 
 const huertaRentadaSlice = createSlice({
   name: 'huertaRentada',
@@ -118,7 +120,7 @@ const huertaRentadaSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchHuertasRentadas.fulfilled, (state, action) => {
-        state.list = action.payload.huertasRentadas;
+        state.list = action.payload.huertas;
         state.meta = action.payload.meta;
         state.page = action.payload.page;
         state.loading = false;
@@ -126,7 +128,10 @@ const huertaRentadaSlice = createSlice({
       })
       .addCase(fetchHuertasRentadas.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload as string;
+        state.error =
+          typeof action.payload === 'object'
+            ? JSON.stringify(action.payload)
+            : (action.payload as string);
         state.loaded = true;
       })
 
@@ -138,15 +143,17 @@ const huertaRentadaSlice = createSlice({
       })
 
       .addCase(updateHuertaRentada.fulfilled, (state, action) => {
-        const idx = state.list.findIndex(h => h.id === action.payload.id);
-        if (idx !== -1) state.list[idx] = action.payload;
+        const idx = state.list.findIndex((h) => h.id === action.payload.id);
+        if (idx !== -1) {
+          state.list[idx] = action.payload;
+        }
       })
       .addCase(updateHuertaRentada.rejected, (state, action) => {
         state.error = action.payload as string;
       })
 
       .addCase(deleteHuertaRentada.fulfilled, (state, action) => {
-        state.list = state.list.filter(h => h.id !== action.payload);
+        state.list = state.list.filter((h) => h.id !== action.payload);
       });
   },
 });

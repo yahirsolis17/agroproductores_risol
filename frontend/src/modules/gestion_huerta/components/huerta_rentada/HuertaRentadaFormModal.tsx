@@ -1,4 +1,4 @@
-// src/modules/gestion_huerta/components/huerta/HuertaFormModal.tsx
+// src/modules/gestion_huerta/components/huerta_rentada/HuertaRentadaFormModal.tsx
 import React, { useEffect, useRef } from 'react';
 import {
   DialogContent, DialogActions,
@@ -8,57 +8,48 @@ import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import { Formik, Form, FormikProps } from 'formik';
 import * as Yup from 'yup';
 
-import { HuertaCreateData } from '../../types/huertaTypes';
-import { Propietario }      from '../../types/propietarioTypes';
+import { HuertaRentadaCreateData } from '../../types/huertaRentadaTypes';
+import { Propietario }             from '../../types/propietarioTypes';
 import { handleBackendNotification } from '../../../../global/utils/NotificationEngine';
 
-/* ─────────────── Validación ─────────────── */
+/* ---------- Yup ---------- */
 const yupSchema = Yup.object({
   nombre:      Yup.string().required('Nombre requerido'),
   ubicacion:   Yup.string().required('Ubicación requerida'),
   variedades:  Yup.string().required('Variedades requeridas'),
   hectareas:   Yup.number().positive('Debe ser mayor que 0').required('Requerido'),
+  monto_renta: Yup.number().positive('Debe ser mayor que 0').required('Requerido'),
   propietario: Yup.number().min(1, 'Selecciona un propietario').required('Requerido'),
 });
 
-/* ─────────────── Types & Props ─────────────── */
+/* ---------- Types ---------- */
 type NewOption  = { id: 'new'; label: string };
 type PropOption = Propietario & { label: string };
 type OptionType = NewOption | PropOption;
 
 interface Props {
-  open:  boolean;               // → utilizado para reset de efectos
+  open: boolean;
   onClose: () => void;
-
-  onSubmit: (vals: HuertaCreateData) => Promise<void>;
-
+  onSubmit: (vals: HuertaRentadaCreateData) => Promise<void>;
   propietarios: Propietario[];
   onRegisterNewPropietario: () => void;
-
   isEdit?: boolean;
-  initialValues?: HuertaCreateData;
+  initialValues?: HuertaRentadaCreateData;
   defaultPropietarioId?: number;
 }
 
-/* ─────────────── Componente ─────────────── */
-const HuertaFormModal: React.FC<Props> = ({
-  open,
-  onClose,
-  onSubmit,
-  propietarios,
-  onRegisterNewPropietario,
-  isEdit = false,
-  initialValues,
-  defaultPropietarioId,
+const HuertaRentadaFormModal: React.FC<Props> = ({
+  open, onClose, onSubmit,
+  propietarios, onRegisterNewPropietario,
+  isEdit = false, initialValues, defaultPropietarioId,
 }) => {
-  const formikRef = useRef<FormikProps<HuertaCreateData>>(null);
+  const formikRef = useRef<FormikProps<HuertaRentadaCreateData>>(null);
 
-  const defaults: HuertaCreateData = {
+  const defaults: HuertaRentadaCreateData = {
     nombre: '', ubicacion: '', variedades: '',
-    historial: '', hectareas: 0, propietario: 0,
+    historial: '', hectareas: 0, monto_renta: 0, propietario: 0,
   };
 
-  /* -------- efectos -------- */
   useEffect(() => {
     if (open && defaultPropietarioId && formikRef.current && !isEdit) {
       formikRef.current.setFieldValue('propietario', defaultPropietarioId, false);
@@ -69,8 +60,7 @@ const HuertaFormModal: React.FC<Props> = ({
     if (!open && formikRef.current) formikRef.current.resetForm();
   }, [open]);
 
-  /* -------- handlers -------- */
-  const submit = async (vals: HuertaCreateData, actions: any) => {
+  const submit = async (vals: HuertaRentadaCreateData, actions: any) => {
     try {
       await onSubmit(vals);
       onClose();
@@ -95,9 +85,8 @@ const HuertaFormModal: React.FC<Props> = ({
     }
   };
 
-  /* -------- opciones propietario -------- */
+  /* opciones propietario */
   const registroNuevo: NewOption = { id: 'new', label: 'Registrar nuevo propietario' };
-
   const opciones: OptionType[] = React.useMemo(() => {
     const activos = propietarios
       .filter(p => !p.archivado_en)
@@ -119,7 +108,6 @@ const HuertaFormModal: React.FC<Props> = ({
     ];
   }, [propietarios, isEdit, initialValues]);
 
-  /* -------- render -------- */
   return (
     <Formik
       innerRef={formikRef}
@@ -141,13 +129,17 @@ const HuertaFormModal: React.FC<Props> = ({
               value={values.ubicacion} onChange={handleChange}
               error={!!errors.ubicacion} helperText={errors.ubicacion || ''} />
 
-            <TextField fullWidth label="Variedades (ej. Kent, Ataulfo)" name="variedades"
+            <TextField fullWidth label="Variedades" name="variedades"
               value={values.variedades} onChange={handleChange}
               error={!!errors.variedades} helperText={errors.variedades || ''} />
 
             <TextField fullWidth label="Hectáreas" name="hectareas" type="number"
               value={values.hectareas} onChange={handleChange}
               error={!!errors.hectareas} helperText={errors.hectareas || ''} />
+
+            <TextField fullWidth label="Monto Renta" name="monto_renta" type="number"
+              value={values.monto_renta || ''} onChange={handleChange}
+              error={!!errors.monto_renta} helperText={errors.monto_renta || ''} />
 
             <Autocomplete
               options={opciones}
@@ -195,7 +187,7 @@ const HuertaFormModal: React.FC<Props> = ({
           <DialogActions className="px-6 py-4">
             <Button variant="outlined" onClick={onClose}>Cancelar</Button>
             <Button type="submit" variant="contained" disabled={isSubmitting}>
-              {isSubmitting ? <CircularProgress size={22} color="inherit" /> : 'Guardar'}
+              {isSubmitting ? <CircularProgress size={22} /> : 'Guardar'}
             </Button>
           </DialogActions>
         </Form>
@@ -204,4 +196,4 @@ const HuertaFormModal: React.FC<Props> = ({
   );
 };
 
-export default HuertaFormModal;
+export default HuertaRentadaFormModal;

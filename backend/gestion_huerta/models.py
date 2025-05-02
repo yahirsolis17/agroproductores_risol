@@ -59,34 +59,40 @@ class Huerta(models.Model):
         return f"{self.nombre} ({self.propietario})"
 
 
+# gestion_huerta/models/huerta.py  (solo el modelo HuertaRentada)
 class HuertaRentada(models.Model):
-    """
-    Representa una huerta rentada, con la misma información que una huerta normal
-    pero agregando un campo de 'monto_renta'.
-    """
-    nombre = models.CharField(max_length=100)
-    ubicacion = models.CharField(max_length=255)
-    variedades = models.CharField(max_length=255)
-    historial = models.TextField(blank=True, null=True)
-    hectareas = models.FloatField(validators=[MinValueValidator(0.1)])
+    nombre      = models.CharField(max_length=100)
+    ubicacion   = models.CharField(max_length=255)
+    variedades  = models.CharField(max_length=255)
+    historial   = models.TextField(blank=True, null=True)
+    hectareas   = models.FloatField(validators=[MinValueValidator(0.1)])
+
     propietario = models.ForeignKey(
         Propietario,
         on_delete=models.CASCADE,
         related_name="huertas_rentadas"
     )
+
     monto_renta = models.DecimalField(
         max_digits=12,
         decimal_places=2,
         validators=[MinValueValidator(0.01)]
     )
 
+    # 🆕  Paridad con Huerta
+    is_active    = models.BooleanField(default=True)
+    archivado_en = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         unique_together = ('nombre', 'ubicacion', 'propietario')
-        ordering = ['id']
-        indexes = [models.Index(fields=['nombre'])]
+        ordering        = ['id']
+        indexes = [
+            models.Index(fields=['nombre']),
+            models.Index(fields=['ubicacion']),
+        ]
 
     def __str__(self):
-        return f"{self.nombre} (Rentada - {self.propietario})"
+        return f"{self.nombre} (Rentada – {self.propietario})"
 
 
 class Cosecha(models.Model):

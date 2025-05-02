@@ -6,53 +6,78 @@ import {
   HuertaRentadaUpdateData,
 } from '../types/huertaRentadaTypes';
 
-interface HuertaRentadaListData {
+/* ══════════════════════════════════════════════════════════════
+   Interfaces de respuesta alineadas con huertaService.ts
+   ══════════════════════════════════════════════════════════════ */
+interface HuertaRentadaListResponse {
   huertas_rentadas: HuertaRentada[];
+  meta: {
+    count: number;
+    next: string | null;
+    previous: string | null;
+  };
 }
 
-interface HuertaRentadaCreateUpdateDeleteResponse {
+interface HuertaRentadaPayload {
   huerta_rentada?: HuertaRentada;
   info?: string;
 }
 
 export const huertaRentadaService = {
-  async list() {
-    // GET /huerta/huertas_rentadas/
+  /* ---------------------- LIST ---------------------- */
+  async list(page = 1, params: Record<string, any> = {}) {
     const { data } = await apiClient.get<{
       success: boolean;
       message_key: string;
-      data: HuertaRentadaListData;
-    }>('/huerta/huertas_rentadas/');
+      data: HuertaRentadaListResponse;
+    }>('/huerta/huertas-rentadas/', {
+      params: { page, ...params },
+    });
+
     return data;
   },
 
+  /* ---------------------- CREATE ---------------------- */
   async create(payload: HuertaRentadaCreateData) {
-    // POST /huerta/huerta_rentada/create/
     const { data } = await apiClient.post<{
       success: boolean;
       message_key: string;
-      data: HuertaRentadaCreateUpdateDeleteResponse;
-    }>('/huerta/huerta_rentada/create/', payload);
+      data: HuertaRentadaPayload;
+    }>('/huerta/huertas-rentadas/', payload);
+
     return data;
   },
 
+  /* ---------------------- UPDATE ---------------------- */
   async update(id: number, payload: HuertaRentadaUpdateData) {
-    // PUT /huerta/huerta_rentada/update/<id>/
     const { data } = await apiClient.put<{
       success: boolean;
       message_key: string;
-      data: HuertaRentadaCreateUpdateDeleteResponse;
-    }>(`/huerta/huerta_rentada/update/${id}/`, payload);
+      data: HuertaRentadaPayload;
+    }>(`/huerta/huertas-rentadas/${id}/`, payload);
+
     return data;
   },
 
+  /* ---------------------- DELETE ---------------------- */
   async delete(id: number) {
-    // DELETE /huerta/huerta_rentada/delete/<id>/
     const { data } = await apiClient.delete<{
       success: boolean;
       message_key: string;
-      data: HuertaRentadaCreateUpdateDeleteResponse;
-    }>(`/huerta/huerta_rentada/delete/${id}/`);
+      data: HuertaRentadaPayload;
+    }>(`/huerta/huertas-rentadas/${id}/`);
+
+    return data;
+  },
+
+  /* ----------- ARCHIVAR / RESTAURAR ----------- */
+  async archivar(id: number) {
+    const { data } = await apiClient.post(`/huerta/huertas-rentadas/${id}/archivar/`);
+    return data;
+  },
+
+  async restaurar(id: number) {
+    const { data } = await apiClient.post(`/huerta/huertas-rentadas/${id}/restaurar/`);
     return data;
   },
 };

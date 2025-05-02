@@ -1,222 +1,179 @@
-// src/modules/gestion_huerta/pages/Huertas.tsx
+/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Paper,
-  Typography,
-  CircularProgress,
-  Box,
-  Tabs,
-  Tab,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
+  Paper, Typography, CircularProgress, Box,
+  Tabs, Tab, Dialog, DialogTitle, DialogContent, DialogActions, Button,
 } from '@mui/material';
 
-import { useHuertas }      from '../hooks/useHuertas';
-import { usePropietarios } from '../hooks/usePropietarios';
+import { useHuertasCombinadas } from '../hooks/useHuertasCombinadas';
+import { usePropietarios }      from '../hooks/usePropietarios';
 
 import HuertaToolbar        from '../components/huerta/HuertaToolBar';
 import HuertaTable          from '../components/huerta/HuertaTable';
-import HuertaFormModal      from '../components/huerta/HuertaFormModal';
+import HuertaModalTabs      from '../components/huerta/HuertaModalTabs';
 import PropietarioFormModal from '../components/propietario/PropietarioFormModal';
 
-import {
-  HuertaCreateData,
-  Huerta as HuertaType,
-} from '../types/huertaTypes';
-import { PropietarioCreateData } from '../types/propietarioTypes';
-import { huertaService }         from '../services/huertaService';
+import { HuertaCreateData }        from '../types/huertaTypes';
+import { HuertaRentadaCreateData } from '../types/huertaRentadaTypes';
+import { PropietarioCreateData }   from '../types/propietarioTypes';
+
+import { huertaService }        from '../services/huertaService';
+import { huertaRentadaService } from '../services/huertaRentadaService';
 import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
 
-/* ─────────────────── Config ─────────────────── */
+import { isRentada } from '../utils/huertaTypeGuards';
+
 type ViewFilter = 'activas' | 'archivadas' | 'todas';
 const pageSize = 10;
 
-/* ───────────────── Componente ───────────────── */
 const Huertas: React.FC = () => {
-  /* ------------ UI State ------------ */
   const [filter, setFilter] = useState<ViewFilter>('activas');
 
-  /* Modales alta / edición */
-  const [openNew,  setOpenNew]  = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<HuertaType | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editTarget, setEditTarget] =
+    useState<{ tipo: 'propia' | 'rentada'; data: any } | null>(null);
 
-  /* Confirm-delete */
-  const [confirmOpen, setConfirm] = useState(false);
-  const [confirmId,   setConfirmId]   = useState<number | null>(null);
+  const [delDialog, setDelDialog] = useState<{ id: number; tipo: 'propia' | 'rentada' } | null>(null);
+  const [propModal, setPropModal] = useState(false);
 
-  /* Modal alta propietario (desde autocomplete) */
-  const [openPropModal, setOpenPropModal] = useState(false);
-  const [defaultPropId, setDefaultPropId] = useState<number>();
+  /* datos */
+  const { huertas, loading, page, setPage,
+          add, edit, toggleLocal, fetchAll } = useHuertasCombinadas();
 
-  /* ------------ Datos (hooks) ------------ */
-  const {
-    huertas, loading: loadHuertas, page, setPage,
-    addHuerta, editHuerta, fetchHuertas, toggleActivoLocal,
-  } = useHuertas();
+  const { propietarios, loading: loadProps,
+          addPropietario, fetchPropietarios } = usePropietarios();
 
-  const {
-    propietarios, loading: loadProps,
-    addPropietario, fetchPropietarios,
-  } = usePropietarios();
-
-  /* Loader suave */
-  const [delayedLoading, setDelayedLoading] = useState(false);
+  /* loader suave */
+  const [spin, setSpin] = useState(false);
   useEffect(() => {
-    let t: ReturnType<typeof setTimeout>;
-    if (loadHuertas || loadProps)
-      t = setTimeout(() => setDelayedLoading(true), 300);
-    else
-      setDelayedLoading(false);
-    return () => { if (t) clearTimeout(t); };
-  }, [loadHuertas, loadProps]);
+    let t: any;
+    if (loading || loadProps) t = setTimeout(() => setSpin(true), 300);
+    else setSpin(false);
+    return () => clearTimeout(t);
+  }, [loading, loadProps]);
 
-  /* ------------ CRUD ------------ */
-  /* Alta huerta */
-  const saveNewHuerta = async (vals: HuertaCreateData) => {
-    await addHuerta(vals);
-    await fetchHuertas();
-    setOpenNew(false);
+  /* alta */
+  const savePropia  = async (v: HuertaCreateData)        => { await add(v, 'propia');  await fetchAll(); };
+  const saveRentada = async (v: HuertaRentadaCreateData) => { await add(v, 'rentada'); await fetchAll(); };
+
+  /* edición */
+  const launchEdit = (h: any) => {
+    setEditTarget({ tipo: isRentada(h) ? 'rentada' : 'propia', data: h });
+    setModalOpen(true);                    // ← ¡esto faltaba!
   };
-
-  /* Edición huerta */
-  const launchEdit = (h: HuertaType) => { setEditTarget(h); setEditOpen(true); };
-  const saveEditHuerta = async (vals: HuertaCreateData) => {
+  
+  const saveEdit = async (vals: any) => {
     if (!editTarget) return;
-    await editHuerta(editTarget.id, vals);
-    setEditOpen(false);
+    await edit(editTarget.data.id, vals, editTarget.tipo);
+    setModalOpen(false);
   };
 
-  /* Archivado / restauración (optimista) */
-  const archive = async (id: number) => {
-    toggleActivoLocal(id, false);
-    try { handleBackendNotification(await huertaService.archivar(id)); }
-    catch (e: any) { toggleActivoLocal(id, true); handleBackendNotification(e.response?.data); }
-  };
-  const restore = async (id: number) => {
-    toggleActivoLocal(id, true);
-    try { handleBackendNotification(await huertaService.restaurar(id)); }
-    catch (e: any) { toggleActivoLocal(id, false); handleBackendNotification(e.response?.data); }
-  };
+  /* archivar/restaurar */
+  const svc = (t:'propia'|'rentada') => t==='propia'? huertaService: huertaRentadaService;
 
-  /* Delete con confirmación */
-  const askDelete = (id: number) => { setConfirmId(id); setConfirm(true); };
-  const confirmDelete = async () => {
-    if (confirmId == null) return;
+  const toggleArchivado = async (h: any, nuevo: boolean) => {
+    const t = isRentada(h) ? 'rentada' : 'propia';
+    toggleLocal(h.id, nuevo, t);
+  
     try {
-      handleBackendNotification(await huertaService.delete(confirmId));
-      await fetchHuertas();
+      const res = nuevo
+        ? await svc(t).restaurar(h.id)
+        : await svc(t).archivar(h.id);
+  
+      handleBackendNotification(res);  // ✅ Aquí se muestra la noti
     } catch (e: any) {
+      toggleLocal(h.id, !nuevo, t);
       handleBackendNotification(e.response?.data);
-    } finally {
-      setConfirm(false);
     }
   };
+  
 
-  /* Alta propietario inline */
-  const saveNewProp = async (vals: PropietarioCreateData) => {
-    const p = await addPropietario(vals);
-    await fetchPropietarios();
-    setDefaultPropId(p.id);
-    return p;
+  /* delete */
+  const askDelete = (h:any)=> setDelDialog({id:h.id,tipo:isRentada(h)?'rentada':'propia'});
+  const confirmDelete = async () => {
+    if(!delDialog) return;
+    try{
+      handleBackendNotification(await svc(delDialog.tipo).delete(delDialog.id));
+      await fetchAll();
+    }finally{ setDelDialog(null);}
   };
 
-  /* ------------ Filtro & mensajes ------------ */
-  const filtered = huertas.filter(h =>
-    filter === 'activas'    ?  h.is_active :
-    filter === 'archivadas' ? !h.is_active :
-                              true
-  );
+  /* alta propietario inline */
+  const saveNewProp = async (v:PropietarioCreateData)=>{
+    await addPropietario(v);
+    await fetchPropietarios();
+  };
 
-  const emptyMsg =
-    filter === 'activas'    ? 'No hay huertas activas.'     :
-    filter === 'archivadas' ? 'No hay huertas archivadas.'  :
-                              'No hay huertas registradas.';
+  /* filtro activo */
+  const rows = huertas.filter(h =>
+    filter==='activas'?  h.is_active:
+    filter==='archivadas'? !h.is_active: true);
 
-  /* ------------ Render ------------ */
+  const empty =
+    filter==='activas'?    'No hay huertas activas.':
+    filter==='archivadas'? 'No hay huertas archivadas.':
+                            'No hay huertas registradas.';
+
+  /* render */
   return (
     <motion.div className="p-6 max-w-6xl mx-auto"
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: .4 }}>
-      <Paper elevation={4} className="p-6 sm:p-10 rounded-2xl shadow-lg bg-white">
+      initial={{opacity:0}} animate={{opacity:1}} transition={{duration:.4}}>
+      <Paper elevation={4} className="p-6 sm:p-10 rounded-2xl bg-white">
         <Typography variant="h4" className="text-primary-dark font-bold mb-4">
           Gestión de Huertas
         </Typography>
 
-        <HuertaToolbar onOpen={() => setOpenNew(true)} />
+        <HuertaToolbar onOpen={()=>{ setEditTarget(null); setModalOpen(true); }} />
 
-        <Tabs value={filter} onChange={(_, v) => setFilter(v)}
-              textColor="primary" indicatorColor="primary" sx={{ mb: 2 }}>
-          <Tab value="activas"    label="Activas" />
-          <Tab value="archivadas" label="Archivadas" />
-          <Tab value="todas"      label="Todas" />
+        <Tabs value={filter} onChange={(_,v)=>setFilter(v)}
+              textColor="primary" indicatorColor="primary" sx={{mb:2}}>
+          <Tab value="activas"    label="Activas"/>
+          <Tab value="archivadas" label="Archivadas"/>
+          <Tab value="todas"      label="Todas"/>
         </Tabs>
 
-        {delayedLoading ? (
-          <Box display="flex" justifyContent="center" mt={6}><CircularProgress /></Box>
+        {spin ? (
+          <Box display="flex" justifyContent="center" mt={6}><CircularProgress/></Box>
         ) : (
           <HuertaTable
-            data={filtered}
+            data={rows}
             page={page}
             pageSize={pageSize}
-            count={filtered.length}
-            onPageChange={setPage}
-            emptyMessage={emptyMsg}
+            count={rows.length}
+            onPageChange={(n)=>setPage(n)}
+            emptyMessage={empty}
             onEdit={launchEdit}
-            onArchive={archive}
-            onRestore={restore}
-            onDelete={askDelete}         
+            onArchive={(h)=>toggleArchivado(h,false)}
+            onRestore={(h)=>toggleArchivado(h,true)}
+            onDelete={askDelete}
           />
         )}
 
-        {/* ----- Modal ALTA Huerta ----- */}
-        <HuertaFormModal
-          open={openNew}
-          onClose={() => setOpenNew(false)}
-          onSubmit={saveNewHuerta}
+        {/* modal alta/edición */}
+        <HuertaModalTabs
+          open={modalOpen}
+          onClose={()=>setModalOpen(false)}
+          onSubmitPropia={editTarget?.tipo==='propia'? saveEdit: savePropia}
+          onSubmitRentada={editTarget?.tipo==='rentada'? saveEdit: saveRentada}
           propietarios={propietarios}
-          onRegisterNewPropietario={() => setOpenPropModal(true)}
-          defaultPropietarioId={defaultPropId}
+          onRegisterNewPropietario={()=>setPropModal(true)}
+          editTarget={editTarget||undefined}
         />
 
-        {/* ----- Modal EDICIÓN Huerta ----- */}
-        <HuertaFormModal
-          open={editOpen}
-          onClose={() => setEditOpen(false)}
-          onSubmit={saveEditHuerta}
-          propietarios={propietarios}
-          onRegisterNewPropietario={() => setOpenPropModal(true)}
-          isEdit
-          initialValues={
-            editTarget
-              ? {
-                  nombre:      editTarget.nombre,
-                  ubicacion:   editTarget.ubicacion,
-                  variedades:  editTarget.variedades,
-                  historial:   editTarget.historial ?? undefined,
-                  hectareas:   editTarget.hectareas,
-                  propietario: editTarget.propietario,
-                }
-              : undefined
-          }
-        />
-
-        {/* ----- Modal ALTA Propietario (inline) ----- */}
+        {/* propietario inline */}
         <PropietarioFormModal
-          open={openPropModal}
-          onClose={() => setOpenPropModal(false)}
+          open={propModal}
+          onClose={()=>setPropModal(false)}
           onSubmit={saveNewProp}
         />
 
-        {/* ----- Confirmar eliminación ----- */}
-        <Dialog open={confirmOpen} onClose={() => setConfirm(false)}>
+        {/* confirm delete */}
+        <Dialog open={Boolean(delDialog)} onClose={()=>setDelDialog(null)}>
           <DialogTitle>Confirmar eliminación</DialogTitle>
           <DialogContent>¿Eliminar esta huerta permanentemente?</DialogContent>
           <DialogActions>
-            <Button color="inherit" onClick={() => setConfirm(false)}>Cancelar</Button>
+            <Button onClick={()=>setDelDialog(null)}>Cancelar</Button>
             <Button color="error" onClick={confirmDelete}>Eliminar</Button>
           </DialogActions>
         </Dialog>
