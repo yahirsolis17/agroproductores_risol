@@ -52,6 +52,14 @@ export const moduleRoutes: ModuleRoute[] = [
     allowedRoles: ['admin', 'usuario'],
     lazyComponent: () => import('../../modules/gestion_huerta/pages/Propietarios'),
   },
+
+  {
+    path: '/temporadas',
+    module: 'gestion_huerta',
+    allowedRoles: ['admin', 'usuario'],
+    lazyComponent: () => import('../../modules/gestion_huerta/pages/Temporadas'),
+  },
+
   {
     path: '/cosechas',
     module: 'gestion_huerta',

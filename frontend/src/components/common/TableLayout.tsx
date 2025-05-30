@@ -148,7 +148,6 @@ export function TableLayout<T>({
                     onChange={(e) => handleFilterUpdate(cfg.key, e.target.value)}
                     sx={sxWidth}
                   >
-                    <MenuItem value="">Todos</MenuItem>
                     {cfg.options?.map((opt) => (
                       <MenuItem key={opt.value} value={opt.value}>
                         {opt.label}

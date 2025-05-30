@@ -94,32 +94,105 @@ class HuertaRentada(models.Model):
     def __str__(self):
         return f"{self.nombre} (Rentada – {self.propietario})"
 
-
-class Cosecha(models.Model):
+class Temporada(models.Model):
     """
-    Cada huerta (propia o rentada) puede tener múltiples cosechas.
-    'huerta' y 'huerta_rentada' son mutuamente excluyentes:
-    - Si huerta está presente, huerta_rentada debe ser None (y viceversa).
+    Una temporada representa un año agrícola de una huerta propia o rentada.
+    - Solo una temporada por año por huerta.
+    - Soporta cierre (finalizada) y soft-delete (archivado_en).
     """
-    nombre = models.CharField(max_length=100)
-    huerta = models.ForeignKey(
+    año           = models.PositiveIntegerField()
+    huerta         = models.ForeignKey(
         Huerta,
         on_delete=models.CASCADE,
         null=True,
         blank=True,
-        related_name="cosechas"
+        related_name='temporadas'
     )
     huerta_rentada = models.ForeignKey(
         HuertaRentada,
         on_delete=models.CASCADE,
         null=True,
         blank=True,
-        related_name="cosechas_rentadas"
+        related_name='temporadas'
     )
+
+    fecha_inicio = models.DateField(default=timezone.now)
+    fecha_fin    = models.DateField(null=True, blank=True)
+    finalizada   = models.BooleanField(default=False)
+
+    # ── Soft-delete ──
+    is_active    = models.BooleanField(default=True)
+    archivado_en = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = [
+            ('año', 'huerta'),
+            ('año', 'huerta_rentada'),
+        ]
+        ordering = ['-año']
+        indexes = [models.Index(fields=['año'])]
+
+    def clean(self):
+        if not self.huerta and not self.huerta_rentada:
+            raise ValidationError("Debe asignar una huerta propia o rentada.")
+        if self.huerta and self.huerta_rentada:
+            raise ValidationError("No puede asignar ambas huertas a la vez.")
+
+    def finalizar(self):
+        """Marca la temporada como finalizada, bloqueando nuevos registros."""
+        if not self.finalizada:
+            self.finalizada = True
+            self.fecha_fin = timezone.now()
+            self.save(update_fields=['finalizada', 'fecha_fin'])
+
+    def archivar(self):
+        if self.is_active:
+            self.is_active = False
+            self.archivado_en = timezone.now()
+            self.save(update_fields=["is_active", "archivado_en"])
+
+            now = timezone.now()
+            cosechas = list(self.cosechas.all())
+            for c in cosechas:
+                c.is_active = False
+                c.archivado_en = now
+            Cosecha.objects.bulk_update(cosechas, ["is_active", "archivado_en"])
+
+            for c in cosechas:
+                c.inversiones.update(is_active=False, archivado_en=now)
+                c.ventas.update(is_active=False, archivado_en=now)
+
+    def desarchivar(self):
+        """Restaura temporada y en cascada todas sus cosechas/inversiones/ventas."""
+        if not self.is_active:
+            self.is_active    = True
+            self.archivado_en = None
+            self.save(update_fields=['is_active', 'archivado_en'])
+            for cosecha in self.cosechas.all():
+                cosecha.is_active    = True
+                cosecha.archivado_en = None
+                cosecha.save(update_fields=['is_active', 'archivado_en'])
+                cosecha.inversiones.update(is_active=True, archivado_en=None)
+                cosecha.ventas.update(is_active=True, archivado_en=None)
+
+    def __str__(self):
+        origen = self.huerta or self.huerta_rentada
+        tipo = "Rentada" if self.huerta_rentada else "Propia"
+        return f"{origen} – Temporada {self.año} ({tipo})"
+
+class Cosecha(models.Model):
+    nombre = models.CharField(max_length=100)
+    huerta = models.ForeignKey(Huerta, on_delete=models.CASCADE, null=True, blank=True, related_name="cosechas")
+    temporada = models.ForeignKey(Temporada, on_delete=models.CASCADE, related_name='cosechas', null=True, blank=True)
+    huerta_rentada = models.ForeignKey(HuertaRentada, on_delete=models.CASCADE, null=True, blank=True, related_name="cosechas_rentadas")
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_inicio = models.DateTimeField(null=True, blank=True)
     fecha_fin = models.DateTimeField(null=True, blank=True)
     finalizada = models.BooleanField(default=False)
+
+    # ✅ Agrega esto:
+    is_active = models.BooleanField(default=True)
+    archivado_en = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         indexes = [models.Index(fields=['nombre'])]
@@ -138,7 +211,6 @@ class Cosecha(models.Model):
     def __str__(self):
         origen = self.huerta or self.huerta_rentada
         return f"{self.nombre} - {origen}"
-
 
 class CategoriaInversion(models.Model):
     """

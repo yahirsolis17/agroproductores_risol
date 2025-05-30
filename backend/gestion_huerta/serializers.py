@@ -7,7 +7,7 @@ import re
 
 from gestion_huerta.models import (
     Propietario, Huerta, HuertaRentada,
-    Cosecha, InversionesHuerta, CategoriaInversion, Venta
+    Cosecha, InversionesHuerta, CategoriaInversion, Venta, Temporada
 )
 
 # -----------------------------
@@ -214,6 +214,91 @@ class HuertaRentadaSerializer(serializers.ModelSerializer):
             )
         return data
 
+class TemporadaSerializer(serializers.ModelSerializer):
+    is_rentada    = serializers.SerializerMethodField()
+    huerta_nombre = serializers.SerializerMethodField()
+    huerta_id     = serializers.SerializerMethodField()
+    
+    # ← ESTOS DOS CAMPOS SON OPCIONALES, NUNCA REQUIRED
+    huerta = serializers.PrimaryKeyRelatedField(
+        queryset=Huerta.objects.all(),
+        required=False,
+        allow_null=True,
+        default=None
+    )
+    huerta_rentada = serializers.PrimaryKeyRelatedField(
+        queryset=HuertaRentada.objects.all(),
+        required=False,
+        allow_null=True,
+        default=None
+    )
+
+    class Meta:
+        model = Temporada
+        fields = [
+            'id',
+            'año',
+            'fecha_inicio',
+            'fecha_fin',
+            'finalizada',
+            'is_active',
+            'archivado_en',
+            'huerta',
+            'huerta_rentada',
+            'is_rentada',
+            'huerta_nombre',
+            'huerta_id',
+        ]
+
+    def get_is_rentada(self, obj):
+        return obj.huerta_rentada is not None
+
+    def get_huerta_nombre(self, obj):
+        origen = obj.huerta or obj.huerta_rentada
+        return str(origen) if origen else None
+
+    def get_huerta_id(self, obj):
+        origen = obj.huerta or obj.huerta_rentada
+        return origen.id if origen else None
+
+    def validate_año(self, value):
+        actual = timezone.now().year
+        if value < 2000 or value > actual + 1:
+            raise serializers.ValidationError("El año debe estar entre 2000 y el año siguiente al actual.")
+        return value
+
+    def validate(self, data):
+        huerta = data.get('huerta')
+        huerta_rentada = data.get('huerta_rentada')
+        año = data.get('año')
+
+        print("🔬 Validando temporada:")
+        print("  - Huerta:", huerta)
+        print("  - Rentada:", huerta_rentada)
+        print("  - Año:", año)
+
+        if not huerta and not huerta_rentada:
+            raise serializers.ValidationError("Debe asignar una huerta o una huerta rentada.")
+
+        if huerta and huerta_rentada:
+            raise serializers.ValidationError("No puede asignar ambas huertas al mismo tiempo.")
+
+        if huerta and not huerta.is_active:
+            raise serializers.ValidationError("No se puede crear temporada en una huerta archivada.")
+
+        if huerta_rentada and not huerta_rentada.is_active:
+            raise serializers.ValidationError("No se puede crear temporada en una huerta rentada archivada.")
+
+        if self.instance is None:
+            if huerta and Temporada.objects.filter(huerta=huerta, año=año).exists():
+                raise serializers.ValidationError("Ya existe una temporada para esta huerta en ese año.")
+            if huerta_rentada and Temporada.objects.filter(huerta_rentada=huerta_rentada, año=año).exists():
+                raise serializers.ValidationError("Ya existe una temporada para esta huerta rentada en ese año.")
+
+        return data
+
+
+
 
 # -----------------------------
 # COSECHA
@@ -257,8 +342,17 @@ class CosechaSerializer(serializers.ModelSerializer):
     def validate(self, data):
         fecha_inicio = data.get('fecha_inicio')
         fecha_fin = data.get('fecha_fin')
+        temporada = data.get('temporada')
+
+        if temporada:
+            if temporada.finalizada:
+                raise serializers.ValidationError("No se pueden registrar cosechas en una temporada finalizada.")
+
         if fecha_inicio and fecha_fin and fecha_fin < fecha_inicio:
             raise serializers.ValidationError("La fecha de fin no puede ser anterior a la fecha de inicio.")
+        if temporada and temporada.cosechas.count() >= 6:
+            raise serializers.ValidationError("Esta temporada ya tiene el máximo de 6 cosechas permitidas.")
+
         return data
 
 # -----------------------------
@@ -314,6 +408,15 @@ class InversionesHuertaSerializer(serializers.ModelSerializer):
         return (obj.gastos_insumos or 0) + (obj.gastos_mano_obra or 0)
 
     def validate(self, data):
+        cosecha = data['cosecha']
+        temporada = getattr(cosecha, 'temporada', None)
+
+        if cosecha.finalizada:
+            raise serializers.ValidationError("No se pueden registrar inversiones en una cosecha finalizada.")
+
+        if temporada and temporada.finalizada:
+            raise serializers.ValidationError("No se pueden registrar inversiones en una temporada finalizada.")
+
         if (data['gastos_insumos'] + data['gastos_mano_obra']) <= 0:
             raise serializers.ValidationError("Los gastos totales deben ser mayores a 0.")
         return data
@@ -342,3 +445,14 @@ class VentaSerializer(serializers.ModelSerializer):
 
     def get_ganancia_neta(self, obj):
         return (obj.num_cajas * obj.precio_por_caja) - obj.gasto
+
+    def validate(self, data):
+        cosecha = data['cosecha']
+        temporada = getattr(cosecha, 'temporada', None)
+
+        if cosecha.finalizada:
+            raise serializers.ValidationError("No se pueden registrar ventas en una cosecha finalizada.")
+
+        if temporada and temporada.finalizada:
+            raise serializers.ValidationError("No se pueden registrar ventas en una temporada finalizada.")
+        return data

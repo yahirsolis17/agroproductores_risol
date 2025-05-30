@@ -95,9 +95,6 @@ class CustomUserCreationSerializer(serializers.ModelSerializer):
         user.save()
         return user
 
-
-
-
 # Serializador general para mostrar usuarios
 class UsuarioSerializer(serializers.ModelSerializer):
     full_name = serializers.ReadOnlyField()

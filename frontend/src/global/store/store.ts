@@ -11,7 +11,7 @@ import cosechasReducer from './cosechasSlice';
 import inversionesReducer from './inversionesSlice';
 import ventasReducer from './ventasSlice';
 import categoriaInversionReducer from './categoriaInversionSlice';
-
+import temporadaReducer from './temporadaSlice';
 export const store = configureStore({
   reducer: {
     auth: authReducer,
@@ -19,6 +19,7 @@ export const store = configureStore({
     propietarios: propietariosReducer,
     huerta: huertaReducer,
     huertaRentada: huertaRentadaReducer,
+    temporada: temporadaReducer,
     cosechas: cosechasReducer,
     inversiones: inversionesReducer,
     ventas: ventasReducer,

@@ -173,4 +173,41 @@ NOTIFICATION_MESSAGES = {
     },
 
 
+    "temporada_create_success": {
+        "message": "Temporada creada correctamente back.",
+        "type": "success",
+    },
+    "temporada_update_success": {
+        "message": "Temporada actualizada correctamente back.",
+        "type": "info",
+    },
+    "temporada_delete_success": {
+        "message": "Temporada eliminada correctamente back.",
+        "type": "success",
+    },
+    "temporada_finalizada": {
+        "message": "Temporada finalizada exitosamente back.",
+        "type": "success",
+    },
+    "temporada_ya_finalizada": {
+        "message": "Esta temporada ya fue finalizada back.",
+        "type": "warning",
+    },
+    "temporada_archivada": {
+        "message": "Temporada archivada correctamente back.",
+        "type": "success",
+    },
+    "temporada_ya_archivada": {
+        "message": "Esta temporada ya está archivada back.",
+        "type": "warning",
+    },
+    "temporada_restaurada": {
+        "message": "Temporada restaurada correctamente back.",
+        "type": "success",
+    },
+    "temporada_no_archivada": {
+        "message": "Esta temporada ya está activa back.",
+        "type": "info",
+    },
+
 }

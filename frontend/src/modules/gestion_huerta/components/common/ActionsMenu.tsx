@@ -1,4 +1,3 @@
-// src/components/common/ActionsMenu.tsx
 import React, { useState } from 'react';
 import {
   IconButton,
@@ -13,15 +12,19 @@ import EditIcon from '@mui/icons-material/Edit';
 import ArchiveIcon from '@mui/icons-material/Archive';
 import UnarchiveIcon from '@mui/icons-material/Unarchive';
 import DeleteIcon from '@mui/icons-material/Delete';
+import EventNoteIcon from '@mui/icons-material/EventNote'; // ← NUEVO
 
 interface ActionsMenuProps {
   isArchived: boolean;
   onEdit?: () => void;
   onArchiveOrRestore?: () => void;
   onDelete?: () => void;
+  onTemporadas?: () => void; // ← NUEVO
+
   hideEdit?: boolean;
   hideDelete?: boolean;
   hideArchiveToggle?: boolean;
+  hideTemporadas?: boolean; // ← OPCIONAL para ocultar si se desea
 }
 
 const ActionsMenu: React.FC<ActionsMenuProps> = ({
@@ -29,15 +32,20 @@ const ActionsMenu: React.FC<ActionsMenuProps> = ({
   onEdit,
   onArchiveOrRestore,
   onDelete,
+  onTemporadas,
   hideEdit = false,
   hideDelete = false,
   hideArchiveToggle = false,
+  hideTemporadas = false,
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
   const openMenu = (e: React.MouseEvent<HTMLElement>) => setAnchorEl(e.currentTarget);
   const closeMenu = () => setAnchorEl(null);
-  const handle = (fn?: () => void) => { closeMenu(); if (fn) fn(); };
+  const handle = (fn?: () => void) => {
+    closeMenu();
+    if (fn) fn();
+  };
 
   return (
     <>
@@ -54,6 +62,13 @@ const ActionsMenu: React.FC<ActionsMenuProps> = ({
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
+        {!hideTemporadas && !isArchived && onTemporadas && (
+          <MenuItem onClick={() => handle(onTemporadas)}>
+            <ListItemIcon><EventNoteIcon fontSize="small" /></ListItemIcon>
+            <ListItemText primary="Temporadas" />
+          </MenuItem>
+        )}
+
         {!hideEdit && !isArchived && onEdit && (
           <MenuItem onClick={() => handle(onEdit)}>
             <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
@@ -69,6 +84,7 @@ const ActionsMenu: React.FC<ActionsMenuProps> = ({
             <ListItemText primary={isArchived ? 'Restaurar' : 'Archivar'} />
           </MenuItem>
         )}
+
 
         {!hideDelete && isArchived && onDelete && (
           <MenuItem onClick={() => handle(onDelete)}>
