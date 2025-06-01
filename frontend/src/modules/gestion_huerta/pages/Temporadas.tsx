@@ -1,5 +1,3 @@
-// src/modules/gestion_huerta/pages/Temporadas.tsx
-
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useMemo, useState, useEffect } from 'react';
 import {
@@ -51,7 +49,6 @@ const Temporadas: React.FC = () => {
   const { huertas } = useHuertas();
   const { huertas: rentadas } = useHuertasRentadas();
 
-  // Determine selected huerta object
   const huertaSel = useMemo(() => {
     if (!huertaId) return null;
     return (
@@ -68,7 +65,6 @@ const Temporadas: React.FC = () => {
   const [consultTarget, setConsultTarget] = useState<Temporada | null>(null);
   const [consultOpen, setConsultOpen] = useState(false);
 
-  // show spinner only after 300ms of loading
   useEffect(() => {
     let t: ReturnType<typeof setTimeout>;
     if (loading) t = setTimeout(() => setSpin(true), 300);
@@ -76,7 +72,6 @@ const Temporadas: React.FC = () => {
     return () => clearTimeout(t);
   }, [loading]);
 
-  // Rows filtered by huerta and active/archived
   const rows = useMemo(
     () =>
       temporadas
@@ -85,18 +80,17 @@ const Temporadas: React.FC = () => {
           filter === 'activas'
             ? t.is_active
             : filter === 'archivadas'
-            ? !t.is_active
-            : true
+              ? !t.is_active
+              : true
         ),
     [temporadas, filter, huertaId]
   );
 
   const emptyMsg =
-    rows.length === 0 && huertaSel
-      ? 'Aún no hay temporadas para esta huerta.'
-      : 'No hay temporadas registradas.';
+    filter === 'activas' ? 'No hay temporadas activas.' :
+      filter === 'archivadas' ? 'No hay temporadas archivadas.' :
+        'No hay temporadas.';
 
-  // ─── 1. CREAR TEMPORADA ─────────────────────────────────────────────────  
   const handleCreate = async () => {
     if (!huertaSel) {
       handleBackendNotification({
@@ -114,7 +108,6 @@ const Temporadas: React.FC = () => {
       huerta_rentada: 'monto_renta' in huertaSel ? huertaSel.id : undefined,
     };
 
-    // Clean undefined
     Object.keys(payload).forEach((k) => {
       if (payload[k as keyof TemporadaCreateData] == null) {
         delete payload[k as keyof TemporadaCreateData];
@@ -128,18 +121,27 @@ const Temporadas: React.FC = () => {
         message: 'Temporada creada exitosamente',
         type: 'success',
       });
-      setConfirmOpen(false); // Cerramos el modal solo después de que la operación sea exitosa
     } catch (err: any) {
       const noti = err?.response?.data?.notification || err;
       handleBackendNotification(noti);
-      // No cerramos el modal si hay un error
     }
   };
 
-  // ─── 2. ELIMINAR TEMPORADA ───────────────────────────────────────────────
+  useEffect(() => {
+    if (!confirmOpen || !huertaSel) return;
+    const yaExiste = temporadas.some(
+      (t) =>
+        t.año === currentYear &&
+        t.is_active &&
+        (t.huerta_id === huertaSel?.id || t.huerta_rentada === huertaSel?.id)
+    );
+    if (yaExiste) {
+      setConfirmOpen(false);
+    }
+  }, [temporadas, confirmOpen, huertaSel]);
+
   const confirmDelete = async () => {
     if (delDialogId == null) return;
-
     try {
       await removeTemporada(delDialogId);
     } catch (err: any) {
@@ -150,7 +152,6 @@ const Temporadas: React.FC = () => {
     }
   };
 
-  // ─── 3. ARCHIVAR TEMPORADA ───────────────────────────────────────────────
   const handleArchive = async (t: Temporada) => {
     try {
       await archiveTemporada(t.id);
@@ -163,7 +164,7 @@ const Temporadas: React.FC = () => {
   const huertaEstaArchivada = useMemo(() => {
     return huertaSel && !huertaSel.is_active;
   }, [huertaSel]);
-  // ─── 4. RESTAURAR TEMPORADA ──────────────────────────────────────────────
+
   const handleRestore = async (t: Temporada) => {
     try {
       await restoreTemporada(t.id);
@@ -183,12 +184,7 @@ const Temporadas: React.FC = () => {
   }, [temporadas, huertaSel]);
 
   return (
-    <motion.div
-      className="p-6 max-w-6xl mx-auto"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.4 }}
-    >
+    <motion.div className="p-6 max-w-6xl mx-auto" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
       <Paper elevation={4} className="p-6 sm:p-10 rounded-2xl bg-white">
         <Typography variant="h4" className="text-primary-dark font-bold mb-2">
           Gestión de Temporadas
@@ -200,10 +196,7 @@ const Temporadas: React.FC = () => {
               Huerta seleccionada: {huertaSel.nombre}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Propietario:{' '}
-              {huertaSel.propietario_detalle
-                ? `${huertaSel.propietario_detalle.nombre} ${huertaSel.propietario_detalle.apellidos}`
-                : '—'}
+              Propietario: {huertaSel.propietario_detalle ? `${huertaSel.propietario_detalle.nombre} ${huertaSel.propietario_detalle.apellidos}` : '—'}
             </Typography>
             <Divider sx={{ mt: 1 }} />
           </Box>
@@ -216,8 +209,8 @@ const Temporadas: React.FC = () => {
                 huertaEstaArchivada
                   ? 'No se puede iniciar una temporada en una huerta archivada.'
                   : temporadaYaExiste
-                  ? `Ya existe una temporada activa en el año ${currentYear} para esta huerta.`
-                  : ''
+                    ? `Ya existe una temporada activa en el año ${currentYear} para esta huerta.`
+                    : ''
               }
             >
               <span>
@@ -250,8 +243,6 @@ const Temporadas: React.FC = () => {
                 </PermissionButton>
               </span>
             </Tooltip>
-                  
-
           </Box>
         )}
 
@@ -278,8 +269,8 @@ const Temporadas: React.FC = () => {
             pageSize={pageSize}
             count={rows.length}
             onPageChange={setPage}
-            onArchive={(t) => handleArchive(t)}
-            onRestore={(t) => handleRestore(t)}
+            onArchive={handleArchive}
+            onRestore={handleRestore}
             onDelete={(t) => setDelDialogId(t.id)}
             onConsult={(t) => {
               setConsultTarget(t);
@@ -289,7 +280,6 @@ const Temporadas: React.FC = () => {
           />
         )}
 
-        {/* Modal de consulta (solo lectura) */}
         <TemporadaFormModal
           open={consultOpen}
           onClose={() => {
@@ -302,7 +292,6 @@ const Temporadas: React.FC = () => {
           readOnly={true}
         />
 
-        {/* Confirmar creación */}
         <Dialog
           open={confirmOpen}
           onClose={() => setConfirmOpen(false)}
@@ -315,9 +304,7 @@ const Temporadas: React.FC = () => {
           <DialogContent dividers>
             <Typography>Año: {currentYear}</Typography>
             <Typography>Huerta: {huertaSel?.nombre}</Typography>
-            <Typography>
-              Fecha inicio: {new Date().toISOString().slice(0, 10)}
-            </Typography>
+            <Typography>Fecha inicio: {new Date().toISOString().slice(0, 10)}</Typography>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setConfirmOpen(false)}>Cancelar</Button>
@@ -327,15 +314,9 @@ const Temporadas: React.FC = () => {
           </DialogActions>
         </Dialog>
 
-        {/* Confirmar eliminación */}
-        <Dialog
-          open={delDialogId != null}
-          onClose={() => setDelDialogId(null)}
-        >
+        <Dialog open={delDialogId != null} onClose={() => setDelDialogId(null)}>
           <DialogTitle>Confirmar eliminación</DialogTitle>
-          <DialogContent>
-            ¿Eliminar esta temporada permanentemente?
-          </DialogContent>
+          <DialogContent>¿Eliminar esta temporada permanentemente?</DialogContent>
           <DialogActions>
             <Button onClick={() => setDelDialogId(null)}>Cancelar</Button>
             <Button color="error" onClick={confirmDelete}>
