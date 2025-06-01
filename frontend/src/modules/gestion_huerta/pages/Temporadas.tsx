@@ -15,6 +15,7 @@ import {
   DialogActions,
   Button,
   Divider,
+  Tooltip,
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
@@ -42,7 +43,6 @@ const Temporadas: React.FC = () => {
     page,
     setPage,
     addTemporada,
-    editTemporada,
     removeTemporada,
     archiveTemporada,
     restoreTemporada,
@@ -65,8 +65,8 @@ const Temporadas: React.FC = () => {
   const [spin, setSpin] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [delDialogId, setDelDialogId] = useState<number | null>(null);
-  const [editTarget, setEditTarget] = useState<Temporada | null>(null);
-  const [editOpen, setEditOpen] = useState(false);
+  const [consultTarget, setConsultTarget] = useState<Temporada | null>(null);
+  const [consultOpen, setConsultOpen] = useState(false);
 
   // show spinner only after 300ms of loading
   useEffect(() => {
@@ -96,7 +96,7 @@ const Temporadas: React.FC = () => {
       ? 'Aún no hay temporadas para esta huerta.'
       : 'No hay temporadas registradas.';
 
-  // Handle create action
+  // ─── 1. CREAR TEMPORADA ─────────────────────────────────────────────────  
   const handleCreate = async () => {
     if (!huertaSel) {
       handleBackendNotification({
@@ -123,23 +123,64 @@ const Temporadas: React.FC = () => {
 
     try {
       await addTemporada(payload);
-      setConfirmOpen(false);
+      handleBackendNotification({
+        key: 'temporada_created',
+        message: 'Temporada creada exitosamente',
+        type: 'success',
+      });
+      setConfirmOpen(false); // Cerramos el modal solo después de que la operación sea exitosa
     } catch (err: any) {
-      handleBackendNotification(err);
+      const noti = err?.response?.data?.notification || err;
+      handleBackendNotification(noti);
+      // No cerramos el modal si hay un error
     }
   };
 
-  // Confirm deletion
+  // ─── 2. ELIMINAR TEMPORADA ───────────────────────────────────────────────
   const confirmDelete = async () => {
-    if (delDialogId != null) {
-      try {
-        await removeTemporada(delDialogId);
-      } catch {
-        /* handled in hook */
-      }
+    if (delDialogId == null) return;
+
+    try {
+      await removeTemporada(delDialogId);
+    } catch (err: any) {
+      const noti = err?.response?.data?.notification || err;
+      handleBackendNotification(noti);
+    } finally {
+      setDelDialogId(null);
     }
-    setDelDialogId(null);
   };
+
+  // ─── 3. ARCHIVAR TEMPORADA ───────────────────────────────────────────────
+  const handleArchive = async (t: Temporada) => {
+    try {
+      await archiveTemporada(t.id);
+    } catch (err: any) {
+      const noti = err?.response?.data?.notification || err;
+      handleBackendNotification(noti);
+    }
+  };
+
+  const huertaEstaArchivada = useMemo(() => {
+    return huertaSel && !huertaSel.is_active;
+  }, [huertaSel]);
+  // ─── 4. RESTAURAR TEMPORADA ──────────────────────────────────────────────
+  const handleRestore = async (t: Temporada) => {
+    try {
+      await restoreTemporada(t.id);
+    } catch (err: any) {
+      const noti = err?.response?.data?.notification || err;
+      handleBackendNotification(noti);
+    }
+  };
+
+  const temporadaYaExiste = useMemo(() => {
+    return temporadas.some(
+      (t) =>
+        t.año === currentYear &&
+        t.is_active &&
+        (t.huerta_id === huertaSel?.id || t.huerta_rentada === huertaSel?.id)
+    );
+  }, [temporadas, huertaSel]);
 
   return (
     <motion.div
@@ -170,16 +211,47 @@ const Temporadas: React.FC = () => {
 
         {huertaSel && (
           <Box display="flex" justifyContent="flex-end" mb={2}>
-            <PermissionButton
-              perm="add_temporada"
-              variant="contained"
-              onClick={(e) => {
-                e.currentTarget.blur();
-                setConfirmOpen(true);
-              }}
+            <Tooltip
+              title={
+                huertaEstaArchivada
+                  ? 'No se puede iniciar una temporada en una huerta archivada.'
+                  : temporadaYaExiste
+                  ? `Ya existe una temporada activa en el año ${currentYear} para esta huerta.`
+                  : ''
+              }
             >
-              Iniciar temporada {currentYear}
-            </PermissionButton>
+              <span>
+                <PermissionButton
+                  perm="add_temporada"
+                  variant="contained"
+                  disabled={huertaEstaArchivada || temporadaYaExiste}
+                  onClick={(e) => {
+                    e.currentTarget.blur();
+                    if (huertaEstaArchivada) {
+                      handleBackendNotification({
+                        key: 'huerta_archivada',
+                        message: 'No se puede iniciar una temporada en una huerta archivada.',
+                        type: 'warning',
+                      });
+                      return;
+                    }
+                    if (temporadaYaExiste) {
+                      handleBackendNotification({
+                        key: 'temporada_existente',
+                        message: `Ya existe una temporada activa en el año ${currentYear} para esta huerta.`,
+                        type: 'warning',
+                      });
+                      return;
+                    }
+                    setConfirmOpen(true);
+                  }}
+                >
+                  Iniciar temporada {currentYear}
+                </PermissionButton>
+              </span>
+            </Tooltip>
+                  
+
           </Box>
         )}
 
@@ -206,37 +278,28 @@ const Temporadas: React.FC = () => {
             pageSize={pageSize}
             count={rows.length}
             onPageChange={setPage}
-            onArchive={(t) => archiveTemporada(t.id)}
-            onRestore={(t) => restoreTemporada(t.id)}
+            onArchive={(t) => handleArchive(t)}
+            onRestore={(t) => handleRestore(t)}
             onDelete={(t) => setDelDialogId(t.id)}
-            onEdit={(t) => {
-              setEditTarget(t);
-              setEditOpen(true);
+            onConsult={(t) => {
+              setConsultTarget(t);
+              setConsultOpen(true);
             }}
             emptyMessage={emptyMsg}
           />
         )}
 
-        {/* Modal de edición */}
+        {/* Modal de consulta (solo lectura) */}
         <TemporadaFormModal
-          open={editOpen}
+          open={consultOpen}
           onClose={() => {
-            setEditTarget(null);
-            setEditOpen(false);
+            setConsultTarget(null);
+            setConsultOpen(false);
           }}
-          onSubmit={async (vals) => {
-            if (editTarget) {
-              try {
-                await editTemporada(editTarget.id, vals);
-                setEditOpen(false);
-              } catch {
-                /* handled in hook */
-              }
-            }
-          }}
-          initialValues={editTarget || undefined}
+          initialValues={consultTarget || undefined}
           huertas={huertas}
           huertasRentadas={rentadas}
+          readOnly={true}
         />
 
         {/* Confirmar creación */}

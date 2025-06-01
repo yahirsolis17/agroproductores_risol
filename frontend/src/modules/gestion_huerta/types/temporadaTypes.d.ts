@@ -29,8 +29,3 @@ export interface TemporadaCreateData {
   huerta_rentada?: number;
   fecha_inicio?: string;
 }
-
-/**
- * Payload para actualizar una temporada existente.
- */
-export type TemporadaUpdateData = Partial<TemporadaCreateData>;

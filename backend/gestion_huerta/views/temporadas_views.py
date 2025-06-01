@@ -1,28 +1,25 @@
-from rest_framework import viewsets, status
+# src/modules/gestion_huerta/views/temporada_views.py
+
+from rest_framework import viewsets, status, serializers
 from rest_framework.decorators import action
-from rest_framework.response import Response
 from django.utils import timezone
 from django.core.exceptions import ValidationError
+from rest_framework.permissions import IsAuthenticated
 
 from gestion_huerta.models import Temporada
 from gestion_huerta.serializers import TemporadaSerializer
 from gestion_huerta.utils.notification_handler import NotificationHandler
 from gestion_huerta.utils.activity import registrar_actividad
 from gestion_huerta.views.huerta_views import GenericPagination, NotificationMixin
-from gestion_huerta.permissions import (
-    HasHuertaModulePermission,
-    HuertaGranularPermission,
-)
-from rest_framework.permissions import IsAuthenticated
-from rest_framework import serializers
+from gestion_huerta.permissions import HasHuertaModulePermission, HuertaGranularPermission
 
 
 class TemporadaViewSet(NotificationMixin, viewsets.ModelViewSet):
     queryset = Temporada.objects.select_related(
         "huerta", "huerta_rentada"
     ).order_by("-año")
-    serializer_class   = TemporadaSerializer
-    pagination_class   = GenericPagination
+    serializer_class = TemporadaSerializer
+    pagination_class = GenericPagination
     permission_classes = [
         IsAuthenticated,
         HasHuertaModulePermission,
@@ -43,22 +40,63 @@ class TemporadaViewSet(NotificationMixin, viewsets.ModelViewSet):
         return qs
 
     def create(self, request, *args, **kwargs):
-        print("🛬 Payload CRUDO:", request.data)  # Aquí
+        print("🛬 Payload recibido:", request.data)
 
+        # Limpiar campos vacíos
         data = request.data.copy()
         for field in ['huerta', 'huerta_rentada']:
             if field not in data or data.get(field) in [None, '', 'null', 'None']:
                 data.pop(field, None)
 
-        print("🔬 Payload LIMPIO:", data)  # Aquí
-        print("🧼 request.data:", request.data)
-        print("🧼 huerta_rentada:", request.data.get("huerta_rentada"), type(request.data.get("huerta_rentada")))
-        print("🧼 huerta:", request.data.get("huerta"), type(request.data.get("huerta")))
-        serializer = self.get_serializer(data=data)
-        serializer.is_valid(raise_exception=True)
-        instance = serializer.save()
+        # Validar huerta archivada
+        from gestion_huerta.models import Huerta, HuertaRentada
 
+        if 'huerta' in data:
+            try:
+                huerta = Huerta.objects.get(id=data['huerta'])
+                if not huerta.is_active:
+                    return self.notify(
+                        key="huerta_archivada_temporada",
+                        status_code=status.HTTP_400_BAD_REQUEST
+                    )
+            except Huerta.DoesNotExist:
+                return self.notify(
+                    key="validation_error",
+                    data={"errors": {"huerta": ["La huerta no existe."]}},
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+
+        if 'huerta_rentada' in data:
+            try:
+                huerta_r = HuertaRentada.objects.get(id=data['huerta_rentada'])
+                if not huerta_r.is_active:
+                    return self.notify(
+                        key="huerta_rentada_archivada",
+                        status_code=status.HTTP_400_BAD_REQUEST
+                    )
+            except HuertaRentada.DoesNotExist:
+                return self.notify(
+                    key="validation_error",
+                    data={"errors": {"huerta_rentada": ["La huerta rentada no existe."]}},
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+
+        # Validar datos con el serializador
+        serializer = self.get_serializer(data=data)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except serializers.ValidationError:
+            return self.notify(
+                key="temporada_duplicada",
+                data={"errors": serializer.errors},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Guardar instancia
+        instance = serializer.save()
         instance.full_clean()
+
+        # Registrar actividad
         registrar_actividad(request.user, f"Creó la temporada {instance.año}")
 
         return self.notify(
@@ -67,26 +105,6 @@ class TemporadaViewSet(NotificationMixin, viewsets.ModelViewSet):
             status_code=status.HTTP_201_CREATED,
         )
 
-
-
-    def update(self, request, *args, **kwargs):
-        temp = self.get_object()
-
-        if temp.finalizada:
-            return self.notify(
-                key="temporada_ya_finalizada",
-                data={"info": "No se pueden editar temporadas finalizadas."},
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
-
-        serializer = self.get_serializer(temp, data=request.data, partial=kwargs.pop("partial", False))
-        serializer.is_valid(raise_exception=True)
-        temp = serializer.save()
-        registrar_actividad(request.user, f"Actualizó la temporada {temp.año}")
-        return self.notify(
-            key="temporada_update_success",
-            data={"temporada": serializer.data},
-        )
 
     def destroy(self, request, *args, **kwargs):
         temp = self.get_object()

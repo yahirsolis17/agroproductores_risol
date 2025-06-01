@@ -125,10 +125,6 @@ class Temporada(models.Model):
     archivado_en = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        unique_together = [
-            ('año', 'huerta'),
-            ('año', 'huerta_rentada'),
-        ]
         ordering = ['-año']
         indexes = [models.Index(fields=['año'])]
 

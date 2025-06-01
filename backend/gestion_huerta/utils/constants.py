@@ -177,10 +177,6 @@ NOTIFICATION_MESSAGES = {
         "message": "Temporada creada correctamente back.",
         "type": "success",
     },
-    "temporada_update_success": {
-        "message": "Temporada actualizada correctamente back.",
-        "type": "info",
-    },
     "temporada_delete_success": {
         "message": "Temporada eliminada correctamente back.",
         "type": "success",
@@ -209,5 +205,20 @@ NOTIFICATION_MESSAGES = {
         "message": "Esta temporada ya está activa back.",
         "type": "info",
     },
-
+    "temporada_create_error": {
+        "message": "Error al crear la temporada. Por favor, revisa los datos.",
+        "type": "error"
+    },
+    "temporada_duplicada": {
+        "message": "Ya existe una temporada para este año y esta huerta.",
+        "type": "error"
+    },
+    "huerta_rentada_archivada": {
+        "message": "No se puede iniciar una temporada en una huerta rentada archivada.",
+        "type": "error"
+    },
+   "huerta_archivada_temporada": {
+        "message": "No se puede iniciar una temporada en una huerta archivada.",
+        "type": "error"
+    },
 }

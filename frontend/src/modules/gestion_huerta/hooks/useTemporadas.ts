@@ -5,18 +5,15 @@ import { useAppDispatch, useAppSelector } from '../../../global/store/store';
 import {
   fetchTemporadas,
   createTemporada,
-  updateTemporada,
   deleteTemporada,
   finalizarTemporada,
   archivarTemporada,
   restaurarTemporada,
   setPage,
 } from '../../../global/store/temporadaSlice';
-import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
 import {
   Temporada,
   TemporadaCreateData,
-  TemporadaUpdateData,
 } from '../types/temporadaTypes';
 
 export function useTemporadas() {
@@ -30,87 +27,72 @@ export function useTemporadas() {
     meta,
   } = useAppSelector((state) => state.temporada);
 
-  // Local state for optimistic updates
   const [temporadas, setTemporadas] = useState<Temporada[]>([]);
 
-  // Sync Redux → local
+  // Sincronizar Redux → estado local
   useEffect(() => {
     setTemporadas(temporadasList);
   }, [temporadasList]);
 
-  // Initial fetch
+  // Primera carga
   useEffect(() => {
     if (!loaded && !loading) {
       dispatch(fetchTemporadas(page));
     }
   }, [dispatch, loaded, loading, page]);
 
-  // Show backend errors as toasts
+  // Mostrar errores generales del slice (si los hubiera)
+  // (opcional: por si el slice setea error en fetch, etc.)
+  // usamos un useEffect para no “silenciar” errores no catched en el componente
   useEffect(() => {
     if (error) {
-      handleBackendNotification(error.notification || error);
+      // Aquí no llamamos a handleBackendNotification, 
+      // porque el componente padre será quien lo haga.
     }
   }, [error]);
 
-  // CRUD + special actions, always refetch page after success
-  const addTemporada = async (payload: TemporadaCreateData) => {
-    try {
-      await dispatch(createTemporada(payload)).unwrap();
-      await dispatch(fetchTemporadas(page)).unwrap();
-    } catch {
-      // error handled by slice + toasts
-    }
+  // ───────────────────────────────────────────────────────────────────
+  // CRUD + acciones especiales. Cada método RETORNA la promesa sin atrapar.
+  // El componente padre será quien haga try/catch y se encargue del toast.
+  // ───────────────────────────────────────────────────────────────────
+
+  const addTemporada = (payload: TemporadaCreateData) => {
+    // 1) Lanza createTemporada
+    // 2) Luego fetchTemporadas (para recargar la lista)
+    // 3) Dejar que el componente atrape cualquier excepción
+    return dispatch(createTemporada(payload)).unwrap().then(() => {
+      return dispatch(fetchTemporadas(page)).unwrap();
+    });
   };
 
-  const editTemporada = async (id: number, payload: TemporadaUpdateData) => {
-    try {
-      await dispatch(updateTemporada({ id, payload })).unwrap();
-      await dispatch(fetchTemporadas(page)).unwrap();
-    } catch {
-      // error handled
-    }
+  const removeTemporada = (id: number) => {
+    return dispatch(deleteTemporada(id)).unwrap().then(() => {
+      return dispatch(fetchTemporadas(page)).unwrap();
+    });
   };
 
-  const removeTemporada = async (id: number) => {
-    try {
-      await dispatch(deleteTemporada(id)).unwrap();
-      await dispatch(fetchTemporadas(page)).unwrap();
-    } catch {
-      // error handled
-    }
+  const finalizeTemporada = (id: number) => {
+    return dispatch(finalizarTemporada(id)).unwrap().then(() => {
+      return dispatch(fetchTemporadas(page)).unwrap();
+    });
   };
 
-  const finalizeTemporada = async (id: number) => {
-    try {
-      await dispatch(finalizarTemporada(id)).unwrap();
-      await dispatch(fetchTemporadas(page)).unwrap();
-    } catch {
-      // error handled
-    }
+  const archiveTemporada = (id: number) => {
+    return dispatch(archivarTemporada(id)).unwrap().then(() => {
+      return dispatch(fetchTemporadas(page)).unwrap();
+    });
   };
 
-  const archiveTemporada = async (id: number) => {
-    try {
-      await dispatch(archivarTemporada(id)).unwrap();
-      await dispatch(fetchTemporadas(page)).unwrap();
-    } catch {
-      // error handled
-    }
-  };
-
-  const restoreTemporada = async (id: number) => {
-    try {
-      await dispatch(restaurarTemporada(id)).unwrap();
-      await dispatch(fetchTemporadas(page)).unwrap();
-    } catch {
-      // error handled
-    }
+  const restoreTemporada = (id: number) => {
+    return dispatch(restaurarTemporada(id)).unwrap().then(() => {
+      return dispatch(fetchTemporadas(page)).unwrap();
+    });
   };
 
   const fetchAllTemporadas = () => dispatch(fetchTemporadas(page));
   const changePage = (newPage: number) => {
     dispatch(setPage(newPage));
-    dispatch(fetchTemporadas(newPage));
+    return dispatch(fetchTemporadas(newPage));
   };
 
   return {
@@ -121,7 +103,6 @@ export function useTemporadas() {
     setPage: changePage,
     fetchTemporadas: fetchAllTemporadas,
     addTemporada,
-    editTemporada,
     removeTemporada,
     finalizeTemporada,
     archiveTemporada,

@@ -1,17 +1,29 @@
 // src/global/utils/NotificationEngine.ts
+
 import { toast } from 'react-toastify';
 
-export const handleBackendNotification = (responseData: any) => {
-  if (!responseData || !responseData.notification) return;
+export function handleBackendNotification(response: any) {
+  const notif = response?.notification;
 
-  const { success } = responseData;
-  const { message } = responseData.notification;
+  if (notif) {
+    const { type = 'info', message = 'Operación completada.', key } = notif;
 
-  if (!message) return;
+    switch (type) {
+      case 'success':
+        toast.success(message);
+        break;
+      case 'error':
+        toast.error(message);
+        break;
+      case 'warning':
+        toast.warning(message);
+        break;
+      case 'info':
+      default:
+        toast.info(message);
+    }
 
-  if (success) {
-    toast.success(message, { autoClose: 3000 });
-  } else {
-    toast.error(message, { autoClose: 4000 });
+    // También podrías loguear el key si estás depurando
+    console.log(`[Notificación: ${key}]`, message);
   }
-};
+}

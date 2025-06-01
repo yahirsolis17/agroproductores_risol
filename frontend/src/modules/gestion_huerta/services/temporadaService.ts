@@ -4,7 +4,6 @@ import apiClient from '../../../global/api/apiClient';
 import {
   Temporada,
   TemporadaCreateData,
-  TemporadaUpdateData,
 } from '../types/temporadaTypes';
 
 /**
@@ -46,18 +45,6 @@ export const temporadaService = {
     return response.data;
   },
 
-  async update(id: number, payload: TemporadaUpdateData) {
-    const response = await apiClient.put<{
-      success: boolean;
-      notification: {
-        key: string;
-        message: string;
-        type: 'success' | 'error' | 'warning' | 'info';
-      };
-      data: { temporada: Temporada };
-    }>(`/huerta/temporadas/${id}/`, payload);
-    return response.data;
-  },
 
   async delete(id: number) {
     const response = await apiClient.delete<{

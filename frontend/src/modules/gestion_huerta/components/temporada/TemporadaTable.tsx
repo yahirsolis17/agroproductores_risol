@@ -1,5 +1,3 @@
-// src/modules/gestion_huerta/components/temporada/TemporadaTable.tsx
-
 import React from 'react';
 import { Chip } from '@mui/material';
 import { TableLayout, Column } from '../../../../components/common/TableLayout';
@@ -12,10 +10,10 @@ interface Props {
   pageSize: number;
   count: number;
   onPageChange: (page: number) => void;
-  onEdit: (t: Temporada) => void;
   onArchive: (t: Temporada) => void;
   onRestore: (t: Temporada) => void;
   onDelete: (t: Temporada) => void;
+  onConsult: (t: Temporada) => void;   // Acción de “Consultar”
   emptyMessage?: string;
 }
 
@@ -23,18 +21,14 @@ const columns: Column<Temporada>[] = [
   { label: 'Año', key: 'año' },
   { label: 'Huerta', key: 'huerta_nombre' },
   { label: 'Inicio', key: 'fecha_inicio' },
-  { label: 'Fin', key: 'fecha_fin' },
   {
     label: 'Finalizada',
     key: 'finalizada',
     align: 'center',
     render: (t) =>
-      t.finalizada ? (
-        <Chip label="Sí" size="small" />
-      ) : (
-        <Chip label="No" size="small" />
-      ),
+      t.finalizada ? <Chip label="Sí" size="small" /> : <Chip label="No" size="small" />,
   },
+  { label: 'Fin', key: 'fecha_fin' },
   {
     label: 'Estado',
     key: 'is_active',
@@ -54,10 +48,10 @@ const TemporadaTable: React.FC<Props> = ({
   pageSize,
   count,
   onPageChange,
-  onEdit,
   onArchive,
   onRestore,
   onDelete,
+  onConsult,
   emptyMessage,
 }) => (
   <TableLayout<Temporada>
@@ -73,10 +67,10 @@ const TemporadaTable: React.FC<Props> = ({
       return (
         <ActionsMenu
           isArchived={isArchived}
-          onEdit={!isArchived ? () => onEdit(t) : undefined}
-          onArchiveOrRestore={() =>
-            isArchived ? onRestore(t) : onArchive(t)
-          }
+          hideEdit              // deshabilitamos “Editar”
+          onTemporadas={() => onConsult(t)}
+          labelTemporadas="Consultar"
+          onArchiveOrRestore={() => (isArchived ? onRestore(t) : onArchive(t))}
           onDelete={isArchived ? () => onDelete(t) : undefined}
         />
       );

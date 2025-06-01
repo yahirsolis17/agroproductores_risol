@@ -6,7 +6,6 @@ import { handleBackendNotification } from '../utils/NotificationEngine';
 import {
   Temporada,
   TemporadaCreateData,
-  TemporadaUpdateData,
 } from '../../modules/gestion_huerta/types/temporadaTypes';
 
 interface PaginationMeta {
@@ -44,7 +43,7 @@ export const fetchTemporadas = createAsyncThunk<
   async (page, { rejectWithValue }) => {
     try {
       const res = await temporadaService.list(page);
-      handleBackendNotification(res.notification);
+      handleBackendNotification(res);
       return {
         temporadas: res.data.temporadas,
         meta: res.data.meta,
@@ -67,29 +66,10 @@ export const createTemporada = createAsyncThunk<
   async (payload, { rejectWithValue }) => {
     try {
       const res = await temporadaService.create(payload);
-      handleBackendNotification(res.notification);
+      handleBackendNotification(res);      
       return res.data.temporada;
     } catch (err: any) {
       const errorPayload = err.response?.data || { message: 'Error al crear temporada' };
-      handleBackendNotification(errorPayload.notification || errorPayload);
-      return rejectWithValue(errorPayload);
-    }
-  }
-);
-
-export const updateTemporada = createAsyncThunk<
-  Temporada,
-  { id: number; payload: TemporadaUpdateData },
-  { rejectValue: Record<string, any> }
->(
-  'temporada/update',
-  async ({ id, payload }, { rejectWithValue }) => {
-    try {
-      const res = await temporadaService.update(id, payload);
-      handleBackendNotification(res.notification);
-      return res.data.temporada;
-    } catch (err: any) {
-      const errorPayload = err.response?.data || { message: 'Error al actualizar temporada' };
       handleBackendNotification(errorPayload.notification || errorPayload);
       return rejectWithValue(errorPayload);
     }
@@ -105,8 +85,8 @@ export const deleteTemporada = createAsyncThunk<
   async (id, { rejectWithValue }) => {
     try {
       const res = await temporadaService.delete(id);
-      handleBackendNotification(res.notification);
-      return id;
+      handleBackendNotification(res);     
+     return id;
     } catch (err: any) {
       const errorPayload = err.response?.data || { message: 'Error al eliminar temporada' };
       handleBackendNotification(errorPayload.notification || errorPayload);
@@ -124,7 +104,7 @@ export const finalizarTemporada = createAsyncThunk<
   async (id, { rejectWithValue }) => {
     try {
       const res = await temporadaService.finalizar(id);
-      handleBackendNotification(res.notification);
+      handleBackendNotification(res);      
       return res.data.temporada;
     } catch (err: any) {
       const errorPayload = err.response?.data || { message: 'Error al finalizar temporada' };
@@ -143,7 +123,7 @@ export const archivarTemporada = createAsyncThunk<
   async (id, { rejectWithValue }) => {
     try {
       const res = await temporadaService.archivar(id);
-      handleBackendNotification(res.notification);
+      handleBackendNotification(res);      
       return res.data.temporada;
     } catch (err: any) {
       const errorPayload = err.response?.data || { message: 'Error al archivar temporada' };
@@ -162,7 +142,7 @@ export const restaurarTemporada = createAsyncThunk<
   async (id, { rejectWithValue }) => {
     try {
       const res = await temporadaService.restaurar(id);
-      handleBackendNotification(res.notification);
+      handleBackendNotification(res);      
       return res.data.temporada;
     } catch (err: any) {
       const errorPayload = err.response?.data || { message: 'Error al restaurar temporada' };
@@ -207,15 +187,6 @@ const temporadaSlice = createSlice({
         state.list.unshift(payload);
       })
       .addCase(createTemporada.rejected, (state, { payload }) => {
-        state.error = payload || null;
-      })
-
-      // update
-      .addCase(updateTemporada.fulfilled, (state, { payload }) => {
-        const idx = state.list.findIndex((t) => t.id === payload.id);
-        if (idx !== -1) state.list[idx] = payload;
-      })
-      .addCase(updateTemporada.rejected, (state, { payload }) => {
         state.error = payload || null;
       })
 
