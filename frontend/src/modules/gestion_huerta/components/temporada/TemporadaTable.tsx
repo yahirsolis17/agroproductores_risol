@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/components/temporada/TemporadaTable.tsx
 import React from 'react';
 import { Chip } from '@mui/material';
 import { TableLayout, Column } from '../../../../components/common/TableLayout';
@@ -9,11 +10,12 @@ interface Props {
   page: number;
   pageSize: number;
   count: number;
-  onPageChange: (page: number) => void;
+  onPageChange: (p: number) => void;
   onArchive: (t: Temporada) => void;
   onRestore: (t: Temporada) => void;
   onDelete: (t: Temporada) => void;
-  onConsult: (t: Temporada) => void;   // Acción de “Consultar”
+  onConsult: (t: Temporada) => void;
+  onFinalize: (t: Temporada) => void;          // ← NUEVA
   emptyMessage?: string;
 }
 
@@ -52,6 +54,7 @@ const TemporadaTable: React.FC<Props> = ({
   onRestore,
   onDelete,
   onConsult,
+  onFinalize,
   emptyMessage,
 }) => (
   <TableLayout<Temporada>
@@ -63,14 +66,22 @@ const TemporadaTable: React.FC<Props> = ({
     columns={columns}
     emptyMessage={emptyMessage}
     renderActions={(t) => {
-      const isArchived = !t.is_active;
+      const isArchived  = !t.is_active;
+      const isFinalized = t.finalizada;
+
       return (
         <ActionsMenu
           isArchived={isArchived}
-          hideEdit              // deshabilitamos “Editar”
-          onTemporadas={() => onConsult(t)}
+          isFinalized={isFinalized}
+          hideEdit                              // no hay “Editar”
+          hideFinalize={isArchived}             // no se muestra finalizar si está archivada
+          onFinalize={() => onFinalize(t)}      // Finalizar / Reactivar
+          onTemporadas={() => onConsult(t)}     // Consultar
           labelTemporadas="Consultar"
-          onArchiveOrRestore={() => (isArchived ? onRestore(t) : onArchive(t))}
+          labelFinalize={isFinalized ? 'Reactivar' : 'Finalizar'}
+          onArchiveOrRestore={() =>
+            isArchived ? onRestore(t) : onArchive(t)
+          }
           onDelete={isArchived ? () => onDelete(t) : undefined}
         />
       );

@@ -36,6 +36,26 @@ NOTIFICATION_MESSAGES = {
         "message": "Propietario eliminado correctamente. back",
         "type": "success"
     },
+    "propietario_archivado": {
+        "message": "Propietario archivado correctamente",
+        "type": "success"
+    },
+    "propietario_ya_archivado": {
+        "message": "El propietario ya está archivado",
+        "type": "info"
+    },
+    "propietario_restaurado": {
+        "message": "Propietario restaurado",
+        "type": "success"
+    },
+    "propietario_no_archivado": {
+        "message": "El propietario no está archivado",
+        "type": "info"
+    },
+    "propietario_con_dependencias": {
+        "message": "No se puede elimina este propietario, tiene huertas registradas",
+        "type": "error"
+    },
 
     # -------------------------------------------------
     # Huertas propias
@@ -52,6 +72,30 @@ NOTIFICATION_MESSAGES = {
         "message": "Huerta eliminada correctamente. back",
         "type": "success"
     },
+    "huerta_archivada": {
+        "message": "Huerta archivada correctamente.",
+        "type": "success"
+    },
+    "huerta_restaurada": {
+        "message": "Huerta restaurada correctamente.",
+        "type": "success"
+    },
+    "ya_esta_archivada": {
+        "message": "La huerta ya está archivada.",
+        "type": "info"
+    },
+    "ya_esta_activa": {
+        "message": "La huerta ya está activa.",
+        "type": "info"
+    },
+    "huerta_debe_estar_archivada": {
+        "message": "Debes archivar la huerta antes de poder eliminarla.",
+        "type": "error"
+    },
+    "huerta_con_dependencias": {
+        "message": "No se puede eliminar esta huerta, tiene cosechas registradas.",
+        "type": "error"
+    },
 
     # -------------------------------------------------
     # Huertas rentadas
@@ -67,6 +111,10 @@ NOTIFICATION_MESSAGES = {
     "huerta_rentada_delete_success": {
         "message": "Huerta rentada eliminada correctamente.",
         "type": "success"
+    },
+    "huerta_rentada_archivada": {
+        "message": "No se puede iniciar una temporada en una huerta rentada archivada.",
+        "type": "error"
     },
 
     # -------------------------------------------------
@@ -136,74 +184,53 @@ NOTIFICATION_MESSAGES = {
         "message": "Venta eliminada correctamente.",
         "type": "success"
     },
-    
-    "propietario_archivado":       {"message": "Propietario archivado correctamente", "type": "success"},
-    "propietario_ya_archivado":    {"message": "El propietario ya está archivado",   "type": "info"},
-    "propietario_restaurado":      {"message": "Propietario restaurado",             "type": "success"},
-    "propietario_no_archivado":    {"message": "El propietario no está archivado",   "type": "info"},
-    "propietario_con_dependencias":{"message": "No se puede elimina este propietario, tiene huertas registradas","type": "error"},
-    "propietario_delete_success":  {"message": "Propietario eliminado",              "type": "success"},
 
     # -------------------------------------------------
-    # Acciones de Archivado / Restaurado / Restricciones - Huertas
+    # Temporadas
     # -------------------------------------------------
-    "huerta_archivada": {
-        "message": "Huerta archivada correctamente.",
-        "type": "success"
-    },
-    "huerta_restaurada": {
-        "message": "Huerta restaurada correctamente.",
-        "type": "success"
-    },
-    "ya_esta_archivada": {
-        "message": "La huerta ya está archivada.",
-        "type": "info"
-    },
-    "ya_esta_activa": {
-        "message": "La huerta ya está activa.",
-        "type": "info"
-    },
-    "huerta_debe_estar_archivada": {
-        "message": "Debes archivar la huerta antes de poder eliminarla.",
-        "type": "error"
-    },
-    "huerta_con_dependencias": {
-        "message": "No se puede eliminar esta huerta, tiene cosechas registradas.",
-        "type": "error"
-    },
-
-
     "temporada_create_success": {
         "message": "Temporada creada correctamente back.",
-        "type": "success",
+        "type": "success"
     },
     "temporada_delete_success": {
         "message": "Temporada eliminada correctamente back.",
-        "type": "success",
+        "type": "success"
     },
     "temporada_finalizada": {
         "message": "Temporada finalizada exitosamente back.",
-        "type": "success",
+        "type": "success"
     },
     "temporada_ya_finalizada": {
         "message": "Esta temporada ya fue finalizada back.",
-        "type": "warning",
+        "type": "warning"
+    },
+    "temporada_no_finalizada": {
+        "message": "Esta temporada no está finalizada back.",
+        "type": "info"
     },
     "temporada_archivada": {
         "message": "Temporada archivada correctamente back.",
-        "type": "success",
+        "type": "success"
     },
     "temporada_ya_archivada": {
         "message": "Esta temporada ya está archivada back.",
-        "type": "warning",
+        "type": "warning"
+    },
+    "temporada_no_archivada": {
+        "message": "Esta temporada no está archivada back.",
+        "type": "info"
     },
     "temporada_restaurada": {
         "message": "Temporada restaurada correctamente back.",
-        "type": "success",
+        "type": "success"
     },
-    "temporada_no_archivada": {
+    "temporada_reactivada": {
+        "message": "Temporada reactivada correctamente back.",
+        "type": "success"
+    },
+    "temporada_ya_activa": {
         "message": "Esta temporada ya está activa back.",
-        "type": "info",
+        "type": "info"
     },
     "temporada_create_error": {
         "message": "Error al crear la temporada. Por favor, revisa los datos.",
@@ -213,12 +240,8 @@ NOTIFICATION_MESSAGES = {
         "message": "Ya existe una temporada para este año y esta huerta.",
         "type": "error"
     },
-    "huerta_rentada_archivada": {
-        "message": "No se puede iniciar una temporada en una huerta rentada archivada.",
-        "type": "error"
-    },
-   "huerta_archivada_temporada": {
+    "huerta_archivada_temporada": {
         "message": "No se puede iniciar una temporada en una huerta archivada.",
         "type": "error"
-    },
+    }
 }

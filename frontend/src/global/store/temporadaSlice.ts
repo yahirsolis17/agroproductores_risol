@@ -3,10 +3,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { temporadaService } from '../../modules/gestion_huerta/services/temporadaService';
 import { handleBackendNotification } from '../utils/NotificationEngine';
-import {
-  Temporada,
-  TemporadaCreateData,
-} from '../../modules/gestion_huerta/types/temporadaTypes';
+import { Temporada, TemporadaCreateData } from '../../modules/gestion_huerta/types/temporadaTypes';
 
 interface PaginationMeta {
   count: number;
@@ -32,7 +29,7 @@ const initialState: TemporadaState = {
   meta: { count: 0, next: null, previous: null },
 };
 
-// Thunks
+// ——— Thunks ———
 
 export const fetchTemporadas = createAsyncThunk<
   { temporadas: Temporada[]; meta: PaginationMeta; page: number },
@@ -66,7 +63,7 @@ export const createTemporada = createAsyncThunk<
   async (payload, { rejectWithValue }) => {
     try {
       const res = await temporadaService.create(payload);
-      handleBackendNotification(res);      
+      handleBackendNotification(res);
       return res.data.temporada;
     } catch (err: any) {
       const errorPayload = err.response?.data || { message: 'Error al crear temporada' };
@@ -85,8 +82,8 @@ export const deleteTemporada = createAsyncThunk<
   async (id, { rejectWithValue }) => {
     try {
       const res = await temporadaService.delete(id);
-      handleBackendNotification(res);     
-     return id;
+      handleBackendNotification(res);
+      return id;
     } catch (err: any) {
       const errorPayload = err.response?.data || { message: 'Error al eliminar temporada' };
       handleBackendNotification(errorPayload.notification || errorPayload);
@@ -104,7 +101,7 @@ export const finalizarTemporada = createAsyncThunk<
   async (id, { rejectWithValue }) => {
     try {
       const res = await temporadaService.finalizar(id);
-      handleBackendNotification(res);      
+      handleBackendNotification(res);
       return res.data.temporada;
     } catch (err: any) {
       const errorPayload = err.response?.data || { message: 'Error al finalizar temporada' };
@@ -123,7 +120,7 @@ export const archivarTemporada = createAsyncThunk<
   async (id, { rejectWithValue }) => {
     try {
       const res = await temporadaService.archivar(id);
-      handleBackendNotification(res);      
+      handleBackendNotification(res);
       return res.data.temporada;
     } catch (err: any) {
       const errorPayload = err.response?.data || { message: 'Error al archivar temporada' };
@@ -142,7 +139,7 @@ export const restaurarTemporada = createAsyncThunk<
   async (id, { rejectWithValue }) => {
     try {
       const res = await temporadaService.restaurar(id);
-      handleBackendNotification(res);      
+      handleBackendNotification(res);
       return res.data.temporada;
     } catch (err: any) {
       const errorPayload = err.response?.data || { message: 'Error al restaurar temporada' };
@@ -152,8 +149,27 @@ export const restaurarTemporada = createAsyncThunk<
   }
 );
 
-// Slice
+// —— Nuevo thunk: Reactivar temporada ——
+export const reactivateTemporada = createAsyncThunk<
+  Temporada,
+  number,
+  { rejectValue: Record<string, any> }
+>(
+  'temporada/reactivar',
+  async (id, { rejectWithValue }) => {
+    try {
+      const res = await temporadaService.reactivate(id);
+      handleBackendNotification(res);
+      return res.data.temporada;
+    } catch (err: any) {
+      const errorPayload = err.response?.data || { message: 'Error al reactivar temporada' };
+      handleBackendNotification(errorPayload.notification || errorPayload);
+      return rejectWithValue(errorPayload);
+    }
+  }
+);
 
+// ——— Slice ———
 const temporadaSlice = createSlice({
   name: 'temporada',
   initialState,
@@ -164,7 +180,7 @@ const temporadaSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      // fetch
+      // Fetch todas
       .addCase(fetchTemporadas.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -182,7 +198,7 @@ const temporadaSlice = createSlice({
         state.error = payload || null;
       })
 
-      // create
+      // Create
       .addCase(createTemporada.fulfilled, (state, { payload }) => {
         state.list.unshift(payload);
       })
@@ -190,7 +206,7 @@ const temporadaSlice = createSlice({
         state.error = payload || null;
       })
 
-      // delete
+      // Delete
       .addCase(deleteTemporada.fulfilled, (state, { payload }) => {
         state.list = state.list.filter((t) => t.id !== payload);
       })
@@ -198,7 +214,7 @@ const temporadaSlice = createSlice({
         state.error = payload || null;
       })
 
-      // finalizar
+      // Finalizar
       .addCase(finalizarTemporada.fulfilled, (state, { payload }) => {
         const idx = state.list.findIndex((t) => t.id === payload.id);
         if (idx !== -1) state.list[idx] = payload;
@@ -207,7 +223,7 @@ const temporadaSlice = createSlice({
         state.error = payload || null;
       })
 
-      // archivar
+      // Archivar
       .addCase(archivarTemporada.fulfilled, (state, { payload }) => {
         const idx = state.list.findIndex((t) => t.id === payload.id);
         if (idx !== -1) state.list[idx] = payload;
@@ -216,12 +232,21 @@ const temporadaSlice = createSlice({
         state.error = payload || null;
       })
 
-      // restaurar
+      // Restaurar
       .addCase(restaurarTemporada.fulfilled, (state, { payload }) => {
         const idx = state.list.findIndex((t) => t.id === payload.id);
         if (idx !== -1) state.list[idx] = payload;
       })
       .addCase(restaurarTemporada.rejected, (state, { payload }) => {
+        state.error = payload || null;
+      })
+
+      // Reactivar
+      .addCase(reactivateTemporada.fulfilled, (state, { payload }) => {
+        const idx = state.list.findIndex((t) => t.id === payload.id);
+        if (idx !== -1) state.list[idx] = payload;
+      })
+      .addCase(reactivateTemporada.rejected, (state, { payload }) => {
         state.error = payload || null;
       });
   },

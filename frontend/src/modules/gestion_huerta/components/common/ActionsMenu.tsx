@@ -1,3 +1,5 @@
+// src/modules/gestion_huerta/components/common/ActionsMenu.tsx
+
 import React, { useState } from 'react';
 import {
   IconButton,
@@ -13,30 +15,39 @@ import ArchiveIcon from '@mui/icons-material/Archive';
 import UnarchiveIcon from '@mui/icons-material/Unarchive';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EventNoteIcon from '@mui/icons-material/EventNote';
+import DoneAllIcon from '@mui/icons-material/DoneAll'; // ícono para “Finalizar/Reactivar”
 
 interface ActionsMenuProps {
   isArchived: boolean;
+  isFinalized?: boolean;                       // Nuevo flag para estado “finalizada”
   onEdit?: () => void;
+  onFinalize?: () => void;                     // Nuevo callback para “Finalizar” o “Reactivar”
   onArchiveOrRestore?: () => void;
   onDelete?: () => void;
-  onTemporadas?: () => void;        // Acción configurable
+  onTemporadas?: () => void;
   hideEdit?: boolean;
   hideDelete?: boolean;
   hideArchiveToggle?: boolean;
+  hideFinalize?: boolean;                      // Oculta “Finalizar/Reactivar” si no queremos mostrarlo
   hideTemporadas?: boolean;
-  labelTemporadas?: string;         // ← Nuevo prop para renombrar
+  labelFinalize?: string;                      // Texto personalizado para “Finalizar” o “Reactivar”
+  labelTemporadas?: string;
 }
 
 const ActionsMenu: React.FC<ActionsMenuProps> = ({
   isArchived,
+  isFinalized = false,
   onEdit,
+  onFinalize,
   onArchiveOrRestore,
   onDelete,
   onTemporadas,
   hideEdit = false,
   hideDelete = false,
   hideArchiveToggle = false,
+  hideFinalize = false,
   hideTemporadas = false,
+  labelFinalize,
   labelTemporadas,
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -62,7 +73,27 @@ const ActionsMenu: React.FC<ActionsMenuProps> = ({
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
-        {/* Consultar / Temporalidades */}
+
+        {/* 
+          1) BOTÓN “FINALIZAR” si no está finalizada, o “REACTIVAR” si ya está finalizada 
+          - Solo se muestra si no está archivada (isArchived===false) y hideFinalize===false 
+        */}
+        {!hideFinalize && !isArchived && onFinalize && (
+          <MenuItem onClick={() => handle(onFinalize)}>
+            <ListItemIcon>
+              <DoneAllIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText
+              primary={
+                labelFinalize 
+                  ? labelFinalize 
+                  : (isFinalized ? "Reactivar" : "Finalizar")
+              }
+            />
+          </MenuItem>
+        )}
+
+        {/* Consultar / Temporadas */}
         {!hideTemporadas && !isArchived && onTemporadas && (
           <MenuItem onClick={() => handle(onTemporadas)}>
             <ListItemIcon>

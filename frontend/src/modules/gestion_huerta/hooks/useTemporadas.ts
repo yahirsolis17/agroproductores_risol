@@ -21,7 +21,6 @@ export function useTemporadas() {
   const {
     list: temporadasList,
     loading,
-    error,
     loaded,
     page,
     meta,
@@ -29,37 +28,20 @@ export function useTemporadas() {
 
   const [temporadas, setTemporadas] = useState<Temporada[]>([]);
 
-  // Sincronizar Redux → estado local
+  // 1) Sincronizar Redux → estado local
   useEffect(() => {
     setTemporadas(temporadasList);
   }, [temporadasList]);
 
-  // Primera carga
+  // 2) Primera carga
   useEffect(() => {
     if (!loaded && !loading) {
       dispatch(fetchTemporadas(page));
     }
   }, [dispatch, loaded, loading, page]);
 
-  // Mostrar errores generales del slice (si los hubiera)
-  // (opcional: por si el slice setea error en fetch, etc.)
-  // usamos un useEffect para no “silenciar” errores no catched en el componente
-  useEffect(() => {
-    if (error) {
-      // Aquí no llamamos a handleBackendNotification, 
-      // porque el componente padre será quien lo haga.
-    }
-  }, [error]);
-
-  // ───────────────────────────────────────────────────────────────────
-  // CRUD + acciones especiales. Cada método RETORNA la promesa sin atrapar.
-  // El componente padre será quien haga try/catch y se encargue del toast.
-  // ───────────────────────────────────────────────────────────────────
-
+  // CRUD + acciones especiales. Cada método devuelve la promesa
   const addTemporada = (payload: TemporadaCreateData) => {
-    // 1) Lanza createTemporada
-    // 2) Luego fetchTemporadas (para recargar la lista)
-    // 3) Dejar que el componente atrape cualquier excepción
     return dispatch(createTemporada(payload)).unwrap().then(() => {
       return dispatch(fetchTemporadas(page)).unwrap();
     });

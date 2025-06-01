@@ -93,7 +93,6 @@ class HuertaRentada(models.Model):
 
     def __str__(self):
         return f"{self.nombre} (Rentada – {self.propietario})"
-
 class Temporada(models.Model):
     """
     Una temporada representa un año agrícola de una huerta propia o rentada.
@@ -102,14 +101,14 @@ class Temporada(models.Model):
     """
     año           = models.PositiveIntegerField()
     huerta         = models.ForeignKey(
-        Huerta,
+        "Huerta",
         on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name='temporadas'
     )
     huerta_rentada = models.ForeignKey(
-        HuertaRentada,
+        "HuertaRentada",
         on_delete=models.CASCADE,
         null=True,
         blank=True,
@@ -138,10 +137,12 @@ class Temporada(models.Model):
         """Marca la temporada como finalizada, bloqueando nuevos registros."""
         if not self.finalizada:
             self.finalizada = True
-            self.fecha_fin = timezone.now()
+            # Guardar sólo la parte de fecha (no datetime completo)
+            self.fecha_fin = timezone.now().date()
             self.save(update_fields=['finalizada', 'fecha_fin'])
 
     def archivar(self):
+        """Soft-delete: archiva temporada y hace cascada a cosechas/inversiones/ventas."""
         if self.is_active:
             self.is_active = False
             self.archivado_en = timezone.now()
@@ -152,6 +153,7 @@ class Temporada(models.Model):
             for c in cosechas:
                 c.is_active = False
                 c.archivado_en = now
+            from gestion_huerta.models import Cosecha  # import en runtime
             Cosecha.objects.bulk_update(cosechas, ["is_active", "archivado_en"])
 
             for c in cosechas:
@@ -175,7 +177,6 @@ class Temporada(models.Model):
         origen = self.huerta or self.huerta_rentada
         tipo = "Rentada" if self.huerta_rentada else "Propia"
         return f"{origen} – Temporada {self.año} ({tipo})"
-
 class Cosecha(models.Model):
     nombre = models.CharField(max_length=100)
     huerta = models.ForeignKey(Huerta, on_delete=models.CASCADE, null=True, blank=True, related_name="cosechas")
