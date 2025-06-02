@@ -28,7 +28,7 @@ const columns: Column<Temporada>[] = [
     key: 'finalizada',
     align: 'center',
     render: (t) =>
-      t.finalizada ? <Chip label="Sí" size="small" /> : <Chip label="No" size="small" />,
+      t.finalizada ? <Chip label="Sí" size="small" color="warning"/> : <Chip label="No" size="small" color="primary" />,
   },
   { label: 'Fin', key: 'fecha_fin' },
   {

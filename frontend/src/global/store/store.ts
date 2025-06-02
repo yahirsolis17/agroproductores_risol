@@ -12,11 +12,13 @@ import inversionesReducer from './inversionesSlice';
 import ventasReducer from './ventasSlice';
 import categoriaInversionReducer from './categoriaInversionSlice';
 import temporadaReducer from './temporadaSlice';
+import breadcrumbsReducer from './breadcrumbsSlice';
 export const store = configureStore({
   reducer: {
     auth: authReducer,
     notification: notificationReducer,
     propietarios: propietariosReducer,
+    breadcrumbs: breadcrumbsReducer,
     huerta: huertaReducer,
     huertaRentada: huertaRentadaReducer,
     temporada: temporadaReducer,
