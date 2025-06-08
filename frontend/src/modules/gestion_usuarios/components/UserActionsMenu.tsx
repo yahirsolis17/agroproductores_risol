@@ -2,6 +2,12 @@
 import React, { useState } from 'react';
 import { IconButton, Menu, MenuItem, Tooltip } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import ArchiveIcon from '@mui/icons-material/Archive';
+import UnarchiveIcon from '@mui/icons-material/Unarchive';
+import DeleteIcon from '@mui/icons-material/Delete';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
 
 export interface UserActionsMenuProps {
   isArchived: boolean;
@@ -42,7 +48,12 @@ const UserActionsMenu: React.FC<UserActionsMenuProps> = ({
             onArchiveOrRestore();
           }}
         >
-          {isArchived ? 'Restaurar' : 'Archivar'}
+          <ListItemIcon>
+            {isArchived ? <UnarchiveIcon fontSize="small" /> : <ArchiveIcon fontSize="small" />}
+          </ListItemIcon>
+          <ListItemText>
+            {isArchived ? 'Restaurar' : 'Archivar'}
+          </ListItemText>
         </MenuItem>
 
         {isArchived && (
@@ -52,7 +63,12 @@ const UserActionsMenu: React.FC<UserActionsMenuProps> = ({
               onDelete();
             }}
           >
-            Eliminar
+            <ListItemIcon>
+              <DeleteIcon fontSize="small" color="error" />
+            </ListItemIcon>
+            <ListItemText>
+              Eliminar
+            </ListItemText>
           </MenuItem>
         )}
 
@@ -62,7 +78,12 @@ const UserActionsMenu: React.FC<UserActionsMenuProps> = ({
             onManagePermissions();
           }}
         >
-          Gestionar permisos
+          <ListItemIcon>
+            <AdminPanelSettingsIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>
+            Gestionar permisos
+          </ListItemText>
         </MenuItem>
       </Menu>
     </>

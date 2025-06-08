@@ -17,6 +17,7 @@ interface Props {
   onConsult: (t: Temporada) => void;
   onFinalize: (t: Temporada) => void;          // ← NUEVA
   emptyMessage?: string;
+  loading?: boolean;
 }
 
 const columns: Column<Temporada>[] = [
@@ -56,10 +57,14 @@ const TemporadaTable: React.FC<Props> = ({
   onConsult,
   onFinalize,
   emptyMessage,
+  loading,
 }) => (
   <TableLayout<Temporada>
     data={data}
     page={page}
+    striped
+    dense
+    loading={loading}
     pageSize={pageSize}
     count={count}
     onPageChange={onPageChange}

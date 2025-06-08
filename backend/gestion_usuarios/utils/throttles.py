@@ -17,3 +17,5 @@ class AdminOnlyThrottle(UserRateThrottle):
 class RefreshTokenThrottle(UserRateThrottle):
     scope = 'refresh_token'
 
+class PermissionsThrottle(UserRateThrottle):
+    scope = 'permissions'

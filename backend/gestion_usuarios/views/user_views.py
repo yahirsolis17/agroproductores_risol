@@ -31,6 +31,9 @@ class RefreshTokenThrottle(UserRateThrottle):
     scope = "refresh_token"
 
 
+class PermissionsThrottle(UserRateThrottle):
+    scope = "permissions"
+
 # --------------------------------------------------------------------------- #
 #                                 AUTH VIEWS                                  #
 # --------------------------------------------------------------------------- #
@@ -298,6 +301,7 @@ class ChangePasswordView(APIView):
 
 class MeView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_classes = [PermissionsThrottle]
 
     def get(self, request):
         return Response(UsuarioSerializer(request.user).data)
@@ -305,6 +309,5 @@ class MeView(APIView):
 
 class UserPermissionsView(APIView):
     permission_classes = [IsAuthenticated]
-
     def get(self, request):
         return Response({"permissions": list(request.user.get_all_permissions())})

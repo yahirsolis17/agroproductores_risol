@@ -17,6 +17,7 @@ interface Props {
   onDelete:           (id: number) => void;
 
   emptyMessage?: string;
+  loading?: boolean;
 }
 
 const columns: Column<Propietario>[] = [
@@ -47,6 +48,7 @@ const PropietarioTable: React.FC<Props> = ({
   onArchiveOrRestore,
   onDelete,
   emptyMessage = 'No hay propietarios registrados.',
+  loading,
 }) => (
   <TableLayout<Propietario>
     data={data}
@@ -56,6 +58,9 @@ const PropietarioTable: React.FC<Props> = ({
     count={count}
     onPageChange={onPageChange}
     emptyMessage={emptyMessage}
+    striped
+    dense
+    loading={loading}
     renderActions={(p) => {
       const isArchived = Boolean(p.archivado_en);
       return (

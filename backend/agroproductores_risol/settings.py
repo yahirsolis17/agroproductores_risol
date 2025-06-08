@@ -119,11 +119,12 @@ REST_FRAMEWORK = {
         "gestion_usuarios.utils.throttles.BaseUserThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
-        "default_user": "1000/day",
+        "default_user": "10000/day",
         "login": "5/min",
         "sensitive_action": "10/hour",
         "admin_only": "20/day",
-        "refresh_token": "5/hour",  # <- esto lo agregas
+        "refresh_token": "5/hour",
+        "permissions": "6/min",# <- esto lo agregas
     },
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',

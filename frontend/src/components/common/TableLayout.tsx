@@ -1,14 +1,16 @@
-import React, { useMemo, useState } from 'react';
+// src/components/common/TableLayout.tsx
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   Box,
   Pagination,
   TextField,
   MenuItem,
   Autocomplete,
+  Skeleton,
 } from '@mui/material';
 
 /* ──────────────────────────────────────────────────────────────
- *  Genéricos de columnas (sin cambios)
+ *  Genéricos de columnas
  * ────────────────────────────────────────────────────────────── */
 export interface Column<T> {
   label:  string;
@@ -28,17 +30,17 @@ export interface FilterOption {
 }
 
 export interface FilterConfig {
-  key:       string;          // Nombre de campo o identificador
-  label:     string;          // Label que se muestra al usuario
-  type:      FilterType;      // Tipo de filtro
-  options?:  FilterOption[];  // Requerido para select / autocomplete
-  width?:    number | string; // Tamaño opcional del campo
+  key:       string;
+  label:     string;
+  type:      FilterType;
+  options?:  FilterOption[];
+  width?:    number | string;
 }
 
 /* ──────────────────────────────────────────────────────────────
  *  Props del componente
  * ────────────────────────────────────────────────────────────── */
-interface TableLayoutProps<T> {
+export interface TableLayoutProps<T> {
   data: T[];
   page: number;
   pageSize: number;
@@ -48,12 +50,116 @@ interface TableLayoutProps<T> {
   onPageChange: (newPage: number) => void;
   emptyMessage?: string;
 
-  /* 🔥 NUEVO: Filtros genéricos */
+  /* 🎨 Estilísticos */
+  loading?: boolean;
+  skeletonRows?: number;
+  skeletonHeight?: number;
+  striped?: boolean;
+  dense?: boolean;
+
+  /* 🔥 Filtros genéricos */
   filterConfig?: FilterConfig[];
   onFilterChange?: (filters: Record<string, any>) => void;
-  /** Si true, la tabla filtra `data` internamente */
   applyFiltersInternally?: boolean;
+
+  /* 🗝️ Clave única de fila */
+  rowKey?: (row: T) => string | number;
+
+  /* 🖱️ Click sobre fila */
+  onRowClick?: (item: T) => void;
 }
+
+/* ──────────────────────────────────────────────────────────────
+ *  Hooks personalizados
+ * ────────────────────────────────────────────────────────────── */
+const useDelayedLoading = (isLoading: boolean, delay = 200) => {
+  const [showSkeleton, setShowSkeleton] = useState(false);
+  
+  useEffect(() => {
+    let timeoutId: number;
+    
+    if (isLoading && !showSkeleton) {
+      timeoutId = window.setTimeout(() => {
+        setShowSkeleton(true);
+      }, delay);
+    } else if (!isLoading && showSkeleton) {
+      setShowSkeleton(false);
+    }
+    
+    return () => {
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [isLoading, showSkeleton, delay]);
+  
+  return showSkeleton;
+};
+
+/* ──────────────────────────────────────────────────────────────
+ *  Componentes internos
+ * ────────────────────────────────────────────────────────────── */
+interface TableSkeletonProps {
+  columns: Column<any>[];
+  skeletonRows: number;
+  dense: boolean;
+  hasActions: boolean;
+}
+
+const TableSkeleton = ({ columns, skeletonRows, dense, hasActions }: TableSkeletonProps) => (
+  <div className="overflow-x-auto rounded-xl shadow">
+    <table className="min-w-full bg-white rounded-xl animate-fade-in">
+      <thead>
+        <tr className="bg-neutral-100">
+          <th className="px-4 py-2 border">
+            <Skeleton variant="text" width={20} />
+          </th>
+          {columns.map((_, i) => (
+            <th
+              key={i}
+              className={`px-4 ${dense ? 'py-1' : 'py-2'} border`}
+            >
+              <Skeleton variant="text" width={100} />
+            </th>
+          ))}
+          {hasActions && (
+            <th className={`px-4 ${dense ? 'py-1' : 'py-2'} border`}>
+              <Skeleton variant="text" width={60} />
+            </th>
+          )}
+        </tr>
+      </thead>
+      <tbody>
+        {Array.from({ length: skeletonRows }).map((_, i) => (
+          <tr key={i}>
+            <td className="px-4 border">
+              <Skeleton variant="text" width={20} />
+            </td>
+            {columns.map((col, j) => (
+              <td
+                key={j}
+                className={`px-4 ${dense ? 'py-1' : 'py-2'} border`}
+              >
+                <Skeleton 
+                  variant="text"
+                  width={col.align === 'right' ? 60 : col.align === 'center' ? 80 : '100%'} 
+                />
+              </td>
+            ))}
+            {hasActions && (
+              <td className={`px-4 ${dense ? 'py-1' : 'py-2'} border text-center`}>
+                <Box display="flex" gap={1} justifyContent="center">
+                  <Skeleton variant="circular" width={24} height={24} />
+                  <Skeleton variant="circular" width={24} height={24} />
+                </Box>
+              </td>
+            )}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+);
 
 /* ──────────────────────────────────────────────────────────────
  *  Componente principal
@@ -67,12 +173,18 @@ export function TableLayout<T>({
   renderActions,
   onPageChange,
   emptyMessage = 'No hay datos.',
+  loading = false,
+  skeletonRows = 6,
+  striped = false,
+  dense = false,
   filterConfig = [],
   onFilterChange,
   applyFiltersInternally = false,
+  rowKey,
+  onRowClick,
 }: TableLayoutProps<T>) {
-  /* ------------------------ estado filtros ------------------------ */
   const [filters, setFilters] = useState<Record<string, any>>({});
+  const showSkeleton = useDelayedLoading(loading);
 
   const handleFilterUpdate = (key: string, value: any) => {
     const next = { ...filters, [key]: value };
@@ -80,29 +192,23 @@ export function TableLayout<T>({
     onFilterChange?.(next);
   };
 
-  /* -------------------- aplicar filtros internos ------------------ */
   const filteredData = useMemo(() => {
-    if (!applyFiltersInternally || !filterConfig.length) return data;
-
+    if (!applyFiltersInternally || filterConfig.length === 0) return data;
     return data.filter((row: any) =>
-      filterConfig.every((cfg) => {
+      filterConfig.every(cfg => {
         const v = filters[cfg.key];
-        if (v === undefined || v === null || v === '') return true; // filtro vacío
-
+        if (v === undefined || v === null || v === '') return true;
         const rowVal = row[cfg.key];
-
         if (cfg.type === 'text') {
           return String(rowVal ?? '')
             .toLowerCase()
             .includes(String(v).toLowerCase());
         }
-        // select o autocomplete → igualdad estricta
         return rowVal === v;
       })
     );
   }, [data, filters, filterConfig, applyFiltersInternally]);
 
-  /* -------------- paginación sobre el data filtrado -------------- */
   const pageData = useMemo(() => {
     const start = (page - 1) * pageSize;
     return filteredData.slice(start, start + pageSize);
@@ -110,43 +216,49 @@ export function TableLayout<T>({
 
   const totalPages = Math.max(
     1,
-    Math.ceil(
-      applyFiltersInternally ? filteredData.length / pageSize : count / pageSize
-    )
+    Math.ceil((applyFiltersInternally ? filteredData.length : count) / pageSize)
   );
 
-  /* -------------------------- render UI -------------------------- */
+  if (showSkeleton) {
+    return (
+      <TableSkeleton
+        columns={columns}
+        skeletonRows={skeletonRows}
+        dense={dense}
+        hasActions={!!renderActions}
+      />
+    );
+  }
+
   return (
-    <>
-      {/* Bloque de filtros dinámicos */}
+    <div className="animate-fade-in">
+      {/* ——— Filtros dinámicos ——— */}
       {filterConfig.length > 0 && (
         <Box display="flex" gap={2} flexWrap="wrap" mb={3}>
           {filterConfig.map((cfg) => {
-            const sxWidth = { minWidth: cfg.width ?? 160 };
+            const props = {
+              key: cfg.key,
+              label: cfg.label,
+              size: 'small' as const,
+              sx: { minWidth: cfg.width ?? 160 }
+            };
 
             switch (cfg.type) {
               case 'text':
                 return (
                   <TextField
-                    key={cfg.key}
-                    label={cfg.label}
-                    size="small"
+                    {...props}
                     value={filters[cfg.key] ?? ''}
                     onChange={(e) => handleFilterUpdate(cfg.key, e.target.value)}
-                    sx={sxWidth}
                   />
                 );
-
               case 'select':
                 return (
                   <TextField
-                    key={cfg.key}
+                    {...props}
                     select
-                    label={cfg.label}
-                    size="small"
                     value={filters[cfg.key] ?? ''}
                     onChange={(e) => handleFilterUpdate(cfg.key, e.target.value)}
-                    sx={sxWidth}
                   >
                     {cfg.options?.map((opt) => (
                       <MenuItem key={opt.value} value={opt.value}>
@@ -155,29 +267,18 @@ export function TableLayout<T>({
                     ))}
                   </TextField>
                 );
-
               case 'autocomplete':
                 return (
                   <Autocomplete
-                    key={cfg.key}
+                    {...props}
                     options={cfg.options ?? []}
                     getOptionLabel={(o) => o.label}
-                    size="small"
-                    value={
-                      cfg.options?.find((o) => o.value === filters[cfg.key]) ||
-                      null
-                    }
-                    onChange={(_, val) =>
-                      handleFilterUpdate(cfg.key, val?.value ?? null)
-                    }
-                    sx={sxWidth}
-                    renderInput={(params) => (
-                      <TextField {...params} label={cfg.label} />
-                    )}
+                    value={cfg.options?.find((o) => o.value === filters[cfg.key]) || null}
+                    onChange={(_, val) => handleFilterUpdate(cfg.key, val?.value ?? null)}
+                    renderInput={(params) => <TextField {...params} label={cfg.label} />}
                     isOptionEqualToValue={(o, v) => o.value === v.value}
                   />
                 );
-
               default:
                 return null;
             }
@@ -185,7 +286,7 @@ export function TableLayout<T>({
         </Box>
       )}
 
-      {/* Tabla */}
+      {/* ——— Tabla ——— */}
       <div className="overflow-x-auto rounded-xl shadow">
         <table className="min-w-full bg-white rounded-xl">
           <thead>
@@ -194,52 +295,57 @@ export function TableLayout<T>({
               {columns.map((col, i) => (
                 <th
                   key={i}
-                  className="px-4 py-2 border"
+                  className={`px-4 ${dense ? 'py-1' : 'py-2'} border`}
                   style={{ textAlign: col.align || 'left' }}
                 >
                   {col.label}
                 </th>
               ))}
               {renderActions && (
-                <th className="px-4 py-2 border text-center">Acciones</th>
+                <th className={`px-4 ${dense ? 'py-1' : 'py-2'} border text-center`}>
+                  Acciones
+                </th>
               )}
             </tr>
           </thead>
-
           <tbody>
-            {pageData.length ? (
-              pageData.map((item, i) => (
-                <tr
-                  key={i}
-                  className="text-center text-sm hover:bg-neutral-50 transition-colors"
-                >
-                  <td className="px-4 py-2 border">
-                    {(page - 1) * pageSize + i + 1}
-                  </td>
-                  {columns.map((col, j) => (
-                    <td
-                      key={j}
-                      className="px-4 py-2 border"
-                      style={{ textAlign: col.align || 'left' }}
-                    >
-                      {col.render
-                        ? col.render(item)
-                        : String(item[col.key] ?? '')}
-                    </td>
-                  ))}
-                  {renderActions && (
-                    <td className="px-4 py-2 border">
-                      {renderActions(item, i)}
-                    </td>
-                  )}
-                </tr>
-              ))
+            {pageData.length > 0 ? (
+              pageData.map((item, i) => {
+                const key = rowKey ? rowKey(item) : (i + (page - 1) * pageSize);
+                return (
+                  <tr
+                    key={key}
+                    className={`text-sm transition-colors ${
+                      striped
+                        ? i % 2 === 0
+                          ? 'bg-white'
+                          : 'bg-neutral-50'
+                        : ''
+                    } ${onRowClick ? 'cursor-pointer hover:bg-neutral-100' : 'hover:bg-neutral-50'}`}
+                    onClick={() => onRowClick?.(item)}
+                  >
+                    <td className="px-4 border">{(page - 1) * pageSize + i + 1}</td>
+                    {columns.map((col, j) => (
+                      <td
+                        key={j}
+                        className={`px-4 ${dense ? 'py-1' : 'py-2'} border`}
+                        style={{ textAlign: col.align || 'left' }}
+                      >
+                        {col.render ? col.render(item) : String(item[col.key] ?? '')}
+                      </td>
+                    ))}
+                    {renderActions && (
+                      <td className={`px-4 ${dense ? 'py-1' : 'py-2'} border`}>
+                        {renderActions(item, i)}
+                      </td>
+                    )}
+                  </tr>
+                );
+              })
             ) : (
               <tr>
                 <td
-                  colSpan={
-                    1 + columns.length + (renderActions ? 1 : 0)
-                  }
+                  colSpan={1 + columns.length + (renderActions ? 1 : 0)}
                   className="text-center py-4 text-neutral-400"
                 >
                   {emptyMessage}
@@ -250,7 +356,7 @@ export function TableLayout<T>({
         </table>
       </div>
 
-      {/* Paginación */}
+      {/* ——— Paginación ——— */}
       <Box display="flex" justifyContent="center" mt={4}>
         <Pagination
           count={totalPages}
@@ -261,6 +367,6 @@ export function TableLayout<T>({
           color="primary"
         />
       </Box>
-    </>
+    </div>
   );
 }

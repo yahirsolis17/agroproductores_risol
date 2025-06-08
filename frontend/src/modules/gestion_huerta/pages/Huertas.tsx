@@ -277,6 +277,8 @@ const Huertas: React.FC = () => {
             count={rows.length}
             onPageChange={(n) => setPage(n)}
             columns={columns}
+            striped
+            dense
             applyFiltersInternally
             filterConfig={[
               {
@@ -310,6 +312,7 @@ const Huertas: React.FC = () => {
               },
             ]}
             emptyMessage={empty}
+            loading={loading || loadProps}
             renderActions={(h) => {
               const archivada = !h.is_active;
               return (

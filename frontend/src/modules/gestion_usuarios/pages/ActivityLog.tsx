@@ -9,13 +9,12 @@ import {
   Box,
   IconButton,
   Tooltip,
-  Skeleton,
 } from '@mui/material';
 import { Sort } from '@mui/icons-material';
 
 import { TableLayout, Column } from '../../../components/common/TableLayout';
 
-/* ------------------- Tipos ------------------- */
+/* ─────────────────── Tipos ─────────────────── */
 interface Activity {
   id: number;
   usuario: {
@@ -35,7 +34,7 @@ interface PaginationMeta {
   previous: string | null;
 }
 
-/* ------------------- Tabla ------------------- */
+/* ─────────────────── Tabla ─────────────────── */
 const pageSize = 10;
 
 const columns: Column<Activity>[] = [
@@ -64,30 +63,33 @@ const columns: Column<Activity>[] = [
   },
 ];
 
-/* ------------------- Componente ------------------- */
+/* ─────────────────── Componente ─────────────────── */
 const ActivityLog: React.FC = () => {
   const { user } = useAuth();
 
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [meta, setMeta] = useState<PaginationMeta>({ count: 0, next: null, previous: null });
+  const [meta, setMeta] = useState<PaginationMeta>({
+    count: 0,
+    next: null,
+    previous: null,
+  });
   const [error, setError] = useState('');
 
-  const [page, setPage] = useState(() => Number(localStorage.getItem('activityPage')) || 1);
+  const [page, setPage] = useState(
+    () => Number(localStorage.getItem('activityPage')) || 1,
+  );
   const [sortDesc, setSortDesc] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const [delayedLoading, setDelayedLoading] = useState(false);
-
-  /* ------------------- Fetch ------------------- */
+  /* ─────────────────── Fetch ─────────────────── */
   useEffect(() => {
     if (user?.role === 'admin') fetchActivities(page);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, page, sortDesc]);
 
   const fetchActivities = async (pageNumber = 1) => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      setDelayedLoading(false);
-      timer = setTimeout(() => setDelayedLoading(true), 400);
+      setIsLoading(true);
 
       const ordering = sortDesc ? '-fecha_hora' : 'fecha_hora';
       const res = await apiClient.get(
@@ -95,24 +97,28 @@ const ActivityLog: React.FC = () => {
       );
 
       setActivities(res.data.results || []);
-      setMeta({ count: res.data.count, next: res.data.next, previous: res.data.previous });
+      setMeta({
+        count: res.data.count,
+        next: res.data.next,
+        previous: res.data.previous,
+      });
       localStorage.setItem('activityPage', String(pageNumber));
+      setError('');
     } catch {
       setError('No se pudo obtener el historial de actividades.');
     } finally {
-      if (timer) clearTimeout(timer);
-      setDelayedLoading(false);
+      setIsLoading(false);
     }
   };
 
   const toggleSort = () => setSortDesc((prev) => !prev);
 
-  /* ------------------- Guard ------------------- */
+  /* ─────────────────── Guard ─────────────────── */
   if (user?.role !== 'admin') {
     return <div className="p-6 text-center text-red-500">Acceso denegado</div>;
   }
 
-  /* ------------------- Render ------------------- */
+  /* ─────────────────── Render ─────────────────── */
   return (
     <motion.div
       className="p-4 sm:p-6 max-w-6xl mx-auto"
@@ -120,9 +126,17 @@ const ActivityLog: React.FC = () => {
       animate={{ opacity: 1 }}
       transition={{ duration: 0.4 }}
     >
-      <Paper elevation={4} className="p-6 sm:p-10 rounded-2xl shadow-lg bg-white">
+      <Paper
+        elevation={4}
+        className="p-6 sm:p-10 rounded-2xl shadow-lg bg-white"
+      >
         {/* Header */}
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
+        <Box
+          display="flex"
+          justifyContent="space-between"
+          alignItems="center"
+          mb={4}
+        >
           <Typography variant="h4" className="text-primary-dark font-bold">
             Historial de Actividades
           </Typography>
@@ -145,30 +159,20 @@ const ActivityLog: React.FC = () => {
           </Typography>
         )}
 
-        {/* Tabla / loader */}
-        {delayedLoading ? (
-          <Box>
-            {/* Skeleton: 8 filas  */}
-            {Array.from({ length: 8 }).map((_, i) => (
-              <Skeleton
-                key={i}
-                variant="rectangular"
-                height={40}
-                sx={{ mb: 1, borderRadius: 1 }}
-              />
-            ))}
-          </Box>
-        ) : (
-          <TableLayout<Activity>
-            data={activities}
-            columns={columns}
-            page={page}
-            pageSize={pageSize}
-            count={meta.count}
-            onPageChange={setPage}
-            emptyMessage="No hay actividades registradas."
-          />
-        )}
+        {/* Tabla */}
+        <TableLayout<Activity>
+          data={activities}
+          columns={columns}
+          page={page}
+          pageSize={pageSize}
+          count={meta.count}
+          rowKey={(a) => a.id}
+          onPageChange={setPage}
+          emptyMessage="No hay actividades registradas."
+          loading={isLoading}
+          striped
+          dense
+        />
       </Paper>
     </motion.div>
   );

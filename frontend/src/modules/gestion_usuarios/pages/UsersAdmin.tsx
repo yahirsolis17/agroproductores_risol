@@ -5,7 +5,6 @@ import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
 import {
   Typography,
-  Box,
   Paper,
   Dialog,
   DialogTitle,
@@ -15,15 +14,14 @@ import {
   Chip,
   Tabs,
   Tab,
-  Skeleton,
 } from '@mui/material';
 import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
 import PermissionsDialog from './PermissionsDialog';
 import UserActionsMenu from '../components/UserActionsMenu';
 
-/* tabla unificada */
 import { TableLayout, Column } from '../../../components/common/TableLayout';
 
+/* ─────────────────── Tipos ─────────────────── */
 interface User {
   id: number;
   nombre: string;
@@ -31,7 +29,7 @@ interface User {
   telefono: string;
   role: 'admin' | 'usuario';
   archivado_en: string | null;
-  permisos: string[];
+  permisos: string[]; // slugs
 }
 
 interface PaginationMeta {
@@ -43,7 +41,7 @@ interface PaginationMeta {
 type ViewFilter = 'activos' | 'archivados' | 'todos';
 const pageSize = 10;
 
-/* ---------- columnas de la tabla ---------- */
+/* ─────────────────── Columnas ─────────────────── */
 const columns: Column<User>[] = [
   {
     label: 'Nombre',
@@ -70,6 +68,7 @@ const columns: Column<User>[] = [
   },
 ];
 
+/* ─────────────────── Componente ─────────────────── */
 const UsersAdmin: React.FC = () => {
   const { user: currentUser } = useAuth();
 
@@ -83,7 +82,7 @@ const UsersAdmin: React.FC = () => {
   const [page, setPage] = useState<number>(
     () => Number(localStorage.getItem('usersPage')) || 1,
   );
-  const [delayedLoading, setDelayedLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [filter, setFilter] = useState<ViewFilter>('activos');
 
   /* diálogo de permisos */
@@ -95,18 +94,18 @@ const UsersAdmin: React.FC = () => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmUserId, setConfirmUserId] = useState<number>(0);
 
-  /* ---------- fetch ---------- */
+  /* ─────────────────── Fetch ─────────────────── */
   useEffect(() => {
     if (currentUser?.role === 'admin') fetchUsers(page);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser, page]);
 
   const fetchUsers = async (pageNumber: number) => {
-    const timer = setTimeout(() => setDelayedLoading(true), 400);
     try {
-      setDelayedLoading(false);
+      setIsLoading(true);
       const res = await apiClient.get(`/usuarios/users/?page=${pageNumber}`);
       const results = res.data.results || [];
+
       setUsers(
         results
           .filter((u: any) => u.id !== currentUser?.id)
@@ -126,16 +125,16 @@ const UsersAdmin: React.FC = () => {
         previous: res.data.previous,
       });
       localStorage.setItem('usersPage', String(pageNumber));
+      setError('');
     } catch (err: any) {
       handleBackendNotification(err.response?.data);
       setError('No se pudo obtener usuarios');
     } finally {
-      clearTimeout(timer);
-      setDelayedLoading(false);
+      setIsLoading(false);
     }
   };
 
-  /* ---------- acciones ---------- */
+  /* ─────────────────── Acciones ─────────────────── */
   const handleArchiveOrRestore = async (
     userId: number,
     isArchived: boolean,
@@ -168,7 +167,7 @@ const UsersAdmin: React.FC = () => {
     setDialogOpen(true);
   };
 
-  /* ---------- filtrado ---------- */
+  /* ─────────────────── Filtrado ─────────────────── */
   const filteredUsers = users.filter((u) => {
     if (filter === 'activos') return !u.archivado_en;
     if (filter === 'archivados') return Boolean(u.archivado_en);
@@ -180,14 +179,14 @@ const UsersAdmin: React.FC = () => {
       ? 'No hay usuarios archivados.'
       : 'No hay usuarios registrados.';
 
-  /* ---------- permisos ---------- */
+  /* ─────────────────── Permisos ─────────────────── */
   if (currentUser?.role !== 'admin') {
     return (
       <div className="p-6 text-center text-red-500">Acceso denegado</div>
     );
   }
 
-  /* ---------- render ---------- */
+  /* ─────────────────── Render ─────────────────── */
   return (
     <Fragment>
       <motion.div
@@ -219,48 +218,38 @@ const UsersAdmin: React.FC = () => {
 
           {error && <div className="text-red-600 mb-2">{error}</div>}
 
-          {/* ---------- tabla ---------- */}
-          {delayedLoading ? (
-            /* Skeleton rows (reduce flash) */
-            <Box className="space-y-2">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton
-                  key={i}
-                  variant="rectangular"
-                  height={48}
-                  animation="wave"
+          {/* tabla */}
+          <TableLayout<User>
+            data={filteredUsers}
+            columns={columns}
+            page={page}
+            pageSize={pageSize}
+            count={meta.count}
+            onPageChange={setPage}
+            emptyMessage={emptyMessage}
+            loading={isLoading}
+            striped
+            dense
+            rowKey={(u) => u.id}
+            renderActions={(u) => {
+              const isArchived = Boolean(u.archivado_en);
+              return (
+                <UserActionsMenu
+                  isArchived={isArchived}
+                  onArchiveOrRestore={() =>
+                    handleArchiveOrRestore(u.id, isArchived)
+                  }
+                  onDelete={() => {
+                    setConfirmUserId(u.id);
+                    setConfirmOpen(true);
+                  }}
+                  onManagePermissions={() =>
+                    handleManagePermissions(u.id, u.permisos)
+                  }
                 />
-              ))}
-            </Box>
-          ) : (
-            <TableLayout<User>
-              data={filteredUsers}
-              columns={columns}
-              page={page}
-              pageSize={pageSize}
-              count={meta.count}
-              onPageChange={setPage}
-              emptyMessage={emptyMessage}
-              renderActions={(u) => {
-                const isArchived = Boolean(u.archivado_en);
-                return (
-                  <UserActionsMenu
-                    isArchived={isArchived}
-                    onArchiveOrRestore={() =>
-                      handleArchiveOrRestore(u.id, isArchived)
-                    }
-                    onDelete={() => {
-                      setConfirmUserId(u.id);
-                      setConfirmOpen(true);
-                    }}
-                    onManagePermissions={() =>
-                      handleManagePermissions(u.id, u.permisos)
-                    }
-                  />
-                );
-              }}
-            />
-          )}
+              );
+            }}
+          />
         </Paper>
       </motion.div>
 

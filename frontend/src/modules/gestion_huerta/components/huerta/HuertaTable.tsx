@@ -50,12 +50,16 @@ interface Props {
   onRestore: (h: Registro) => void;
   onDelete:  (h: Registro) => void;
   emptyMessage: string;
+  loading?: boolean;
 }
 
 const HuertaTable: React.FC<Props> = (p) => (
   <TableLayout<Registro>
     {...p}
+    loading={p.loading}
     columns={columns}
+    striped
+    dense
     renderActions={(h) => {
       const archivada = !h.is_active;
       return (
