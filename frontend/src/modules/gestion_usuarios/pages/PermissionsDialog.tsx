@@ -1,4 +1,3 @@
-// src/modules/gestion_usuarios/pages/PermissionsDialog.tsx
 import React, {
   useEffect,
   useState,
@@ -57,7 +56,7 @@ const PermissionsDialog: React.FC<PermissionsDialogProps> = ({
   const [loadingUser, setLoadingUser] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  /* Skeleton delay — mismos 400 ms que en UsersAdmin  */
+  /* Skeleton delay — mismos 400 ms que en UsersAdmin */
   const [delayedLoading, setDelayedLoading] = useState(false);
 
   /* ------------------------------------------------- */

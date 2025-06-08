@@ -84,6 +84,7 @@ const Login: React.FC = () => {
                     id="telefono"
                     name="telefono"
                     label="Teléfono"
+                    type='tel'
                     value={values.telefono}
                     onChange={handleChange}
                     onBlur={handleBlur}

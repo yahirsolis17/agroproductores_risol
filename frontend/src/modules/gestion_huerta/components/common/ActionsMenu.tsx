@@ -15,7 +15,8 @@ import ArchiveIcon from '@mui/icons-material/Archive';
 import UnarchiveIcon from '@mui/icons-material/Unarchive';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EventNoteIcon from '@mui/icons-material/EventNote';
-import DoneAllIcon from '@mui/icons-material/DoneAll'; // ícono para “Finalizar/Reactivar”
+import DoneAllIcon from '@mui/icons-material/DoneAll';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
 
 interface ActionsMenuProps {
   isArchived: boolean;
@@ -81,7 +82,7 @@ const ActionsMenu: React.FC<ActionsMenuProps> = ({
         {!hideFinalize && !isArchived && onFinalize && (
           <MenuItem onClick={() => handle(onFinalize)}>
             <ListItemIcon>
-              <DoneAllIcon fontSize="small" />
+              {isFinalized ? <RestartAltIcon fontSize="small" /> : <DoneAllIcon fontSize="small" />}
             </ListItemIcon>
             <ListItemText
               primary={
