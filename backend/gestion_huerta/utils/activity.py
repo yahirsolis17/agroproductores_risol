@@ -3,13 +3,12 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def registrar_actividad(usuario, accion, detalles=None, ip=None, user_agent=None):
+def registrar_actividad(usuario, accion, detalles=None, ip=None):
     RegistroActividad.objects.create(
         usuario=usuario,
         accion=accion,
         detalles=detalles,
         ip=ip,
-        user_agent=user_agent
     )
 
 def audit(self, mensaje: str, detalles: str = None):
@@ -21,7 +20,6 @@ def audit(self, mensaje: str, detalles: str = None):
             accion=mensaje,
             detalles=detalles,
             ip=ip,
-            user_agent=ua
         )
         logger.info(f"Actividad registrada: {mensaje} - IP: {ip} - UA: {ua}")
     except Exception as e:

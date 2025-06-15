@@ -85,7 +85,14 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
         serializer = self.get_serializer(page, many=True)
         return self.notify(
             key="data_processed_success",
-            data={"propietarios": serializer.data}
+            data={
+                "propietarios": serializer.data,
+                "meta": {
+                    "count":    self.paginator.page.paginator.count,
+                    "next":     self.paginator.get_next_link(),
+                    "previous": self.paginator.get_previous_link(),
+                }
+            }
         )
 
     # ---------- CREATE ----------
@@ -221,9 +228,17 @@ class HuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
         serializer = self.get_serializer(page, many=True)
         return self.notify(
             key="data_processed_success",
-            data={"huertas": serializer.data},
+            data={
+                "huertas": serializer.data,
+                "meta": {
+                    "count":    self.paginator.page.paginator.count,
+                    "next":     self.paginator.get_next_link(),
+                    "previous": self.paginator.get_previous_link(),
+                }
+            },
             status_code=status.HTTP_200_OK
         )
+
 
     # ---------------- CREATE ----------------
     def create(self, request, *args, **kwargs):
@@ -363,9 +378,17 @@ class HuertaRentadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelV
         serializer = self.get_serializer(page, many=True)
         return self.notify(
             key="data_processed_success",
-            data={"huertas_rentadas": serializer.data},
+            data={
+                "huertas_rentadas": serializer.data,
+                "meta": {
+                    "count":    self.paginator.page.paginator.count,
+                    "next":     self.paginator.get_next_link(),
+                    "previous": self.paginator.get_previous_link(),
+                }
+            },
             status_code=status.HTTP_200_OK
         )
+
 
     # ---------------- CREATE ----------------
     def create(self, request, *args, **kwargs):

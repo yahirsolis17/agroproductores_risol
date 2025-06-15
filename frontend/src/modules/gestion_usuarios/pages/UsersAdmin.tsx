@@ -108,7 +108,11 @@ const UsersAdmin: React.FC = () => {
 
       setUsers(
         results
-          .filter((u: any) => u.id !== currentUser?.id)
+          // ⬇️ FILTRO DE SEGURIDAD: NO incluir admins ni al usuario actual
+          .filter(
+            (u: any) =>
+              u.id !== currentUser?.id && u.role !== 'admin'
+          )
           .map((u: any) => ({
             id: u.id,
             nombre: u.nombre,
@@ -167,7 +171,7 @@ const UsersAdmin: React.FC = () => {
     setDialogOpen(true);
   };
 
-  /* ─────────────────── Filtrado ─────────────────── */
+  /* ─────────────────── Filtrado visual ─────────────────── */
   const filteredUsers = users.filter((u) => {
     if (filter === 'activos') return !u.archivado_en;
     if (filter === 'archivados') return Boolean(u.archivado_en);
@@ -228,6 +232,7 @@ const UsersAdmin: React.FC = () => {
             onPageChange={setPage}
             emptyMessage={emptyMessage}
             loading={isLoading}
+            serverSidePagination
             striped
             dense
             rowKey={(u) => u.id}

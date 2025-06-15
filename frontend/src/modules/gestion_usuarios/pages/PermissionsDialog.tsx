@@ -23,7 +23,14 @@ import {
   Skeleton,
   Slide,
   SlideProps,
+  Typography,
+  Paper,
+  Divider,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
+import SelectAllIcon from '@mui/icons-material/SelectAll';
+import DeselectIcon from '@mui/icons-material/Deselect';
 
 const Transition = forwardRef(function Transition(
   props: SlideProps & { children: React.ReactElement<any, any> },
@@ -125,6 +132,22 @@ const PermissionsDialog: React.FC<PermissionsDialogProps> = ({
 
   const loading = loadingAll || loadingUser;
 
+  const toggleAll = () => {
+    if (selected.length === allPerms.length) {
+      setSelected([]);
+    } else {
+      setSelected(allPerms.map(p => p.codename));
+    }
+  };
+
+  /* Agrupar permisos por módulo */
+  const groupedPerms = allPerms.reduce((acc, perm) => {
+    const module = perm.codename.split('_')[0];
+    if (!acc[module]) acc[module] = [];
+    acc[module].push(perm);
+    return acc;
+  }, {} as Record<string, Permiso[]>);
+
   /* ------------------------------------------------- */
   /*                     RENDER                        */
   /* ------------------------------------------------- */
@@ -133,24 +156,46 @@ const PermissionsDialog: React.FC<PermissionsDialogProps> = ({
       open={open}
       onClose={onClose}
       fullWidth
-      maxWidth="sm"
+      maxWidth="md"
       TransitionComponent={Transition}
     >
-      <DialogTitle>Editar permisos</DialogTitle>
+      <DialogTitle>
+        <Box display="flex" alignItems="center" justifyContent="space-between">
+          <Typography variant="h6">Editar permisos</Typography>
+          <Tooltip title={selected.length === allPerms.length ? "Deseleccionar todo" : "Seleccionar todo"}>
+            <IconButton 
+              onClick={toggleAll} 
+              disabled={loading || saving}
+              color={selected.length === allPerms.length ? "primary" : "default"}
+            >
+              {selected.length === allPerms.length ? <DeselectIcon /> : <SelectAllIcon />}
+            </IconButton>
+          </Tooltip>
+        </Box>
+      </DialogTitle>
 
       <DialogContent dividers>
         {loading ? (
-          /* Skeleton list */
           <Box py={2}>
             {delayedLoading ? (
-              Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton
-                  key={i}
-                  variant="rectangular"
-                  height={32}
-                  sx={{ mb: 1, borderRadius: 1 }}
-                />
-              ))
+              <Box display="grid" gridTemplateColumns="repeat(12, 1fr)" gap={2}>
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Box 
+                    key={i}
+                    gridColumn={{ 
+                      xs: 'span 12',
+                      sm: 'span 6',
+                      md: 'span 4'
+                    }}
+                  >
+                    <Skeleton
+                      variant="rectangular"
+                      height={100}
+                      sx={{ borderRadius: 1 }}
+                    />
+                  </Box>
+                ))}
+              </Box>
             ) : (
               <Box display="flex" justifyContent="center" py={4}>
                 <CircularProgress />
@@ -158,20 +203,61 @@ const PermissionsDialog: React.FC<PermissionsDialogProps> = ({
             )}
           </Box>
         ) : (
-          <FormGroup row className="gap-4">
-            {allPerms.map((p) => (
-              <FormControlLabel
-                key={p.codename}
-                control={
-                  <Checkbox
-                    checked={selected.includes(p.codename)}
-                    onChange={() => toggle(p.codename)}
-                  />
-                }
-                label={p.nombre}
-              />
+          <Box display="grid" gridTemplateColumns="repeat(12, 1fr)" gap={2}>
+            {Object.entries(groupedPerms).map(([module, perms]) => (
+              <Box 
+                key={module}
+                gridColumn={{ 
+                  xs: 'span 12',
+                  sm: 'span 6',
+                  md: 'span 4'
+                }}
+              >
+                <Paper 
+                  elevation={0} 
+                  variant="outlined" 
+                  sx={{ 
+                    p: 2,
+                    height: '100%',
+                    backgroundColor: 'background.paper',
+                  }}
+                >
+                  <Typography
+                    variant="subtitle1"
+                    color="primary"
+                    sx={{ 
+                      mb: 1,
+                      textTransform: 'capitalize',
+                      fontWeight: 'medium'
+                    }}
+                  >
+                    {module}
+                  </Typography>
+                  <Divider sx={{ mb: 2 }} />
+                  <FormGroup>
+                    {perms.map((p) => (
+                      <FormControlLabel
+                        key={p.codename}
+                        control={
+                          <Checkbox
+                            checked={selected.includes(p.codename)}
+                            onChange={() => toggle(p.codename)}
+                            size="small"
+                          />
+                        }
+                        label={
+                          <Typography variant="body2">
+                            {p.nombre}
+                          </Typography>
+                        }
+                        sx={{ mb: 0.5 }}
+                      />
+                    ))}
+                  </FormGroup>
+                </Paper>
+              </Box>
             ))}
-          </FormGroup>
+          </Box>
         )}
       </DialogContent>
 

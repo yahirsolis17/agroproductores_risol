@@ -13,9 +13,12 @@ import ventasReducer from './ventasSlice';
 import categoriaInversionReducer from './categoriaInversionSlice';
 import temporadaReducer from './temporadaSlice';
 import breadcrumbsReducer from './breadcrumbsSlice';
+import userReducer from './userSlice';
+
 export const store = configureStore({
   reducer: {
     auth: authReducer,
+    user: userReducer,
     notification: notificationReducer,
     propietarios: propietariosReducer,
     breadcrumbs: breadcrumbsReducer,
