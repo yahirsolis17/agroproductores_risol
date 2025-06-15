@@ -93,4 +93,3 @@ class RegistroActividad(models.Model):
     fecha_hora = models.DateTimeField(auto_now_add=True)
     detalles = models.TextField(null=True, blank=True)
     ip = models.GenericIPAddressField(null=True, blank=True)
-    user_agent = models.TextField(null=True, blank=True)

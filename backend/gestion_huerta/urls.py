@@ -22,6 +22,7 @@ from gestion_huerta.views.inversiones_views import (
 from gestion_huerta.views.cosechas_views import CosechaViewSet
 from gestion_huerta.views.ventas_views import VentaViewSet
 from gestion_huerta.views.temporadas_views import TemporadaViewSet
+from gestion_huerta.views.registro_actividad import RegistroActividadViewSet
 app_name = "gestion_huerta"
 
 # ---- router ----
@@ -34,6 +35,7 @@ router.register(r"categorias", CategoriaInversionViewSet, basename="categoria")
 router.register(r"inversiones", InversionViewSet, basename="inversion")
 router.register(r"ventas", VentaViewSet, basename="venta")
 router.register(r"temporadas", TemporadaViewSet, basename="temporada")
+router.register(r'actividad', RegistroActividadViewSet, basename='actividad')
 
 # ---- urlpatterns ----
 urlpatterns = [

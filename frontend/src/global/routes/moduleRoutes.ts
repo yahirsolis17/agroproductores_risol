@@ -1,11 +1,11 @@
-// src/global/routes/moduleRoutes.ts
+import { lazyRoute } from '../../components/common/LazyRoutes';
 import type { Role } from '../constants/navItems';
 
 interface ModuleRoute {
   path: string;
   module: string;
   allowedRoles: Role[];
-  lazyComponent: () => Promise<{ default: React.ComponentType<any> }>;
+  element: React.ReactNode;
 }
 
 export const moduleRoutes: ModuleRoute[] = [
@@ -13,59 +13,55 @@ export const moduleRoutes: ModuleRoute[] = [
     path: '/users-admin',
     module: 'gestion_usuarios',
     allowedRoles: ['admin'],
-    lazyComponent: () => import('../../modules/gestion_usuarios/pages/UsersAdmin'),
+    element: lazyRoute(() => import('../../modules/gestion_usuarios/pages/UsersAdmin')),
   },
   {
     path: '/activity-log',
     module: 'gestion_usuarios',
     allowedRoles: ['admin'],
-    lazyComponent: () => import('../../modules/gestion_usuarios/pages/ActivityLog'),
+    element: lazyRoute(() => import('../../modules/gestion_usuarios/pages/ActivityLog')),
   },
   {
     path: '/register',
     module: 'gestion_usuarios',
     allowedRoles: ['admin'],
-    lazyComponent: () => import('../../modules/gestion_usuarios/pages/Register'),
+    element: lazyRoute(() => import('../../modules/gestion_usuarios/pages/Register')),
   },
   {
     path: '/profile',
     module: 'gestion_usuarios',
     allowedRoles: ['usuario', 'admin'],
-    lazyComponent: () => import('../../modules/gestion_usuarios/pages/Profile'),
+    element: lazyRoute(() => import('../../modules/gestion_usuarios/pages/Profile')),
   },
   {
     path: '/change-password',
     module: 'gestion_usuarios',
     allowedRoles: ['usuario', 'admin'],
-    lazyComponent: () => import('../../modules/gestion_usuarios/pages/ChangePassword'),
+    element: lazyRoute(() => import('../../modules/gestion_usuarios/pages/ChangePassword')),
   },
 
   {
     path: '/huertas',
     module: 'gestion_huerta',
     allowedRoles: ['admin', 'usuario'],
-    lazyComponent: () => import('../../modules/gestion_huerta/pages/Huertas'),
+    element: lazyRoute(() => import('../../modules/gestion_huerta/pages/Huertas')),
   },
   {
     path: '/propietarios',
     module: 'gestion_huerta',
     allowedRoles: ['admin', 'usuario'],
-    lazyComponent: () => import('../../modules/gestion_huerta/pages/Propietarios'),
+    element: lazyRoute(() => import('../../modules/gestion_huerta/pages/Propietarios')),
   },
-
   {
     path: '/temporadas',
     module: 'gestion_huerta',
     allowedRoles: ['admin', 'usuario'],
-    lazyComponent: () => import('../../modules/gestion_huerta/pages/Temporadas'),
+    element: lazyRoute(() => import('../../modules/gestion_huerta/pages/Temporadas')),
   },
-
   {
     path: '/cosechas',
     module: 'gestion_huerta',
     allowedRoles: ['admin', 'usuario'],
-    lazyComponent: () => import('../../modules/gestion_huerta/pages/Cosechas'),
+    element: lazyRoute(() => import('../../modules/gestion_huerta/pages/Cosechas')),
   },
-
-
 ];

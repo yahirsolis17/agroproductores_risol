@@ -6,6 +6,7 @@ import {
   DialogActions,
   TextField,
   CircularProgress,
+  Button,
 } from '@mui/material';
 import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
@@ -122,15 +123,14 @@ export default function PropietarioFormModal({
             </DialogContent>
 
             <DialogActions className="px-6 py-4">
-            <PermissionButton
-                perm="change_propietario" /* o 'add_propietario', pero cancelar no requiere permiso */
+            <Button
                 variant="outlined"
                 color="primary"
                 onClick={onClose}
                 disabled={isSubmitting}
               >
                 Cancelar
-              </PermissionButton>
+              </Button>
               <PermissionButton
                 perm={isEdit ? 'change_propietario' : 'add_propietario'}
                 type="submit"

@@ -4,14 +4,25 @@ import logging
 logger = logging.getLogger(__name__)
 
 def registrar_actividad(usuario, accion, detalles=None, ip=None, user_agent=None):
+    RegistroActividad.objects.create(
+        usuario=usuario,
+        accion=accion,
+        detalles=detalles,
+        ip=ip,
+        user_agent=user_agent
+    )
+
+def audit(self, mensaje: str, detalles: str = None):
     try:
-        RegistroActividad.objects.create(
-            usuario=usuario,
-            accion=accion,
+        ip        = self.request.META.get('REMOTE_ADDR')
+        ua        = self.request.META.get('HTTP_USER_AGENT')
+        registrar_actividad(
+            usuario=self.request.user,
+            accion=mensaje,
             detalles=detalles,
             ip=ip,
-            user_agent=user_agent
+            user_agent=ua
         )
-        logger.info(f"Actividad registrada: {accion} - IP: {ip} - UA: {user_agent}")
+        logger.info(f"Actividad registrada: {mensaje} - IP: {ip} - UA: {ua}")
     except Exception as e:
         logger.error(f"Error al registrar actividad: {e}")

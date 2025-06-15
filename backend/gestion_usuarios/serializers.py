@@ -124,8 +124,16 @@ class RegistroActividadSerializer(serializers.ModelSerializer):
     usuario = UsuarioSerializer()
 
     class Meta:
-        model = RegistroActividad
-        fields = '__all__'
+        model  = RegistroActividad
+        # Sólo los campos que queremos exponer en la tabla
+        fields = [
+            'id',
+            'usuario',
+            'accion',
+            'fecha_hora',
+            'detalles',
+            'ip',
+        ]
 
 class PermisoSerializer(serializers.ModelSerializer):
     content_type = serializers.StringRelatedField()

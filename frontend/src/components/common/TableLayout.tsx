@@ -49,7 +49,7 @@ export interface TableLayoutProps<T> {
   renderActions?: (item: T, index: number) => React.ReactNode;
   onPageChange: (newPage: number) => void;
   emptyMessage?: string;
-
+  serverSidePagination?: boolean;
   /* 🎨 Estilísticos */
   loading?: boolean;
   skeletonRows?: number;
@@ -181,6 +181,7 @@ export function TableLayout<T>({
   onFilterChange,
   applyFiltersInternally = false,
   rowKey,
+  serverSidePagination = false,
   onRowClick,
 }: TableLayoutProps<T>) {
   const [filters, setFilters] = useState<Record<string, any>>({});
@@ -209,15 +210,27 @@ export function TableLayout<T>({
     );
   }, [data, filters, filterConfig, applyFiltersInternally]);
 
-  const pageData = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    return filteredData.slice(start, start + pageSize);
-  }, [filteredData, page, pageSize]);
+  // Si viene paginado por servidor, usamos directamente `data`,
+  // si no, hacemos el slice local.
+    const pageData = useMemo(() => {
+      if (serverSidePagination) {
+        return data;
+      }
+      const start = (page - 1) * pageSize;
+      return filteredData.slice(start, start + pageSize);
+    }, [data, filteredData, page, pageSize, serverSidePagination]);
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil((applyFiltersInternally ? filteredData.length : count) / pageSize)
-  );
+    // Para serverSide: usamos count total; si no, igual que antes
+    const totalPages = Math.max(
+      1,
+      serverSidePagination
+        ? Math.ceil(count / pageSize)
+        : Math.ceil(
+            (applyFiltersInternally
+              ? filteredData.length
+              : count) / pageSize
+          )
+    );
 
   if (showSkeleton) {
     return (

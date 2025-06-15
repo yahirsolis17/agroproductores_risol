@@ -11,7 +11,7 @@ import * as Yup from 'yup';
 import { HuertaRentadaCreateData } from '../../types/huertaRentadaTypes';
 import { Propietario }             from '../../types/propietarioTypes';
 import { handleBackendNotification } from '../../../../global/utils/NotificationEngine';
-
+import { PermissionButton } from '../../../../components/common/PermissionButton';
 /* ---------- Yup ---------- */
 const yupSchema = Yup.object({
   nombre:      Yup.string().required('Nombre requerido'),
@@ -186,9 +186,15 @@ const HuertaRentadaFormModal: React.FC<Props> = ({
 
           <DialogActions className="px-6 py-4">
             <Button variant="outlined" onClick={onClose}>Cancelar</Button>
-            <Button type="submit" variant="contained" disabled={isSubmitting}>
+            <PermissionButton
+              perm={initialValues ? 'change_huerta' : 'add_huerta'}
+              type="submit"
+              variant="contained"
+              disabled={isSubmitting}
+            >
               {isSubmitting ? <CircularProgress size={22} /> : 'Guardar'}
-            </Button>
+            </PermissionButton>
+
           </DialogActions>
         </Form>
       )}

@@ -13,7 +13,7 @@ import * as Yup from 'yup';
 import { Huerta } from '../../types/huertaTypes';
 import { HuertaRentada } from '../../types/huertaRentadaTypes';
 import { Temporada, TemporadaCreateData } from '../../types/temporadaTypes';
-
+import { PermissionButton } from '../../../../components/common/PermissionButton';
 interface TemporadaFormModalProps {
   open: boolean;
   onClose: () => void;
@@ -166,9 +166,15 @@ const TemporadaFormModal: React.FC<TemporadaFormModalProps> = ({
                 Cerrar
               </Button>
               {!readOnly && (
-                <Button type="submit" variant="contained" disabled={isSubmitting}>
+                <PermissionButton
+                  perm={initialValues ? 'change_temporada' : 'add_temporada'}
+                  type="submit"
+                  variant="contained"
+                  disabled={isSubmitting}
+                >
                   {isSubmitting ? <CircularProgress size={22} /> : 'Guardar'}
-                </Button>
+                </PermissionButton>
+
               )}
             </DialogActions>
           </Form>
