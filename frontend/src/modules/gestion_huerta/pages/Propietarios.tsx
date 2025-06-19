@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Paper, Typography, CircularProgress, Box,
   Dialog, DialogTitle, DialogContent, DialogActions,
@@ -6,116 +6,85 @@ import {
 } from '@mui/material';
 import { motion } from 'framer-motion';
 
-import PropietarioToolbar  from '../components/propietario/PropietarioToolbar';
-import PropietarioTable    from '../components/propietario/PropietarioTable';
+import PropietarioToolbar   from '../components/propietario/PropietarioToolbar';
+import PropietarioTable     from '../components/propietario/PropietarioTable';
 import PropietarioFormModal from '../components/propietario/PropietarioFormModal';
 
-import { usePropietarios } from '../hooks/usePropietarios';
-import { useHuertas }      from '../hooks/useHuertas';
+import { usePropietarios }  from '../hooks/usePropietarios';
+import { useHuertas }       from '../hooks/useHuertas';
+import { PropietarioCreateData, Propietario as T } from '../types/propietarioTypes';
 
-import {
-  PropietarioCreateData,
-  Propietario as PropietarioType,
-} from '../types/propietarioTypes';
-
-type ViewFilter = 'activos' | 'archivados' | 'todos';
 const pageSize = 10;
+type Estado = 'activos' | 'archivados' | 'todos';
 
-const Propietarios: React.FC = () => {
-  /* -------- hooks de datos -------- */
+const Propietarios:React.FC=()=>{
   const {
-    propietarios,
-    loading,
-    page,
-    setPage,
-    addPropietario,
-    editPropietario,
-    archivarPropietario,
-    restaurarPropietario,
+    propietarios, loading, meta, page,
+    setPage, estado, setEstado,
+    addPropietario, editPropietario,
+    archivarPropietario, restaurarPropietario,
     removePropietario,
-  } = usePropietarios();
+  }=usePropietarios();
 
-  const { fetchHuertas } = useHuertas();   // mantener badges de Propietario en Huertas
+  const { fetchHuertas } = useHuertas();
 
-  /* -------- UI state -------- */
-  const [filter, setFilter]       = useState<ViewFilter>('activos');
-  const [confirmOpen, setConfirm] = useState(false);
-  const [confirmId, setConfirmId] = useState<number | null>(null);
+  /* --- UI local --- */
+  const [editOpen,setEditOpen]=React.useState(false);
+  const [editTarget,setEditTarget]=React.useState<T|null>(null);
+  const [confirmOpen,setConfirm]=React.useState(false);
+  const [confirmId,setConfirmId]=React.useState<number>();
 
-  const [editOpen, setEditOpen]   = useState(false);
-  const [editTarget, setEditTarget] = useState<PropietarioType | null>(null);
-
-  /* -------- CRUD helpers -------- */
-  const handleCreate = async (p: PropietarioCreateData) => {
-    await addPropietario(p);
+  /* --- CRUD helpers --- */
+  const handleCreate=async(p:PropietarioCreateData)=>{
+    await addPropietario(p); await fetchHuertas();
+  };
+  const handleEditSubmit=async(vals:PropietarioCreateData)=>{
+    if(!editTarget) return;
+    await editPropietario(editTarget.id,vals); setEditOpen(false);
+  };
+  const launchEdit=(p:T)=>{ setEditTarget(p); setEditOpen(true); };
+  const handleArchiveOrRestore=async(id:number,isArch:boolean)=>{
+    isArch ? await restaurarPropietario(id) : await archivarPropietario(id);
     await fetchHuertas();
   };
-
-  const handleEditSubmit = async (vals: PropietarioCreateData) => {
-    if (!editTarget) return;
-    await editPropietario(editTarget.id, vals);
-    setEditOpen(false);
-  };
-
-  const launchEdit = (p: PropietarioType) => {
-    setEditTarget(p);
-    setEditOpen(true);
-  };
-
-  const handleArchiveOrRestore = async (id: number, isArchived: boolean) => {
-    if (isArchived) await restaurarPropietario(id);
-    else            await archivarPropietario(id);
-    await fetchHuertas();
-  };
-
-  const askDelete     = (id: number) => { setConfirmId(id); setConfirm(true); };
-  const confirmDelete = async () => {
-    if (confirmId == null) return;
-    await removePropietario(confirmId);
-    await fetchHuertas();
+  const askDelete=(id:number)=>{ setConfirmId(id); setConfirm(true); };
+  const confirmDel=async()=>{
+    if(confirmId!==undefined){ await removePropietario(confirmId); await fetchHuertas(); }
     setConfirm(false);
   };
 
-  /* -------- filtrado + mensajes -------- */
-  const filtered = propietarios.filter(p =>
-    filter === 'activos'     ? !p.archivado_en :
-    filter === 'archivados'  ?  p.archivado_en :
-    true
-  );
-
+  /* --- textos --- */
   const emptyMessage =
-    filter === 'activos'      ? 'No hay propietarios activos.'
-    : filter === 'archivados' ? 'No hay propietarios archivados.'
-    :                          'No hay propietarios registrados.';
+    estado==='activos'   ? 'No hay propietarios activos.'
+  : estado==='archivados'? 'No hay propietarios archivados.'
+                         : 'No hay propietarios registrados.';
 
-  /* -------- render -------- */
-  return (
+  return(
     <motion.div className="p-6 max-w-6xl mx-auto"
-      initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ duration:.4 }}>
+      initial={{opacity:0}} animate={{opacity:1}} transition={{duration:.4}}>
       <Paper elevation={4} className="p-6 sm:p-10 rounded-2xl shadow-lg bg-white">
         <Typography variant="h4" className="text-primary-dark font-bold mb-4">
           Gestión de Propietarios
         </Typography>
 
-        <PropietarioToolbar onCreate={handleCreate} />
+        <PropietarioToolbar onCreate={handleCreate}/>
 
-        <Tabs value={filter} onChange={(_,v)=>setFilter(v)}
-              textColor="primary" indicatorColor="primary" sx={{ mt:1, mb:1 }}>
-          <Tab value="activos"     label="Activos"/>
-          <Tab value="archivados"  label="Archivados"/>
-          <Tab value="todos"       label="Todos"/>
+        <Tabs value={estado} onChange={(_,v)=>setEstado(v as Estado)}
+              textColor="primary" indicatorColor="primary" sx={{mt:1,mb:1}}>
+          <Tab value="activos"    label="Activos"/>
+          <Tab value="archivados" label="Archivados"/>
+          <Tab value="todos"      label="Todos"/>
         </Tabs>
 
         {loading ? (
-          <Box display="flex" justifyContent="center" mt={6}>
-            <CircularProgress/>
-          </Box>
+          <Box display="flex" justifyContent="center" mt={6}><CircularProgress/></Box>
         ) : (
           <PropietarioTable
-            data={filtered}
+            data={propietarios}
             page={page}
             pageSize={pageSize}
-            count={filtered.length}
+            count={meta.count}
+            serverSidePagination
             onPageChange={setPage}
             onEdit={launchEdit}
             onArchiveOrRestore={handleArchiveOrRestore}
@@ -127,16 +96,11 @@ const Propietarios: React.FC = () => {
 
       {/* Modal edición */}
       <PropietarioFormModal
-        open={editOpen}
-        onClose={()=>setEditOpen(false)}
-        onSubmit={handleEditSubmit}
-        isEdit
-        initialValues={editTarget ? {
-          nombre:    editTarget.nombre,
-          apellidos: editTarget.apellidos,
-          telefono:  editTarget.telefono,
-          direccion: editTarget.direccion,
-        } : undefined}
+        open={editOpen} onClose={()=>setEditOpen(false)} onSubmit={handleEditSubmit}
+        isEdit initialValues={editTarget ? {
+          nombre:editTarget.nombre, apellidos:editTarget.apellidos,
+          telefono:editTarget.telefono, direccion:editTarget.direccion,
+        }:undefined}
       />
 
       {/* Confirm delete */}
@@ -144,8 +108,8 @@ const Propietarios: React.FC = () => {
         <DialogTitle>Confirmar eliminación</DialogTitle>
         <DialogContent>¿Eliminar propietario definitivamente?</DialogContent>
         <DialogActions>
-          <Button color="inherit" onClick={() => setConfirm(false)}>Cancelar</Button>
-          <Button color="error" onClick={confirmDelete}>Eliminar</Button>
+          <Button onClick={()=>setConfirm(false)}>Cancelar</Button>
+          <Button color="error" onClick={confirmDel}>Eliminar</Button>
         </DialogActions>
       </Dialog>
     </motion.div>

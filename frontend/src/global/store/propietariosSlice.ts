@@ -1,6 +1,5 @@
-// src/global/store/propietariosSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { propietarioService } from '../../modules/gestion_huerta/services/propietarioService';
+import { propietarioService} from '../../modules/gestion_huerta/services/propietarioService';
 import { handleBackendNotification } from '../utils/NotificationEngine';
 import {
   Propietario,
@@ -9,45 +8,35 @@ import {
 } from '../../modules/gestion_huerta/types/propietarioTypes';
 
 /* ---------- State ---------- */
-interface PaginationMeta {
-  count: number;
-  next: string | null;
-  previous: string | null;
-}
+interface PaginationMeta { count: number; next: string | null; previous: string | null; }
+type Estado = 'activos' | 'archivados' | 'todos';
 
 interface PropietarioState {
-  list: Propietario[];
+  list:    Propietario[];
   loading: boolean;
-  error: string | null;
-  loaded: boolean;
-  meta: PaginationMeta;
-  page: number;
+  error:   string | null;
+  loaded:  boolean;
+  meta:    PaginationMeta;
+  page:    number;
+  estado:  Estado;
 }
 
 const initialState: PropietarioState = {
-  list: [],
-  loading: false,
-  error: null,
-  loaded: false,
-  page: 1,
-  meta: { count: 0, next: null, previous: null },
+  list: [], loading: false, error: null, loaded: false,
+  meta: { count:0, next:null, previous:null },
+  page: 1, estado: 'activos',
 };
 
 /* ---------- Thunks ---------- */
 export const fetchPropietarios = createAsyncThunk(
   'propietarios/fetchAll',
-  async (page: number, { rejectWithValue }) => {
+  async ({ page, estado }: { page:number; estado:Estado }, { rejectWithValue }) => {
     try {
-      const res = await propietarioService.list(page);
-      return {
-        propietarios: res.data.propietarios,
-        meta: { count: res.data.count, next: res.data.next, previous: res.data.previous },
-        page,
-      };
-    } catch (err: any) {
-      const data = err.response?.data;
-      handleBackendNotification(data);
-      return rejectWithValue(data);
+      const { propietarios, meta } = await propietarioService.list(page, estado);
+      return { propietarios, meta, page, estado };
+    } catch (err:any) {
+      handleBackendNotification(err.response?.data);
+      return rejectWithValue(err.response?.data);
     }
   }
 );
@@ -59,128 +48,106 @@ export const createPropietario = createAsyncThunk(
       const res = await propietarioService.create(payload);
       handleBackendNotification(res);
       return res.data.propietario as Propietario;
-    } catch (err: any) {
-      const data = err.response?.data;
-      handleBackendNotification(data);
-      return rejectWithValue(data);
+    } catch (err:any) {
+      handleBackendNotification(err.response?.data);
+      return rejectWithValue(err.response?.data);
     }
   }
 );
 
 export const updatePropietario = createAsyncThunk(
   'propietarios/update',
-  async (
-    { id, payload }: { id: number; payload: PropietarioUpdateData },
-    { rejectWithValue }
-  ) => {
+  async ({ id, payload }: { id:number; payload:PropietarioUpdateData }, { rejectWithValue }) => {
     try {
       const res = await propietarioService.update(id, payload);
       handleBackendNotification(res);
       return res.data.propietario as Propietario;
-    } catch (err: any) {
-      const data = err.response?.data;
-      handleBackendNotification(data);
-      return rejectWithValue(data);
+    } catch (err:any) {
+      handleBackendNotification(err.response?.data);
+      return rejectWithValue(err.response?.data);
     }
   }
 );
 
 export const deletePropietario = createAsyncThunk(
   'propietarios/delete',
-  async (id: number, { rejectWithValue }) => {
-    try {
+  async (id:number,{ rejectWithValue })=>{
+    try{
       const res = await propietarioService.delete(id);
       handleBackendNotification(res);
       return id;
-    } catch (err: any) {
-      const data = err.response?.data;
-      handleBackendNotification(data);
-      return rejectWithValue(data);
+    }catch(err:any){
+      handleBackendNotification(err.response?.data);
+      return rejectWithValue(err.response?.data);
     }
   }
 );
 
-/* ---- NUEVOS ---- */
 export const archivePropietario = createAsyncThunk(
   'propietarios/archive',
-  async (id: number, { rejectWithValue }) => {
-    try {
+  async(id:number,{rejectWithValue})=>{
+    try{
       const res = await propietarioService.archive(id);
       handleBackendNotification(res);
       return res.data.propietario as Propietario;
-    } catch (err: any) {
-      const data = err.response?.data;
-      handleBackendNotification(data);
-      return rejectWithValue(data);
+    }catch(err:any){
+      handleBackendNotification(err.response?.data);
+      return rejectWithValue(err.response?.data);
     }
   }
 );
 
 export const restorePropietario = createAsyncThunk(
   'propietarios/restore',
-  async (id: number, { rejectWithValue }) => {
-    try {
+  async(id:number,{rejectWithValue})=>{
+    try{
       const res = await propietarioService.restore(id);
       handleBackendNotification(res);
       return res.data.propietario as Propietario;
-    } catch (err: any) {
-      const data = err.response?.data;
-      handleBackendNotification(data);
-      return rejectWithValue(data);
+    }catch(err:any){
+      handleBackendNotification(err.response?.data);
+      return rejectWithValue(err.response?.data);
     }
   }
 );
 
 /* ---------- Slice ---------- */
 const propietariosSlice = createSlice({
-  name: 'propietarios',
+  name:'propietarios',
   initialState,
-  reducers: {
-    setPage: (state, action: PayloadAction<number>) => {
-      state.page = action.payload;
-    },
+  reducers:{
+    setPage:  (s,a:PayloadAction<number>) => { s.page=a.payload; },
+    setEstado:(s,a:PayloadAction<Estado>) => { s.estado=a.payload; s.page=1; },
   },
-  extraReducers: (builder) => {
-    builder
-      /* fetch */
-      .addCase(fetchPropietarios.pending, (state) => {
-        state.loading = true;
-      })
-      .addCase(fetchPropietarios.fulfilled, (state, action) => {
-        state.list = action.payload.propietarios;
-        state.meta = action.payload.meta;
-        state.page = action.payload.page;
-        state.loading = false;
-        state.loaded = true;
-      })
-      .addCase(fetchPropietarios.rejected, (state) => {
-        state.loading = false;
-        state.loaded = true;
-      })
-      /* create */
-      .addCase(createPropietario.fulfilled, (state, { payload }) => {
-        state.list.unshift(payload);
-      })
-      /* update */
-      .addCase(updatePropietario.fulfilled, (state, { payload }) => {
-        const i = state.list.findIndex((p) => p.id === payload.id);
-        if (i !== -1) state.list[i] = payload;
-      })
-      /* delete */
-      .addCase(deletePropietario.fulfilled, (state, { payload }) => {
-        state.list = state.list.filter((p) => p.id !== payload);
-      })
-      /* archive / restore */
-      .addCase(archivePropietario.fulfilled, (state, { payload }) => {
-        const i = state.list.findIndex((p) => p.id === payload.id);
-        if (i !== -1) state.list[i] = payload;
-      })
-      .addCase(restorePropietario.fulfilled, (state, { payload }) => {
-        const i = state.list.findIndex((p) => p.id === payload.id);
-        if (i !== -1) state.list[i] = payload;
-      });
-  },
+  extraReducers:b=>{
+    b.addCase(fetchPropietarios.pending,   s=>{s.loading=true;});
+    b.addCase(fetchPropietarios.fulfilled,(s,{payload})=>{
+      s.list   = payload.propietarios;
+      s.meta   = payload.meta;
+      s.page   = payload.page;
+      s.estado = payload.estado;
+      s.loading=false; s.loaded=true;
+    });
+    b.addCase(fetchPropietarios.rejected,  s=>{s.loading=false; s.loaded=true;});
+
+    b.addCase(createPropietario.fulfilled,(s,{payload})=>{s.list.unshift(payload);});
+    b.addCase(updatePropietario.fulfilled,(s,{payload})=>{
+      const i=s.list.findIndex(p=>p.id===payload.id);
+      if(i!==-1) s.list[i]=payload;
+    });
+    b.addCase(deletePropietario.fulfilled,(s,{payload})=>{
+      s.list = s.list.filter(p=>p.id!==payload);
+    });
+    b.addCase(archivePropietario.fulfilled,(s,{payload})=>{
+      const i=s.list.findIndex(p=>p.id===payload.id);
+      if(i!==-1) s.list[i]=payload;
+    });
+    b.addCase(restorePropietario.fulfilled,(s,{payload})=>{
+      const i=s.list.findIndex(p=>p.id===payload.id);
+      if(i!==-1) s.list[i]=payload;
+    });
+  }
 });
 
-export const { setPage } = propietariosSlice.actions;
+export const { setPage, setEstado } = propietariosSlice.actions;
 export default propietariosSlice.reducer;

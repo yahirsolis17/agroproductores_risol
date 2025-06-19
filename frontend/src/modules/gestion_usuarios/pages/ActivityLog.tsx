@@ -11,10 +11,8 @@ import {
   Tooltip,
 } from '@mui/material';
 import { Sort } from '@mui/icons-material';
-
 import { TableLayout, Column } from '../../../components/common/TableLayout';
 
-/* ─────────────────── Tipos ─────────────────── */
 interface Activity {
   id: number;
   usuario: {
@@ -29,13 +27,12 @@ interface Activity {
   ip?: string;
 }
 
-interface PaginationMeta {
+interface Meta {
   count: number;
   next: string | null;
   previous: string | null;
 }
 
-/* ─────────────────── Tabla ─────────────────── */
 const pageSize = 10;
 
 const columns: Column<Activity>[] = [
@@ -75,47 +72,41 @@ const columns: Column<Activity>[] = [
   },
 ];
 
-/* ─────────────────── Componente ─────────────────── */
 const ActivityLog: React.FC = () => {
   const { user } = useAuth();
 
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [meta, setMeta] = useState<PaginationMeta>({
-    count: 0,
-    next: null,
-    previous: null,
-  });
-  const [error, setError] = useState('');
-
+  const [meta, setMeta] = useState<Meta>({ count: 0, next: null, previous: null });
   const [page, setPage] = useState(() => Number(localStorage.getItem('activityPage')) || 1);
-  const [sortDesc, setSortDesc] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [sortDesc, setSortDesc] = useState(true);
 
   useEffect(() => {
-    if (user?.role === 'admin') fetchActivities(page);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, page, sortDesc]);
+    if (user?.role === 'admin') {
+      fetchActivities(page, sortDesc);
+    }
+  }, [page, sortDesc, user]);
 
-  const fetchActivities = async (pageNumber = 1) => {
+  const fetchActivities = async (pageNumber: number, desc: boolean) => {
     setIsLoading(true);
     try {
-      const ordering = sortDesc ? '-fecha_hora' : 'fecha_hora';
-      const res = await apiClient.get(`/usuarios/actividad/?page=${pageNumber}&ordering=${ordering}`);
+      const ordering = desc ? '-fecha_hora' : 'fecha_hora';
+      const res = await apiClient.get('/usuarios/actividad/', {
+        params: { page: pageNumber, ordering },
+      });
 
-      setActivities(res.data.results);
-      setMeta({
+      setActivities(res.data.results || []);
+      setMeta(res.data.meta || {
         count: res.data.count,
         next: res.data.next,
         previous: res.data.previous,
       });
-
-      // Solo guardar si la página existe
       localStorage.setItem('activityPage', String(pageNumber));
       setError('');
     } catch (error: any) {
       if (error?.response?.status === 404 && pageNumber > 1) {
-        // Si la página ya no existe, regresamos a la página 1 automáticamente
-        setPage(1);
+        setPage(1); // fallback si la página ya no existe
       } else {
         setError('No se pudo obtener el historial de actividades.');
       }
@@ -123,7 +114,6 @@ const ActivityLog: React.FC = () => {
       setIsLoading(false);
     }
   };
-
 
   const toggleSort = () => setSortDesc((prev) => !prev);
 

@@ -10,8 +10,8 @@ interface Props {
   pageSize: number;
   count: number;
   onPageChange: (newPage: number) => void;
+  serverSidePagination?: boolean;
 
-  /* CRUD */
   onEdit:   (p: Propietario) => void;
   onArchiveOrRestore: (id: number, isArchived: boolean) => void;
   onDelete:           (id: number) => void;
@@ -21,35 +21,24 @@ interface Props {
 }
 
 const columns: Column<Propietario>[] = [
-  { label: 'Nombre',     key: 'nombre' },
-  { label: 'Apellidos',  key: 'apellidos' },
-  { label: 'Teléfono',   key: 'telefono' },
-  { label: 'Dirección',  key: 'direccion' },
+  { label:'Nombre',    key:'nombre' },
+  { label:'Apellidos', key:'apellidos' },
+  { label:'Teléfono',  key:'telefono' },
+  { label:'Dirección', key:'direccion' },
   {
-    label: 'Estado',
-    key:   'archivado_en',
-    align: 'center',
-    render: (p) =>
-      p.archivado_en ? (
-        <Chip label="Archivado" size="small" color="warning" />
-      ) : (
-        <Chip label="Activo" size="small" color="success" />
-      ),
+    label:'Estado', key:'archivado_en', align:'center',
+    render:(p)=>
+      p.archivado_en
+        ? <Chip label="Archivado" size="small" color="warning"/>
+        : <Chip label="Activo"    size="small" color="success"/>
   },
 ];
 
-const PropietarioTable: React.FC<Props> = ({
-  data,
-  page,
-  pageSize,
-  count,
-  onPageChange,
-  onEdit,
-  onArchiveOrRestore,
-  onDelete,
-  emptyMessage = 'No hay propietarios registrados.',
-  loading,
-}) => (
+const PropietarioTable:React.FC<Props>=({
+  data,page,pageSize,count,onPageChange,serverSidePagination=false,
+  onEdit,onArchiveOrRestore,onDelete,
+  emptyMessage='No hay propietarios registrados.',loading,
+})=>(
   <TableLayout<Propietario>
     data={data}
     columns={columns}
@@ -57,19 +46,18 @@ const PropietarioTable: React.FC<Props> = ({
     pageSize={pageSize}
     count={count}
     onPageChange={onPageChange}
+    serverSidePagination={serverSidePagination}
+    rowKey={(p)=>p.id}
     emptyMessage={emptyMessage}
-    striped
-    dense
-    loading={loading}
-    renderActions={(p) => {
-      const isArchived = Boolean(p.archivado_en);
+    striped dense loading={loading}
+    renderActions={(p)=>{
+      const isArch=Boolean(p.archivado_en);
       return (
         <ActionsMenu
-          isArchived={isArchived}
-          /* Editar solo si está activo */
-          onEdit={!isArchived ? () => onEdit(p) : undefined}
-          onArchiveOrRestore={() => onArchiveOrRestore(p.id, isArchived)}
-          onDelete={() => onDelete(p.id)}
+          isArchived={isArch}
+          onEdit={!isArch?()=>onEdit(p):undefined}
+          onArchiveOrRestore={()=>onArchiveOrRestore(p.id,isArch)}
+          onDelete={()=>onDelete(p.id)}
         />
       );
     }}

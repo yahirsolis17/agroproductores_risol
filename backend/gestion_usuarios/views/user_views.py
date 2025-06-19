@@ -99,7 +99,8 @@ class PermisoViewSet(ReadOnlyModelViewSet):
 class RegistroActividadViewSet(viewsets.ModelViewSet):
     queryset = RegistroActividad.objects.all()
     serializer_class = RegistroActividadSerializer
-    filter_backends = [filters.OrderingFilter]
+    filter_backends = [filters.OrderingFilter, filters.SearchFilter]
+    search_fields = ["accion", "detalles", "ip", "usuario__telefono"]
     ordering_fields = ["fecha_hora"]
     ordering = ["-fecha_hora"]
 
@@ -252,6 +253,17 @@ class UsuarioViewSet(ModelViewSet):
         registrar_actividad(request.user, f"Eliminó usuario {instance.id}")
 
         return NotificationHandler.generate_response(message_key="delete_success")
+
+    def get_queryset(self):
+        estado = self.request.query_params.get('estado')  # activos | archivados | todos
+        queryset = Users.objects.all()
+
+        if estado == 'activos':
+            queryset = queryset.filter(archivado_en__isnull=True)
+        elif estado == 'archivados':
+            queryset = queryset.filter(archivado_en__isnull=False)
+
+        return queryset
 
 # --------------------------------------------------------------------------- #
 #                            UTILIDADES ADICIONALES                           #

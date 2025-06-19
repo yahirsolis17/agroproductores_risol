@@ -2,7 +2,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { userService } from '../../modules/gestion_usuarios/services/userService';
 import { User, PaginationMeta } from '../../modules/gestion_usuarios/types/userTypes';
-
 interface UserState {
   list: User[];
   loading: boolean;
@@ -10,6 +9,7 @@ interface UserState {
   loaded: boolean;
   page: number;
   pageSize: number;
+  estado: 'activos' | 'archivados' | 'todos';
   meta: PaginationMeta;
 }
 
@@ -20,21 +20,19 @@ const initialState: UserState = {
   loaded: false,
   page: 1,
   pageSize: 10,
+  estado: 'activos',
   meta: { count: 0, next: null, previous: null },
 };
 
 export const fetchUsers = createAsyncThunk(
   'user/fetchAll',
-  async (page: number) => {
-    const response = await userService.list(page);
+  async ({ page, estado }: { page: number; estado: 'activos' | 'archivados' | 'todos' }) => {
+    const response = await userService.list(page, estado);
     return {
       users: response.data.results,
-      meta: {
-        count: response.data.count,
-        next: response.data.next,
-        previous: response.data.previous,
-      } as PaginationMeta,
+      meta: response.data.meta,
       page,
+      estado,
     };
   }
 );
@@ -45,6 +43,10 @@ const userSlice = createSlice({
   reducers: {
     setPage: (state, action: PayloadAction<number>) => {
       state.page = action.payload;
+    },
+    setEstado: (state, action: PayloadAction<'activos' | 'archivados' | 'todos'>) => {
+      state.estado = action.payload;
+      state.page = 1; // reset al cambiar filtro
     },
   },
   extraReducers: (builder) => {
@@ -57,6 +59,7 @@ const userSlice = createSlice({
         state.list = payload.users;
         state.meta = payload.meta;
         state.page = payload.page;
+        state.estado = payload.estado;
         state.loading = false;
         state.loaded = true;
       })
@@ -68,5 +71,5 @@ const userSlice = createSlice({
   },
 });
 
-export const { setPage } = userSlice.actions;
+export const { setPage, setEstado } = userSlice.actions;
 export default userSlice.reducer;

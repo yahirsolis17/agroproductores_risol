@@ -39,6 +39,7 @@ from gestion_huerta.permissions import (
 from gestion_huerta.utils.activity import registrar_actividad
 from gestion_huerta.utils.notification_handler import NotificationHandler
 from gestion_huerta.utils.audit import ViewSetAuditMixin        # ⬅️ auditoría
+from agroproductores_risol.utils.pagination import GenericPagination
 
 logger = logging.getLogger(__name__)
 
@@ -46,11 +47,6 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Paginar 100 → máximo y permitir ?page_size=
 # ---------------------------------------------------------------------------
-class GenericPagination(PageNumberPagination):
-    page_size = 10
-    page_size_query_param = "page_size"
-    max_page_size = 100
-
 
 # ---------------------------------------------------------------------------
 # Mix-in que centraliza las respuestas uniformes
@@ -72,7 +68,6 @@ class NotificationMixin:
 class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
     queryset           = Propietario.objects.all().order_by("nombre")
     serializer_class   = PropietarioSerializer
-    pagination_class   = GenericPagination
     permission_classes = [
         IsAuthenticated,
         HasHuertaModulePermission,
@@ -191,6 +186,16 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
             data={"propietario": self.get_serializer(propietario).data},
         )
 
+    def get_queryset(self):
+        estado = self.request.query_params.get('estado')  # 'activos' | 'archivados' | 'todos'
+        queryset = Propietario.objects.all()
+
+        if estado == 'activos':
+            queryset = queryset.filter(archivado_en__isnull=True)
+        elif estado == 'archivados':
+            queryset = queryset.filter(archivado_en__isnull=False)
+
+        return queryset
 
 # ---------------------------------------------------------------------------
 #  🌳  HUERTAS PROPIAS
@@ -201,7 +206,6 @@ class HuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
     """
     queryset           = Huerta.objects.select_related("propietario").order_by("nombre")
     serializer_class   = HuertaSerializer
-    pagination_class   = GenericPagination
     permission_classes = [
         IsAuthenticated,
         HasHuertaModulePermission,
@@ -352,7 +356,6 @@ class HuertaRentadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelV
     CRUD + archivar/restaurar para Huerta Rentada.
     """
     serializer_class   = HuertaRentadaSerializer
-    pagination_class   = GenericPagination
     permission_classes = [
         IsAuthenticated,
         HasHuertaModulePermission,
