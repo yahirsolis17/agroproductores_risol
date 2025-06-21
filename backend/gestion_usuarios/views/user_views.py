@@ -54,7 +54,6 @@ class LoginView(APIView):
             "Inicio de sesión",
             "Login exitoso",
             request.META.get("REMOTE_ADDR"),
-            request.META.get("HTTP_USER_AGENT"),
         )
 
         return NotificationHandler.generate_response(

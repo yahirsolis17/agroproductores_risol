@@ -34,34 +34,47 @@ const columns: Column<Propietario>[] = [
   },
 ];
 
-const PropietarioTable:React.FC<Props>=({
-  data,page,pageSize,count,onPageChange,serverSidePagination=false,
-  onEdit,onArchiveOrRestore,onDelete,
-  emptyMessage='No hay propietarios registrados.',loading,
-})=>(
-  <TableLayout<Propietario>
-    data={data}
-    columns={columns}
-    page={page}
-    pageSize={pageSize}
-    count={count}
-    onPageChange={onPageChange}
-    serverSidePagination={serverSidePagination}
-    rowKey={(p)=>p.id}
-    emptyMessage={emptyMessage}
-    striped dense loading={loading}
-    renderActions={(p)=>{
-      const isArch=Boolean(p.archivado_en);
-      return (
-        <ActionsMenu
-          isArchived={isArch}
-          onEdit={!isArch?()=>onEdit(p):undefined}
-          onArchiveOrRestore={()=>onArchiveOrRestore(p.id,isArch)}
-          onDelete={()=>onDelete(p.id)}
-        />
-      );
-    }}
-  />
-);
+const PropietarioTable: React.FC<Props> = ({
+  data,
+  page,
+  pageSize,
+  count,
+  onPageChange,
+  serverSidePagination = true,   // 🔹 activa por defecto
+  onEdit,
+  onArchiveOrRestore,
+  onDelete,
+  emptyMessage = 'No hay propietarios registrados.',
+  loading,
+}) => {
+  return (
+    <TableLayout<Propietario>
+      data={data}
+      columns={columns}
+      page={page}
+      pageSize={pageSize}
+      count={count}
+      onPageChange={onPageChange}
+      serverSidePagination={serverSidePagination}
+      rowKey={(p) => p.id}
+      emptyMessage={emptyMessage}
+      striped
+      dense
+      loading={loading}
+      renderActions={(p) => {
+        const isArch = Boolean(p.archivado_en);
+        return (
+          <ActionsMenu
+            isArchived={isArch}
+            onEdit={!isArch ? () => onEdit(p) : undefined}
+            onArchiveOrRestore={() => onArchiveOrRestore(p.id, isArch)}
+            onDelete={() => onDelete(p.id)}
+          />
+        );
+      }}
+    />
+  );
+};
+
 
 export default PropietarioTable;

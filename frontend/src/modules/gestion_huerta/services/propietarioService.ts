@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import apiClient from '../../../global/api/apiClient';
 import {
   Propietario,
@@ -5,77 +6,75 @@ import {
   PropietarioUpdateData,
 } from '../types/propietarioTypes';
 
-/* ---------- Respuestas ---------- */
-export interface PropietarioListResponse {
+/* -------------------------------------------------------------------------- */
+/*  Interfaces de respuesta                                                   */
+/* -------------------------------------------------------------------------- */
+interface ListResp {
   propietarios: Propietario[];
   meta: { count: number; next: string | null; previous: string | null };
 }
 
-/* ---------- Service ---------- */
+interface ItemWrapper { propietario: Propietario }
+
+/* -------------------------------------------------------------------------- */
+/*  Helper → traduce estado ☞ query param “archivado”                         */
+/* -------------------------------------------------------------------------- */
+const estadoToQuery = (estado: 'activos'|'archivados'|'todos') =>
+  estado === 'todos' ? undefined : (estado === 'activos' ? 'false' : 'true');
+
+/* -------------------------------------------------------------------------- */
+/*  API                                                                      */
+/* -------------------------------------------------------------------------- */
 export const propietarioService = {
-  /* LIST */
-  async list(page = 1, estado: 'activos' | 'archivados' | 'todos') {
-    const qp = new URLSearchParams({ page: String(page) });
-    if (estado !== 'todos') qp.append('estado', estado);
+  /* ------------ LIST ------------ */
+  async list(page = 1, estado: 'activos'|'archivados'|'todos' = 'activos') {
+    const params: Record<string, any> = { page };
+    const arch = estadoToQuery(estado);
+    if (arch !== undefined) params.archivado = arch;
 
-    // wrapper = { success, message_key, data: { propietarios, meta } }
-    const { data: wrapper } = await apiClient.get<{
-      success: boolean;
-      message_key: string;
-      data: PropietarioListResponse;
-    }>(`/huerta/propietarios/?${qp.toString()}`);
+    const { data } = await apiClient.get<{
+      success: boolean; message_key: string; data: ListResp;
+    }>('/huerta/propietarios/', { params });
 
-    return wrapper.data; // → { propietarios, meta }
+    return data.data;   // { propietarios, meta }
   },
 
-  /* CREATE */
+  /* ------------ CREATE ------------ */
   async create(payload: PropietarioCreateData) {
-    // wrapper.data = { propietario }
-    const { data: wrapper } = await apiClient.post<{
-      success: boolean;
-      message_key: string;
-      data: { propietario: Propietario };
+    const { data } = await apiClient.post<{
+      success: boolean; message_key: string; data: ItemWrapper;
     }>('/huerta/propietarios/', payload);
-
-    return wrapper; // devolvemos el wrapper completo
+    return data;
   },
 
-  /* UPDATE */
+  /* ------------ UPDATE ------------ */
   async update(id: number, payload: PropietarioUpdateData) {
-    const { data: wrapper } = await apiClient.put<{
-      success: boolean;
-      message_key: string;
-      data: { propietario: Propietario };
+    const { data } = await apiClient.put<{
+      success: boolean; message_key: string; data: ItemWrapper;
     }>(`/huerta/propietarios/${id}/`, payload);
-    return wrapper;
+    return data;
   },
 
-  /* DELETE */
+  /* ------------ DELETE ------------ */
   async delete(id: number) {
-    const { data: wrapper } = await apiClient.delete<{
-      success: boolean;
-      message_key: string;
-      data: { info: string };
+    const { data } = await apiClient.delete<{
+      success: boolean; message_key: string; data: { info: string };
     }>(`/huerta/propietarios/${id}/`);
-    return wrapper;
+    return data;
   },
 
-  /* ARCHIVAR / RESTAURAR */
+  /* ------------ ARCHIVAR / RESTAURAR ------------ */
   async archive(id: number) {
-    const { data: wrapper } = await apiClient.patch<{
-      success: boolean;
-      message_key: string;
-      data: { propietario: Propietario };
+    const { data } = await apiClient.patch<{
+      success: boolean; message_key: string; data: ItemWrapper;
     }>(`/huerta/propietarios/${id}/archivar/`);
-    return wrapper;
+    return data;
   },
 
   async restore(id: number) {
-    const { data: wrapper } = await apiClient.patch<{
-      success: boolean;
-      message_key: string;
-      data: { propietario: Propietario };
+    const { data } = await apiClient.patch<{
+      success: boolean; message_key: string; data: ItemWrapper;
     }>(`/huerta/propietarios/${id}/restaurar/`);
-    return wrapper;
+    return data;
   },
 };

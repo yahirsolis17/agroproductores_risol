@@ -10,7 +10,6 @@ class DummyReq:
     def __init__(self):
         self.META = {
             "REMOTE_ADDR": "127.0.0.1",
-            "HTTP_USER_AGENT": "pytest‑bot",
         }
 
 

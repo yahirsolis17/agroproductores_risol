@@ -1,16 +1,19 @@
+/* eslint-disable @typescript-eslint/explicit-module-boundary-types */
 import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../../global/store/store';
 import {
   fetchPropietarios,
-  createPropietario,
-  updatePropietario,
-  deletePropietario,
-  archivePropietario,
-  restorePropietario,
   setPage,
   setEstado,
+  createPropietario,
+  updatePropietario,
+  archivePropietario as archivePropietarioThunk,
+  restorePropietario as restorePropietarioThunk,
+  deletePropietario,
+  Estado,
 } from '../../../global/store/propietariosSlice';
 import {
+  Propietario,
   PropietarioCreateData,
   PropietarioUpdateData,
 } from '../types/propietarioTypes';
@@ -18,46 +21,63 @@ import {
 export function usePropietarios() {
   const dispatch = useAppDispatch();
 
+  /* ---------- estado global ---------- */
   const {
     list: propietarios,
     loading,
     error,
-    loaded,
     page,
-    meta,
     estado,
+    meta,
   } = useAppSelector((s) => s.propietarios);
 
-  /* ---------- side-effects ---------- */
+  /* ---------- fetch automático al cambiar page/estado ---------- */
   useEffect(() => {
-    if (!loaded && !loading) {
-      dispatch(fetchPropietarios({ page, estado }));
-    }
-  }, [dispatch, loaded, loading, page, estado]);
+    dispatch(fetchPropietarios({ page, estado }));
+  }, [dispatch, page, estado]);
 
   /* ---------- CRUD wrappers ---------- */
-  const addPropietario      = (p: PropietarioCreateData)            => dispatch(createPropietario(p)).unwrap();
-  const editPropietario     = (id: number, p: PropietarioUpdateData) => dispatch(updatePropietario({ id, payload: p }));
-  const removePropietario   = (id: number)                           => dispatch(deletePropietario(id)).unwrap();
-  const archivarPropietario = (id: number)                           => dispatch(archivePropietario(id)).unwrap();
-  const restaurarPropietario= (id: number)                           => dispatch(restorePropietario(id)).unwrap();
+  const addPropietario = (v: PropietarioCreateData): Promise<Propietario> =>
+    dispatch(createPropietario(v)).unwrap();
+const refetch = () => dispatch(fetchPropietarios({ page, estado }));
 
-  const refetch = () => dispatch(fetchPropietarios({ page, estado }));
+  const editPropietario = (
+    id: number,
+    v: PropietarioUpdateData
+  ): Promise<Propietario> =>
+    dispatch(updatePropietario({ id, payload: v })).unwrap();
 
+  /** archiva y devuelve el objeto archivado */
+  const doArchivePropietario = (id: number): Promise<Propietario> =>
+    dispatch(archivePropietarioThunk(id)).unwrap();
+
+  /** restaura y devuelve el objeto restaurado */
+  const doRestorePropietario = (id: number): Promise<Propietario> =>
+    dispatch(restorePropietarioThunk(id)).unwrap();
+
+  /** elimina y devuelve el id eliminado */
+  const removePropietario = (id: number): Promise<number> =>
+    dispatch(deletePropietario(id)).unwrap();
+
+  /* ---------- API del hook ---------- */
   return {
     propietarios,
     loading,
     error,
-    meta,
     page,
     estado,
-    setPage:   (p: number)                          => dispatch(setPage(p)),
-    setEstado: (e: 'activos' | 'archivados' | 'todos') => dispatch(setEstado(e)),
+    meta,
+
+    /* navegación */
+    changePage:   (p: number)           => dispatch(setPage(p)),
+    changeEstado: (e: Estado)           => dispatch(setEstado(e)),
+
+    /* acciones */
     addPropietario,
     editPropietario,
+    archivePropietario: doArchivePropietario,
+    restorePropietario: doRestorePropietario,
     removePropietario,
-    archivarPropietario,
-    restaurarPropietario,
-    fetchPropietarios: refetch,
+    refetch,
   };
 }

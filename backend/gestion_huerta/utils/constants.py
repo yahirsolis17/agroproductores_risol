@@ -73,19 +73,19 @@ NOTIFICATION_MESSAGES = {
         "type": "success"
     },
     "huerta_archivada": {
-        "message": "Huerta archivada correctamente.",
+        "message": "Huerta archivada correctamente back.",
         "type": "success"
     },
     "huerta_restaurada": {
-        "message": "Huerta restaurada correctamente.",
+        "message": "Huerta restaurada correctamente back.",
         "type": "success"
     },
     "ya_esta_archivada": {
-        "message": "La huerta ya está archivada.",
+        "message": "La huerta ya está archivada back.",
         "type": "info"
     },
     "ya_esta_activa": {
-        "message": "La huerta ya está activa.",
+        "message": "La huerta ya está activa back.",
         "type": "info"
     },
     "huerta_debe_estar_archivada": {
