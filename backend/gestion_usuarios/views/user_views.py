@@ -3,7 +3,6 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from rest_framework.response import Response
 from rest_framework import status, viewsets, filters
-from rest_framework.throttling import UserRateThrottle
 from rest_framework.decorators import action
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
@@ -22,24 +21,11 @@ from gestion_usuarios.serializers import (
     RegistroActividadSerializer,
 )
 
-# ----- Throttles ------------------------------------------------------------
-class LoginThrottle(UserRateThrottle):
-    rate = "5/min"
-
-
-class RefreshTokenThrottle(UserRateThrottle):
-    scope = "refresh_token"
-
-
-class PermissionsThrottle(UserRateThrottle):
-    scope = "permissions"
-
 # --------------------------------------------------------------------------- #
 #                                 AUTH VIEWS                                  #
 # --------------------------------------------------------------------------- #
 class LoginView(APIView):
     permission_classes = [AllowAny]
-    throttle_classes = [LoginThrottle]
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data, context={"request": request})
@@ -82,7 +68,7 @@ class LogoutView(APIView):
 
 
 class CustomTokenRefreshView(TokenRefreshView):
-    throttle_classes = [RefreshTokenThrottle]
+    pass  # throttle_classes = [RefreshTokenThrottle]  # Eliminado
 
 
 # --------------------------------------------------------------------------- #
@@ -312,7 +298,6 @@ class ChangePasswordView(APIView):
 
 class MeView(APIView):
     permission_classes = [IsAuthenticated]
-    throttle_classes = [PermissionsThrottle]
 
     def get(self, request):
         return Response(UsuarioSerializer(request.user).data)

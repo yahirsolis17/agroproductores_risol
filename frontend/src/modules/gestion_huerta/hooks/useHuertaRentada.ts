@@ -1,12 +1,18 @@
-// src/modules/gestion_huerta/hooks/useHuertasRentadas.ts
-import { useEffect, useState } from 'react';
+/* eslint-disable react-hooks/exhaustive-deps */
+import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../../global/store/store';
 import {
   fetchHuertasRentadas,
   createHuertaRentada,
   updateHuertaRentada,
   deleteHuertaRentada,
-  setPage,
+  setHRPage,
+  setHREstado,
+  setHRFilters,
+  HRFilters,
+  Estado,
+  archiveHuertaRentada,
+  restoreHuertaRentada,
 } from '../../../global/store/huertaRentadaSlice';
 import {
   HuertaRentada,
@@ -14,50 +20,57 @@ import {
   HuertaRentadaUpdateData,
 } from '../types/huertaRentadaTypes';
 
+/** Hook para HUERTAS RENTADAS */
 export function useHuertasRentadas() {
   const dispatch = useAppDispatch();
   const {
-    list, loading, error, loaded, page, meta,
-  } = useAppSelector((state) => state.huertaRentada);
+    list,
+    loading,
+    error,
+    meta,
+    page,
+    estado,
+    filters,
+  } = useAppSelector((s) => s.huertaRentada);
 
-  const [localHuertas, setLocalHuertas] = useState<HuertaRentada[]>([]);
-
-  // 1. Sincronizar lista local
   useEffect(() => {
-    setLocalHuertas(list);
-  }, [list]);
+    dispatch(fetchHuertasRentadas({ page, estado, filters }));
+  }, [dispatch, page, estado, filters]);
 
-  // 2. Primera carga si no está cargado
-  useEffect(() => {
-    if (!loaded && !loading) dispatch(fetchHuertasRentadas(page));
-  }, [dispatch, loaded, loading, page]);
+  /* ——— helpers redux ——— */
+  const changePage    = (n: number)        => dispatch(setHRPage(n));
+  const changeEstado  = (e: Estado)        => dispatch(setHREstado(e));
+  const changeFilters = (f: HRFilters)     => dispatch(setHRFilters(f));
+  const refetch       = ()                 => dispatch(fetchHuertasRentadas({ page, estado, filters }));
 
-  // CRUD
-  const addHuerta = (payload: HuertaRentadaCreateData): Promise<HuertaRentada> =>
-    dispatch(createHuertaRentada(payload)).unwrap();
+  /* ——— CRUD ——— */
+  const addHuerta = (p: HuertaRentadaCreateData): Promise<HuertaRentada> =>
+    dispatch(createHuertaRentada(p)).unwrap();
 
-  const editHuerta = (id: number, payload: HuertaRentadaUpdateData) =>
-    dispatch(updateHuertaRentada({ id, payload }));
+  const editHuerta = (id: number, p: HuertaRentadaUpdateData) =>
+    dispatch(updateHuertaRentada({ id, payload: p }));
 
   const removeHuerta = (id: number) => dispatch(deleteHuertaRentada(id));
 
-  const refetchHuertas = () => dispatch(fetchHuertasRentadas(page));
-
-  const toggleActivoLocal = (id: number, activo: boolean) =>
-    setLocalHuertas((hs) => hs.map((h) => (h.id === id ? { ...h, is_active: activo } : h)));
+  const archive = (id: number) => dispatch(archiveHuertaRentada(id)).unwrap();
+  const restore = (id: number) => dispatch(restoreHuertaRentada(id)).unwrap();
 
   return {
-    huertas: localHuertas,
+    huertas: list,
     loading,
     error,
-    loaded,
     meta,
     page,
-    setPage: (n: number) => dispatch(setPage(n)),
+    estado,
+    filters,
+    setPage:        changePage,
+    changeEstado,
+    changeFilters,
+    refetch,
     addHuerta,
     editHuerta,
     removeHuerta,
-    fetchHuertas: refetchHuertas,
-    toggleActivoLocal,
+    archive,
+    restore,
   };
 }

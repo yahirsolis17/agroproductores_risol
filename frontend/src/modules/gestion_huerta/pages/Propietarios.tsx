@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* ──────────────────────────────────────────────────────────────
  *  src/modules/gestion_huerta/pages/Propietarios.tsx
- * ─ Tabla con paginación/filtros de backend + UI fluida
+ * ─ Tabla con paginación + filtros backend + filtro local “autocomplete”
  * ──────────────────────────────────────────────────────────── */
 import React, { useState, useEffect } from 'react';
 import {
@@ -19,12 +19,11 @@ import {
 } from '@mui/material';
 import { motion } from 'framer-motion';
 
-import PropietarioToolbar from '../components/propietario/PropietarioToolbar';
-import PropietarioTable   from '../components/propietario/PropietarioTable';
+import PropietarioToolbar   from '../components/propietario/PropietarioToolbar';
+import PropietarioTable     from '../components/propietario/PropietarioTable';
 import PropietarioFormModal from '../components/propietario/PropietarioFormModal';
 
 import { usePropietarios } from '../hooks/usePropietarios';
-
 import {
   PropietarioCreateData,
   Propietario as PropietarioT,
@@ -40,7 +39,6 @@ const pageSize = 10;
  *  Componente principal
  * ──────────────────────────────────────────────────────────── */
 const Propietarios: React.FC = () => {
-  /* -------- hooks globales -------- */
   const {
     propietarios,
     loading,
@@ -49,6 +47,7 @@ const Propietarios: React.FC = () => {
     estado,
     changePage,
     changeEstado,
+    changeFilters,      // ← thunk para enviar filtros al backend
     addPropietario,
     editPropietario,
     archivePropietario,
@@ -57,17 +56,28 @@ const Propietarios: React.FC = () => {
     refetch,
   } = usePropietarios();
 
-  /* Cuando un propietario cambia ⇒ refrescar huertas (dueño) */
-  /* refetch ya está disponible desde el hook anterior */
+  /* ──────────────────────────────────────────────────────────────
+   *  Filtro “autocomplete” local enviado al backend
+   * ──────────────────────────────────────────────────────────── */
+  // preparamos las opciones únicas de nombre
+  const nombreOptions = propietarios.map((p) => ({
+    label: `${p.nombre} ${p.apellidos} - ${p.telefono}`,
+    value: p.nombre, // el filtro sigue aplicando solo por nombre, esto no cambia
+  }));
+  // cuando el usuario selecciona un nombre, lo mandamos como filtro “search”
+  const handleFilterChange = (filters: Record<string, any>) => {
+    changeFilters({ search: filters.nombre || '' });
+  };
 
-  /* -------- UI local -------- */
+  /* ──────────────────────────────────────────────────────────────
+   *  UI local (modales, confirmaciones, spinner diferido)
+   * ──────────────────────────────────────────────────────────── */
   const [editOpen,   setEditOpen]   = useState(false);
   const [editTarget, setEditTarget] = useState<PropietarioT | null>(null);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmId,   setConfirmId]   = useState<number>(0);
 
-  /* Spinner diferido para evitar parpadeo al cambiar tabs */
   const [showSpinner, setShowSpinner] = useState(false);
   useEffect(() => {
     let t: any;
@@ -76,42 +86,37 @@ const Propietarios: React.FC = () => {
     return () => clearTimeout(t);
   }, [loading]);
 
-  /* -------- CRUD helpers -------- */
+  /* ──────────────────────────────────────────────────────────────
+   *  CRUD helpers
+   * ──────────────────────────────────────────────────────────── */
   const handleCreate = async (p: PropietarioCreateData) => {
     await addPropietario(p);
     refetch();
   };
-
   const handleEditSubmit = async (vals: PropietarioCreateData) => {
     if (!editTarget) return;
     await editPropietario(editTarget.id, vals);
     setEditOpen(false);
   };
-
   const launchEdit = (p: PropietarioT) => {
     setEditTarget(p);
     setEditOpen(true);
   };
-
-  /** Cambia estado con optimismo visual */
   const handleArchiveOrRestore = async (id: number, archivado: boolean) => {
     if (archivado) await restorePropietario(id);
     else           await archivePropietario(id);
     refetch();
   };
-
   const askDelete = (id: number) => {
     setConfirmId(id);
     setConfirmOpen(true);
   };
-
   const confirmDelete = async () => {
     await removePropietario(confirmId);
     refetch();
     setConfirmOpen(false);
   };
 
-  /* -------- Render -------- */
   const emptyMsg =
     estado === 'activos'
       ? 'No hay propietarios activos.'
@@ -131,10 +136,10 @@ const Propietarios: React.FC = () => {
           Gestión de Propietarios
         </Typography>
 
-        {/* Toolbar: alta rápida */}
+        {/* Toolbar de alta rápida */}
         <PropietarioToolbar onCreate={handleCreate} />
 
-        {/* Tabs: filtro de backend */}
+        {/* ──────────────── Tabs de estado ──────────────── */}
         <Tabs
           value={estado}
           onChange={(_, v) => changeEstado(v as Estado)}
@@ -147,7 +152,7 @@ const Propietarios: React.FC = () => {
           <Tab value="todos"      label="Todos" />
         </Tabs>
 
-        {/* Tabla o spinner */}
+        {/* ────────────── Tabla con filtro autocomplete ────────────── */}
         {showSpinner ? (
           <Box display="flex" justifyContent="center" mt={6}>
             <CircularProgress />
@@ -159,6 +164,20 @@ const Propietarios: React.FC = () => {
             pageSize={pageSize}
             count={meta.count}
             serverSidePagination
+
+            /** ↓↓↓ aquí van los filtros dinámicos ↓↓↓ */
+            filterConfig={[
+              {
+                key: 'nombre',
+                label: 'Nombre',
+                type: 'autocomplete',
+                options: nombreOptions,
+                width: 320,
+              },
+            ]}
+            onFilterChange={handleFilterChange}
+            applyFiltersInternally={false}  // seguimos paginando + filtrando por backend
+
             onPageChange={changePage}
             onEdit={launchEdit}
             onArchiveOrRestore={handleArchiveOrRestore}
@@ -169,7 +188,7 @@ const Propietarios: React.FC = () => {
         )}
       </Paper>
 
-      {/* -------- Modal edición -------- */}
+      {/* ─────────── Modal edición ─────────── */}
       <PropietarioFormModal
         open={editOpen}
         onClose={() => setEditOpen(false)}
@@ -187,7 +206,7 @@ const Propietarios: React.FC = () => {
         onSubmit={handleEditSubmit}
       />
 
-      {/* -------- Confirm delete -------- */}
+      {/* ───────── Confirmación de borrado ───────── */}
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
         <DialogTitle>Confirmar eliminación</DialogTitle>
         <DialogContent>¿Eliminar propietario definitivamente?</DialogContent>

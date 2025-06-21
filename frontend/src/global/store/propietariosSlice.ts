@@ -27,6 +27,7 @@ interface PropietarioState {
   page:    number;
   estado:  Estado;
   meta:    PaginationMeta;
+  filters: { search?: string };
 }
 
 const initialState: PropietarioState = {
@@ -37,6 +38,7 @@ const initialState: PropietarioState = {
   page: 1,
   estado: 'activos',
   meta: { count: 0, next: null, previous: null },
+  filters: {},
 };
 
 /* -------------------------------------------------------------------------- */
@@ -44,10 +46,19 @@ const initialState: PropietarioState = {
 /* -------------------------------------------------------------------------- */
 export const fetchPropietarios = createAsyncThunk(
   'propietarios/fetch',
-  async ({ page, estado }: { page: number; estado: 'activos' | 'archivados' | 'todos' }) => {
-    return await propietarioService.list(page, estado);
+  async ({
+    page,
+    estado,
+    filters,
+  }: {
+    page: number;
+    estado: 'activos' | 'archivados' | 'todos';
+    filters?: { search?: string };
+  }) => {
+    return await propietarioService.list(page, estado, filters);
   }
 );
+
 
 
 export const createPropietario = createAsyncThunk(
@@ -132,6 +143,10 @@ const propietariosSlice = createSlice({
   reducers: {
     setPage:   (s, a: PayloadAction<number>) => { s.page = a.payload; },
     setEstado: (s, a: PayloadAction<Estado>) => { s.estado = a.payload; s.page = 1; },
+    setFilters: (s, a: PayloadAction<{ search?: string }>) => {
+    s.filters = a.payload;
+    s.page = 1; // reiniciamos la página al cambiar filtro
+  },
   },
   extraReducers: (b) => {
     /* -------- fetch -------- */
@@ -186,5 +201,5 @@ const propietariosSlice = createSlice({
   },
 });
 
-export const { setPage, setEstado } = propietariosSlice.actions;
+export const { setPage, setEstado, setFilters } = propietariosSlice.actions;
 export default propietariosSlice.reducer;

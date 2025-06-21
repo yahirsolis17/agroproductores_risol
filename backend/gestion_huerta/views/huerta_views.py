@@ -24,7 +24,7 @@ from rest_framework.permissions import IsAuthenticated
 from gestion_huerta.models import (
     Propietario, Huerta, HuertaRentada
 )
-
+from django.db.models import Q
 # Serializadores
 from gestion_huerta.serializers import (
     PropietarioSerializer, HuertaSerializer, HuertaRentadaSerializer,
@@ -191,18 +191,14 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
 
     def get_queryset(self):
         qs     = Propietario.objects.all()
-        estado = self.request.query_params.get('estado')  # activos | archivados | todos
-
         params = self.request.query_params
 
-        # 🎯 Nuevo sistema estandarizado: ?estado=activos|archivados|todos
+        # 🔁 Filtro por estado
         if estado := params.get("estado"):
             if estado == 'activos':
                 qs = qs.filter(archivado_en__isnull=True)
             elif estado == 'archivados':
                 qs = qs.filter(archivado_en__isnull=False)
-            # estado='todos' → no filtrar
-        # 🔁 Backward compatibility (opcional)
         elif arch := params.get("archivado"):
             low = arch.lower()
             if low == "true":
@@ -210,12 +206,15 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
             elif low == "false":
                 qs = qs.filter(archivado_en__isnull=True)
 
-        # Filtro por nombre (búsqueda)
-        if nombre := params.get("nombre"):
-            qs = qs.filter(nombre__icontains=nombre)
+        # 🔍 NUEVO filtro inteligente tipo CRM
+        if search := params.get("search"):
+            qs = qs.filter(
+                Q(nombre__icontains=search) |
+                Q(telefono__icontains=search) |
+                Q(direccion__icontains=search)
+            )
 
         return qs
-
 
 
 # ---------------------------------------------------------------------------
@@ -227,38 +226,13 @@ class HuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
     """
     queryset           = Huerta.objects.select_related("propietario").order_by("nombre")
     serializer_class   = HuertaSerializer
+    pagination_class = GenericPagination
     permission_classes = [
         IsAuthenticated,
         HasHuertaModulePermission,
         HuertaGranularPermission,
     ]
 
-    # ------------- filtros dinámicos -------------
-
-    def get_queryset(self):
-        qs = Huerta.objects.select_related("propietario").order_by("nombre")
-        params = self.request.query_params
-
-        # 🎯 Filtro estandarizado: ?estado=activos|archivados|todos
-        if estado := params.get("estado"):
-            if estado == "activos":
-                qs = qs.filter(archivado_en__isnull=True)
-            elif estado == "archivados":
-                qs = qs.filter(archivado_en__isnull=False)
-            # estado='todos' → no filtrar
-        elif arch := params.get("archivado"):  # compatibilidad retro
-            if arch.lower() == "true":
-                qs = qs.filter(archivado_en__isnull=False)
-            elif arch.lower() == "false":
-                qs = qs.filter(archivado_en__isnull=True)
-
-        # 🔎 Filtro por propietario y nombre
-        if prop := params.get("propietario"):
-            qs = qs.filter(propietario_id=prop)
-        if nombre := params.get("nombre"):
-            qs = qs.filter(nombre__icontains=nombre)
-
-        return qs
 
     # ---------------- LIST ----------------
     def list(self, request, *args, **kwargs):
@@ -381,7 +355,38 @@ class HuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
             data={"huerta_id": instance.id}
         )
 
+    def get_queryset(self):
+        qs     = Huerta.objects.select_related("propietario").order_by("nombre")
+        params = self.request.query_params
 
+        # 🔁 Estado (activos / archivados)
+        if estado := params.get("estado"):
+            if estado == 'activos':
+                qs = qs.filter(archivado_en__isnull=True)
+            elif estado == 'archivados':
+                qs = qs.filter(archivado_en__isnull=False)
+        elif arch := params.get("archivado"):
+            low = arch.lower()
+            if low == "true":
+                qs = qs.filter(archivado_en__isnull=False)
+            elif low == "false":
+                qs = qs.filter(archivado_en__isnull=True)
+
+        # 🔍 Búsqueda global (`search`) en nombre / ubicación / variedades
+        if search := params.get("search"):
+            qs = qs.filter(
+                Q(nombre__icontains=search)     |
+                Q(ubicacion__icontains=search)  |
+                Q(variedades__icontains=search)
+            )
+
+        # 🎯 Filtros específicos
+        if prop := params.get("propietario"):
+            qs = qs.filter(propietario_id=prop)
+        if nombre := params.get("nombre"):
+            qs = qs.filter(nombre__icontains=nombre)
+
+        return qs
 # ---------------------------------------------------------------------------
 #  🏡  HUERTAS RENTADAS
 # ---------------------------------------------------------------------------
@@ -390,38 +395,12 @@ class HuertaRentadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelV
     CRUD + archivar/restaurar para Huerta Rentada.
     """
     serializer_class   = HuertaRentadaSerializer
+    pagination_class = GenericPagination
     permission_classes = [
         IsAuthenticated,
         HasHuertaModulePermission,
         HuertaGranularPermission,
     ]
-
-    # ------------- filtros dinámicos -------------
-
-    def get_queryset(self):
-        qs = HuertaRentada.objects.select_related("propietario").order_by("nombre")
-        params = self.request.query_params
-
-        # 🎯 Filtro estandarizado: ?estado=activos|archivados|todos
-        if estado := params.get("estado"):
-            if estado == "activos":
-                qs = qs.filter(archivado_en__isnull=True)
-            elif estado == "archivados":
-                qs = qs.filter(archivado_en__isnull=False)
-        elif arch := params.get("archivado"):  # compatibilidad retro
-            if arch.lower() == "true":
-                qs = qs.filter(archivado_en__isnull=False)
-            elif arch.lower() == "false":
-                qs = qs.filter(archivado_en__isnull=True)
-
-        # 🔎 Filtro por propietario y nombre
-        if prop := params.get("propietario"):
-            qs = qs.filter(propietario_id=prop)
-        if nombre := params.get("nombre"):
-            qs = qs.filter(nombre__icontains=nombre)
-
-        return qs
-
     
     # ---------------- LIST ----------------
     def list(self, request, *args, **kwargs):
@@ -537,3 +516,36 @@ class HuertaRentadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelV
             key="huerta_restaurada",
             data={"huerta_rentada_id": instance.id}
         )
+
+    def get_queryset(self):
+        qs     = HuertaRentada.objects.select_related("propietario").order_by("nombre")
+        params = self.request.query_params
+
+        # 🔁 Estado
+        if estado := params.get("estado"):
+            if estado == 'activos':
+                qs = qs.filter(archivado_en__isnull=True)
+            elif estado == 'archivados':
+                qs = qs.filter(archivado_en__isnull=False)
+        elif arch := params.get("archivado"):
+            low = arch.lower()
+            if low == "true":
+                qs = qs.filter(archivado_en__isnull=False)
+            elif low == "false":
+                qs = qs.filter(archivado_en__isnull=True)
+
+        # 🔍 Búsqueda global
+        if search := params.get("search"):
+            qs = qs.filter(
+                Q(nombre__icontains=search)    |
+                Q(ubicacion__icontains=search) |
+                Q(variedades__icontains=search)
+            )
+
+        # 🎯 Filtros específicos
+        if prop := params.get("propietario"):
+            qs = qs.filter(propietario_id=prop)
+        if nombre := params.get("nombre"):
+            qs = qs.filter(nombre__icontains=nombre)
+
+        return qs

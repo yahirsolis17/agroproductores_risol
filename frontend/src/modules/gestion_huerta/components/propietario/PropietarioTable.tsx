@@ -1,6 +1,7 @@
+// src/modules/gestion_huerta/components/propietario/PropietarioTable.tsx
 import React from 'react';
 import { Chip } from '@mui/material';
-import { TableLayout, Column } from '../../../../components/common/TableLayout';
+import { TableLayout, Column, FilterConfig } from '../../../../components/common/TableLayout';
 import { Propietario } from '../../types/propietarioTypes';
 import ActionsMenu from '../common/ActionsMenu';
 
@@ -15,6 +16,11 @@ interface Props {
   onEdit:   (p: Propietario) => void;
   onArchiveOrRestore: (id: number, isArchived: boolean) => void;
   onDelete:           (id: number) => void;
+
+  /** ↓↓↓ Nuevas props para filtros dinámicos ↓↓↓ */
+  filterConfig?: FilterConfig[];
+  onFilterChange?: (filters: Record<string, any>) => void;
+  applyFiltersInternally?: boolean;
 
   emptyMessage?: string;
   loading?: boolean;
@@ -40,10 +46,13 @@ const PropietarioTable: React.FC<Props> = ({
   pageSize,
   count,
   onPageChange,
-  serverSidePagination = true,   // 🔹 activa por defecto
+  serverSidePagination = true,
   onEdit,
   onArchiveOrRestore,
   onDelete,
+  filterConfig = [],
+  onFilterChange,
+  applyFiltersInternally = false,
   emptyMessage = 'No hay propietarios registrados.',
   loading,
 }) => {
@@ -56,6 +65,12 @@ const PropietarioTable: React.FC<Props> = ({
       count={count}
       onPageChange={onPageChange}
       serverSidePagination={serverSidePagination}
+
+      /** configuramos el filtro como en Huertas */
+      filterConfig={filterConfig}
+      onFilterChange={onFilterChange}
+      applyFiltersInternally={applyFiltersInternally}
+
       rowKey={(p) => p.id}
       emptyMessage={emptyMessage}
       striped
@@ -75,6 +90,5 @@ const PropietarioTable: React.FC<Props> = ({
     />
   );
 };
-
 
 export default PropietarioTable;

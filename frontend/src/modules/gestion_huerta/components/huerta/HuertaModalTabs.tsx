@@ -1,5 +1,13 @@
+// src/modules/gestion_huerta/components/huerta/HuertaModalTabs.tsx
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogTitle, Tabs, Tab, DialogContent, Box } from '@mui/material';
+import {
+  Dialog,
+  DialogTitle,
+  Tabs,
+  Tab,
+  DialogContent,
+  Box,
+} from '@mui/material';
 
 import HuertaFormModal from './HuertaFormModal';
 import HuertaRentadaFormModal from '../huerta_rentada/HuertaRentadaFormModal';
@@ -19,21 +27,29 @@ interface Props {
 
   propietarios: Propietario[];
   onRegisterNewPropietario: () => void;
+  loading?: boolean; 
+  // <–– Nuevo prop para auto-selección
+  defaultPropietarioId?: number;
 
   editTarget?: { tipo: TipoTab; data: any };
 }
 
 const HuertaModalTabs: React.FC<Props> = (p) => {
   const [tab, setTab] = useState<TipoTab>('propia');
-  const lock = Boolean(p.editTarget); // No cambiar pestaña si estamos en edición
+  const lock = Boolean(p.editTarget);
 
   useEffect(() => {
     if (p.editTarget) setTab(p.editTarget.tipo);
-    else               setTab('propia'); // ← reset al abrir para alta
+    else setTab('propia');
   }, [p.editTarget, p.open]);
 
   return (
-    <Dialog open={p.open} onClose={p.onClose} fullWidth maxWidth="sm">
+    <Dialog
+      open={p.open}
+      onClose={p.onClose}
+      fullWidth
+      maxWidth="sm"
+    >
       <DialogTitle className="text-primary-dark font-bold">
         {p.editTarget ? 'Editar Huerta' : 'Nueva Huerta'}
       </DialogTitle>
@@ -46,8 +62,16 @@ const HuertaModalTabs: React.FC<Props> = (p) => {
           textColor="primary"
           indicatorColor="primary"
         >
-          <Tab value="propia" label="Huerta Propia" disabled={lock && tab !== 'propia'} />
-          <Tab value="rentada" label="Huerta Rentada" disabled={lock && tab !== 'rentada'} />
+          <Tab
+            value="propia"
+            label="Huerta Propia"
+            disabled={lock && tab !== 'propia'}
+          />
+          <Tab
+            value="rentada"
+            label="Huerta Rentada"
+            disabled={lock && tab !== 'rentada'}
+          />
         </Tabs>
       </Box>
 
@@ -61,6 +85,8 @@ const HuertaModalTabs: React.FC<Props> = (p) => {
             onRegisterNewPropietario={p.onRegisterNewPropietario}
             isEdit={p.editTarget?.tipo === 'propia'}
             initialValues={p.editTarget?.data}
+            loading={p.loading}
+            defaultPropietarioId={p.defaultPropietarioId}
           />
         ) : (
           <HuertaRentadaFormModal
@@ -71,6 +97,7 @@ const HuertaModalTabs: React.FC<Props> = (p) => {
             onRegisterNewPropietario={p.onRegisterNewPropietario}
             isEdit={p.editTarget?.tipo === 'rentada'}
             initialValues={p.editTarget?.data}
+            defaultPropietarioId={p.defaultPropietarioId}
           />
         )}
       </DialogContent>

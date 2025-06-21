@@ -1,5 +1,5 @@
 // src/components/common/TableLayout.tsx
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Pagination,
@@ -50,23 +50,20 @@ export interface TableLayoutProps<T> {
   onPageChange: (newPage: number) => void;
   emptyMessage?: string;
   serverSidePagination?: boolean;
-  /* 🎨 Estilísticos */
   loading?: boolean;
   skeletonRows?: number;
   skeletonHeight?: number;
   striped?: boolean;
   dense?: boolean;
-
-  /* 🔥 Filtros genéricos */
   filterConfig?: FilterConfig[];
   onFilterChange?: (filters: Record<string, any>) => void;
   applyFiltersInternally?: boolean;
-
-  /* 🗝️ Clave única de fila */
   rowKey?: (row: T) => string | number;
-
-  /* 🖱️ Click sobre fila */
   onRowClick?: (item: T) => void;
+  // NUEVO: valores controlados de los filtros
+  filterValues?: Record<string, any>;
+  // NUEVO: permite renderizar un elemento extra junto a los filtros
+  extraFilterElement?: React.ReactNode;
 }
 
 /* ──────────────────────────────────────────────────────────────
@@ -183,8 +180,15 @@ export function TableLayout<T>({
   rowKey,
   serverSidePagination = false,
   onRowClick,
+  filterValues,
+  extraFilterElement,
 }: TableLayoutProps<T>) {
-  const [filters, setFilters] = useState<Record<string, any>>({});
+  // Si recibimos filterValues, sincronizamos el estado interno
+  const [filters, setFilters] = useState<Record<string, any>>(filterValues || {});
+  useEffect(() => {
+    if (filterValues) setFilters(filterValues);
+  }, [filterValues]);
+
   const showSkeleton = useDelayedLoading(loading);
 
   const handleFilterUpdate = (key: string, value: any) => {
@@ -193,44 +197,21 @@ export function TableLayout<T>({
     onFilterChange?.(next);
   };
 
-  const filteredData = useMemo(() => {
-    if (!applyFiltersInternally || filterConfig.length === 0) return data;
-    return data.filter((row: any) =>
-      filterConfig.every(cfg => {
-        const v = filters[cfg.key];
-        if (v === undefined || v === null || v === '') return true;
-        const rowVal = row[cfg.key];
-        if (cfg.type === 'text') {
-          return String(rowVal ?? '')
-            .toLowerCase()
-            .includes(String(v).toLowerCase());
-        }
-        return rowVal === v;
-      })
-    );
-  }, [data, filters, filterConfig, applyFiltersInternally]);
+  // Elimino cualquier filtrado local, la paginación y los filtros se manejan 100% desde el backend
+  // El componente solo muestra los datos recibidos por props
+  const pageData = data;     // No paginación local
 
-  // Si viene paginado por servidor, usamos directamente `data`,
-  // si no, hacemos el slice local.
-    const pageData = useMemo(() => {
-      if (serverSidePagination) {
-        return data;
-      }
-      const start = (page - 1) * pageSize;
-      return filteredData.slice(start, start + pageSize);
-    }, [data, filteredData, page, pageSize, serverSidePagination]);
-
-    // Para serverSide: usamos count total; si no, igual que antes
-    const totalPages = Math.max(
-      1,
-      serverSidePagination
-        ? Math.ceil(count / pageSize)
-        : Math.ceil(
-            (applyFiltersInternally
-              ? filteredData.length
-              : count) / pageSize
-          )
-    );
+  // Para serverSide: usamos count total; si no, igual que antes
+  const totalPages = Math.max(
+    1,
+    serverSidePagination
+      ? Math.ceil(count / pageSize)
+      : Math.ceil(
+          (applyFiltersInternally
+            ? data.length
+            : count) / pageSize
+        )
+  );
 
   if (showSkeleton) {
     return (
@@ -247,7 +228,7 @@ export function TableLayout<T>({
     <div className="animate-fade-in">
       {/* ——— Filtros dinámicos ——— */}
       {filterConfig.length > 0 && (
-        <Box display="flex" gap={2} flexWrap="wrap" mb={3}>
+        <Box display="flex" gap={2} flexWrap="wrap" mb={3} alignItems="center">
           {filterConfig.map((cfg) => {
             const props = {
               key: cfg.key,
@@ -296,6 +277,8 @@ export function TableLayout<T>({
                 return null;
             }
           })}
+          {/* Botón u otro elemento extra al final de los filtros */}
+          {extraFilterElement}
         </Box>
       )}
 

@@ -11,6 +11,7 @@ import {
   restorePropietario as restorePropietarioThunk,
   deletePropietario,
   Estado,
+  setFilters as changeFilters,
 } from '../../../global/store/propietariosSlice';
 import {
   Propietario,
@@ -29,17 +30,18 @@ export function usePropietarios() {
     page,
     estado,
     meta,
+    filters
   } = useAppSelector((s) => s.propietarios);
 
   /* ---------- fetch automático al cambiar page/estado ---------- */
   useEffect(() => {
-    dispatch(fetchPropietarios({ page, estado }));
-  }, [dispatch, page, estado]);
+    dispatch(fetchPropietarios({ page, estado, filters }));
+  }, [dispatch, page, estado, filters]);
 
   /* ---------- CRUD wrappers ---------- */
   const addPropietario = (v: PropietarioCreateData): Promise<Propietario> =>
     dispatch(createPropietario(v)).unwrap();
-const refetch = () => dispatch(fetchPropietarios({ page, estado }));
+const refetch = () => dispatch(fetchPropietarios({ page, estado, filters }));
 
   const editPropietario = (
     id: number,
@@ -67,11 +69,11 @@ const refetch = () => dispatch(fetchPropietarios({ page, estado }));
     page,
     estado,
     meta,
-
+    filters,
     /* navegación */
     changePage:   (p: number)           => dispatch(setPage(p)),
     changeEstado: (e: Estado)           => dispatch(setEstado(e)),
-
+    changeFilters,
     /* acciones */
     addPropietario,
     editPropietario,

@@ -7,7 +7,11 @@ import {
 } from '../types/temporadaTypes';
 
 export const temporadaService = {
-  async list(page: number = 1) {
+  async list(page: number = 1, año?: number, huertaId?: number, huertaRentadaId?: number) {
+    const params: Record<string, any> = { page };
+    if (año) params['año'] = año;
+    if (huertaId) params['huerta'] = huertaId;
+    if (huertaRentadaId) params['huerta_rentada'] = huertaRentadaId;
     const response = await apiClient.get<{
       success: boolean;
       notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
@@ -16,7 +20,7 @@ export const temporadaService = {
         meta: { count: number; next: string | null; previous: string | null };
       };
     }>('/huerta/temporadas/', {
-      params: { page },
+      params,
     });
     return response.data;
   },

@@ -1,13 +1,19 @@
-// src/modules/gestion_huerta/hooks/useHuertas.ts
-import { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom'; // ← para detectar ruta actual
+/* eslint-disable react-hooks/exhaustive-deps */
+import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../../global/store/store';
 import {
   fetchHuertas,
   createHuerta,
   updateHuerta,
   deleteHuerta,
-  setPage,
+  setHPage,
+  setHEstado,
+  setHFilters,
+  HuertaFilters,
+  Estado,            // <- exportado por el slice
+  archiveHuerta,
+  restoreHuerta,
 } from '../../../global/store/huertaSlice';
 import {
   Huerta,
@@ -15,72 +21,68 @@ import {
   HuertaUpdateData,
 } from '../types/huertaTypes';
 
+/** Hook para HUERTAS PROPIAS – todo el paginado / filtrado viene del backend */
 export function useHuertas() {
-  const dispatch = useAppDispatch();
-  const location = useLocation();
+  const dispatch  = useAppDispatch();
+  const location  = useLocation();
 
   const {
     list: globalHuertas,
     loading,
     error,
-    loaded,
-    page,
     meta,
-  } = useAppSelector((state) => state.huerta);
+    page,
+    estado,
+    filters,
+  } = useAppSelector((s) => s.huerta);
 
-  const [localHuertas, setLocalHuertas] = useState<Huerta[]>([]);
-  const [lastPath, setLastPath] = useState<string>(''); // ← detectar navegación entre rutas
-
-  // 1) sincronizar lista local
+  /* ——— fetch automático al cambiar page / estado / filters ——— */
   useEffect(() => {
-    setLocalHuertas(globalHuertas);
-  }, [globalHuertas]);
+    dispatch(fetchHuertas({ page, estado, filters }));
+  }, [dispatch, page, estado, filters]);
 
-  // 2) recarga forzada al volver a esta ruta
   useEffect(() => {
-    const currentPath = location.pathname;
-    if (currentPath.includes('/huertas') && lastPath !== currentPath) {
-      dispatch(fetchHuertas(page));
+    if (location.pathname.includes('/huertas')) {
+      dispatch(fetchHuertas({ page, estado, filters }));
     }
-    setLastPath(currentPath);
   }, [location.pathname]);
 
-  // 3) primera carga (por si nunca se ha cargado)
-  useEffect(() => {
-    if (!loaded && !loading) {
-      dispatch(fetchHuertas(page));
-    }
-  }, [dispatch, loaded, loading, page]);
+  /* ——— CRUD helpers ——— */
+  const addHuerta = (p: HuertaCreateData): Promise<Huerta> =>
+    dispatch(createHuerta(p)).unwrap();
 
-  // CRUD
-  const addHuerta = (payload: HuertaCreateData): Promise<Huerta> =>
-    dispatch(createHuerta(payload)).unwrap();
-
-  const editHuerta = (id: number, payload: HuertaUpdateData) =>
-    dispatch(updateHuerta({ id, payload }));
+  const editHuerta = (id: number, p: HuertaUpdateData) =>
+    dispatch(updateHuerta({ id, payload: p }));
 
   const removeHuerta = (id: number) => dispatch(deleteHuerta(id));
 
-  const refetchHuertas = () => dispatch(fetchHuertas(page));
+  const refetch = () => dispatch(fetchHuertas({ page, estado, filters }));
 
-  // Archivar/restaurar visual inmediato
-  const toggleActivoLocal = (id: number, nuevoEstado: boolean) =>
-    setLocalHuertas((hs) =>
-      hs.map((h) => (h.id === id ? { ...h, is_active: nuevoEstado } : h))
-    );
+  const archive = (id: number) => dispatch(archiveHuerta(id)).unwrap();
+  const restore = (id: number) => dispatch(restoreHuerta(id)).unwrap();
 
+  /* ——— setters redux ——— */
+  const changePage    = (n: number)                          => dispatch(setHPage(n));
+  const changeEstado  = (e: Estado)                          => dispatch(setHEstado(e));
+  const changeFilters = (f: HuertaFilters)                   => dispatch(setHFilters(f));
+
+  /* ——— API pública del hook ——— */
   return {
-    huertas: localHuertas,
+    huertas: globalHuertas,
     loading,
     error,
-    loaded,
     meta,
     page,
-    setPage: (newPage: number) => dispatch(setPage(newPage)),
+    estado,
+    filters,
+    setPage: changePage,
+    changeEstado,
+    changeFilters,
+    refetch,
     addHuerta,
     editHuerta,
     removeHuerta,
-    fetchHuertas: refetchHuertas,
-    toggleActivoLocal,
+    archive,
+    restore,
   };
 }

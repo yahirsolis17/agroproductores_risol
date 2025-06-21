@@ -1,11 +1,12 @@
-// src/modules/gestion_usuarios/components/Login.tsx
-import React, { useState, useEffect } from 'react';
-import { Formik, Form } from 'formik';
-import * as Yup from 'yup';
-import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
+// Importaciones de librerías y componentes necesarios
+import React, { useState, useEffect } from 'react'; // React y hooks para manejo de estado y ciclo de vida
+import { Formik, Form } from 'formik'; // Formik para manejo de formularios
+import * as Yup from 'yup'; // Yup para validación de formularios
+import { Navigate, useLocation } from 'react-router-dom'; // Navegación y obtención de ubicación actual
+import { useAuth } from '../context/AuthContext'; // Contexto de autenticación personalizado
+import { handleBackendNotification } from '../../../global/utils/NotificationEngine'; // Utilidad para mostrar notificaciones
 
+// Importaciones de componentes de Material UI y otras librerías
 import {
   Box,
   Button,
@@ -17,27 +18,34 @@ import {
   InputAdornment,
   Alert,
 } from '@mui/material';
-import { Visibility, VisibilityOff } from '@mui/icons-material';
-import { motion } from 'framer-motion';
+import { Visibility, VisibilityOff } from '@mui/icons-material'; // Iconos para mostrar/ocultar contraseña
+import { motion } from 'framer-motion'; // Animaciones
 
+// Esquema de validación para el formulario usando Yup
 const validationSchema = Yup.object({
   telefono: Yup.string()
-    .matches(/^\d{10}$/, 'Debe tener exactamente 10 dígitos')
+    .matches(/^\d{10}$/, 'Debe tener exactamente 10 dígitos') // Solo acepta 10 dígitos
     .required('Teléfono requerido'),
-  password: Yup.string().required('Contraseña requerida'),
+  password: Yup.string().required('Contraseña requerida'), // Contraseña obligatoria
 });
 
+// Constante para la duración del bloqueo tras varios intentos fallidos (5 minutos)
 const BLOCK_DURATION = 5 * 60 * 1000; // 5 minutos en milisegundos
 
+// Componente principal de Login
 const Login: React.FC = () => {
+  // Obtención de funciones y estados del contexto de autenticación
   const { isAuthenticated, login } = useAuth();
-  const location = useLocation();
-  const [showPassword, setShowPassword] = useState(false);
-  const [isBlocked, setIsBlocked] = useState(false);
-  const [blockEndTime, setBlockEndTime] = useState<number | null>(null);
-  const [timeRemaining, setTimeRemaining] = useState<string>('');
-  const [failedAttempts, setFailedAttempts] = useState(0);
+  const location = useLocation(); // Ubicación actual para redirección
 
+  // Estados locales para el manejo del formulario y lógica de bloqueo
+  const [showPassword, setShowPassword] = useState(false); // Mostrar/ocultar contraseña
+  const [isBlocked, setIsBlocked] = useState(false); // Indica si el login está bloqueado
+  const [blockEndTime, setBlockEndTime] = useState<number | null>(null); // Tiempo en que termina el bloqueo
+  const [timeRemaining, setTimeRemaining] = useState<string>(''); // Tiempo restante de bloqueo (formato mm:ss)
+  const [failedAttempts, setFailedAttempts] = useState(0); // Contador de intentos fallidos
+
+  // useEffect para cargar información de bloqueo e intentos fallidos desde localStorage al montar el componente
   useEffect(() => {
     const storedBlockEndTime = localStorage.getItem('loginBlockEndTime');
     const storedFailedAttempts = localStorage.getItem('loginFailedAttempts');
@@ -48,6 +56,7 @@ const Login: React.FC = () => {
         setIsBlocked(true);
         setBlockEndTime(endTime);
       } else {
+        // Si ya pasó el tiempo de bloqueo, limpiar localStorage
         localStorage.removeItem('loginBlockEndTime');
         localStorage.removeItem('loginFailedAttempts');
       }
@@ -58,11 +67,13 @@ const Login: React.FC = () => {
     }
   }, []);
 
+  // useEffect para actualizar el temporizador de bloqueo cada segundo
   useEffect(() => {
     if (blockEndTime) {
       const timer = setInterval(() => {
         const now = Date.now();
         if (blockEndTime <= now) {
+          // Si terminó el bloqueo, limpiar estados y localStorage
           setIsBlocked(false);
           setBlockEndTime(null);
           setTimeRemaining('');
@@ -70,6 +81,7 @@ const Login: React.FC = () => {
           localStorage.removeItem('loginFailedAttempts');
           clearInterval(timer);
         } else {
+          // Calcular y mostrar el tiempo restante de bloqueo
           const seconds = Math.ceil((blockEndTime - now) / 1000);
           const minutes = Math.floor(seconds / 60);
           const remainingSeconds = seconds % 60;
@@ -77,25 +89,28 @@ const Login: React.FC = () => {
         }
       }, 1000);
 
-      return () => clearInterval(timer);
+      return () => clearInterval(timer); // Limpiar intervalo al desmontar
     }
   }, [blockEndTime]);
 
+  // Función que maneja el intento de login
   const handleLoginAttempt = async (values: { telefono: string; password: string }, { setSubmitting, setErrors }: any) => {
-    if (isBlocked) return;
+    if (isBlocked) return; // Si está bloqueado, no permite intentar
 
     try {
-      await login(values.telefono, values.password);
-      // Resetear intentos fallidos después de un login exitoso
+      await login(values.telefono, values.password); // Intenta loguear
+      // Si es exitoso, reinicia los intentos fallidos y limpia el bloqueo
       setFailedAttempts(0);
       localStorage.removeItem('loginFailedAttempts');
       localStorage.removeItem('loginBlockEndTime');
     } catch (error: any) {
+      // Si falla, incrementa el contador de intentos fallidos
       const res = error?.response?.data;
       const newFailedAttempts = failedAttempts + 1;
       setFailedAttempts(newFailedAttempts);
       localStorage.setItem('loginFailedAttempts', newFailedAttempts.toString());
 
+      // Si supera el límite de intentos, activa el bloqueo
       if (newFailedAttempts >= 5) {
         const endTime = Date.now() + BLOCK_DURATION;
         setIsBlocked(true);
@@ -103,24 +118,29 @@ const Login: React.FC = () => {
         localStorage.setItem('loginBlockEndTime', endTime.toString());
       }
 
+      // Muestra errores en el formulario y notificación
       setErrors(res || { telefono: ' ', password: ' ' });
       handleBackendNotification(res);
     } finally {
-      setSubmitting(false);
+      setSubmitting(false); // Finaliza el estado de envío
     }
   };
 
+  // Funciones para mostrar/ocultar la contraseña
   const handleClickShowPassword = () => setShowPassword(!showPassword);
   const handleMouseDownPassword = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
   };
 
+  // Si el usuario ya está autenticado y no viene de un redirect, lo manda al dashboard
   if (isAuthenticated && !location.state?.fromLoginRedirect) {
     return <Navigate to="/dashboard" replace />;
   }
 
+  // Renderizado del formulario de login
   return (
     <div className="flex items-center justify-center min-h-screen bg-neutral-100 px-4">
+      {/* Animación de entrada usando framer-motion */}
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
@@ -131,12 +151,14 @@ const Login: React.FC = () => {
         }}
         className="w-full max-w-md"
       >
+        {/* Contenedor principal del formulario */}
         <Paper
           elevation={4}
           className="p-10 rounded-2xl shadow-soft bg-white space-y-6"
           role="main"
           aria-label="Formulario de inicio de sesión"
         >
+          {/* Encabezado */}
           <div className="text-center space-y-2">
             <Typography variant="h4" className="text-primary-dark font-bold" role="heading">
               Agroproductores Risol
@@ -146,6 +168,7 @@ const Login: React.FC = () => {
             </Typography>
           </div>
 
+          {/* Alerta de bloqueo por demasiados intentos */}
           {isBlocked && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
@@ -163,6 +186,7 @@ const Login: React.FC = () => {
             </motion.div>
           )}
 
+          {/* Formulario de login usando Formik */}
           <Formik
             initialValues={{ telefono: '', password: '' }}
             validationSchema={validationSchema}
@@ -177,6 +201,7 @@ const Login: React.FC = () => {
               touched,
             }) => (
               <Form className="space-y-6" noValidate>
+                {/* Campo de teléfono */}
                 <Box>
                   <TextField
                     fullWidth
@@ -200,6 +225,7 @@ const Login: React.FC = () => {
                       maxLength: 10,
                     }}
                   />
+                  {/* Mensaje de error accesible para lectores de pantalla */}
                   {touched.telefono && errors.telefono && (
                     <span id="telefono-error" className="sr-only">
                       {errors.telefono}
@@ -207,6 +233,7 @@ const Login: React.FC = () => {
                   )}
                 </Box>
 
+                {/* Campo de contraseña */}
                 <Box>
                   <TextField
                     fullWidth
@@ -242,6 +269,7 @@ const Login: React.FC = () => {
                       ),
                     }}
                   />
+                  {/* Mensaje de error accesible para lectores de pantalla */}
                   {touched.password && errors.password && (
                     <span id="password-error" className="sr-only">
                       {errors.password}
@@ -249,6 +277,7 @@ const Login: React.FC = () => {
                   )}
                 </Box>
 
+                {/* Botón de enviar */}
                 <Button
                   fullWidth
                   type="submit"
@@ -273,4 +302,5 @@ const Login: React.FC = () => {
   );
 };
 
+// Exporta el componente para su uso en otras partes de la aplicación
 export default Login;

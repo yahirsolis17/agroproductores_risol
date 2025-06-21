@@ -27,17 +27,24 @@ const estadoToQuery = (estado: 'activos'|'archivados'|'todos') =>
 /* -------------------------------------------------------------------------- */
 export const propietarioService = {
   /* ------------ LIST ------------ */
-  async list(page = 1, estado: 'activos'|'archivados'|'todos' = 'activos') {
+  async list(
+    page = 1,
+    estado: 'activos' | 'archivados' | 'todos' = 'activos',
+    filters: { search?: string } = {}
+  ) {
     const params: Record<string, any> = { page };
     const arch = estadoToQuery(estado);
     if (arch !== undefined) params.archivado = arch;
+
+    if (filters.search) params.search = filters.search;
 
     const { data } = await apiClient.get<{
       success: boolean; message_key: string; data: ListResp;
     }>('/huerta/propietarios/', { params });
 
-    return data.data;   // { propietarios, meta }
+    return data.data;
   },
+
 
   /* ------------ CREATE ------------ */
   async create(payload: PropietarioCreateData) {

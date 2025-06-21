@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Paper,
   Typography,
@@ -44,7 +44,12 @@ const Temporadas: React.FC = () => {
     temporadas,
     loading,
     page,
+    meta,
     setPage,
+    yearFilter,
+    setYear,
+    setHuerta,
+    setHuertaRentada,
     addTemporada,
     removeTemporada,
     finalizeTemporada,
@@ -55,8 +60,8 @@ const Temporadas: React.FC = () => {
   const { huertas } = useHuertas();
   const { huertas: rentadas } = useHuertasRentadas();
 
-  /* ──────────────────── Obtener huerta seleccionada ──────────────────── */
-  const huertaSel = useMemo(() => {
+  // Detectar huerta seleccionada y sincronizar filtro global
+  const huertaSel = React.useMemo(() => {
     if (!huertaId) return null;
     return (
       huertas.find((h) => h.id === huertaId) ||
@@ -64,6 +69,21 @@ const Temporadas: React.FC = () => {
       null
     );
   }, [huertaId, huertas, rentadas]);
+
+  React.useEffect(() => {
+    if (huertaSel) {
+      if ('monto_renta' in huertaSel) {
+        setHuerta(null);
+        setHuertaRentada(huertaSel.id);
+      } else {
+        setHuerta(huertaSel.id);
+        setHuertaRentada(null);
+      }
+    } else {
+      setHuerta(null);
+      setHuertaRentada(null);
+    }
+  }, [huertaSel, setHuerta, setHuertaRentada]);
 
   /* ──────────────────── Breadcrumbs ──────────────────── */
   useEffect(() => {
@@ -89,6 +109,22 @@ const Temporadas: React.FC = () => {
   const [consultTarget, setConsultTarget] = useState<Temporada | null>(null);
   const [consultOpen, setConsultOpen] = useState(false);
 
+  // Filtro de año
+  const [yearInput, setYearInput] = useState<number | ''>(yearFilter || '');
+  const handleYearChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (val === '') {
+      setYearInput('');
+      setYear(null);
+    } else {
+      const num = parseInt(val, 10);
+      if (!isNaN(num)) {
+        setYearInput(num);
+        setYear(num);
+      }
+    }
+  };
+
   /* Spinner con retardo */
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
@@ -97,20 +133,8 @@ const Temporadas: React.FC = () => {
     return () => clearTimeout(timer);
   }, [loading]);
 
-  /* ──────────────────── Filtrado de filas ──────────────────── */
-  const rows = useMemo(
-    () =>
-      temporadas
-        .filter((t) => (huertaId ? t.huerta_id === huertaId : true))
-        .filter((t) =>
-          filter === 'activas'
-            ? t.is_active
-            : filter === 'archivadas'
-            ? !t.is_active
-            : true
-        ),
-    [temporadas, filter, huertaId]
-  );
+  // Elimino filtrado local de filas, uso solo temporadas del store
+  const rows = temporadas;
 
   const emptyMsg =
     filter === 'activas'
@@ -243,6 +267,24 @@ const Temporadas: React.FC = () => {
           <Tab value="todas"      label="Todas" />
         </Tabs>
 
+        <Box display="flex" alignItems="center" gap={2} mb={2}>
+          <Typography variant="subtitle2">Filtrar por año:</Typography>
+          <input
+            type="number"
+            min="2000"
+            max="2100"
+            value={yearInput}
+            onChange={handleYearChange}
+            placeholder="Año"
+            style={{ width: 100, padding: 4, borderRadius: 4, border: '1px solid #ccc' }}
+          />
+          {yearInput && (
+            <Button size="small" onClick={() => { setYearInput(''); setYear(null); }}>
+              Limpiar
+            </Button>
+          )}
+        </Box>
+
         {spin ? (
           <Box display="flex" justifyContent="center" mt={6}>
             <CircularProgress />
@@ -252,7 +294,7 @@ const Temporadas: React.FC = () => {
             data={rows}
             page={page}
             pageSize={pageSize}
-            count={rows.length}
+            count={meta.count}
             onPageChange={setPage}
             onArchive={handleArchive}
             onRestore={handleRestore}

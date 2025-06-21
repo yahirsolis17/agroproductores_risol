@@ -18,6 +18,9 @@ interface TemporadaState {
   loaded: boolean;
   page: number;
   meta: PaginationMeta;
+  yearFilter: number | null;
+  huertaId: number | null;
+  huertaRentadaId: number | null;
 }
 
 const initialState: TemporadaState = {
@@ -27,19 +30,22 @@ const initialState: TemporadaState = {
   loaded: false,
   page: 1,
   meta: { count: 0, next: null, previous: null },
+  yearFilter: null,
+  huertaId: null,
+  huertaRentadaId: null,
 };
 
 // ——— Thunks ———
 
 export const fetchTemporadas = createAsyncThunk<
   { temporadas: Temporada[]; meta: PaginationMeta; page: number },
-  number,
+  { page: number; año?: number; huertaId?: number; huertaRentadaId?: number },
   { rejectValue: Record<string, any> }
 >(
   'temporada/fetchAll',
-  async (page, { rejectWithValue }) => {
+  async ({ page, año, huertaId, huertaRentadaId }, { rejectWithValue }) => {
     try {
-      const res = await temporadaService.list(page);
+      const res = await temporadaService.list(page, año, huertaId, huertaRentadaId);
       handleBackendNotification(res);
       return {
         temporadas: res.data.temporadas,
@@ -177,6 +183,18 @@ const temporadaSlice = createSlice({
     setPage(state, action: PayloadAction<number>) {
       state.page = action.payload;
     },
+    setYearFilter(state, action: PayloadAction<number | null>) {
+      state.yearFilter = action.payload;
+      state.page = 1; // reset page on filter change
+    },
+    setHuertaId(state, action: PayloadAction<number | null>) {
+      state.huertaId = action.payload;
+      state.page = 1; // reset page on filter change
+    },
+    setHuertaRentadaId(state, action: PayloadAction<number | null>) {
+      state.huertaRentadaId = action.payload;
+      state.page = 1; // reset page on filter change
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -252,5 +270,5 @@ const temporadaSlice = createSlice({
   },
 });
 
-export const { setPage } = temporadaSlice.actions;
+export const { setPage, setYearFilter, setHuertaId, setHuertaRentadaId } = temporadaSlice.actions;
 export default temporadaSlice.reducer;
