@@ -307,3 +307,55 @@ class UserPermissionsView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request):
         return Response({"permissions": list(request.user.get_all_permissions())})
+
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAdminUser
+
+# Permisos relevantes para gestión de huerta y módulos relacionados
+PERMISOS_RELEVANTES = {
+    'Huertas': {
+        'view_huerta': 'Ver huertas',
+        'add_huerta': 'Crear huerta',
+        'change_huerta': 'Editar huerta',
+        'delete_huerta': 'Eliminar huerta',
+    },
+    'Huertas rentadas': {
+        'view_huertarentada': 'Ver huertas rentadas',
+        'add_huertarentada': 'Crear huerta rentada',
+        'change_huertarentada': 'Editar huerta rentada',
+        'delete_huertarentada': 'Eliminar huerta rentada',
+    },
+    'Temporadas': {
+        'view_temporada': 'Ver temporadas',
+        'add_temporada': 'Crear temporada',
+        'change_temporada': 'Editar temporada',
+        'delete_temporada': 'Eliminar temporada',
+    },
+    'Propietarios': {
+        'view_propietario': 'Ver propietarios',
+        'add_propietario': 'Crear propietario',
+        'change_propietario': 'Editar propietario',
+        'delete_propietario': 'Eliminar propietario',
+    },
+    # Agrega aquí otros módulos relevantes si los tienes
+}
+
+class PermisosFiltradosView(APIView):
+    """
+    Devuelve solo los permisos relevantes, agrupados y traducidos para el frontend.
+    Solo accesible para administradores.
+    """
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        permisos = []
+        for modulo, perms in PERMISOS_RELEVANTES.items():
+            for codename, nombre in perms.items():
+                permisos.append({
+                    'codename': codename,
+                    'nombre': nombre,
+                    'modulo': modulo,
+                })
+        return Response(permisos)

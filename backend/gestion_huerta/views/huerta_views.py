@@ -190,34 +190,45 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
         )
 
     def get_queryset(self):
-        qs     = Propietario.objects.all()
+        qs = Propietario.objects.all()
         params = self.request.query_params
 
-        # 🔁 Filtro por estado
-        if estado := params.get("estado"):
-            if estado == 'activos':
+        # 🔁 Estado: activos / archivados (solo un parámetro)
+        archivado_param = params.get("archivado")
+        if archivado_param:
+            archivado = archivado_param.lower()
+            if archivado in ["activos", "false"]:
                 qs = qs.filter(archivado_en__isnull=True)
-            elif estado == 'archivados':
+            elif archivado in ["archivados", "true"]:
                 qs = qs.filter(archivado_en__isnull=False)
-        elif arch := params.get("archivado"):
-            low = arch.lower()
-            if low == "true":
-                qs = qs.filter(archivado_en__isnull=False)
-            elif low == "false":
-                qs = qs.filter(archivado_en__isnull=True)
 
-        # 🔍 NUEVO filtro inteligente tipo CRM
+        # 🔍 Búsqueda exacta por ID (prioridad máxima)
+        if id_param := params.get("id"):
+            try:
+                return qs.filter(id=int(id_param))  # RETURN aquí
+            except ValueError:
+                pass  # No rompe el flujo si ID es inválido
+
+        # 🔍 Búsqueda por nombre (exacta)
+        if nombre := params.get("nombre"):
+            return qs.filter(nombre=nombre)  # EXACTO, no parcial
+
+        # 🔎 Filtro inteligente (búsqueda parcial en múltiples campos)
         if search := params.get("search"):
-            qs = qs.filter(
+            from django.db.models import Value, CharField
+            from django.db.models.functions import Concat
+            return qs.annotate(
+                nombre_completo=Concat('nombre', Value(' '), 'apellidos', output_field=CharField())
+            ).filter(
                 Q(nombre__icontains=search) |
+                Q(apellidos__icontains=search) |
+                Q(nombre_completo__icontains=search) |
                 Q(telefono__icontains=search) |
                 Q(direccion__icontains=search)
             )
 
         return qs
-
-
-# ---------------------------------------------------------------------------
+# --------------1-------------------------------------------------------------
 #  🌳  HUERTAS PROPIAS
 # ---------------------------------------------------------------------------
 class HuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):

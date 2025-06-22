@@ -27,7 +27,8 @@ interface PropietarioState {
   page:    number;
   estado:  Estado;
   meta:    PaginationMeta;
-  filters: { search?: string };
+  // Cambiar filters a objeto plano
+  filters: { [key: string]: any };
 }
 
 const initialState: PropietarioState = {
@@ -46,15 +47,10 @@ const initialState: PropietarioState = {
 /* -------------------------------------------------------------------------- */
 export const fetchPropietarios = createAsyncThunk(
   'propietarios/fetch',
-  async ({
-    page,
-    estado,
-    filters,
-  }: {
-    page: number;
-    estado: 'activos' | 'archivados' | 'todos';
-    filters?: { search?: string };
-  }) => {
+  async (params: any) => {
+    // params ya es { page, estado, id, ... }
+    const { page, estado, ...filters } = params;
+    console.log('[Redux] fetchPropietarios thunk ejecutado:', { page, estado, ...filters });
     return await propietarioService.list(page, estado, filters);
   }
 );
@@ -143,10 +139,13 @@ const propietariosSlice = createSlice({
   reducers: {
     setPage:   (s, a: PayloadAction<number>) => { s.page = a.payload; },
     setEstado: (s, a: PayloadAction<Estado>) => { s.estado = a.payload; s.page = 1; },
-    setFilters: (s, a: PayloadAction<{ search?: string }>) => {
-    s.filters = a.payload;
-    s.page = 1; // reiniciamos la página al cambiar filtro
-  },
+setFilters: (s, a: PayloadAction<{ [key: string]: any }>) => {
+  console.log("[Redux] setFilters reducer ejecutado. Payload:", a.payload);
+  // Forzar nueva referencia
+  s.filters = { ...a.payload };
+  s.page = 1;
+},
+
   },
   extraReducers: (b) => {
     /* -------- fetch -------- */

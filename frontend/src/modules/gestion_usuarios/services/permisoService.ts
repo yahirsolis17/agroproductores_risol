@@ -2,23 +2,16 @@
 import apiClient from '../../../global/api/apiClient';
 
 export interface Permiso {
-  id: number;
-  nombre: string;
   codename: string;
+  nombre: string;
+  modulo: string;
 }
 
 const permisoService = {
-  /** Leer todos los permisos del sistema */
+  /** Leer solo los permisos relevantes y traducidos */
   async getAllPermisos(): Promise<Permiso[]> {
-    const res = await apiClient.get('/usuarios/permisos/');
-    const raw = Array.isArray(res.data)
-      ? res.data
-      : res.data?.data ?? [];
-    return raw.map((p: any) => ({
-      id:       p.id,
-      nombre:   p.name ?? p.nombre,
-      codename: p.codename,
-    }));
+    const res = await apiClient.get('/usuarios/permisos-filtrados/');
+    return Array.isArray(res.data) ? res.data : [];
   },
 
   /** Asignar permisos a un usuario */
@@ -28,9 +21,8 @@ const permisoService = {
     return res.data;
   },
 
-  /** 🔥 NUEVO: Obtener los permisos **actuales** de un usuario */
+  /** Obtener los permisos **actuales** de un usuario */
   async getUserPermisos(userId: number): Promise<string[]> {
-    // El endpoint de retrieve de Usuario devuelve { ..., permisos: string[] }
     const res = await apiClient.get(`/usuarios/users/${userId}/`);
     return res.data.permisos as string[];
   },

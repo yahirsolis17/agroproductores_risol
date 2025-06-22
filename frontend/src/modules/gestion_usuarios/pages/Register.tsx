@@ -70,9 +70,8 @@ const Register: React.FC = () => {
   return (
     <main className="flex items-center justify-center min-h-[80vh] px-4">
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: 'easeOut' }}
+        initial={{ opacity: 0, scale: 0.1 }}
+        animate={{ opacity: 1, scale: 1 }}
         className="w-full max-w-md"
       >
         <Paper
@@ -174,7 +173,6 @@ const Register: React.FC = () => {
                       label="Rol"
                     >
                       <MenuItem value="usuario">Usuario</MenuItem>
-                      <MenuItem value="admin">Administrador</MenuItem>
                     </Select>
                     {touched.role && (
                       <FormHelperText>{errors.role}</FormHelperText>

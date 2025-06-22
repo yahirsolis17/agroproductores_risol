@@ -11,7 +11,7 @@ import {
   restorePropietario as restorePropietarioThunk,
   deletePropietario,
   Estado,
-  setFilters as changeFilters,
+  setFilters as setFiltersAction,
 } from '../../../global/store/propietariosSlice';
 import {
   Propietario,
@@ -33,34 +33,46 @@ export function usePropietarios() {
     filters
   } = useAppSelector((s) => s.propietarios);
 
-  /* ---------- fetch automático al cambiar page/estado ---------- */
+  // Log para ver el valor real de filters en cada render
+  console.log('[Hook] Estado global obtenido:', { page, estado, filters });
+
+  /* ---------- fetch automático al cambiar page/estado/filters ---------- */
   useEffect(() => {
-    dispatch(fetchPropietarios({ page, estado, filters }));
+    const fetchObj = { page, estado, ...filters };
+    console.log("[Hook] useEffect ejecutado. fetchObj:", fetchObj);
+    dispatch(fetchPropietarios(fetchObj));
   }, [dispatch, page, estado, filters]);
-
   /* ---------- CRUD wrappers ---------- */
-  const addPropietario = (v: PropietarioCreateData): Promise<Propietario> =>
-    dispatch(createPropietario(v)).unwrap();
-const refetch = () => dispatch(fetchPropietarios({ page, estado, filters }));
-
+  const addPropietario = (v: PropietarioCreateData): Promise<Propietario> => {
+    console.log('[Hook] addPropietario:', v);
+    return dispatch(createPropietario(v)).unwrap();
+  };
+  const refetch = () => {
+    const fetchObj = { page, estado, ...filters };
+    console.log('[Hook] refetch:', fetchObj);
+    return dispatch(fetchPropietarios(fetchObj));
+  };
   const editPropietario = (
     id: number,
     v: PropietarioUpdateData
-  ): Promise<Propietario> =>
-    dispatch(updatePropietario({ id, payload: v })).unwrap();
+  ): Promise<Propietario> => {
+    console.log('[Hook] editPropietario:', { id, v });
+    return dispatch(updatePropietario({ id, payload: v })).unwrap();
+  };
+  const doArchivePropietario = (id: number): Promise<Propietario> => {
+    console.log('[Hook] archivePropietario:', id);
+    return dispatch(archivePropietarioThunk(id)).unwrap();
+  };
+  const doRestorePropietario = (id: number): Promise<Propietario> => {
+    console.log('[Hook] restorePropietario:', id);
+    return dispatch(restorePropietarioThunk(id)).unwrap();
+  };
+  const removePropietario = (id: number): Promise<number> => {
+    console.log('[Hook] removePropietario:', id);
+    return dispatch(deletePropietario(id)).unwrap();
+  };
 
-  /** archiva y devuelve el objeto archivado */
-  const doArchivePropietario = (id: number): Promise<Propietario> =>
-    dispatch(archivePropietarioThunk(id)).unwrap();
-
-  /** restaura y devuelve el objeto restaurado */
-  const doRestorePropietario = (id: number): Promise<Propietario> =>
-    dispatch(restorePropietarioThunk(id)).unwrap();
-
-  /** elimina y devuelve el id eliminado */
-  const removePropietario = (id: number): Promise<number> =>
-    dispatch(deletePropietario(id)).unwrap();
-
+  
   /* ---------- API del hook ---------- */
   return {
     propietarios,
@@ -73,7 +85,10 @@ const refetch = () => dispatch(fetchPropietarios({ page, estado, filters }));
     /* navegación */
     changePage:   (p: number)           => dispatch(setPage(p)),
     changeEstado: (e: Estado)           => dispatch(setEstado(e)),
-    changeFilters,
+    changeFilters: (f: Record<string, any>) => {
+      console.log('[Hook] changeFilters despachando setFilters:', f);
+      dispatch(setFiltersAction({ ...f }));
+    },
     /* acciones */
     addPropietario,
     editPropietario,

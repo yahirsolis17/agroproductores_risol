@@ -99,10 +99,17 @@ const Huertas: React.FC = () => {
 
   // —— Opciones contextuales —__
   // Las opciones de filtros se calculan solo a partir de los datos del backend
+  // Opciones de filtro autocomplete por nombre, ordenadas y agrupadas
   const nombresDisponibles = useMemo(() => {
     let base = huertas;
     if (propietarioFiltro) base = base.filter(h => h.propietario === propietarioFiltro);
-    return [...new Set(base.map(h => h.nombre))].map(n => ({ label: n, value: n }));
+    return [...new Set(base.map(h => h.nombre))]
+      .map(n => ({
+        label: n,
+        value: n,
+        firstLetter: n[0]?.toUpperCase() || '',
+      }))
+      .sort((a, b) => (a && b ? a.label.localeCompare(b.label, 'es') : 0));
   }, [huertas, propietarioFiltro]);
 
   const propietariosDisponibles = useMemo(() => {
@@ -111,9 +118,16 @@ const Huertas: React.FC = () => {
     return [...new Set(base.map(h => h.propietario))]
       .map(id => {
         const p = propietarios.find(p => p.id === id);
-        return p ? { label: `${p.nombre} ${p.apellidos}`, value: p.id } : null;
+        return p
+          ? {
+              label: `${p.nombre} ${p.apellidos}`,
+              value: p.id,
+              firstLetter: p.nombre[0]?.toUpperCase() || '',
+            }
+          : null;
       })
-      .filter(Boolean);
+      .filter((x): x is { label: string; value: number; firstLetter: string } => x !== null)
+      .sort((a, b) => (a && b ? a.label.localeCompare(b.label, 'es') : 0));
   }, [huertas, nombreFiltro, propietarios]);
 
   // —— Mensajes detallados —__
@@ -160,10 +174,14 @@ const Huertas: React.FC = () => {
     {
       key: 'nombre', label: 'Nombre', type: 'autocomplete',
       options: nombresDisponibles,
+      width: 320,
+      // groupBy se maneja en TableLayout
     },
     {
       key: 'propietario', label: 'Propietario', type: 'autocomplete',
       options: propietariosDisponibles as any,
+      width: 320,
+      // groupBy se maneja en TableLayout
     },
   ];
 

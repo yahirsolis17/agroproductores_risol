@@ -2,7 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from gestion_usuarios.views.user_views import UsuarioViewSet, \
     LoginView, MeView, UserPermissionsView, ChangePasswordView, \
-    CustomTokenRefreshView, RegistroActividadViewSet, LogoutView, PermisoViewSet
+    CustomTokenRefreshView, RegistroActividadViewSet, LogoutView, PermisoViewSet, PermisosFiltradosView
 
 router = DefaultRouter()
 router.register(r'users',      UsuarioViewSet,      basename='users')
@@ -17,6 +17,8 @@ urlpatterns = [
     path('me/permissions/', UserPermissionsView.as_view(), name='me-permissions'),
     path('change-password/', ChangePasswordView.as_view(), name='change-password'),
     path('api/token/refresh/', CustomTokenRefreshView.as_view(), name='token_refresh'),
+
+    path('permisos-filtrados/', PermisosFiltradosView.as_view(), name='permisos-filtrados'),
 
     path('', include(router.urls)),
 ]

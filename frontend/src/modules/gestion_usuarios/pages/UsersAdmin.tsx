@@ -95,6 +95,9 @@ const UsersAdmin: React.FC = () => {
     setDialogOpen(true);
   };
 
+  // Filtrar usuarios: solo mostrar usuarios que NO sean administradores
+  const filteredUsers = users.filter((u) => u.role !== 'admin');
+
   if (currentUser?.role !== 'admin') {
     return <div className="p-6 text-center text-red-500">Acceso denegado</div>;
   }
@@ -130,7 +133,7 @@ const UsersAdmin: React.FC = () => {
           </Tabs>
 
           <TableLayout<any>
-            data={users}
+            data={filteredUsers}
             columns={columns}
             page={page}
             pageSize={10}

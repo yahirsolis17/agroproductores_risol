@@ -1,9 +1,9 @@
 // src/components/layout/Navbar.tsx
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
-import { Button } from '@mui/material';
+import { Button, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { NAV_ITEMS } from '../../global/constants/navItems';
 import { useAuth } from '../../modules/gestion_usuarios/context/AuthContext';
 
@@ -11,27 +11,35 @@ const Navbar: React.FC = () => {
   const { user, isAuthenticated, logout, hasPerm } = useAuth();
   const location = useLocation();
   const [hoverMenu, setHoverMenu] = useState<string | null>(null);
+  const [openLogout, setOpenLogout] = useState(false);
 
-/* ────────────────── visibilidad del navbar ────────────────── */
-const isPublicScreen = ['/login'].includes(location.pathname);
-const isForcedToChangePassword =
-  location.pathname === '/change-password' && user?.must_change_password;
-
-if (isPublicScreen || isForcedToChangePassword) return null;
+  /* ────────────────── visibilidad del navbar ────────────────── */
+  const shouldHideNavbar = 
+    location.pathname === '/login' || 
+    (location.pathname === '/change-password' && user?.must_change_password);
+  
+  if (shouldHideNavbar) return null;
 
   /* ────────────────── helpers ────────────────── */
   const isActive = (path: string) => location.pathname === path;
 
-  /** Rutas visibles según permiso (NAV_ITEMS separamos por rol) */
-  const filterByPerm = (role: 'admin' | 'usuario') =>
-    NAV_ITEMS[role].filter(i => !i.perm || hasPerm(i.perm));
+  /** Rutas visibles según permiso */
+  const role: 'admin' | 'usuario' = user?.role ?? 'usuario';
+  const visibleRoutes = useMemo(() => 
+    NAV_ITEMS[role].filter(i => !i.perm || hasPerm(i.perm)),
+    [role, hasPerm]
+  );
 
   /** Renderiza un menú desplegable */
   const renderMenu = (
     title: string,
     routes: { to: string; label: string }[],
-  ) =>
-    routes.length > 0 && (
+  ) => {
+    if (routes.length === 0) return null;
+    
+    const isMenuActive = hoverMenu === title || routes.some(r => isActive(r.to));
+    
+    return (
       <div
         className="relative"
         onMouseEnter={() => setHoverMenu(title)}
@@ -40,10 +48,12 @@ if (isPublicScreen || isForcedToChangePassword) return null;
         <button
           className={clsx(
             'text-sm transition-colors',
-            hoverMenu === title || routes.some(r => isActive(r.to))
+            isMenuActive
               ? 'text-primary font-semibold'
               : 'text-neutral-500',
           )}
+          aria-haspopup="true"
+          aria-expanded={isMenuActive}
         >
           {title}
         </button>
@@ -80,9 +90,18 @@ if (isPublicScreen || isForcedToChangePassword) return null;
         </AnimatePresence>
       </div>
     );
+  };
 
-  const role: 'admin' | 'usuario' = user?.role ?? 'usuario';
-  const visibleRoutes = filterByPerm(role);
+  // Memoizar rutas para cada menú
+  const userManagementRoutes = useMemo(() => 
+    visibleRoutes.filter(r => /users?|register|activity/.test(r.to)), 
+    [visibleRoutes]
+  );
+
+  const gardenManagementRoutes = useMemo(() => 
+    visibleRoutes.filter(r => /huerta|propietario|cosecha/.test(r.to)), 
+    [visibleRoutes]
+  );
 
   /* ────────────────── render ────────────────── */
   return (
@@ -100,7 +119,6 @@ if (isPublicScreen || isForcedToChangePassword) return null;
 
         {isAuthenticated && (
           <>
-
             <Link
               to="/profile"
               className={clsx(
@@ -111,19 +129,9 @@ if (isPublicScreen || isForcedToChangePassword) return null;
               )}
             >
               Mi Perfil
-              
             </Link>
-            {renderMenu(
-              'Gestión de Usuarios',
-              visibleRoutes.filter(r => r.to.match(/users?|register|activity/)),
-            )}
-
-
-
-            {renderMenu(
-              'Gestión de Huerta',
-              visibleRoutes.filter(r => r.to.match(/huerta|propietario|cosecha/)),
-            )}
+            {renderMenu('Gestión de Usuarios', userManagementRoutes)}
+            {renderMenu('Gestión de Huerta', gardenManagementRoutes)}
           </>
         )}
       </div>
@@ -131,15 +139,44 @@ if (isPublicScreen || isForcedToChangePassword) return null;
       {/* --- Login / Logout --- */}
       <div>
         {isAuthenticated ? (
-          <Button
-            onClick={logout}
-            variant="contained"
-            color="primary"
-            size="small"
-            sx={{ textTransform: 'none', fontWeight: 500, borderRadius: '8px' }}
-          >
-            Cerrar Sesión
-          </Button>
+          <>
+            <Button
+              onClick={() => setOpenLogout(true)}
+              variant="contained"
+              color="primary"
+              size="small"
+              sx={{ 
+                textTransform: 'none', 
+                fontWeight: 500, 
+                borderRadius: '8px' 
+              }}
+            >
+              Cerrar Sesión
+            </Button>
+            <Dialog 
+              open={openLogout} 
+              onClose={() => setOpenLogout(false)}
+            >
+              <DialogTitle>¿Confirmar cierre de sesión?</DialogTitle>
+              <DialogContent>
+                ¿Estás seguro de que deseas cerrar sesión?
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setOpenLogout(false)}>
+                  Cancelar
+                </Button>
+                <Button 
+                  color="error" 
+                  onClick={() => { 
+                    setOpenLogout(false); 
+                    logout(); 
+                  }}
+                >
+                  Confirmar
+                </Button>
+              </DialogActions>
+            </Dialog>
+          </>
         ) : (
           <Link
             to="/login"

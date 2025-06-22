@@ -50,7 +50,7 @@ def validate_telefono(self, value):
 class PropietarioSerializer(serializers.ModelSerializer):
     archivado_en = serializers.DateTimeField(read_only=True)
     is_active    = serializers.BooleanField(read_only=True)
-
+    
     class Meta:
         model  = Propietario
         fields = [

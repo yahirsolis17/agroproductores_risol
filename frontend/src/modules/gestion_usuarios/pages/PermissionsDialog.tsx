@@ -140,9 +140,9 @@ const PermissionsDialog: React.FC<PermissionsDialogProps> = ({
     }
   };
 
-  /* Agrupar permisos por módulo */
+  /* Agrupar permisos por módulo usando el campo 'modulo' */
   const groupedPerms = allPerms.reduce((acc, perm) => {
-    const module = perm.codename.split('_')[0];
+    const module = perm.modulo;
     if (!acc[module]) acc[module] = [];
     acc[module].push(perm);
     return acc;

@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* ──────────────────────────────────────────────────────────────
  *  src/modules/gestion_huerta/pages/Propietarios.tsx
- * ─ Tabla con paginación + filtros backend + filtro local “autocomplete”
+ * ── Tabla con paginación + filtros backend + filtro local “autocomplete”
  * ──────────────────────────────────────────────────────────── */
 import React, { useState, useEffect } from 'react';
 import {
@@ -59,16 +59,34 @@ const Propietarios: React.FC = () => {
   /* ──────────────────────────────────────────────────────────────
    *  Filtro “autocomplete” local enviado al backend
    * ──────────────────────────────────────────────────────────── */
-  // preparamos las opciones únicas de nombre
-  const nombreOptions = propietarios.map((p) => ({
-    label: `${p.nombre} ${p.apellidos} - ${p.telefono}`,
-    value: p.nombre, // el filtro sigue aplicando solo por nombre, esto no cambia
-  }));
-  // cuando el usuario selecciona un nombre, lo mandamos como filtro “search”
-  const handleFilterChange = (filters: Record<string, any>) => {
-    changeFilters({ search: filters.nombre || '' });
-  };
+  // Opciones de filtro autocomplete por id (como en huertas), ORDENADAS ALFABÉTICAMENTE
+  const nombreOptions = propietarios
+    .map((p) => ({
+      label: `${p.nombre} ${p.apellidos} - ${p.telefono}`,
+      value: p.id,
+      firstLetter: p.nombre[0].toUpperCase(),
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'es'));
 
+  // Filtro exacto por id (como en huertas)
+const handleFilterChange = (filters: Record<string, any>) => {
+  console.log("[UI] handleFilterChange - Filtros recibidos:", filters);
+  if (filters.id) {
+    console.log("[UI] Filtro por id detectado:", filters.id);
+    changeFilters({ id: filters.id });
+    return;
+  }
+  if (filters.nombre) {
+    const selected = nombreOptions.find(opt => opt.label === filters.nombre);
+    if (selected) {
+      console.log("[UI] Filtro seleccionado:", selected.value);
+      changeFilters({ id: selected.value });
+      return;
+    }
+  }
+  console.log("[UI] Limpiando filtros (no hay id ni nombre seleccionado)");
+  changeFilters({});
+};
   /* ──────────────────────────────────────────────────────────────
    *  UI local (modales, confirmaciones, spinner diferido)
    * ──────────────────────────────────────────────────────────── */
@@ -124,6 +142,12 @@ const Propietarios: React.FC = () => {
       ? 'No hay propietarios archivados.'
       : 'No hay propietarios registrados.';
 
+  // Log cuando se llama a changeFilters desde el componente
+  const onChangeFilters = (filters: Record<string, any>) => {
+    console.log('[UI] onChangeFilters (llamando a handleFilterChange):', filters);
+    handleFilterChange(filters);
+  };
+
   return (
     <motion.div
       className="p-6 max-w-6xl mx-auto"
@@ -164,24 +188,33 @@ const Propietarios: React.FC = () => {
             pageSize={pageSize}
             count={meta.count}
             serverSidePagination
-
-            /** ↓↓↓ aquí van los filtros dinámicos ↓↓↓ */
             filterConfig={[
               {
-                key: 'nombre',
-                label: 'Nombre',
+                key: 'id',
+                label: 'Propietario',
                 type: 'autocomplete',
                 options: nombreOptions,
                 width: 320,
               },
             ]}
-            onFilterChange={handleFilterChange}
-            applyFiltersInternally={false}  // seguimos paginando + filtrando por backend
-
-            onPageChange={changePage}
-            onEdit={launchEdit}
-            onArchiveOrRestore={handleArchiveOrRestore}
-            onDelete={askDelete}
+            onFilterChange={onChangeFilters}
+            applyFiltersInternally={false}
+            onPageChange={(p) => {
+              console.log('[UI] Cambio de página:', p);
+              changePage(p);
+            }}
+            onEdit={(p) => {
+              console.log('[UI] Editar propietario:', p);
+              launchEdit(p);
+            }}
+            onArchiveOrRestore={(id, archivado) => {
+              console.log('[UI] Archivar/Restaurar propietario:', { id, archivado });
+              handleArchiveOrRestore(id, archivado);
+            }}
+            onDelete={(id) => {
+              console.log('[UI] Eliminar propietario:', id);
+              askDelete(id);
+            }}
             emptyMessage={emptyMsg}
             loading={loading}
           />

@@ -27,6 +27,7 @@ export type FilterType = 'text' | 'select' | 'autocomplete';
 export interface FilterOption {
   label: string;
   value: any;
+  firstLetter?: string; // Para agrupación visual en autocomplete
 }
 
 export interface FilterConfig {
@@ -230,7 +231,8 @@ export function TableLayout<T>({
       {filterConfig.length > 0 && (
         <Box display="flex" gap={2} flexWrap="wrap" mb={3} alignItems="center">
           {filterConfig.map((cfg) => {
-            const props = {
+            // Separa la key del resto de props para evitar el warning de React
+            const { key, ...restProps } = {
               key: cfg.key,
               label: cfg.label,
               size: 'small' as const,
@@ -241,7 +243,8 @@ export function TableLayout<T>({
               case 'text':
                 return (
                   <TextField
-                    {...props}
+                    key={cfg.key}
+                    {...restProps}
                     value={filters[cfg.key] ?? ''}
                     onChange={(e) => handleFilterUpdate(cfg.key, e.target.value)}
                   />
@@ -249,7 +252,8 @@ export function TableLayout<T>({
               case 'select':
                 return (
                   <TextField
-                    {...props}
+                    key={cfg.key}
+                    {...restProps}
                     select
                     value={filters[cfg.key] ?? ''}
                     onChange={(e) => handleFilterUpdate(cfg.key, e.target.value)}
@@ -264,13 +268,15 @@ export function TableLayout<T>({
               case 'autocomplete':
                 return (
                   <Autocomplete
-                    {...props}
+                    key={cfg.key}
+                    {...restProps}
                     options={cfg.options ?? []}
                     getOptionLabel={(o) => o.label}
                     value={cfg.options?.find((o) => o.value === filters[cfg.key]) || null}
                     onChange={(_, val) => handleFilterUpdate(cfg.key, val?.value ?? null)}
                     renderInput={(params) => <TextField {...params} label={cfg.label} />}
                     isOptionEqualToValue={(o, v) => o.value === v.value}
+                    groupBy={typeof cfg.options?.[0]?.firstLetter === 'string' ? (option) => (option as any).firstLetter : undefined}
                   />
                 );
               default:
