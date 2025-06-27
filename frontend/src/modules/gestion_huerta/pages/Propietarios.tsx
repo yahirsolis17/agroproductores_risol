@@ -24,6 +24,7 @@ import PropietarioTable     from '../components/propietario/PropietarioTable';
 import PropietarioFormModal from '../components/propietario/PropietarioFormModal';
 
 import { usePropietarios } from '../hooks/usePropietarios';
+import { propietarioService } from '../services/propietarioService';
 import {
   PropietarioCreateData,
   Propietario as PropietarioT,
@@ -53,6 +54,7 @@ const Propietarios: React.FC = () => {
     archivePropietario,
     restorePropietario,
     removePropietario,
+    filters, 
     refetch,
   } = usePropietarios();
 
@@ -166,16 +168,37 @@ const handleFilterChange = (filters: Record<string, any>) => {
         {/* ──────────────── Tabs de estado ──────────────── */}
         <Tabs
           value={estado}
-          onChange={(_, v) => changeEstado(v as Estado)}
+          onChange={(_, v) => {
+            const next = v as Estado;
+            // Si cambiamos entre Activos ⇄ Archivados, limpiamos filtros:
+            if (
+              (estado === 'activos' && next === 'archivados') ||
+              (estado === 'archivados' && next === 'activos')
+            ) {
+              changeFilters({});
+            }
+            // Finalmente, cambiamos de tab:
+            changeEstado(next);
+ }}//holiiiiiiiii
           indicatorColor="primary"
           textColor="primary"
           sx={{ mb: 2 }}
         >
+          
           <Tab value="activos"    label="Activos" />
           <Tab value="archivados" label="Archivados" />
           <Tab value="todos"      label="Todos" />
-        </Tabs>
 
+        </Tabs>
+            <Button
+            variant="outlined"
+            onClick={() => {
+              changeFilters({});
+              changePage(1);
+            }}
+          >
+            Limpiar filtros
+          </Button>
         {/* ────────────── Tabla con filtro autocomplete ────────────── */}
         {showSpinner ? (
           <Box display="flex" justifyContent="center" mt={6}>
@@ -188,15 +211,31 @@ const handleFilterChange = (filters: Record<string, any>) => {
             pageSize={pageSize}
             count={meta.count}
             serverSidePagination
+            filterValues={filters}
             filterConfig={[
               {
                 key: 'id',
                 label: 'Propietario',
-                type: 'autocomplete',
-                options: nombreOptions,
+                type: 'autocomplete-async',
                 width: 320,
+loadOptions: async (input: string) => {
+  // 1) si es solo dígitos → precarga por ID
+  if (/^\d+$/.test(input)) {
+    const p = await propietarioService.fetchById(input);
+    return p
+      ? [{ label: `${p.nombre} ${p.apellidos} – ${p.telefono}`, value: p.id }]
+      : [];
+  }
+  // 2) si es texto → búsqueda normal
+  const lista = await propietarioService.search(input);
+  return lista.map((p) => ({
+    label: `${p.nombre} ${p.apellidos} – ${p.telefono}`,
+    value:  p.id,
+  }));
+},
               },
             ]}
+              
             onFilterChange={onChangeFilters}
             applyFiltersInternally={false}
             onPageChange={(p) => {

@@ -7,53 +7,52 @@ import {
   MenuItem,
   Autocomplete,
   Skeleton,
+  CircularProgress,
 } from '@mui/material';
 
-/* ──────────────────────────────────────────────────────────────
- *  Genéricos de columnas
- * ────────────────────────────────────────────────────────────── */
+/* ──────────── Tipos genéricos de columnas ──────────── */
 export interface Column<T> {
-  label:  string;
-  key:    keyof T;
+  label: string;
+  key: keyof T;
   render?: (item: T) => React.ReactNode;
-  align?:  'left' | 'center' | 'right';
+  align?: 'left' | 'center' | 'right';
 }
 
-/* ──────────────────────────────────────────────────────────────
- *  Config genérica de filtros
- * ────────────────────────────────────────────────────────────── */
-export type FilterType = 'text' | 'select' | 'autocomplete';
+/* ──────────── Config de filtros ──────────── */
+export type FilterType =
+  | 'text'
+  | 'select'
+  | 'autocomplete'
+  | 'autocomplete-async';
 
 export interface FilterOption {
   label: string;
   value: any;
-  firstLetter?: string; // Para agrupación visual en autocomplete
+  firstLetter?: string;
 }
 
 export interface FilterConfig {
-  key:       string;
-  label:     string;
-  type:      FilterType;
-  options?:  FilterOption[];
-  width?:    number | string;
+  key: string;
+  label: string;
+  type: FilterType;
+  options?: FilterOption[];
+  width?: number | string;
+  loadOptions?: (inputValue: string) => Promise<FilterOption[]>;
 }
 
-/* ──────────────────────────────────────────────────────────────
- *  Props del componente
- * ────────────────────────────────────────────────────────────── */
+/* ──────────── Props del componente ──────────── */
 export interface TableLayoutProps<T> {
   data: T[];
   page: number;
   pageSize: number;
   count: number;
   columns: Column<T>[];
-  renderActions?: (item: T, index: number) => React.ReactNode;
   onPageChange: (newPage: number) => void;
+  renderActions?: (item: T, index: number) => React.ReactNode;
   emptyMessage?: string;
   serverSidePagination?: boolean;
   loading?: boolean;
   skeletonRows?: number;
-  skeletonHeight?: number;
   striped?: boolean;
   dense?: boolean;
   filterConfig?: FilterConfig[];
@@ -61,50 +60,35 @@ export interface TableLayoutProps<T> {
   applyFiltersInternally?: boolean;
   rowKey?: (row: T) => string | number;
   onRowClick?: (item: T) => void;
-  // NUEVO: valores controlados de los filtros
   filterValues?: Record<string, any>;
-  // NUEVO: permite renderizar un elemento extra junto a los filtros
   extraFilterElement?: React.ReactNode;
 }
 
-/* ──────────────────────────────────────────────────────────────
- *  Hooks personalizados
- * ────────────────────────────────────────────────────────────── */
+/* ──────────── Hook: skeleton retardado ──────────── */
 const useDelayedLoading = (isLoading: boolean, delay = 200) => {
-  const [showSkeleton, setShowSkeleton] = useState(false);
-  
+  const [show, setShow] = useState(false);
   useEffect(() => {
-    let timeoutId: number;
-    
-    if (isLoading && !showSkeleton) {
-      timeoutId = window.setTimeout(() => {
-        setShowSkeleton(true);
-      }, delay);
-    } else if (!isLoading && showSkeleton) {
-      setShowSkeleton(false);
-    }
-    
-    return () => {
-      if (timeoutId) {
-        window.clearTimeout(timeoutId);
-      }
-    };
-  }, [isLoading, showSkeleton, delay]);
-  
-  return showSkeleton;
+    let id: number;
+    if (isLoading && !show) id = window.setTimeout(() => setShow(true), delay);
+    if (!isLoading) setShow(false);
+    return () => clearTimeout(id);
+  }, [isLoading, show, delay]);
+  return show;
 };
 
-/* ──────────────────────────────────────────────────────────────
- *  Componentes internos
- * ────────────────────────────────────────────────────────────── */
+/* ──────────── Skeleton de tabla ──────────── */
 interface TableSkeletonProps {
   columns: Column<any>[];
   skeletonRows: number;
   dense: boolean;
   hasActions: boolean;
 }
-
-const TableSkeleton = ({ columns, skeletonRows, dense, hasActions }: TableSkeletonProps) => (
+const TableSkeleton = ({
+  columns,
+  skeletonRows,
+  dense,
+  hasActions,
+}: TableSkeletonProps) => (
   <div className="overflow-x-auto rounded-xl shadow">
     <table className="min-w-full bg-white rounded-xl animate-fade-in">
       <thead>
@@ -113,10 +97,7 @@ const TableSkeleton = ({ columns, skeletonRows, dense, hasActions }: TableSkelet
             <Skeleton variant="text" width={20} />
           </th>
           {columns.map((_, i) => (
-            <th
-              key={i}
-              className={`px-4 ${dense ? 'py-1' : 'py-2'} border`}
-            >
+            <th key={i} className={`px-4 ${dense ? 'py-1' : 'py-2'} border`}>
               <Skeleton variant="text" width={100} />
             </th>
           ))}
@@ -134,18 +115,21 @@ const TableSkeleton = ({ columns, skeletonRows, dense, hasActions }: TableSkelet
               <Skeleton variant="text" width={20} />
             </td>
             {columns.map((col, j) => (
-              <td
-                key={j}
-                className={`px-4 ${dense ? 'py-1' : 'py-2'} border`}
-              >
-                <Skeleton 
+              <td key={j} className={`px-4 ${dense ? 'py-1' : 'py-2'} border`}>
+                <Skeleton
                   variant="text"
-                  width={col.align === 'right' ? 60 : col.align === 'center' ? 80 : '100%'} 
+                  width={
+                    col.align === 'right'
+                      ? 60
+                      : col.align === 'center'
+                      ? 80
+                      : '100%'
+                  }
                 />
               </td>
             ))}
             {hasActions && (
-              <td className={`px-4 ${dense ? 'py-1' : 'py-2'} border text-center`}>
+              <td className={`px-4 ${dense ? 'py-1' : 'py-2'} border`}>
                 <Box display="flex" gap={1} justifyContent="center">
                   <Skeleton variant="circular" width={24} height={24} />
                   <Skeleton variant="circular" width={24} height={24} />
@@ -159,17 +143,15 @@ const TableSkeleton = ({ columns, skeletonRows, dense, hasActions }: TableSkelet
   </div>
 );
 
-/* ──────────────────────────────────────────────────────────────
- *  Componente principal
- * ────────────────────────────────────────────────────────────── */
+/* ──────────── Componente principal ──────────── */
 export function TableLayout<T>({
   data,
   page,
   pageSize,
   count,
   columns,
-  renderActions,
   onPageChange,
+  renderActions,
   emptyMessage = 'No hay datos.',
   loading = false,
   skeletonRows = 6,
@@ -184,37 +166,53 @@ export function TableLayout<T>({
   filterValues,
   extraFilterElement,
 }: TableLayoutProps<T>) {
-  // Si recibimos filterValues, sincronizamos el estado interno
-  const [filters, setFilters] = useState<Record<string, any>>(filterValues || {});
+  /* ---------- filtros ---------- */
+  const [filters, setFilters] = useState(filterValues || {});
   useEffect(() => {
     if (filterValues) setFilters(filterValues);
   }, [filterValues]);
 
+  /* ---------- estado async ---------- */
+  const [asyncInput, setAsyncInput] = useState('');
+  const [asyncOptions, setAsyncOptions] = useState<FilterOption[]>([]);
+  const [asyncLoading, setAsyncLoading] = useState(false);
+
+  /* Precarga de opción */
+  useEffect(() => {
+    filterConfig.forEach((cfg) => {
+      if (cfg.type !== 'autocomplete-async') return;
+      const current = filters[cfg.key];
+      if (!current) return;
+      if (asyncOptions.some((o) => o.value === current)) return;
+
+      setAsyncLoading(true);
+      cfg
+        .loadOptions!(String(current))
+        .then((opts) => {
+          const found = opts.find((o) => o.value === current);
+          if (found) setAsyncOptions((prev) => [...prev, found]);
+        })
+        .finally(() => setAsyncLoading(false));
+    });
+  }, [filters, filterConfig, asyncOptions]);
+
   const showSkeleton = useDelayedLoading(loading);
-
-  const handleFilterUpdate = (key: string, value: any) => {
-    const next = { ...filters, [key]: value };
-    setFilters(next);
-    onFilterChange?.(next);
-  };
-
-  // Elimino cualquier filtrado local, la paginación y los filtros se manejan 100% desde el backend
-  // El componente solo muestra los datos recibidos por props
-  const pageData = data;     // No paginación local
-
-  // Para serverSide: usamos count total; si no, igual que antes
   const totalPages = Math.max(
     1,
     serverSidePagination
       ? Math.ceil(count / pageSize)
       : Math.ceil(
-          (applyFiltersInternally
-            ? data.length
-            : count) / pageSize
-        )
+          (applyFiltersInternally ? data.length : count) / pageSize,
+        ),
   );
 
-  if (showSkeleton) {
+  const handleFilterUpdate = (k: string, v: any) => {
+    const next = { ...filters, [k]: v };
+    setFilters(next);
+    onFilterChange?.(next);
+  };
+
+  if (showSkeleton)
     return (
       <TableSkeleton
         columns={columns}
@@ -223,117 +221,197 @@ export function TableLayout<T>({
         hasActions={!!renderActions}
       />
     );
-  }
 
+  /* ---------- Render ---------- */
   return (
     <div className="animate-fade-in">
-      {/* ——— Filtros dinámicos ——— */}
+      {/* Filtros */}
       {filterConfig.length > 0 && (
-        <Box display="flex" gap={2} flexWrap="wrap" mb={3} alignItems="center">
+        <Box display="flex" flexWrap="wrap" gap={2} mb={3}>
           {filterConfig.map((cfg) => {
-            // Separa la key del resto de props para evitar el warning de React
-            const { key, ...restProps } = {
+            const common = {
               key: cfg.key,
               label: cfg.label,
               size: 'small' as const,
-              sx: { minWidth: cfg.width ?? 160 }
+              sx: { minWidth: cfg.width ?? 160 },
             };
 
             switch (cfg.type) {
               case 'text':
                 return (
                   <TextField
-                    key={cfg.key}
-                    {...restProps}
+                    {...common}
                     value={filters[cfg.key] ?? ''}
-                    onChange={(e) => handleFilterUpdate(cfg.key, e.target.value)}
+                    onChange={(e) =>
+                      handleFilterUpdate(cfg.key, e.target.value)
+                    }
                   />
                 );
+
               case 'select':
                 return (
                   <TextField
-                    key={cfg.key}
-                    {...restProps}
+                    {...common}
                     select
                     value={filters[cfg.key] ?? ''}
-                    onChange={(e) => handleFilterUpdate(cfg.key, e.target.value)}
+                    onChange={(e) =>
+                      handleFilterUpdate(cfg.key, e.target.value)
+                    }
                   >
-                    {cfg.options?.map((opt) => (
-                      <MenuItem key={opt.value} value={opt.value}>
-                        {opt.label}
+                    {cfg.options?.map((o) => (
+                      <MenuItem key={o.value} value={o.value}>
+                        {o.label}
                       </MenuItem>
                     ))}
                   </TextField>
                 );
+
               case 'autocomplete':
                 return (
                   <Autocomplete
-                    key={cfg.key}
-                    {...restProps}
+                    {...common}
                     options={cfg.options ?? []}
                     getOptionLabel={(o) => o.label}
-                    value={cfg.options?.find((o) => o.value === filters[cfg.key]) || null}
-                    onChange={(_, val) => handleFilterUpdate(cfg.key, val?.value ?? null)}
-                    renderInput={(params) => <TextField {...params} label={cfg.label} />}
                     isOptionEqualToValue={(o, v) => o.value === v.value}
-                    groupBy={typeof cfg.options?.[0]?.firstLetter === 'string' ? (option) => (option as any).firstLetter : undefined}
+                    value={
+                      (cfg.options ?? []).find(
+                        (o) => o.value === filters[cfg.key],
+                      ) || null
+                    }
+                    onChange={(_, v) =>
+                      handleFilterUpdate(cfg.key, v?.value ?? null)
+                    }
+                    renderInput={(p) => <TextField {...p} label={cfg.label} />}
                   />
                 );
+
+              case 'autocomplete-async': {
+                const handleAsyncInput = async (v: string) => {
+                  setAsyncInput(v);
+                  if (v.trim().length < 2) return;
+                  setAsyncLoading(true);
+                  const opts = await cfg.loadOptions!(v);
+                  setAsyncOptions(opts);
+                  setAsyncLoading(false);
+                };
+
+                return (
+                  <Autocomplete
+                    {...common}
+                    options={asyncOptions}
+                    getOptionLabel={(o) => o.label}
+                    isOptionEqualToValue={(
+                      o: FilterOption,
+                      v: FilterOption,
+                    ) => o.value === v.value}
+                    filterOptions={(x) => x}
+                    loading={asyncLoading}
+                    value={
+                      asyncOptions.find(
+                        (o) => o.value === filters[cfg.key],
+                      ) || null
+                    }
+                    onInputChange={(_, v, reason) => {
+                      if (reason === 'input') handleAsyncInput(v);
+                    }}
+                    onChange={(_, v) =>
+                      handleFilterUpdate(cfg.key, v?.value ?? null)
+                    }
+                    noOptionsText={
+                      asyncLoading
+                        ? 'Buscando…'
+                        : asyncInput.length < 2
+                        ? 'Empieza a escribir...'
+                        : 'No se encontraron coincidencias'
+                    }
+                    renderInput={(p) => (
+                      <TextField
+                        {...p}
+                        label={cfg.label}
+                        placeholder="Empieza a escribir..."
+                        InputProps={{
+                          ...p.InputProps,
+                          endAdornment: (
+                            <>
+                              {asyncLoading && (
+                                <CircularProgress size={20} />
+                              )}
+                              {p.InputProps.endAdornment}
+                            </>
+                          ),
+                        }}
+                      />
+                    )}
+                  />
+                );
+              }
+
               default:
                 return null;
             }
           })}
-          {/* Botón u otro elemento extra al final de los filtros */}
           {extraFilterElement}
         </Box>
       )}
 
-      {/* ——— Tabla ——— */}
+      {/* Tabla */}
       <div className="overflow-x-auto rounded-xl shadow">
         <table className="min-w-full bg-white rounded-xl">
           <thead>
-            <tr className="bg-neutral-100 text-neutral-700 text-sm">
+            <tr className="bg-neutral-100 text-sm text-neutral-700">
               <th className="px-4 py-2 border">#</th>
-              {columns.map((col, i) => (
+              {columns.map((c, i) => (
                 <th
                   key={i}
                   className={`px-4 ${dense ? 'py-1' : 'py-2'} border`}
-                  style={{ textAlign: col.align || 'left' }}
+                  style={{ textAlign: c.align || 'left' }}
                 >
-                  {col.label}
+                  {c.label}
                 </th>
               ))}
               {renderActions && (
-                <th className={`px-4 ${dense ? 'py-1' : 'py-2'} border text-center`}>
+                <th
+                  className={`px-4 ${dense ? 'py-1' : 'py-2'} border text-center`}
+                >
                   Acciones
                 </th>
               )}
             </tr>
           </thead>
           <tbody>
-            {pageData.length > 0 ? (
-              pageData.map((item, i) => {
-                const key = rowKey ? rowKey(item) : (i + (page - 1) * pageSize);
+            {data.length ? (
+              data.map((item, i) => {
+                const key = rowKey
+                  ? rowKey(item)
+                  : i + (page - 1) * pageSize;
                 return (
                   <tr
                     key={key}
                     className={`text-sm transition-colors ${
                       striped
-                        ? i % 2 === 0
-                          ? 'bg-white'
-                          : 'bg-neutral-50'
+                        ? i % 2
+                          ? 'bg-neutral-50'
+                          : 'bg-white'
                         : ''
-                    } ${onRowClick ? 'cursor-pointer hover:bg-neutral-100' : 'hover:bg-neutral-50'}`}
+                    } ${
+                      onRowClick
+                        ? 'cursor-pointer hover:bg-neutral-100'
+                        : 'hover:bg-neutral-50'
+                    }`}
                     onClick={() => onRowClick?.(item)}
                   >
-                    <td className="px-4 border">{(page - 1) * pageSize + i + 1}</td>
+                    <td className="px-4 border">
+                      {(page - 1) * pageSize + i + 1}
+                    </td>
                     {columns.map((col, j) => (
                       <td
                         key={j}
                         className={`px-4 ${dense ? 'py-1' : 'py-2'} border`}
                         style={{ textAlign: col.align || 'left' }}
                       >
-                        {col.render ? col.render(item) : String(item[col.key] ?? '')}
+                        {col.render
+                          ? col.render(item)
+                          : String(item[col.key])}
                       </td>
                     ))}
                     {renderActions && (
@@ -348,7 +426,7 @@ export function TableLayout<T>({
               <tr>
                 <td
                   colSpan={1 + columns.length + (renderActions ? 1 : 0)}
-                  className="text-center py-4 text-neutral-400"
+                  className="py-4 text-center text-neutral-400"
                 >
                   {emptyMessage}
                 </td>
@@ -358,7 +436,7 @@ export function TableLayout<T>({
         </table>
       </div>
 
-      {/* ——— Paginación ——— */}
+      {/* Paginación */}
       <Box display="flex" justifyContent="center" mt={4}>
         <Pagination
           count={totalPages}

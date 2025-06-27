@@ -8,7 +8,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import Permission
-
+from agroproductores_risol.utils.pagination import GenericPagination
 from gestion_usuarios.permissions import IsAdmin, IsSelfOrAdmin
 from gestion_usuarios.models import Users, RegistroActividad
 from gestion_usuarios.utils.activity import registrar_actividad
@@ -104,9 +104,9 @@ class RegistroActividadViewSet(viewsets.ModelViewSet):
 # gestion_usuarios/views/user_views.py  ➜  solo la clase UsuarioViewSet
 
 class UsuarioViewSet(ModelViewSet):
-    queryset = Users.objects.all()
+    queryset = Users.objects.all().order_by('-id')
     serializer_class = UsuarioSerializer
-
+    pagination_class = GenericPagination
     # ───────────────────── permisos dinámicos ──────────────────────
     def get_permissions(self):
         if self.action == "list":
@@ -242,6 +242,7 @@ class UsuarioViewSet(ModelViewSet):
     def get_queryset(self):
         estado = self.request.query_params.get('estado')  # activos | archivados | todos
         queryset = Users.objects.all()
+        queryset = super().get_queryset()
 
         if estado == 'activos':
             queryset = queryset.filter(archivado_en__isnull=True)

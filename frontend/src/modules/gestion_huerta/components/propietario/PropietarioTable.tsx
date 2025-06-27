@@ -12,7 +12,7 @@ interface Props {
   count: number;
   onPageChange: (newPage: number) => void;
   serverSidePagination?: boolean;
-
+  filterValues?: Record<string, any>;
   onEdit:   (p: Propietario) => void;
   onArchiveOrRestore: (id: number, isArchived: boolean) => void;
   onDelete:           (id: number) => void;
@@ -51,6 +51,7 @@ const PropietarioTable: React.FC<Props> = ({
   onArchiveOrRestore,
   onDelete,
   filterConfig = [],
+  filterValues,
   onFilterChange,
   applyFiltersInternally = false,
   emptyMessage = 'No hay propietarios registrados.',
@@ -74,7 +75,7 @@ const PropietarioTable: React.FC<Props> = ({
       count={count}
       onPageChange={onPageChange}
       serverSidePagination={serverSidePagination}
-
+      filterValues={filterValues}
       /** configuramos el filtro como en Huertas */
       filterConfig={filterConfig}
       onFilterChange={(filters) => {

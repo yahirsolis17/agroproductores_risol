@@ -40,7 +40,7 @@ from gestion_huerta.utils.activity import registrar_actividad
 from gestion_huerta.utils.notification_handler import NotificationHandler
 from gestion_huerta.utils.audit import ViewSetAuditMixin        # ⬅️ auditoría
 from agroproductores_risol.utils.pagination import GenericPagination
-
+from rest_framework import filters
 logger = logging.getLogger(__name__)
 
 
@@ -66,10 +66,11 @@ class NotificationMixin:
 #  🏠  PROPIETARIOS
 # ---------------------------------------------------------------------------
 class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
-    queryset           = Propietario.objects.all()
-    
+    queryset = Propietario.objects.all().order_by('-id')
     serializer_class   = PropietarioSerializer
     pagination_class = GenericPagination
+    filter_backends = [filters.SearchFilter]
+    search_fields   = ['nombre', 'apellidos', 'telefono']
     permission_classes = [
         IsAuthenticated,
         HasHuertaModulePermission,
@@ -192,7 +193,7 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
     def get_queryset(self):
         qs = Propietario.objects.all()
         params = self.request.query_params
-
+        qs = super().get_queryset()
         # 🔁 Estado: activos / archivados (solo un parámetro)
         archivado_param = params.get("archivado")
         if archivado_param:
@@ -214,9 +215,14 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
             return qs.filter(nombre=nombre)  # EXACTO, no parcial
 
         # 🔎 Filtro inteligente (búsqueda parcial en múltiples campos)
+# 🔎 Filtro inteligente (búsqueda parcial en múltiples campos)
         if search := params.get("search"):
             from django.db.models import Value, CharField
             from django.db.models.functions import Concat
+
+            # ⚠️ Limita los resultados si es una búsqueda desde Autocomplete
+            self.pagination_class.page_size = 10
+
             return qs.annotate(
                 nombre_completo=Concat('nombre', Value(' '), 'apellidos', output_field=CharField())
             ).filter(
@@ -228,6 +234,31 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
             )
 
         return qs
+    
+    # ---------- GET BY ID (Autocomplete selected value) ----------
+    @action(detail=False, methods=["get"], url_path="buscar")
+    def buscar_por_id(self, request):
+        id_param = request.query_params.get("id")
+        if not id_param:
+            return self.notify(
+                key="validation_error",
+                data={"info": "Falta el parámetro 'id'."},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            propietario = Propietario.objects.get(id=id_param)
+        except Propietario.DoesNotExist:
+            return self.notify(
+                key="not_found",
+                data={"info": "Propietario no encontrado."},
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        return self.notify(
+            key="data_processed_success",
+            data={"propietario": self.get_serializer(propietario).data}
+        )
 # --------------1-------------------------------------------------------------
 #  🌳  HUERTAS PROPIAS
 # ---------------------------------------------------------------------------
