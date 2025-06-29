@@ -29,6 +29,8 @@ import { isRentada } from '../utils/huertaTypeGuards';
 /* ------------------------------------------------------------------ */
 const pageSize = 10;                         // tamaño de página
 type VistaTab  = 'activos' | 'archivados' | 'todos';
+/*let abortNombreController: AbortController | null = null;*/
+
 /* ------------------------------------------------------------------ */
 
 const Huertas: React.FC = () => {
@@ -85,23 +87,57 @@ const Huertas: React.FC = () => {
   };
 
   /* ───── Loaders async para los filtros ───── */
+let abortControllerNombre: AbortController | null = null;
+
   const loadNombreOptions = async (q: string) => {
     if (!q.trim()) return [];
-    // Combina propias + rentadas para sugerir nombres únicos
-    const { huertas } = await huertasCombinadasService.list(1, 'todos', { nombre: q });
-    const nombresUnicos = [...new Set(huertas.map(h => h.nombre))];
-    return nombresUnicos.map(n => ({ label: n, value: n }));
+
+    // Cancelar la solicitud anterior
+    if (abortControllerNombre) abortControllerNombre.abort();
+
+    abortControllerNombre = new AbortController();
+    const signal = abortControllerNombre.signal;
+
+    try {
+      const { huertas } = await huertasCombinadasService.list(
+        1,
+        'todos',
+        { nombre: q },
+        { signal } // <- pasamos signal
+      );
+
+      const nombresUnicos = [...new Set(huertas.map(h => h.nombre))];
+      return nombresUnicos.map(n => ({ label: n, value: n }));
+    } catch (error) {
+      if ((error as any).name === 'CanceledError') return []; // si se abortó, ignora
+      console.error('Error en loadNombreOptions:', error);
+      return [];
+    }
   };
+
+
+let abortControllerProp: AbortController | null = null;
 
   const loadPropietarioOptions = async (q: string) => {
     if (q.trim().length < 2) return [];
-    // Solo propietarios CON huertas, filtrados por search
-    const { propietarios: conHuertas } = await propietarioService.getConHuertas(q);
-    return conHuertas.map(p => ({
-      label: `${p.nombre} ${p.apellidos}`,
-      value: p.id,
-    }));
+
+    if (abortControllerProp) abortControllerProp.abort();
+    abortControllerProp = new AbortController();
+    const signal = abortControllerProp.signal;
+
+    try {
+      const { propietarios } = await propietarioService.getConHuertas(q, { signal });
+      return propietarios.map(p => ({
+        label: `${p.nombre} ${p.apellidos}`,
+        value: p.id,
+      }));
+    } catch (error) {
+      if ((error as any).name === 'CanceledError') return [];
+      console.error('Error en loadPropietarioOptions:', error);
+      return [];
+    }
   };
+
 
   const filterConfig: FilterConfig[] = [
     {
@@ -142,16 +178,29 @@ const Huertas: React.FC = () => {
   /* ───── CRUD helpers ───── */
   const refetchAll = () => hComb.refetch();
 
-  const savePropia  = async (v: any) => { await huertaService.create(v);         refetchAll(); };
-  const saveRentada = async (v: any) => { await huertaRentadaService.create(v);  refetchAll(); };
+  const savePropia = async (v: any) => {
+    const res = await huertaService.create(v);
+    handleBackendNotification(res);
+    refetchAll();
+  };
+
+  const saveRentada = async (v: any) => {
+    const res = await huertaRentadaService.create(v);
+    handleBackendNotification(res);
+    refetchAll();
+  };
 
   const saveEdit = async (vals: any) => {
     if (!editTarget) return;
+
+    let res;
     if (editTarget.tipo === 'propia') {
-      await huertaService.update(editTarget.data.id, vals);
+      res = await huertaService.update(editTarget.data.id, vals);
     } else {
-      await huertaRentadaService.update(editTarget.data.id, vals);
+      res = await huertaRentadaService.update(editTarget.data.id, vals);
     }
+
+    handleBackendNotification(res);
     refetchAll();
     setModalOpen(false);
   };
@@ -170,15 +219,18 @@ const Huertas: React.FC = () => {
   };
 
   const handleArchiveOrRestore = async (h: Registro, archivado: boolean) => {
+    let res;
     if (isRentada(h)) {
-      archivado
+      res = archivado
         ? await huertaRentadaService.restaurar(h.id)
         : await huertaRentadaService.archivar(h.id);
     } else {
-      archivado
+      res = archivado
         ? await huertaService.restaurar(h.id)
         : await huertaService.archivar(h.id);
     }
+
+    handleBackendNotification(res);
     refetchAll();
   };
 

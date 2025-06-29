@@ -77,12 +77,29 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
 
     # ---------- LIST ----------
     def list(self, request, *args, **kwargs):
-        page = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        # Si hay búsqueda parcial (`search`) y coincide con un nombre exacto
+        search_param = request.query_params.get("search", "").strip()
+        exact_match = None
+        if search_param:
+            exact_match = self.get_queryset().filter(nombre=search_param).first()
+            if exact_match:
+                queryset = queryset.exclude(id=exact_match.id)
+
+        page = self.paginate_queryset(queryset)
         serializer = self.get_serializer(page, many=True)
+
+        # Insertar el exact match (si existe y no estaba paginado ya)
+        results = serializer.data
+        if exact_match:
+            exact_data = self.get_serializer(exact_match).data
+            results = [exact_data] + results
+
         return self.notify(
             key="data_processed_success",
             data={
-                "propietarios": serializer.data,
+                "propietarios": results,
                 "meta": {
                     "count": self.paginator.page.paginator.count,
                     "next": self.paginator.get_next_link(),
@@ -90,6 +107,7 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
                 }
             }
         )
+
 
     # ---------- CREATE ----------
     def create(self, request, *args, **kwargs):
@@ -181,18 +199,40 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
             Q(huertas__isnull=False) |
             Q(huertas_rentadas__isnull=False)
         ).distinct()
-        if search := request.query_params.get("search"):
+
+        search = request.query_params.get("search", "").strip()
+        exact_match = None
+
+        if search:
             qs = qs.filter(
                 Q(nombre__icontains=search) |
                 Q(apellidos__icontains=search)
             )
             self.pagination_class.page_size = 50
+
+            # Coincidencia exacta por nombre
+            exact_match = self.get_queryset().filter(
+                Q(huertas__isnull=False) |
+                Q(huertas_rentadas__isnull=False),
+                nombre=search
+            ).distinct().first()
+
+            if exact_match:
+                qs = qs.exclude(id=exact_match.id)
+
+        qs = qs.order_by('-id')  # 🔧 restaura el orden original
+
         page = self.paginate_queryset(qs)
         serializer = self.get_serializer(page, many=True)
+        results = serializer.data
+
+        if exact_match:
+            results = [self.get_serializer(exact_match).data] + results
+
         return self.notify(
             key="data_processed_success",
             data={
-                "propietarios": serializer.data,
+                "propietarios": results,
                 "meta": {
                     "count": self.paginator.page.paginator.count,
                     "next": self.paginator.get_next_link(),
@@ -200,6 +240,8 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
                 }
             }
         )
+
+
 
     def get_queryset(self):
         qs = super().get_queryset().order_by('-id')
@@ -572,23 +614,37 @@ class HuertasCombinadasViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Ge
         nombre      = params.get("nombre")
         propietario = params.get("propietario")
 
-        # QuerySets base
+        # Base QuerySets
         qs_propias = Huerta.objects.all().order_by('-id')
         qs_rent    = HuertaRentada.objects.all().order_by('-id')
 
-        # Filtro de estado
+        # Estado (activos / archivados)
         if estado in ("activos", "false"):
             qs_propias = qs_propias.filter(archivado_en__isnull=True)
             qs_rent    = qs_rent.filter(archivado_en__isnull=True)
         elif estado in ("archivados", "true"):
             qs_propias = qs_propias.filter(archivado_en__isnull=False)
             qs_rent    = qs_rent.filter(archivado_en__isnull=False)
-        # estado='todos' → no filtrar
 
-        # Filtros específicos
+        # Filtro de nombre (incompleto) y exacto
+        exact_matches = []
         if nombre:
+            # Buscamos coincidencia exacta
+            exact_p = qs_propias.filter(nombre=nombre).first()
+            exact_r = qs_rent.filter(nombre=nombre).first()
+
+            if exact_p:
+                exact_matches.append(exact_p)
+                qs_propias = qs_propias.exclude(id=exact_p.id)
+            if exact_r:
+                exact_matches.append(exact_r)
+                qs_rent = qs_rent.exclude(id=exact_r.id)
+
+            # Seguimos filtrando parcial
             qs_propias = qs_propias.filter(nombre__icontains=nombre)
             qs_rent    = qs_rent.filter(nombre__icontains=nombre)
+
+        # Filtro por propietario
         if propietario:
             qs_propias = qs_propias.filter(propietario_id=propietario)
             qs_rent    = qs_rent.filter(propietario_id=propietario)
@@ -600,12 +656,12 @@ class HuertasCombinadasViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Ge
         if tipo in ("", "rentada"):
             combined.extend(list(qs_rent))
 
-        # Paginación unificada
+        # Paginación
         paginator = self.pagination_class()
         page_objs = paginator.paginate_queryset(combined, request)
         if not page_objs and paginator.page.number > 1:
-            # Página inválida solicitada (demasiado alta)
             page_objs = []
+
         page_data = []
         for obj in page_objs:
             if isinstance(obj, Huerta):
@@ -616,10 +672,21 @@ class HuertasCombinadasViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Ge
                 data["tipo"] = "rentada"
             page_data.append(data)
 
+        # Agregar coincidencias exactas al inicio del listado
+        exact_data = []
+        for ex in exact_matches:
+            if isinstance(ex, Huerta):
+                d = HuertaSerializer(ex).data
+                d["tipo"] = "propia"
+            else:
+                d = HuertaRentadaSerializer(ex).data
+                d["tipo"] = "rentada"
+            exact_data.append(d)
+
         return self.notify(
             key="data_processed_success",
             data={
-                "huertas": page_data,
+                "huertas": exact_data + page_data,
                 "meta": {
                     "count": paginator.page.paginator.count,
                     "next": paginator.get_next_link(),
@@ -627,3 +694,4 @@ class HuertasCombinadasViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Ge
                 }
             }
         )
+

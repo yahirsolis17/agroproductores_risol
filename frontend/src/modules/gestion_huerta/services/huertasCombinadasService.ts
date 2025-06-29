@@ -44,13 +44,14 @@ interface ListResp {
 }
 
 /** Servicio para consultar huertas propias + rentadas en un solo endpoint */
+/** Servicio para consultar huertas propias + rentadas en un solo endpoint */
 export const huertasCombinadasService = {
   async list(
     page = 1,
     estado: Estado = 'activos',
-    filters: HCFilters = {}
+    filters: HCFilters = {},
+    config: { signal?: AbortSignal } = {} // <- Nuevo parámetro opcional
   ): Promise<ListResp> {
-    // 👉 enviamos `estado` directamente, no `archivado`
     const params: Record<string, any> = { page, page_size: 10, estado };
 
     if (filters.tipo)        params.tipo        = filters.tipo;
@@ -64,7 +65,10 @@ export const huertasCombinadasService = {
         huertas: RegistroCombinado[];
         meta:    { count: number; next: string | null; previous: string | null };
       };
-    }>('/huerta/huertas-combinadas/combinadas/', { params });
+    }>('/huerta/huertas-combinadas/combinadas/', {
+      params,
+      signal: config.signal, // <- Esta es la clave para abortar solicitudes
+    });
 
     return {
       huertas: data.data.huertas,

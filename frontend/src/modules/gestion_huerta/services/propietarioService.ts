@@ -52,16 +52,19 @@ export const propietarioService = {
     return data.data;
   },
 
-  async getConHuertas(search?: string): Promise<ListResp> {
-    const params: Record<string, any> = {};
-    if (search) params.search = search;
-    const { data } = await apiClient.get<{
-      success: boolean;
-      message_key: string;
-      data: ListResp;
-    }>('/huerta/propietarios/solo-con-huertas/', { params });
-    return data.data;
-  },
+getConHuertas(search: string, config: { signal?: AbortSignal } = {}) {
+  const params: Record<string, any> = {};
+  if (search) params.search = search;
+
+  return apiClient.get<{
+    success: boolean;
+    message_key: string;
+    data: ListResp;
+  }>('/huerta/propietarios/solo-con-huertas/', {
+    params,
+    signal: config.signal, // 💥 esto es lo que faltaba
+  }).then(res => res.data.data);
+},
 
 
   /* ------------ CREATE ------------ */
@@ -117,8 +120,10 @@ export const propietarioService = {
   },
 
   /* ------------ SEARCH Autocomplete (ID o texto) ------------ */
+  /* ------------ SEARCH Autocomplete (ID o texto) ------------ */
   async searchAutocomplete(
-    query: string
+    query: string,
+    signal?: AbortSignal              // <- NUEVO parámetro opcional
   ): Promise<{ label: string; value: number }[]> {
     if (!query.trim()) return [];
 
@@ -135,10 +140,12 @@ export const propietarioService = {
       data: { propietarios: Propietario[] };
     }>('/huerta/propietarios/', {
       params: { search: query, page_size: 50 },
+      signal,                           // <-- se reenvía para poder cancelar
     });
 
     return data.data.propietarios.map(toOption);
   },
+
 
   /* ------------ Legacy búsqueda por texto (sin formato option) ------------ */
   async search(query: string): Promise<Propietario[]> {
