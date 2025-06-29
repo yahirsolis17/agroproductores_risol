@@ -1,9 +1,5 @@
-/* --------------------------------------------------------------------------
- *  src/global/store/huertaRentadaSlice.ts
- *  Lógica clonada de Propietarios / Huertas ⟶ page + estado + filtros backend
- * -------------------------------------------------------------------------- */
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { huertaRentadaService }     from '../../modules/gestion_huerta/services/huertaRentadaService';
+import { huertaRentadaService } from '../../modules/gestion_huerta/services/huertaRentadaService';
 import { handleBackendNotification } from '../utils/NotificationEngine';
 import {
   HuertaRentada,
@@ -11,17 +7,25 @@ import {
   HuertaRentadaUpdateData,
 } from '../../modules/gestion_huerta/types/huertaRentadaTypes';
 
-/* ───────── Tipos ───────── */
+/* ─── Tipos de estado y filtros ─── */
 export type Estado = 'activos' | 'archivados' | 'todos';
-export interface HRFilters { nombre?:string; propietario?:number; }
+export interface HRFilters {
+  search?: string;            // ← añadido
+  nombre?: string;
+  propietario?: number;
+}
 
-interface PaginationMeta { count:number; next:string|null; previous:string|null; }
+interface PaginationMeta {
+  count: number;
+  next: string | null;
+  previous: string | null;
+}
 
 interface HuertaRentadaState {
   list:    HuertaRentada[];
-  loaded:  boolean;
   loading: boolean;
-  error:   string|null;
+  loaded:  boolean;
+  error:   string | null;
   page:    number;
   estado:  Estado;
   filters: HRFilters;
@@ -29,126 +33,168 @@ interface HuertaRentadaState {
 }
 
 const initialState: HuertaRentadaState = {
-  list:[], loaded:false, loading:false, error:null,
-  page:1, estado:'activos', filters:{},
-  meta:{count:0,next:null,previous:null},
+  list:    [],
+  loading: false,
+  loaded:  false,
+  error:   null,
+  page:    1,
+  estado:  'activos',
+  filters: {},
+  meta:    { count: 0, next: null, previous: null },
 };
 
-/* ───────── Thunks ───────── */
-export const fetchHuertasRentadas = createAsyncThunk(
-  'huertaRentada/fetch',
-  async ({ page, estado, filters }:{page:number;estado:Estado;filters:HRFilters}) =>
-    await huertaRentadaService.list(page, estado, filters)
+/* ═══ THUNKS ═══ */
+export const fetchHuertasRentadas = createAsyncThunk<
+  { huertas_rentadas: HuertaRentada[]; meta: PaginationMeta; page: number },
+  { page: number; estado: Estado; filters: HRFilters },
+  { rejectValue: string }
+>(
+  'huertaRentada/fetchAll',
+  async ({ page, estado, filters }, { rejectWithValue }) => {
+    try {
+      const data = await huertaRentadaService.list(page, estado, filters);
+      return { ...data, page };
+    } catch (err: any) {
+      handleBackendNotification(err.response?.data);
+      return rejectWithValue('Error al cargar huertas rentadas');
+    }
+  },
 );
 
-export const createHuertaRentada = createAsyncThunk(
+export const createHuertaRentada = createAsyncThunk<
+  HuertaRentada,
+  HuertaRentadaCreateData,
+  { rejectValue: string }
+>(
   'huertaRentada/create',
-  async (payload:HuertaRentadaCreateData,{rejectWithValue})=>{
-    try{
+  async (payload, { rejectWithValue }) => {
+    try {
       const res = await huertaRentadaService.create(payload);
       handleBackendNotification(res);
       return res.data.huerta_rentada as HuertaRentada;
-    }catch(e:any){
-      handleBackendNotification(e.response?.data);
-      return rejectWithValue(e);
+    } catch (err: any) {
+      handleBackendNotification(err.response?.data);
+      return rejectWithValue('Error al crear huerta rentada');
     }
-  }
+  },
 );
 
-export const updateHuertaRentada = createAsyncThunk(
+export const updateHuertaRentada = createAsyncThunk<
+  HuertaRentada,
+  { id: number; payload: HuertaRentadaUpdateData },
+  { rejectValue: string }
+>(
   'huertaRentada/update',
-  async ({id,payload}:{id:number;payload:HuertaRentadaUpdateData},{rejectWithValue})=>{
-    try{
-      const res = await huertaRentadaService.update(id,payload);
+  async ({ id, payload }, { rejectWithValue }) => {
+    try {
+      const res = await huertaRentadaService.update(id, payload);
       handleBackendNotification(res);
       return res.data.huerta_rentada as HuertaRentada;
-    }catch(e:any){
-      handleBackendNotification(e.response?.data);
-      return rejectWithValue(e);
+    } catch (err: any) {
+      handleBackendNotification(err.response?.data);
+      return rejectWithValue('Error al actualizar huerta rentada');
     }
-  }
+  },
 );
 
-export const deleteHuertaRentada = createAsyncThunk(
+export const deleteHuertaRentada = createAsyncThunk<
+  number,
+  number,
+  { rejectValue: string }
+>(
   'huertaRentada/delete',
-  async (id:number,{rejectWithValue})=>{
-    try{
+  async (id, { rejectWithValue }) => {
+    try {
       const res = await huertaRentadaService.delete(id);
       handleBackendNotification(res);
       return id;
-    }catch(e:any){
-      handleBackendNotification(e.response?.data);
-      return rejectWithValue(e);
+    } catch (err: any) {
+      handleBackendNotification(err.response?.data);
+      return rejectWithValue('Error al eliminar huerta rentada');
     }
-  }
+  },
 );
 
-export const archiveHuertaRentada = createAsyncThunk(
+export const archiveHuertaRentada = createAsyncThunk<
+  { id: number; archivado_en: string },
+  number,
+  { rejectValue: string }
+>(
   'huertaRentada/archive',
-  async (id: number, { rejectWithValue }) => {
+  async (id, { rejectWithValue }) => {
     try {
       const res = await huertaRentadaService.archivar(id);
       handleBackendNotification(res);
       return { id, archivado_en: new Date().toISOString() };
     } catch (err: any) {
       handleBackendNotification(err.response?.data);
-      return rejectWithValue(err.response?.data || 'Error al archivar huerta rentada');
+      return rejectWithValue('Error al archivar huerta rentada');
     }
-  }
+  },
 );
 
-export const restoreHuertaRentada = createAsyncThunk(
+export const restoreHuertaRentada = createAsyncThunk<
+  { id: number; archivado_en: null },
+  number,
+  { rejectValue: string }
+>(
   'huertaRentada/restore',
-  async (id: number, { rejectWithValue }) => {
+  async (id, { rejectWithValue }) => {
     try {
       const res = await huertaRentadaService.restaurar(id);
       handleBackendNotification(res);
       return { id, archivado_en: null };
     } catch (err: any) {
       handleBackendNotification(err.response?.data);
-      return rejectWithValue(err.response?.data || 'Error al restaurar huerta rentada');
+      return rejectWithValue('Error al restaurar huerta rentada');
     }
-  }
+  },
 );
 
-/* ───────── Slice ───────── */
+/* ═══ SLICE ═══ */
 const hrSlice = createSlice({
-  name:'huertaRentada',
+  name: 'huertaRentada',
   initialState,
-  reducers:{
-    setPage   :(s,a:PayloadAction<number> )      =>{ s.page   = a.payload; },
-    setEstado :(s,a:PayloadAction<Estado> )      =>{ s.estado = a.payload; s.page=1; },
-    setFilters:(s,a:PayloadAction<HRFilters>)    =>{ s.filters= a.payload; s.page=1; },
+  reducers: {
+    setHRPage:    (s, a: PayloadAction<number>)   => { s.page    = a.payload; },
+    setHREstado:  (s, a: PayloadAction<Estado>)   => { s.estado  = a.payload; s.page = 1; },
+    setHRFilters: (s, a: PayloadAction<HRFilters>)=> { s.filters = a.payload; s.page = 1; },
   },
-  extraReducers:b=>{
-    b.addCase(fetchHuertasRentadas.pending,  s=>{ s.loading=true; s.error=null; });
-    b.addCase(fetchHuertasRentadas.fulfilled,(s,{payload})=>{
-      s.list  = payload.huertas_rentadas;
-      s.meta  = payload.meta;
-      s.loaded=true; s.loading=false;
+  extraReducers: (b) => {
+    /* fetch */
+    b.addCase(fetchHuertasRentadas.pending,   (s)            => { s.loading = true;  s.error = null; });
+    b.addCase(fetchHuertasRentadas.fulfilled, (s, { payload }) => {
+      s.list    = payload.huertas_rentadas;
+      s.meta    = payload.meta;
+      s.page    = payload.page;
+      s.loading = false;
+      s.loaded  = true;
     });
-    b.addCase(fetchHuertasRentadas.rejected, (s,{error})=>{
-      s.loading=false; s.loaded=true;
-      s.error = error.message ?? 'Error al cargar huertas rentadas';
+    b.addCase(fetchHuertasRentadas.rejected,  (s, { payload, error }) => {
+      s.loading = false;
+      s.loaded  = true;
+      s.error   = payload ?? error.message ?? 'Error';
     });
 
-    /* alta / edición local */
-    b.addCase(createHuertaRentada.fulfilled,(s,{payload})=>{
-      if(s.estado==='activos') s.list.unshift(payload);
+    /* create / update / delete */
+    b.addCase(createHuertaRentada.fulfilled, (s, { payload }) => {
+      if (s.estado === 'activos') s.list.unshift(payload);
       s.meta.count += 1;
     });
-    b.addCase(updateHuertaRentada.fulfilled,(s,{payload})=>{
-      const i = s.list.findIndex(h=>h.id===payload.id);
-      if(i!==-1) s.list[i]=payload;
+    b.addCase(updateHuertaRentada.fulfilled, (s, { payload }) => {
+      const i = s.list.findIndex(h => h.id === payload.id);
+      if (i !== -1) s.list[i] = payload;
     });
-    b.addCase(deleteHuertaRentada.fulfilled,(s,{payload:id})=>{
-      s.list = s.list.filter(h=>h.id!==id);
-      if(s.meta.count>0) s.meta.count -= 1;
+    b.addCase(deleteHuertaRentada.fulfilled, (s, { payload: id }) => {
+      s.list = s.list.filter(h => h.id !== id);
+      if (s.meta.count > 0) s.meta.count -= 1;
     });
+
+    /* archive / restore */
     b.addCase(archiveHuertaRentada.fulfilled, (s, { payload }) => {
       if (s.estado === 'activos') {
         s.list = s.list.filter(h => h.id !== payload.id);
-      } else if (s.estado !== 'archivados') {
+      } else {
         const i = s.list.findIndex(h => h.id === payload.id);
         if (i !== -1) s.list[i].archivado_en = payload.archivado_en;
       }
@@ -156,20 +202,13 @@ const hrSlice = createSlice({
     b.addCase(restoreHuertaRentada.fulfilled, (s, { payload }) => {
       if (s.estado === 'archivados') {
         s.list = s.list.filter(h => h.id !== payload.id);
-      } else if (s.estado !== 'activos') {
+      } else {
         const i = s.list.findIndex(h => h.id === payload.id);
         if (i !== -1) s.list[i].archivado_en = payload.archivado_en;
       }
     });
-  }
+  },
 });
 
-export const {
-  setPage   : setHRPage,
-  setEstado : setHREstado,
-  setFilters: setHRFilters,
-} = hrSlice.actions;
+export const { setHRPage, setHREstado, setHRFilters } = hrSlice.actions;
 export default hrSlice.reducer;
-
-// No cambios necesarios en la lógica principal, ya que el slice ya maneja filtros, página y fetch desde backend correctamente.
-// Solo aseguro que no haya lógica de filtrado local ni paginación local en el slice.

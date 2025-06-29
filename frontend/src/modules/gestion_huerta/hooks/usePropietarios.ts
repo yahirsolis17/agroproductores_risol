@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/explicit-module-boundary-types */
+// src/modules/gestion_huerta/hooks/usePropietarios.ts
 import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../../global/store/store';
 import {
@@ -14,6 +14,9 @@ import {
   setFilters as setFiltersAction,
 } from '../../../global/store/propietariosSlice';
 import {
+  propietarioService
+} from '../services/propietarioService';
+import {
   Propietario,
   PropietarioCreateData,
   PropietarioUpdateData,
@@ -22,7 +25,6 @@ import {
 export function usePropietarios() {
   const dispatch = useAppDispatch();
 
-  /* ---------- estado global ---------- */
   const {
     list: propietarios,
     loading,
@@ -33,47 +35,37 @@ export function usePropietarios() {
     filters
   } = useAppSelector((s) => s.propietarios);
 
-  // Log para ver el valor real de filters en cada render
-  console.log('[Hook] Estado global obtenido:', { page, estado, filters });
-
-  /* ---------- fetch automático al cambiar page/estado/filters ---------- */
+  /* fetch automático al cambiar page/estado/filters */
   useEffect(() => {
-    const fetchObj = { page, estado, ...filters };
-    console.log("[Hook] useEffect ejecutado. fetchObj:", fetchObj);
-    dispatch(fetchPropietarios(fetchObj));
+    dispatch(fetchPropietarios({ page, estado, ...filters }));
   }, [dispatch, page, estado, filters]);
-  /* ---------- CRUD wrappers ---------- */
-  const addPropietario = (v: PropietarioCreateData): Promise<Propietario> => {
-    console.log('[Hook] addPropietario:', v);
-    return dispatch(createPropietario(v)).unwrap();
-  };
-  const refetch = () => {
-    const fetchObj = { page, estado, ...filters };
-    console.log('[Hook] refetch:', fetchObj);
-    return dispatch(fetchPropietarios(fetchObj));
-  };
-  const editPropietario = (
-    id: number,
-    v: PropietarioUpdateData
-  ): Promise<Propietario> => {
-    console.log('[Hook] editPropietario:', { id, v });
-    return dispatch(updatePropietario({ id, payload: v })).unwrap();
-  };
-  const doArchivePropietario = (id: number): Promise<Propietario> => {
-    console.log('[Hook] archivePropietario:', id);
-    return dispatch(archivePropietarioThunk(id)).unwrap();
-  };
-  const doRestorePropietario = (id: number): Promise<Propietario> => {
-    console.log('[Hook] restorePropietario:', id);
-    return dispatch(restorePropietarioThunk(id)).unwrap();
-  };
-  const removePropietario = (id: number): Promise<number> => {
-    console.log('[Hook] removePropietario:', id);
-    return dispatch(deletePropietario(id)).unwrap();
+
+  /* ——— Nuevo método: sólo propietarios con huertas ——— */
+  const getConHuertas = async (): Promise<Propietario[]> => {
+    const { propietarios: lista } = await propietarioService.getConHuertas();
+    return lista;
   };
 
-  
-  /* ---------- API del hook ---------- */
+  /* CRUD wrappers */
+  const addPropietario = (v: PropietarioCreateData): Promise<Propietario> =>
+    dispatch(createPropietario(v)).unwrap();
+
+  const editPropietario = (id: number, v: PropietarioUpdateData): Promise<Propietario> =>
+    dispatch(updatePropietario({ id, payload: v })).unwrap();
+
+  const archivePropietario = (id: number): Promise<Propietario> =>
+    dispatch(archivePropietarioThunk(id)).unwrap();
+
+  const restorePropietario = (id: number): Promise<Propietario> =>
+    dispatch(restorePropietarioThunk(id)).unwrap();
+
+  const removePropietario = (id: number): Promise<number> =>
+    dispatch(deletePropietario(id)).unwrap();
+
+  const refetch = () =>
+    dispatch(fetchPropietarios({ page, estado, ...filters }));
+
+  /* API del hook */
   return {
     propietarios,
     loading,
@@ -82,19 +74,21 @@ export function usePropietarios() {
     estado,
     meta,
     filters,
+
     /* navegación */
     changePage:   (p: number)           => dispatch(setPage(p)),
     changeEstado: (e: Estado)           => dispatch(setEstado(e)),
-    changeFilters: (f: Record<string, any>) => {
-      console.log('[Hook] changeFilters despachando setFilters:', f);
-      dispatch(setFiltersAction({ ...f }));
-    },
+    changeFilters:(f: Record<string, any>) => dispatch(setFiltersAction(f)),
+
     /* acciones */
     addPropietario,
     editPropietario,
-    archivePropietario: doArchivePropietario,
-    restorePropietario: doRestorePropietario,
+    archivePropietario,
+    restorePropietario,
     removePropietario,
     refetch,
+
+    /* nuevo: sólo con huertas */
+    getConHuertas,
   };
 }

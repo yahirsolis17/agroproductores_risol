@@ -14,6 +14,8 @@ import categoriaInversionReducer from './categoriaInversionSlice';
 import temporadaReducer from './temporadaSlice';
 import breadcrumbsReducer from './breadcrumbsSlice';
 import userReducer from './userSlice';
+import huertasCombinadasReducer from './huertasCombinadasSlice'
+
 
 export const store = configureStore({
   reducer: {
@@ -24,6 +26,7 @@ export const store = configureStore({
     breadcrumbs: breadcrumbsReducer,
     huerta: huertaReducer,
     huertaRentada: huertaRentadaReducer,
+    huertasCombinadas: huertasCombinadasReducer,
     temporada: temporadaReducer,
     cosechas: cosechasReducer,
     inversiones: inversionesReducer,

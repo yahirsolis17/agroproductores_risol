@@ -28,7 +28,12 @@ CORS_ALLOW_CREDENTIALS = True
 
 # Application definition
 INSTALLED_APPS = [
-    # Django apps
+    # Django apps    
+    'gestion_usuarios',  
+    'gestion_huerta',    # App para gestión de huertas (cosechas, informes, etc.)
+    'gestion_bodega',    # App para gestión de bodegas
+    'gestion_venta',  
+    # App para usuarios y autenticación
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -36,10 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     # Tus apps modulares
-    'gestion_huerta',    # App para gestión de huertas (cosechas, informes, etc.)
-    'gestion_bodega',    # App para gestión de bodegas
-    'gestion_venta',     # App para gestión de ventas
-    'gestion_usuarios',  # App para usuarios y autenticación
+   # App para gestión de ventas
     # Otras apps que uses
     'rest_framework',
     'corsheaders',

@@ -177,12 +177,12 @@ export function TableLayout<T>({
   const [asyncOptions, setAsyncOptions] = useState<FilterOption[]>([]);
   const [asyncLoading, setAsyncLoading] = useState(false);
 
-  /* Precarga de opción */
+  /* Precarga de opción (sólo si hay id y el usuario ya escribió algo) */
   useEffect(() => {
     filterConfig.forEach((cfg) => {
       if (cfg.type !== 'autocomplete-async') return;
       const current = filters[cfg.key];
-      if (!current) return;
+      if (!current || asyncInput.trim() === '') return;
       if (asyncOptions.some((o) => o.value === current)) return;
 
       setAsyncLoading(true);
@@ -194,7 +194,7 @@ export function TableLayout<T>({
         })
         .finally(() => setAsyncLoading(false));
     });
-  }, [filters, filterConfig, asyncOptions]);
+  }, [filters, filterConfig, asyncOptions, asyncInput]);
 
   const showSkeleton = useDelayedLoading(loading);
   const totalPages = Math.max(
@@ -229,8 +229,8 @@ export function TableLayout<T>({
       {filterConfig.length > 0 && (
         <Box display="flex" flexWrap="wrap" gap={2} mb={3}>
           {filterConfig.map((cfg) => {
-            const common = {
-              key: cfg.key,
+            // Extraemos solo las props que debe recibir el componente, sin `key`
+            const commonProps = {
               label: cfg.label,
               size: 'small' as const,
               sx: { minWidth: cfg.width ?? 160 },
@@ -240,7 +240,8 @@ export function TableLayout<T>({
               case 'text':
                 return (
                   <TextField
-                    {...common}
+                    key={cfg.key}
+                    {...commonProps}
                     value={filters[cfg.key] ?? ''}
                     onChange={(e) =>
                       handleFilterUpdate(cfg.key, e.target.value)
@@ -251,7 +252,8 @@ export function TableLayout<T>({
               case 'select':
                 return (
                   <TextField
-                    {...common}
+                    key={cfg.key}
+                    {...commonProps}
                     select
                     value={filters[cfg.key] ?? ''}
                     onChange={(e) =>
@@ -269,7 +271,8 @@ export function TableLayout<T>({
               case 'autocomplete':
                 return (
                   <Autocomplete
-                    {...common}
+                    key={cfg.key}
+                    {...commonProps}
                     options={cfg.options ?? []}
                     getOptionLabel={(o) => o.label}
                     isOptionEqualToValue={(o, v) => o.value === v.value}
@@ -281,7 +284,9 @@ export function TableLayout<T>({
                     onChange={(_, v) =>
                       handleFilterUpdate(cfg.key, v?.value ?? null)
                     }
-                    renderInput={(p) => <TextField {...p} label={cfg.label} />}
+                    renderInput={(params) => (
+                      <TextField {...params} label={cfg.label} />
+                    )}
                   />
                 );
 
@@ -297,15 +302,18 @@ export function TableLayout<T>({
 
                 return (
                   <Autocomplete
-                    {...common}
+                    key={cfg.key}
+                    {...commonProps}
                     options={asyncOptions}
                     getOptionLabel={(o) => o.label}
-                    isOptionEqualToValue={(
-                      o: FilterOption,
-                      v: FilterOption,
-                    ) => o.value === v.value}
-                    filterOptions={(x) => x}
+                    isOptionEqualToValue={(o: FilterOption, v: FilterOption) =>
+                      o.value === v.value
+                    }
+                    filterOptions={(opts, state) =>
+                      state.inputValue.trim() === '' ? [] : opts
+                    }
                     loading={asyncLoading}
+                    openOnFocus={false}
                     value={
                       asyncOptions.find(
                         (o) => o.value === filters[cfg.key],
@@ -324,19 +332,20 @@ export function TableLayout<T>({
                         ? 'Empieza a escribir...'
                         : 'No se encontraron coincidencias'
                     }
-                    renderInput={(p) => (
+                    renderInput={(params) => (
                       <TextField
-                        {...p}
+                        {...params}
                         label={cfg.label}
                         placeholder="Empieza a escribir..."
+                        autoComplete="off"
                         InputProps={{
-                          ...p.InputProps,
+                          ...params.InputProps,
                           endAdornment: (
                             <>
                               {asyncLoading && (
                                 <CircularProgress size={20} />
                               )}
-                              {p.InputProps.endAdornment}
+                              {params.InputProps.endAdornment}
                             </>
                           ),
                         }}
@@ -381,9 +390,7 @@ export function TableLayout<T>({
           <tbody>
             {data.length ? (
               data.map((item, i) => {
-                const key = rowKey
-                  ? rowKey(item)
-                  : i + (page - 1) * pageSize;
+                const key = rowKey ? rowKey(item) : i + (page - 1) * pageSize;
                 return (
                   <tr
                     key={key}
@@ -409,9 +416,7 @@ export function TableLayout<T>({
                         className={`px-4 ${dense ? 'py-1' : 'py-2'} border`}
                         style={{ textAlign: col.align || 'left' }}
                       >
-                        {col.render
-                          ? col.render(item)
-                          : String(item[col.key])}
+                        {col.render ? col.render(item) : String(item[col.key])}
                       </td>
                     ))}
                     {renderActions && (

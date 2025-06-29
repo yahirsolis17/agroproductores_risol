@@ -1,350 +1,284 @@
+// src/modules/gestion_huerta/pages/Huertas.tsx
 /* eslint-disable react-hooks/exhaustive-deps */
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Paper, Typography, CircularProgress, Box,
-  Tabs, Tab, Dialog, DialogTitle,
-  DialogContent, DialogActions, Button,
+  Tabs, Tab, Dialog, DialogTitle, DialogContent,
+  DialogActions, Button,
 } from '@mui/material';
 
-import HuertaToolbar from '../components/huerta/HuertaToolBar';
-import HuertaModalTabs from '../components/huerta/HuertaModalTabs';
-import PropietarioFormModal from '../components/propietario/PropietarioFormModal';
+import HuertaToolbar           from '../components/huerta/HuertaToolBar';
+import HuertaModalTabs         from '../components/huerta/HuertaModalTabs';
+import PropietarioFormModal    from '../components/propietario/PropietarioFormModal';
 import HuertaTable, { Registro } from '../components/huerta/HuertaTable';
 
-import { useHuertasCombinadas } from '../hooks/useHuertasCombinadas';
-import { usePropietarios } from '../hooks/usePropietarios';
+import { useHuertasCombinadas }  from '../hooks/useHuertasCombinadas';
+import { usePropietarios       } from '../hooks/usePropietarios';
 
-import { HuertaCreateData } from '../types/huertaTypes';
-import { HuertaRentadaCreateData } from '../types/huertaRentadaTypes';
-import { PropietarioCreateData } from '../types/propietarioTypes';
+import { huertaService         } from '../services/huertaService';
+import { huertaRentadaService  } from '../services/huertaRentadaService';
+import { propietarioService    } from '../services/propietarioService';
+import { huertasCombinadasService } from '../services/huertasCombinadasService';
 
-import { huertaService } from '../services/huertaService';
-import { huertaRentadaService } from '../services/huertaRentadaService';
 import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
-
-import { isRentada } from '../utils/huertaTypeGuards';
 import { FilterConfig } from '../../../components/common/TableLayout';
-import { Estado } from '../../../global/store/huertaSlice';
+import { isRentada } from '../utils/huertaTypeGuards';
 
-/* ────────────────────────────────────────────────────────────── */
-const pageSize = 10;
-type VistaTab = Estado; // 'activos' | 'archivados' | 'todos'
+/* ------------------------------------------------------------------ */
+const pageSize = 10;                         // tamaño de página
+type VistaTab  = 'activos' | 'archivados' | 'todos';
+/* ------------------------------------------------------------------ */
 
-/* ────────────────────────────────────────────────────────────── */
 const Huertas: React.FC = () => {
   const navigate = useNavigate();
-  /* —— Data hooks —— */
-  const {
-    huertas, meta, loading,
-    page, setPage,
-    estado, changeEstado,       // backend
-    changeFilters,              // backend
-    add, edit, fetchAll, // eliminamos toggleLocal y filters porque ya no se usan
-    archive, restore, // <-- desestructuro archive y restore
-    tipo, setTipo, // <-- NUEVO: control global del tipo
-  } = useHuertasCombinadas();
+  const hComb    = useHuertasCombinadas();
 
+  /* ───── Propietarios (autocomplete + modal) ───── */
   const {
-    propietarios, loading: loadProps,
+    propietarios, loading: propsLoading,
     addPropietario, refetch: refetchProps,
   } = usePropietarios();
 
-  // —— Hooks de estado (deben ir primero) —__
-  const [tipoFiltro, setTipoFiltro] = [tipo, setTipo]; // sincroniza con el global
-  const [nombreFiltro, setNombreFiltro] = useState<string | null>(null);
+  /* ───── Filtros locales (UI) ───── */
+  const [tipoFiltro,        setTipoFiltro]        = useState<'' | 'propia' | 'rentada'>('');
+  const [nombreFiltro,      setNombreFiltro]      = useState<string | null>(null);
   const [propietarioFiltro, setPropietarioFiltro] = useState<number | null>(null);
+
+  /* ───── Control de UI ───── */
   const [tab, setTab] = useState<VistaTab>('activos');
+
   const [modalOpen, setModalOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<{ tipo: 'propia' | 'rentada'; data: any } | null>(null);
-  const [delDialog, setDelDialog] = useState<{ id: number; tipo: 'propia' | 'rentada' } | null>(null);
   const [propModal, setPropModal] = useState(false);
-  const [spin, setSpin] = useState(false);
   const [defaultPropietarioId, setDefaultPropietarioId] = useState<number>();
 
-  // —— Datos para la tabla —__
-  // Elimino cualquier filtrado local, solo uso los datos del store (ya paginados y filtrados por backend)
-  const rows: Registro[] = huertas.map(h =>
-    isRentada(h)
-      ? ({ ...h, tipo: 'rentada', monto_renta: (h as any).monto_renta ?? 0 } as Registro)
-      : ({ ...h, tipo: 'propia' } as Registro)
-  );
+  const [editTarget, setEditTarget] =
+    useState<{ tipo: 'propia' | 'rentada'; data: Registro } | null>(null);
 
-  // Sincronización bidireccional inteligente
-  useEffect(() => {
-    // Si selecciona un nombre único, ajustar tipo automáticamente
-    if (nombreFiltro && !tipoFiltro) {
-      const tipos = Array.from(new Set(
-        huertas.filter(h => h.nombre === nombreFiltro).map(h => isRentada(h) ? 'rentada' : 'propia')
-      ));
-      if (tipos.length === 1) setTipoFiltro(tipos[0]);
-    }
-    // Si selecciona un propietario único, ajustar tipo automáticamente
-    if (propietarioFiltro && !tipoFiltro) {
-      const tipos = Array.from(new Set(
-        huertas.filter(h => h.propietario === propietarioFiltro).map(h => isRentada(h) ? 'rentada' : 'propia')
-      ));
-      if (tipos.length === 1) setTipoFiltro(tipos[0]);
-    }
-  }, [nombreFiltro, propietarioFiltro, tipoFiltro, huertas]);
+  const [delDialog, setDelDialog] =
+    useState<{ id: number; tipo: 'propia' | 'rentada' } | null>(null);
 
-  // —— Botón de limpiar filtros —__
+  /* ───── Sincronizar pestaña con slice combinado ───── */
+  useEffect(() => { hComb.setEstado(tab); }, [tab]);
+
+  /* ───── Filtros ⇄ slice combinado ───── */
+  const handleFilterChange = (f: Record<string, any>) => {
+    const { tipo = '', nombre = null, propietario = null } = f;
+
+    setTipoFiltro(tipo);
+    setNombreFiltro(nombre);
+    setPropietarioFiltro(propietario);
+
+    hComb.setFilters({
+      tipo:        tipo        || undefined,
+      nombre:      nombre      || undefined,
+      propietario: propietario || undefined,
+    });
+  };
+
   const limpiarFiltros = () => {
     setTipoFiltro('');
     setNombreFiltro(null);
     setPropietarioFiltro(null);
-    changeFilters({});
+    hComb.setFilters({});
   };
 
-  // —— Opciones contextuales —__
-  // Las opciones de filtros se calculan solo a partir de los datos del backend
-  // Opciones de filtro autocomplete por nombre, ordenadas y agrupadas
-  const nombresDisponibles = useMemo(() => {
-    let base = huertas;
-    if (propietarioFiltro) base = base.filter(h => h.propietario === propietarioFiltro);
-    return [...new Set(base.map(h => h.nombre))]
-      .map(n => ({
-        label: n,
-        value: n,
-        firstLetter: n[0]?.toUpperCase() || '',
-      }))
-      .sort((a, b) => (a && b ? a.label.localeCompare(b.label, 'es') : 0));
-  }, [huertas, propietarioFiltro]);
+  /* ───── Loaders async para los filtros ───── */
+  const loadNombreOptions = async (q: string) => {
+    if (!q.trim()) return [];
+    // Combina propias + rentadas para sugerir nombres únicos
+    const { huertas } = await huertasCombinadasService.list(1, 'todos', { nombre: q });
+    const nombresUnicos = [...new Set(huertas.map(h => h.nombre))];
+    return nombresUnicos.map(n => ({ label: n, value: n }));
+  };
 
-  const propietariosDisponibles = useMemo(() => {
-    let base = huertas;
-    if (nombreFiltro) base = base.filter(h => h.nombre === nombreFiltro);
-    return [...new Set(base.map(h => h.propietario))]
-      .map(id => {
-        const p = propietarios.find(p => p.id === id);
-        return p
-          ? {
-              label: `${p.nombre} ${p.apellidos}`,
-              value: p.id,
-              firstLetter: p.nombre[0]?.toUpperCase() || '',
-            }
-          : null;
-      })
-      .filter((x): x is { label: string; value: number; firstLetter: string } => x !== null)
-      .sort((a, b) => (a && b ? a.label.localeCompare(b.label, 'es') : 0));
-  }, [huertas, nombreFiltro, propietarios]);
+  const loadPropietarioOptions = async (q: string) => {
+    if (q.trim().length < 2) return [];
+    // Solo propietarios CON huertas, filtrados por search
+    const { propietarios: conHuertas } = await propietarioService.getConHuertas(q);
+    return conHuertas.map(p => ({
+      label: `${p.nombre} ${p.apellidos}`,
+      value: p.id,
+    }));
+  };
 
-  // —— Mensajes detallados —__
-  const noResultsMsg = useMemo(() => {
-    if (rows.length === 0) return 'No hay huertas registradas.';
-    // El backend ya filtra, así que si no hay resultados es por los filtros activos
-    if (rows.length === 0) {
-      if (tipoFiltro && nombreFiltro && propietarioFiltro) {
-        return 'No hay huertas de ese tipo, nombre y propietario.';
-      }
-      if (tipoFiltro && nombreFiltro) {
-        return 'No hay huertas de ese tipo con ese nombre.';
-      }
-      if (tipoFiltro && propietarioFiltro) {
-        return 'No hay huertas de ese tipo para ese propietario.';
-      }
-      if (nombreFiltro && propietarioFiltro) {
-        return 'No hay huertas con ese nombre para ese propietario.';
-      }
-      if (tipoFiltro) {
-        return 'No hay huertas de ese tipo.';
-      }
-      if (nombreFiltro) {
-        return 'No hay huertas con ese nombre.';
-      }
-      if (propietarioFiltro) {
-        return 'No hay huertas para ese propietario.';
-      }
-      return 'No hay resultados que coincidan con tus filtros.';
-    }
-    return '';
-  }, [rows, tipoFiltro, nombreFiltro, propietarioFiltro]);
-
-  // —— Configuración de filtros —__
   const filterConfig: FilterConfig[] = [
     {
-      key: 'tipo', label: 'Tipo', type: 'select',
+      key: 'tipo',
+      label: 'Tipo',
+      type: 'select',
       options: [
-        { label: 'Todas', value: '' },
-        { label: 'Propias', value: 'propia' },
-        { label: 'Rentadas', value: 'rentada' },
+        { label: 'Todas',    value: ''       },
+        { label: 'Propias',  value: 'propia' },
+        { label: 'Rentadas', value: 'rentada'},
       ],
     },
     {
-      key: 'nombre', label: 'Nombre', type: 'autocomplete',
-      options: nombresDisponibles,
+      key: 'nombre',
+      label: 'Nombre',
+      type: 'autocomplete-async',
       width: 320,
-      // groupBy se maneja en TableLayout
+      loadOptions: loadNombreOptions,
     },
     {
-      key: 'propietario', label: 'Propietario', type: 'autocomplete',
-      options: propietariosDisponibles as any,
+      key: 'propietario',
+      label: 'Propietario',
+      type: 'autocomplete-async',
       width: 320,
-      // groupBy se maneja en TableLayout
+      loadOptions: loadPropietarioOptions,
     },
   ];
 
-  // —— Handler de cambio de filtros —__
-  const handleFilterChange = (f: Record<string, any>) => {
-    const { tipo = '', nombre = null, propietario = null, ...backend } = f;
-    // Si cambia el tipo, limpiar nombre y propietario si ya no son válidos
-    if (tipo !== tipoFiltro) {
-      setTipo(tipo); // sincroniza global
-      setNombreFiltro(null);
-      setPropietarioFiltro(null);
-      changeFilters({ tipo, nombre: undefined, propietario: undefined, ...backend });
-    } else {
-      setNombreFiltro(nombre);
-      setPropietarioFiltro(propietario);
-      changeFilters({ tipo, nombre, propietario, ...backend });
-    }
-  };
-
-  /* —— Spinner diferido —— */
+  /* ───── Spinner diferido ───── */
+  const [spin, setSpin] = useState(false);
   useEffect(() => {
     let t: any;
-    if (loading || loadProps) t = setTimeout(() => setSpin(true), 300);
-    else setSpin(false);
+    if (hComb.loading || propsLoading) t = setTimeout(() => setSpin(true), 300);
+    else                               setSpin(false);
     return () => clearTimeout(t);
-  }, [loading, loadProps]);
+  }, [hComb.loading, propsLoading]);
 
-  /* —— Tabs (estado ↔ backend) —— */
-  useEffect(() => setTab(estado as VistaTab), [estado]);
-  const handleTabChange = (_: any, v: VistaTab) => {
-    setTab(v);
-    changeEstado(v);
-  };
+  /* ───── CRUD helpers ───── */
+  const refetchAll = () => hComb.refetch();
 
-  /* —— CRUD helpers —— */
-  const savePropia = async (v: HuertaCreateData) => {
-    await add(v, 'propia');
-    await fetchAll();
-  };
-  const saveRentada = async (v: HuertaRentadaCreateData) => {
-    await add(v, 'rentada');
-    await fetchAll();
-  };
+  const savePropia  = async (v: any) => { await huertaService.create(v);         refetchAll(); };
+  const saveRentada = async (v: any) => { await huertaRentadaService.create(v);  refetchAll(); };
 
-  const launchEdit = (h: Registro) => {
-    setEditTarget({ tipo: isRentada(h) ? 'rentada' : 'propia', data: h });
-    setDefaultPropietarioId(undefined);
-    setModalOpen(true);
-  };
   const saveEdit = async (vals: any) => {
     if (!editTarget) return;
-    await edit(editTarget.data.id, vals, editTarget.tipo);
+    if (editTarget.tipo === 'propia') {
+      await huertaService.update(editTarget.data.id, vals);
+    } else {
+      await huertaRentadaService.update(editTarget.data.id, vals);
+    }
+    refetchAll();
     setModalOpen(false);
   };
 
-  /* — Delete — */
-  const askDelete = (h: Registro) => setDelDialog({ id: h.id, tipo: isRentada(h) ? 'rentada' : 'propia' });
+  const askDelete = (h: Registro) =>
+    setDelDialog({ id: h.id, tipo: isRentada(h) ? 'rentada' : 'propia' });
+
   const confirmDelete = async () => {
     if (!delDialog) return;
-    try {
-      const res =
-        delDialog.tipo === 'propia'
-          ? await huertaService.delete(delDialog.id)
-          : await huertaRentadaService.delete(delDialog.id);
-      handleBackendNotification(res);
-      await fetchAll();
-    } finally {
-      setDelDialog(null);
-    }
+    const res = delDialog.tipo === 'propia'
+      ? await huertaService.delete(delDialog.id)
+      : await huertaRentadaService.delete(delDialog.id);
+    handleBackendNotification(res);
+    refetchAll();
+    setDelDialog(null);
   };
 
-  /* — Alta rápida de propietario — */
-  const saveNewProp = async (v: PropietarioCreateData) => {
-    const created = await addPropietario(v);
-    await refetchProps();
-    setDefaultPropietarioId(created.id);
-  };
-
-  // Aseguro que handleArchiveOrRestore esté definido antes del render:
   const handleArchiveOrRestore = async (h: Registro, archivado: boolean) => {
-    const tipo = isRentada(h) ? 'rentada' : 'propia';
-    if (archivado) await Promise.resolve(await (tipo === 'propia' ? restore(h.id, 'propia') : restore(h.id, 'rentada')));
-    else await Promise.resolve(await (tipo === 'propia' ? archive(h.id, 'propia') : archive(h.id, 'rentada')));
-    await fetchAll();
+    if (isRentada(h)) {
+      archivado
+        ? await huertaRentadaService.restaurar(h.id)
+        : await huertaRentadaService.archivar(h.id);
+    } else {
+      archivado
+        ? await huertaService.restaurar(h.id)
+        : await huertaService.archivar(h.id);
+    }
+    refetchAll();
   };
 
-  // Aseguro que propietariosParaModal esté definido antes del render:
+  /* ───── Propietarios para el modal de edición ───── */
   const propietariosParaModal = useMemo(() => {
-    if (editTarget?.data?.propietario &&
-      !propietarios.find(p => p.id === editTarget.data.propietario)) {
-      return [editTarget.data.propietario_detalle, ...propietarios];
-    }
-    return propietarios;
+    const extra = editTarget?.data?.propietario_detalle;
+    return extra && !propietarios.some(p => p.id === extra.id)
+      ? [extra, ...propietarios]
+      : propietarios;
   }, [propietarios, editTarget]);
 
-  /* ================= Render ================= */
+  /* ───── Render ───── */
   return (
-    <motion.div className="p-6 max-w-6xl mx-auto"
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: .4 }}>
+    <motion.div
+      className="p-6 max-w-6xl mx-auto"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+    >
       <Paper elevation={4} className="p-6 sm:p-10 rounded-2xl bg-white">
-
         <Typography variant="h4" className="text-primary-dark font-bold mb-4">
           Gestión de Huertas
         </Typography>
 
-        <HuertaToolbar onOpen={() => {
-          setEditTarget(null);
-          setDefaultPropietarioId(undefined);
-          setModalOpen(true);
-        }} />
-        {/* —— Tabs de estado —— */}
-        <Tabs value={tab} onChange={handleTabChange}
-          textColor="primary" indicatorColor="primary" sx={{ mb: 2 }}>
-          <Tab value="activos" label="Activas" />
+        <HuertaToolbar onOpen={() => { setEditTarget(null); setModalOpen(true); }} />
+
+        {/* Tabs de estado */}
+        <Tabs
+          value={tab}
+          onChange={(_, v) => setTab(v as VistaTab)}
+          textColor="primary"
+          indicatorColor="primary"
+          sx={{ mb: 2 }}
+        >
+          <Tab value="activos"    label="Activas"    />
           <Tab value="archivados" label="Archivadas" />
-          <Tab value="todos" label="Todas" />
+          <Tab value="todos"      label="Todas"      />
         </Tabs>
-        {/* —— Tabla —— */}
+
+        {/* Tabla */}
         {spin ? (
           <Box display="flex" justifyContent="center" mt={6}>
             <CircularProgress />
           </Box>
         ) : (
           <HuertaTable
-            data={rows}
-            page={page}
+            data={hComb.huertas}
+            page={hComb.page}
             pageSize={pageSize}
-            count={meta.count}
-            onPageChange={setPage}
-            loading={loading || loadProps}
-            emptyMessage={noResultsMsg}
+            count={hComb.meta.count}
+            onPageChange={hComb.setPage}
+            loading={hComb.loading || propsLoading}
+            emptyMessage={
+              hComb.huertas.length ? '' : 'No hay huertas que coincidan.'
+            }
             filterConfig={filterConfig}
+            filterValues={{
+              tipo:        tipoFiltro,
+              nombre:      nombreFiltro,
+              propietario: propietarioFiltro,
+            }}
             onFilterChange={handleFilterChange}
-            onEdit={launchEdit}
+            limpiarFiltros={limpiarFiltros}
+            onEdit={h => {
+              setEditTarget({ tipo: isRentada(h) ? 'rentada' : 'propia', data: h });
+              setModalOpen(true);
+            }}
             onDelete={askDelete}
             onArchive={h => handleArchiveOrRestore(h, false)}
             onRestore={h => handleArchiveOrRestore(h, true)}
             onTemporadas={h => navigate(`/temporadas?huerta_id=${h.id}`)}
-            filterValues={{ tipo: tipoFiltro, nombre: nombreFiltro, propietario: propietarioFiltro }}
-            limpiarFiltros={limpiarFiltros}
           />
         )}
 
-        {/* —— Modales —— */}
+        {/* Modal huerta propia / rentada */}
         <HuertaModalTabs
           open={modalOpen}
           onClose={() => setModalOpen(false)}
-          onSubmitPropia={editTarget?.tipo === 'propia' ? saveEdit : savePropia}
+          onSubmitPropia ={editTarget?.tipo === 'propia'  ? saveEdit : savePropia }
           onSubmitRentada={editTarget?.tipo === 'rentada' ? saveEdit : saveRentada}
           propietarios={propietariosParaModal}
-          loading={loadProps}
+          loading={propsLoading}
           onRegisterNewPropietario={() => setPropModal(true)}
           defaultPropietarioId={defaultPropietarioId}
           editTarget={editTarget || undefined}
         />
 
+        {/* Modal crear propietario */}
         <PropietarioFormModal
           open={propModal}
           onClose={() => setPropModal(false)}
-          onSubmit={saveNewProp}
+          onSubmit={async v => {
+            const p = await addPropietario(v);
+            await refetchProps();
+            setDefaultPropietarioId(p.id);
+          }}
         />
 
-        <Dialog open={Boolean(delDialog)} onClose={() => setDelDialog(null)}>
+        {/* Diálogo de confirmación delete */}
+        <Dialog open={!!delDialog} onClose={() => setDelDialog(null)}>
           <DialogTitle>Confirmar eliminación</DialogTitle>
           <DialogContent>¿Eliminar esta huerta permanentemente?</DialogContent>
           <DialogActions>
@@ -352,7 +286,6 @@ const Huertas: React.FC = () => {
             <Button color="error" onClick={confirmDelete}>Eliminar</Button>
           </DialogActions>
         </Dialog>
-
       </Paper>
     </motion.div>
   );

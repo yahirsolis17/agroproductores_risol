@@ -12,6 +12,7 @@ from gestion_huerta.views.huerta_views import (
     HuertaViewSet,
     HuertaRentadaViewSet,
     PropietarioViewSet,
+    HuertasCombinadasViewSet
 )
 
 from gestion_huerta.views.inversiones_views import (
@@ -36,8 +37,10 @@ router.register(r"inversiones", InversionViewSet, basename="inversion")
 router.register(r"ventas", VentaViewSet, basename="venta")
 router.register(r"temporadas", TemporadaViewSet, basename="temporada")
 router.register(r'actividad', RegistroActividadViewSet, basename='actividad')
+router.register(r"huertas-combinadas", HuertasCombinadasViewSet, basename="huertas-combinadas")
 
 # ---- urlpatterns ----
 urlpatterns = [
     path("", include(router.urls)),
+    
 ]

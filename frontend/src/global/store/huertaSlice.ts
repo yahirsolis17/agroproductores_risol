@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { huertaService }      from '../../modules/gestion_huerta/services/huertaService';
+import { huertaService } from '../../modules/gestion_huerta/services/huertaService';
 import { handleBackendNotification } from '../utils/NotificationEngine';
 import {
   Huerta,
@@ -7,14 +7,14 @@ import {
   HuertaUpdateData,
 } from '../../modules/gestion_huerta/types/huertaTypes';
 
-/* ——— tipos ——— */
+/* ─── Tipos de estado y filtros ─── */
 export type Estado = 'activos' | 'archivados' | 'todos';
 
-export type HuertaFilters = {
+export interface HuertaFilters {
+  search?: string;            // ← ahora disponible
   nombre?: string;
   propietario?: number;
-};
-
+}
 interface PaginationMeta {
   count: number;
   next: string | null;
@@ -24,154 +24,170 @@ interface PaginationMeta {
 interface HuertaState {
   list:    Huerta[];
   loading: boolean;
-  error:   string | null;
   loaded:  boolean;
+  error:   string | null;
   page:    number;
   estado:  Estado;
-  meta:    PaginationMeta;
   filters: HuertaFilters;
+  meta:    PaginationMeta;
 }
 
+/* ─── Estado inicial ─── */
 const initialState: HuertaState = {
-  list: [],
+  list:    [],
   loading: false,
-  error: null,
-  loaded: false,
-  page: 1,
-  estado: 'activos',
-  meta: { count: 0, next: null, previous: null },
+  loaded:  false,
+  error:   null,
+  page:    1,
+  estado:  'activos',
   filters: {},
+  meta:    { count: 0, next: null, previous: null },
 };
 
-/* ───────────────────────────── THUNKS ───────────────────────────── */
-export const fetchHuertas = createAsyncThunk(
+/* ═══ THUNKS ═══ */
+export const fetchHuertas = createAsyncThunk<
+  { huertas: Huerta[]; meta: PaginationMeta; page: number },
+  { page: number; estado: Estado; filters: HuertaFilters },
+  { rejectValue: string }
+>(
   'huerta/fetchAll',
-  async (
-    { page, estado, filters }: { page: number; estado: Estado; filters: HuertaFilters },
-    { rejectWithValue }
-  ) => {
+  async ({ page, estado, filters }, { rejectWithValue }) => {
     try {
       const { huertas, meta } = await huertaService.list(page, estado, filters);
       return { huertas, meta, page };
     } catch (err: any) {
       handleBackendNotification(err.response?.data);
-      return rejectWithValue(err.response?.data || 'Error al cargar huertas');
+      return rejectWithValue('Error al cargar huertas');
     }
-  }
+  },
 );
 
-export const createHuerta = createAsyncThunk(
+export const createHuerta = createAsyncThunk<Huerta, HuertaCreateData, { rejectValue: string }>(
   'huerta/create',
-  async (payload: HuertaCreateData, { rejectWithValue }) => {
+  async (payload, { rejectWithValue }) => {
     try {
       const res = await huertaService.create(payload);
       handleBackendNotification(res);
       return res.data.huerta as Huerta;
     } catch (err: any) {
       handleBackendNotification(err.response?.data);
-      return rejectWithValue(err.response?.data || 'Error al crear huerta');
+      return rejectWithValue('Error al crear huerta');
     }
-  }
+  },
 );
 
-export const updateHuerta = createAsyncThunk(
+export const updateHuerta = createAsyncThunk<
+  Huerta,
+  { id: number; payload: HuertaUpdateData },
+  { rejectValue: string }
+>(
   'huerta/update',
-  async (
-    { id, payload }: { id: number; payload: HuertaUpdateData },
-    { rejectWithValue }
-  ) => {
+  async ({ id, payload }, { rejectWithValue }) => {
     try {
       const res = await huertaService.update(id, payload);
       handleBackendNotification(res);
       return res.data.huerta as Huerta;
     } catch (err: any) {
       handleBackendNotification(err.response?.data);
-      return rejectWithValue(err.response?.data || 'Error al actualizar huerta');
+      return rejectWithValue('Error al actualizar huerta');
     }
-  }
+  },
 );
 
-export const deleteHuerta = createAsyncThunk(
+export const deleteHuerta = createAsyncThunk<number, number, { rejectValue: string }>(
   'huerta/delete',
-  async (id: number, { rejectWithValue }) => {
+  async (id, { rejectWithValue }) => {
     try {
       const res = await huertaService.delete(id);
       handleBackendNotification(res);
       return id;
     } catch (err: any) {
       handleBackendNotification(err.response?.data);
-      return rejectWithValue(err.response?.data || 'Error al eliminar huerta');
+      return rejectWithValue('Error al eliminar huerta');
     }
-  }
+  },
 );
 
-export const archiveHuerta = createAsyncThunk(
+export const archiveHuerta = createAsyncThunk<
+  { id: number; archivado_en: string },
+  number,
+  { rejectValue: string }
+>(
   'huerta/archive',
-  async (id: number, { rejectWithValue }) => {
+  async (id, { rejectWithValue }) => {
     try {
       const res = await huertaService.archivar(id);
       handleBackendNotification(res);
-      // Solo devolvemos el id, ya que el backend no regresa la huerta completa
       return { id, archivado_en: new Date().toISOString() };
     } catch (err: any) {
       handleBackendNotification(err.response?.data);
-      return rejectWithValue(err.response?.data || 'Error al archivar huerta');
+      return rejectWithValue('Error al archivar huerta');
     }
-  }
+  },
 );
 
-export const restoreHuerta = createAsyncThunk(
+export const restoreHuerta = createAsyncThunk<
+  { id: number; archivado_en: null },
+  number,
+  { rejectValue: string }
+>(
   'huerta/restore',
-  async (id: number, { rejectWithValue }) => {
+  async (id, { rejectWithValue }) => {
     try {
       const res = await huertaService.restaurar(id);
       handleBackendNotification(res);
-      // Solo devolvemos el id, ya que el backend no regresa la huerta completa
       return { id, archivado_en: null };
     } catch (err: any) {
       handleBackendNotification(err.response?.data);
-      return rejectWithValue(err.response?.data || 'Error al restaurar huerta');
+      return rejectWithValue('Error al restaurar huerta');
     }
-  }
+  },
 );
 
-/* ───────────────────────────── SLICE ───────────────────────────── */
+/* ═══ SLICE ═══ */
 const huertaSlice = createSlice({
   name: 'huerta',
   initialState,
   reducers: {
-    /*   expuestos para los hooks   */
-    setHPage:   (s, a: PayloadAction<number>)            => { s.page   = a.payload; },
-    setHEstado: (s, a: PayloadAction<Estado>)            => { s.estado = a.payload; s.page = 1; },
-    setHFilters:(s, a: PayloadAction<HuertaFilters>)     => { s.filters = a.payload; s.page = 1; },
+    setHPage:   (s, a: PayloadAction<number>)        => { s.page    = a.payload; },
+    setHEstado: (s, a: PayloadAction<Estado>)        => { s.estado  = a.payload; s.page = 1; },
+    setHFilters:(s, a: PayloadAction<HuertaFilters>) => { s.filters = a.payload; s.page = 1; },
   },
   extraReducers: (b) => {
-    b.addCase(fetchHuertas.pending,   (s) => { s.loading = true;  s.error = null; });
-    b.addCase(fetchHuertas.fulfilled, (s,{payload}) => {
-      s.list   = payload.huertas;
-      s.meta   = payload.meta;
-      s.page   = payload.page;
-      s.loading= false;
-      s.loaded = true;
-    });
-    b.addCase(fetchHuertas.rejected,  (s,{payload}) => {
+    /* fetch */
+    b.addCase(fetchHuertas.pending,   (s)            => { s.loading = true;  s.error = null; });
+    b.addCase(fetchHuertas.fulfilled, (s, { payload }) => {
+      s.list    = payload.huertas;
+      s.meta    = payload.meta;
+      s.page    = payload.page;
       s.loading = false;
-      s.error   = typeof payload === 'string' ? payload : JSON.stringify(payload);
       s.loaded  = true;
     });
+    b.addCase(fetchHuertas.rejected,  (s, { payload, error }) => {
+      s.loading = false;
+      s.loaded  = true;
+      s.error   = payload ?? error.message ?? 'Error';
+    });
 
-    b.addCase(createHuerta.fulfilled,(s,{payload}) => { s.list.unshift(payload); });
-    b.addCase(updateHuerta.fulfilled,(s,{payload}) => {
+    /* create / update / delete */
+    b.addCase(createHuerta.fulfilled, (s, { payload }) => {
+      if (s.estado === 'activos') s.list.unshift(payload);
+      s.meta.count += 1;
+    });
+    b.addCase(updateHuerta.fulfilled, (s, { payload }) => {
       const i = s.list.findIndex(h => h.id === payload.id);
       if (i !== -1) s.list[i] = payload;
     });
-    b.addCase(deleteHuerta.fulfilled,(s,{payload:id})=>{
+    b.addCase(deleteHuerta.fulfilled, (s, { payload: id }) => {
       s.list = s.list.filter(h => h.id !== id);
+      if (s.meta.count > 0) s.meta.count -= 1;
     });
+
+    /* archive / restore */
     b.addCase(archiveHuerta.fulfilled, (s, { payload }) => {
       if (s.estado === 'activos') {
         s.list = s.list.filter(h => h.id !== payload.id);
-      } else if (s.estado !== 'archivados') {
+      } else {
         const i = s.list.findIndex(h => h.id === payload.id);
         if (i !== -1) s.list[i].archivado_en = payload.archivado_en;
       }
@@ -179,7 +195,7 @@ const huertaSlice = createSlice({
     b.addCase(restoreHuerta.fulfilled, (s, { payload }) => {
       if (s.estado === 'archivados') {
         s.list = s.list.filter(h => h.id !== payload.id);
-      } else if (s.estado !== 'activos') {
+      } else {
         const i = s.list.findIndex(h => h.id === payload.id);
         if (i !== -1) s.list[i].archivado_en = payload.archivado_en;
       }
@@ -189,5 +205,3 @@ const huertaSlice = createSlice({
 
 export const { setHPage, setHEstado, setHFilters } = huertaSlice.actions;
 export default huertaSlice.reducer;
-// No cambios necesarios en la lógica principal, ya que el slice ya maneja filtros, página y fetch desde backend correctamente.
-// Solo aseguro que no haya lógica de filtrado local ni paginación local en el slice.

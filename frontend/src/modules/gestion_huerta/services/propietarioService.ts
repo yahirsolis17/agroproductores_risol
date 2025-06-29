@@ -52,6 +52,18 @@ export const propietarioService = {
     return data.data;
   },
 
+  async getConHuertas(search?: string): Promise<ListResp> {
+    const params: Record<string, any> = {};
+    if (search) params.search = search;
+    const { data } = await apiClient.get<{
+      success: boolean;
+      message_key: string;
+      data: ListResp;
+    }>('/huerta/propietarios/solo-con-huertas/', { params });
+    return data.data;
+  },
+
+
   /* ------------ CREATE ------------ */
   async create(payload: PropietarioCreateData) {
     const { data } = await apiClient.post<{
