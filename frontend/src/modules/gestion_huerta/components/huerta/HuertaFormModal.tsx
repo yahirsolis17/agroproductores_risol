@@ -1,14 +1,13 @@
 // src/modules/gestion_huerta/components/huerta/HuertaFormModal.tsx
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   DialogContent,
   DialogActions,
   Button,
   TextField,
   CircularProgress,
-  Typography,
 } from '@mui/material';
-import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
+import Autocomplete from '@mui/material/Autocomplete';
 import { Formik, Form, FormikProps } from 'formik';
 import * as Yup from 'yup';
 
@@ -16,6 +15,7 @@ import { HuertaCreateData } from '../../types/huertaTypes';
 import { Propietario } from '../../types/propietarioTypes';
 import { handleBackendNotification } from '../../../../global/utils/NotificationEngine';
 import { PermissionButton } from '../../../../components/common/PermissionButton';
+import { propietarioService } from '../../services/propietarioService';
 /* ───────── Validación ───────── */
 const yupSchema = Yup.object({
   nombre: Yup.string().required('Nombre requerido'),
@@ -30,8 +30,8 @@ const yupSchema = Yup.object({
 });
 
 /* ───────── Types & Props ───────── */
-type NewOption = { id: 'new'; label: string };
-type PropOption = Propietario & { label: string };
+type NewOption = { id: 'new'; label: string; value: 'new' };
+type PropOption = { id: number; label: string; value: number };
 type OptionType = NewOption | PropOption;
 
 interface Props {
@@ -52,11 +52,9 @@ const HuertaFormModal: React.FC<Props> = ({
   open,
   onClose,
   onSubmit,
-  propietarios,
   onRegisterNewPropietario,
   isEdit = false,
   initialValues,
-  loading = false,
   defaultPropietarioId,
 }) => {
   const formikRef = useRef<FormikProps<HuertaCreateData>>(null);
@@ -131,48 +129,116 @@ const HuertaFormModal: React.FC<Props> = ({
     }
   };
 
-  /* ───────── Construcción de opciones para Autocomplete ───────── */
+  /* ───────── Estado para autocomplete dinámico ───────── */
+  const [asyncOptions, setAsyncOptions] = useState<PropOption[]>([]);
+  const [asyncLoading, setAsyncLoading] = useState(false);
+  const [asyncInput, setAsyncInput] = useState('');
+
+  /* ───────── Opción para registrar nuevo propietario ───────── */
   const registroNuevo: NewOption = {
     id: 'new',
     label: 'Registrar nuevo propietario',
+    value: 'new',
   };
 
-  const opciones: OptionType[] = React.useMemo(() => {
-    // 1) Sólo propietarios activos
-    const activos = propietarios
-      .filter((p) => !p.archivado_en)
-      .sort((a, b) =>
-        a.nombre.localeCompare(b.nombre)
-      );
+  /* ───────── Función de búsqueda dinámica (replicando Propietarios.tsx) ───────── */
+  let abortController: AbortController | null = null;
 
-    // 2) Si estoy editando y el actual está archivado,
-    //    incluyo ese registro al principio para preselección
-  const propietarioActual =
-    (isEdit && initialValues?.propietario)
-      ? propietarios.find(p => p.id === initialValues.propietario)
-      : null;
+  const loadPropietarioOptions = async (input: string): Promise<PropOption[]> => {
+    if (!input.trim() || input.length < 2) return [];
 
+    // Cancelar búsqueda anterior
+    if (abortController) abortController.abort();
+    abortController = new AbortController();
 
-    const listaFinal =
-      propietarioActual &&
-      propietarioActual.archivado_en
-        ? [
-            propietarioActual,
-            ...activos.filter(
-              (p) =>
-                p.id !== propietarioActual.id
-            ),
-          ]
-        : activos;
+    try {
+      setAsyncLoading(true);
+      
+      // 1) Si es solo dígitos → búsqueda por ID
+      if (/^\d+$/.test(input)) {
+        const p = await propietarioService.fetchById(input);
+        return p ? [{
+          id: p.id,
+          label: `${p.nombre} ${p.apellidos} – ${p.telefono}`,
+          value: p.id,
+        }] : [];
+      }
+      
+      // 2) Si es texto → búsqueda normal
+      const lista = await propietarioService.search(input);
+      return lista.map((p) => ({
+        id: p.id,
+        label: `${p.nombre} ${p.apellidos} – ${p.telefono}`,
+        value: p.id,
+      }));
+    } catch (error) {
+      if ((error as any).name === 'CanceledError') return [];
+      console.error('Error en loadPropietarioOptions:', error);
+      return [];
+    } finally {
+      setAsyncLoading(false);
+    }
+  };
 
-    return [
-      registroNuevo,
-      ...listaFinal.map((p) => ({
-        ...p,
-        label: `${p.nombre} ${p.apellidos}`,
-      })),
-    ];
-  }, [propietarios, isEdit, initialValues]);
+  /* ───────── Manejo de input del autocomplete ───────── */
+  const handleAsyncInput = async (value: string) => {
+    setAsyncInput(value);
+    if (value.trim().length >= 2) {
+      const options = await loadPropietarioOptions(value);
+      setAsyncOptions(options);
+    } else {
+      setAsyncOptions([]);
+    }
+  };
+
+  /* ───────── Opciones combinadas (nuevo + dinámicas) ───────── */
+  const opcionesCombinadas: OptionType[] = React.useMemo(() => {
+    return [registroNuevo, ...asyncOptions];
+  }, [asyncOptions]);
+
+  /* ───────── Precargar propietario seleccionado para edición ───────── */
+  useEffect(() => {
+    if (isEdit && initialValues?.propietario && open) {
+      const precargarPropietario = async () => {
+        try {
+          const p = await propietarioService.fetchById(initialValues.propietario);
+          if (p) {
+            const option: PropOption = {
+              id: p.id,
+              label: `${p.nombre} ${p.apellidos} – ${p.telefono}`,
+              value: p.id,
+            };
+            setAsyncOptions([option]);
+          }
+        } catch (error) {
+          console.error('Error precargando propietario:', error);
+        }
+      };
+      precargarPropietario();
+    }
+  }, [isEdit, initialValues?.propietario, open]);
+
+  /* ───────── Precargar propietario recién creado ───────── */
+  useEffect(() => {
+    if (defaultPropietarioId && open && !isEdit) {
+      const precargarNuevoPropietario = async () => {
+        try {
+          const p = await propietarioService.fetchById(defaultPropietarioId);
+          if (p) {
+            const option: PropOption = {
+              id: p.id,
+              label: `${p.nombre} ${p.apellidos} – ${p.telefono}`,
+              value: p.id,
+            };
+            setAsyncOptions([option]);
+          }
+        } catch (error) {
+          console.error('Error precargando nuevo propietario:', error);
+        }
+      };
+      precargarNuevoPropietario();
+    }
+  }, [defaultPropietarioId, open, isEdit]);
 
   /* ───────── Render ───────── */
   return (
@@ -236,69 +302,56 @@ const HuertaFormModal: React.FC<Props> = ({
             />
 
             <Autocomplete
-              options={opciones}
-              loading={loading}
-              getOptionLabel={(o) => o.label}
-              isOptionEqualToValue={(o, v) => o.id === v.id}
-              groupBy={(o) =>
-                o.id === 'new'
-                  ? ''
-                  : o.label[0].toUpperCase()
+              options={opcionesCombinadas}
+              loading={asyncLoading}
+              getOptionLabel={(option: OptionType) => option.label}
+              isOptionEqualToValue={(option: OptionType, value: OptionType) => 
+                option.value === value.value
               }
-              filterOptions={createFilterOptions({
-                matchFrom: 'start',
-                stringify: (o) => o.label,
-              })}
+              filterOptions={(options) => options} // Sin filtrado local, se hace en el servidor
+              openOnFocus={false}
               value={
                 values.propietario
-                  ? (opciones.find(
-                      (o) =>
-                        o.id === values.propietario
-                    ) as OptionType)
+                  ? opcionesCombinadas.find(
+                      (option) => option.value === values.propietario
+                    ) || null
                   : null
               }
-              onChange={(_, val) => {
-                if (val?.id === 'new') {
+              onInputChange={(_, value, reason) => {
+                if (reason === 'input') {
+                  handleAsyncInput(value);
+                }
+              }}
+              onChange={(_, selectedOption) => {
+                if (selectedOption?.value === 'new') {
                   onRegisterNewPropietario();
-                  // dejamos el campo en 0 hasta que llegue defaultPropietarioId
                   setFieldValue('propietario', 0);
-                } else if (
-                  val &&
-                  typeof val.id === 'number'
-                ) {
-                  setFieldValue('propietario', val.id);
+                } else if (selectedOption && typeof selectedOption.value === 'number') {
+                  setFieldValue('propietario', selectedOption.value);
                 } else {
                   setFieldValue('propietario', 0);
                 }
               }}
-              clearOnEscape
-              loadingText="Cargando…"
-              renderGroup={(p) =>
-                p.group === '' ? (
-                  <div key={p.key}>{p.children}</div>
-                ) : (
-                  <div key={p.key}>
-                    <Typography
-                      variant="subtitle2"
-                      sx={{ mt: 2 }}
-                    >
-                      {p.group}
-                    </Typography>
-                    {p.children}
-                  </div>
-                )
+              noOptionsText={
+                asyncLoading
+                  ? 'Buscando…'
+                  : asyncInput.length < 2
+                  ? 'Empieza a escribir para buscar...'
+                  : 'No se encontraron propietarios'
               }
+              loadingText="Buscando propietarios…"
               renderInput={(params) => (
                 <TextField
                   {...params}
                   label="Propietario"
+                  placeholder="Buscar por nombre, apellido o teléfono..."
                   error={!!errors.propietario}
                   helperText={errors.propietario || ''}
                   InputProps={{
                     ...params.InputProps,
                     endAdornment: (
                       <>
-                        {loading ? <CircularProgress color="inherit" size={20} /> : null}
+                        {asyncLoading && <CircularProgress color="inherit" size={20} />}
                         {params.InputProps.endAdornment}
                       </>
                     ),

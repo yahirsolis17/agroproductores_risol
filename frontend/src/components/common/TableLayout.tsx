@@ -196,7 +196,7 @@ export function TableLayout<T>({
     });
   }, [filters, filterConfig, asyncOptions, asyncInput]);
 
-  const showSkeleton = useDelayedLoading(loading);
+  const showSkeleton = useDelayedLoading(loading && data.length === 0);
   const totalPages = Math.max(
     1,
     serverSidePagination

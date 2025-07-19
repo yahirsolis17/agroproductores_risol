@@ -166,14 +166,8 @@ let abortControllerProp: AbortController | null = null;
     },
   ];
 
-  /* ───── Spinner diferido ───── */
-  const [spin, setSpin] = useState(false);
-  useEffect(() => {
-    let t: any;
-    if (hComb.loading || propsLoading) t = setTimeout(() => setSpin(true), 300);
-    else                               setSpin(false);
-    return () => clearTimeout(t);
-  }, [hComb.loading, propsLoading]);
+  /* ───── Manejo de loading optimizado ───── */
+  const isInitialLoading = hComb.loading && hComb.huertas.length === 0;
 
   /* ───── CRUD helpers ───── */
   const refetchAll = () => hComb.refetch();
@@ -271,7 +265,7 @@ let abortControllerProp: AbortController | null = null;
         </Tabs>
 
         {/* Tabla */}
-        {spin ? (
+        {isInitialLoading ? (
           <Box display="flex" justifyContent="center" mt={6}>
             <CircularProgress />
           </Box>
@@ -282,7 +276,7 @@ let abortControllerProp: AbortController | null = null;
             pageSize={pageSize}
             count={hComb.meta.count}
             onPageChange={hComb.setPage}
-            loading={hComb.loading || propsLoading}
+            loading={hComb.loading}
             emptyMessage={
               hComb.huertas.length ? '' : 'No hay huertas que coincidan.'
             }

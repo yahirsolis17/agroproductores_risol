@@ -7,11 +7,23 @@ import {
 } from '../types/temporadaTypes';
 
 export const temporadaService = {
-  async list(page: number = 1, año?: number, huertaId?: number, huertaRentadaId?: number) {
+  async list(
+    page: number = 1, 
+    año?: number, 
+    huertaId?: number, 
+    huertaRentadaId?: number,
+    estado?: 'activas' | 'archivadas' | 'todas',
+    finalizada?: boolean,
+    search?: string
+  ) {
     const params: Record<string, any> = { page };
     if (año) params['año'] = año;
     if (huertaId) params['huerta'] = huertaId;
     if (huertaRentadaId) params['huerta_rentada'] = huertaRentadaId;
+    if (estado) params['estado'] = estado;
+    if (finalizada !== undefined) params['finalizada'] = finalizada;
+    if (search) params['search'] = search;
+    
     const response = await apiClient.get<{
       success: boolean;
       notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
@@ -61,14 +73,6 @@ export const temporadaService = {
     return response.data;
   },
 
-  async reactivate(id: number) {
-    const response = await apiClient.post<{
-      success: boolean;
-      notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
-      data: { temporada: Temporada };
-    }>(`/huerta/temporadas/${id}/reactivar/`);
-    return response.data;
-  },
 
   async restaurar(id: number) {
     const response = await apiClient.post<{

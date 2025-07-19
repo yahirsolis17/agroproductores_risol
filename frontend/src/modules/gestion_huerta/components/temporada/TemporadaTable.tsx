@@ -15,32 +15,59 @@ interface Props {
   onRestore: (t: Temporada) => void;
   onDelete: (t: Temporada) => void;
   onConsult: (t: Temporada) => void;
-  onFinalize: (t: Temporada) => void;          // ← NUEVA
+  onFinalize: (t: Temporada) => void;
   emptyMessage?: string;
   loading?: boolean;
 }
 
 const columns: Column<Temporada>[] = [
-  { label: 'Año', key: 'año' },
-  { label: 'Huerta', key: 'huerta_nombre' },
-  { label: 'Inicio', key: 'fecha_inicio' },
+  { 
+    label: 'Año', 
+    key: 'año',
+    render: (t) => <span className="font-medium">{t.año}</span>
+  },
+  { 
+    label: 'Huerta', 
+    key: 'huerta_nombre',
+    render: (t) => (
+      <div>
+        <div className="font-medium">{t.huerta_nombre}</div>
+        {t.is_rentada && (
+          <div className="text-xs text-orange-600 font-medium">Rentada</div>
+        )}
+      </div>
+    )
+  },
+  { 
+    label: 'Fecha Inicio', 
+    key: 'fecha_inicio',
+    render: (t) => new Date(t.fecha_inicio).toLocaleDateString('es-ES')
+  },
   {
-    label: 'Finalizada',
+    label: 'Estado',
     key: 'finalizada',
     align: 'center',
     render: (t) =>
-      t.finalizada ? <Chip label="Sí" size="small" color="warning"/> : <Chip label="No" size="small" color="primary" />,
+      t.finalizada ? (
+        <Chip label="Finalizada" size="small" color="warning" />
+      ) : (
+        <Chip label="En curso" size="small" color="primary" />
+      ),
   },
-  { label: 'Fin', key: 'fecha_fin' },
+  { 
+    label: 'Fecha Fin', 
+    key: 'fecha_fin',
+    render: (t) => t.fecha_fin ? new Date(t.fecha_fin).toLocaleDateString('es-ES') : '—'
+  },
   {
-    label: 'Estado',
+    label: 'Archivo',
     key: 'is_active',
     align: 'center',
     render: (t) =>
       t.is_active ? (
         <Chip label="Activa" size="small" color="success" />
       ) : (
-        <Chip label="Archivada" size="small" color="warning" />
+        <Chip label="Archivada" size="small" color="default" />
       ),
   },
 ];
@@ -70,18 +97,20 @@ const TemporadaTable: React.FC<Props> = ({
     onPageChange={onPageChange}
     columns={columns}
     emptyMessage={emptyMessage}
+    serverSidePagination={true}
+    rowKey={(row) => row.id}
     renderActions={(t) => {
-      const isArchived  = !t.is_active;
+      const isArchived = !t.is_active;
       const isFinalized = t.finalizada;
 
       return (
         <ActionsMenu
           isArchived={isArchived}
           isFinalized={isFinalized}
-          hideEdit                              // no hay “Editar”
-          hideFinalize={isArchived}             // no se muestra finalizar si está archivada
-          onFinalize={() => onFinalize(t)}      // Finalizar / Reactivar
-          onTemporadas={() => onConsult(t)}     // Consultar
+          hideEdit
+          hideFinalize={isArchived}
+          onFinalize={() => onFinalize(t)}
+          onTemporadas={() => onConsult(t)}
           labelTemporadas="Consultar"
           labelFinalize={isFinalized ? 'Reactivar' : 'Finalizar'}
           onArchiveOrRestore={() =>

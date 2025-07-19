@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Paper,
   Typography,
@@ -13,15 +13,14 @@ import {
   DialogActions,
   Button,
   Divider,
-  Tooltip,
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 
 import TemporadaTable from '../components/temporada/TemporadaTable';
+import TemporadaToolbar from '../components/temporada/TemporadaToolbar';
 import TemporadaFormModal from '../components/temporada/TemporadaFormModal';
-import { PermissionButton } from '../../../components/common/PermissionButton';
 import { useTemporadas } from '../hooks/useTemporadas';
 import { useHuertas } from '../hooks/useHuertas';
 import { useHuertasRentadas } from '../hooks/useHuertaRentada';
@@ -32,7 +31,6 @@ import { setBreadcrumbs, clearBreadcrumbs } from '../../../global/store/breadcru
 import { breadcrumbRoutes } from '../../../global/constants/breadcrumbRoutes';
 
 const currentYear = new Date().getFullYear();
-type ViewFilter = 'activas' | 'archivadas' | 'todas';
 const pageSize = 10;
 
 const Temporadas: React.FC = () => {
@@ -47,7 +45,13 @@ const Temporadas: React.FC = () => {
     meta,
     setPage,
     yearFilter,
+    estadoFilter,
+    finalizadaFilter,
+    searchFilter,
     setYear,
+    setEstado,
+    setFinalizada,
+    setSearch,
     setHuerta,
     setHuertaRentada,
     addTemporada,
@@ -61,7 +65,7 @@ const Temporadas: React.FC = () => {
   const { huertas: rentadas } = useHuertasRentadas();
 
   // Detectar huerta seleccionada y sincronizar filtro global
-  const huertaSel = React.useMemo(() => {
+  const huertaSel = useMemo(() => {
     if (!huertaId) return null;
     return (
       huertas.find((h) => h.id === huertaId) ||
@@ -70,7 +74,7 @@ const Temporadas: React.FC = () => {
     );
   }, [huertaId, huertas, rentadas]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (huertaSel) {
       if ('monto_renta' in huertaSel) {
         setHuerta(null);
@@ -100,30 +104,12 @@ const Temporadas: React.FC = () => {
     };
   }, [dispatch, huertaSel]);
 
-
   /* ──────────────────── Estados locales ──────────────────── */
-  const [filter, setFilter] = useState<ViewFilter>('activas');
   const [spin, setSpin] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [delDialogId, setDelDialogId] = useState<number | null>(null);
   const [consultTarget, setConsultTarget] = useState<Temporada | null>(null);
   const [consultOpen, setConsultOpen] = useState(false);
-
-  // Filtro de año
-  const [yearInput, setYearInput] = useState<number | ''>(yearFilter || '');
-  const handleYearChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    if (val === '') {
-      setYearInput('');
-      setYear(null);
-    } else {
-      const num = parseInt(val, 10);
-      if (!isNaN(num)) {
-        setYearInput(num);
-        setYear(num);
-      }
-    }
-  };
 
   /* Spinner con retardo */
   useEffect(() => {
@@ -133,15 +119,25 @@ const Temporadas: React.FC = () => {
     return () => clearTimeout(timer);
   }, [loading]);
 
-  // Elimino filtrado local de filas, uso solo temporadas del store
-  const rows = temporadas;
+  // Calcular filtros activos
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (searchFilter) count++;
+    if (yearFilter) count++;
+    if (finalizadaFilter !== null) count++;
+    return count;
+  }, [searchFilter, yearFilter, finalizadaFilter]);
 
-  const emptyMsg =
-    filter === 'activas'
-      ? 'No hay temporadas activas.'
-      : filter === 'archivadas'
-      ? 'No hay temporadas archivadas.'
-      : 'No hay temporadas.';
+  const emptyMsg = useMemo(() => {
+    switch (estadoFilter) {
+      case 'activas':
+        return 'No hay temporadas activas.';
+      case 'archivadas':
+        return 'No hay temporadas archivadas.';
+      default:
+        return 'No hay temporadas.';
+    }
+  }, [estadoFilter]);
 
   /* ──────────────────── Acciones CRUD / toggle ──────────────────── */
   const handleCreate = async () => {
@@ -196,9 +192,36 @@ const Temporadas: React.FC = () => {
     }
   };
 
-  const handleArchive   = async (t: Temporada) => { try { await archiveTemporada(t.id);   } catch (e:any){ handleBackendNotification(e?.response?.data?.notification||e);} };
-  const handleRestore   = async (t: Temporada) => { try { await restoreTemporada(t.id);   } catch (e:any){ handleBackendNotification(e?.response?.data?.notification||e);} };
-  const handleFinalize  = async (t: Temporada) => { try { await finalizeTemporada(t.id);  } catch (e:any){ handleBackendNotification(e?.response?.data?.notification||e);} };
+  const handleArchive = async (t: Temporada) => { 
+    try { 
+      await archiveTemporada(t.id); 
+    } catch (e: any) { 
+      handleBackendNotification(e?.response?.data?.notification || e);
+    } 
+  };
+  
+  const handleRestore = async (t: Temporada) => { 
+    try { 
+      await restoreTemporada(t.id); 
+    } catch (e: any) { 
+      handleBackendNotification(e?.response?.data?.notification || e);
+    } 
+  };
+  
+  const handleFinalize = async (t: Temporada) => { 
+    try { 
+      await finalizeTemporada(t.id); 
+    } catch (e: any) { 
+      handleBackendNotification(e?.response?.data?.notification || e);
+    } 
+  };
+
+  // Limpiar todos los filtros
+  const handleClearFilters = () => {
+    setSearch('');
+    setYear(null);
+    setFinalizada(null);
+  };
 
   /* ──────────────────── Flags auxiliares ──────────────────── */
   const huertaEstaArchivada = huertaSel ? !huertaSel.is_active : false;
@@ -208,6 +231,15 @@ const Temporadas: React.FC = () => {
       t.is_active &&
       (t.huerta_id === huertaSel?.id || t.huerta_rentada === huertaSel?.id)
   );
+
+  const canCreateTemporada = !!(huertaSel && !huertaEstaArchivada && !temporadaYaExiste);
+  const createTooltip = huertaEstaArchivada
+    ? 'No se puede iniciar una temporada en una huerta archivada.'
+    : temporadaYaExiste
+    ? `Ya existe una temporada activa en el año ${currentYear} para esta huerta.`
+    : !huertaSel
+    ? 'Selecciona una huerta para crear una temporada.'
+    : '';
 
   /* ──────────────────── Render ──────────────────── */
   return (
@@ -232,58 +264,34 @@ const Temporadas: React.FC = () => {
           </Box>
         )}
 
-        {huertaSel && (
-          <Box display="flex" justifyContent="flex-end" mb={2}>
-            <Tooltip
-              title={
-                huertaEstaArchivada
-                  ? 'No se puede iniciar una temporada en una huerta archivada.'
-                  : temporadaYaExiste
-                  ? `Ya existe una temporada activa en el año ${currentYear} para esta huerta.`
-                  : ''
-              }
-            >
-              <span>
-                <PermissionButton
-                  perm="add_temporada"
-                  variant="contained"
-                  disabled={huertaEstaArchivada || temporadaYaExiste}
-                  onClick={(e) => {
-                    e.currentTarget.blur();
-                    if (huertaEstaArchivada || temporadaYaExiste) return;
-                    setConfirmOpen(true);
-                  }}
-                >
-                  Iniciar temporada {currentYear}
-                </PermissionButton>
-              </span>
-            </Tooltip>
-          </Box>
-        )}
+        {/* Toolbar con filtros */}
+        <TemporadaToolbar
+          searchValue={searchFilter}
+          onSearchChange={setSearch}
+          yearFilter={yearFilter}
+          onYearChange={setYear}
+          finalizadaFilter={finalizadaFilter}
+          onFinalizadaChange={setFinalizada}
+          onCreateClick={huertaSel ? () => setConfirmOpen(true) : undefined}
+          canCreate={canCreateTemporada}
+          createTooltip={createTooltip}
+          totalCount={meta.count}
+          activeFiltersCount={activeFiltersCount}
+          onClearFilters={handleClearFilters}
+        />
 
-        <Tabs value={filter} onChange={(_, v) => setFilter(v)} textColor="primary" indicatorColor="primary" sx={{ mb: 2 }}>
-          <Tab value="activas"    label="Activas" />
+        {/* Tabs para filtrar por estado */}
+        <Tabs 
+          value={estadoFilter} 
+          onChange={(_, v) => setEstado(v)} 
+          textColor="primary" 
+          indicatorColor="primary" 
+          sx={{ mb: 3 }}
+        >
+          <Tab value="activas" label="Activas" />
           <Tab value="archivadas" label="Archivadas" />
-          <Tab value="todas"      label="Todas" />
+          <Tab value="todas" label="Todas" />
         </Tabs>
-
-        <Box display="flex" alignItems="center" gap={2} mb={2}>
-          <Typography variant="subtitle2">Filtrar por año:</Typography>
-          <input
-            type="number"
-            min="2000"
-            max="2100"
-            value={yearInput}
-            onChange={handleYearChange}
-            placeholder="Año"
-            style={{ width: 100, padding: 4, borderRadius: 4, border: '1px solid #ccc' }}
-          />
-          {yearInput && (
-            <Button size="small" onClick={() => { setYearInput(''); setYear(null); }}>
-              Limpiar
-            </Button>
-          )}
-        </Box>
 
         {spin ? (
           <Box display="flex" justifyContent="center" mt={6}>
@@ -291,7 +299,7 @@ const Temporadas: React.FC = () => {
           </Box>
         ) : (
           <TemporadaTable
-            data={rows}
+            data={temporadas}
             page={page}
             pageSize={pageSize}
             count={meta.count}
@@ -303,8 +311,9 @@ const Temporadas: React.FC = () => {
               setConsultTarget(t);
               setConsultOpen(true);
             }}
-            onFinalize={(t) => handleFinalize(t)}
+            onFinalize={handleFinalize}
             emptyMessage={emptyMsg}
+            loading={loading}
           />
         )}
 

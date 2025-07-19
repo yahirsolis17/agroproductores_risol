@@ -21,6 +21,9 @@ interface TemporadaState {
   yearFilter: number | null;
   huertaId: number | null;
   huertaRentadaId: number | null;
+  estadoFilter: 'activas' | 'archivadas' | 'todas';
+  finalizadaFilter: boolean | null;
+  searchFilter: string;
 }
 
 const initialState: TemporadaState = {
@@ -33,19 +36,30 @@ const initialState: TemporadaState = {
   yearFilter: null,
   huertaId: null,
   huertaRentadaId: null,
+  estadoFilter: 'activas',
+  finalizadaFilter: null,
+  searchFilter: '',
 };
 
 // ——— Thunks ———
 
 export const fetchTemporadas = createAsyncThunk<
   { temporadas: Temporada[]; meta: PaginationMeta; page: number },
-  { page: number; año?: number; huertaId?: number; huertaRentadaId?: number },
+  { 
+    page: number; 
+    año?: number; 
+    huertaId?: number; 
+    huertaRentadaId?: number;
+    estado?: 'activas' | 'archivadas' | 'todas';
+    finalizada?: boolean;
+    search?: string;
+  },
   { rejectValue: Record<string, any> }
 >(
   'temporada/fetchAll',
-  async ({ page, año, huertaId, huertaRentadaId }, { rejectWithValue }) => {
+  async ({ page, año, huertaId, huertaRentadaId, estado, finalizada, search }, { rejectWithValue }) => {
     try {
-      const res = await temporadaService.list(page, año, huertaId, huertaRentadaId);
+      const res = await temporadaService.list(page, año, huertaId, huertaRentadaId, estado, finalizada, search);
       handleBackendNotification(res);
       return {
         temporadas: res.data.temporadas,
@@ -155,25 +169,6 @@ export const restaurarTemporada = createAsyncThunk<
   }
 );
 
-// —— Nuevo thunk: Reactivar temporada ——
-export const reactivateTemporada = createAsyncThunk<
-  Temporada,
-  number,
-  { rejectValue: Record<string, any> }
->(
-  'temporada/reactivar',
-  async (id, { rejectWithValue }) => {
-    try {
-      const res = await temporadaService.reactivate(id);
-      handleBackendNotification(res);
-      return res.data.temporada;
-    } catch (err: any) {
-      const errorPayload = err.response?.data || { message: 'Error al reactivar temporada' };
-      handleBackendNotification(errorPayload.notification || errorPayload);
-      return rejectWithValue(errorPayload);
-    }
-  }
-);
 
 // ——— Slice ———
 const temporadaSlice = createSlice({
@@ -193,6 +188,18 @@ const temporadaSlice = createSlice({
     },
     setHuertaRentadaId(state, action: PayloadAction<number | null>) {
       state.huertaRentadaId = action.payload;
+      state.page = 1; // reset page on filter change
+    },
+    setEstadoFilter(state, action: PayloadAction<'activas' | 'archivadas' | 'todas'>) {
+      state.estadoFilter = action.payload;
+      state.page = 1; // reset page on filter change
+    },
+    setFinalizadaFilter(state, action: PayloadAction<boolean | null>) {
+      state.finalizadaFilter = action.payload;
+      state.page = 1; // reset page on filter change
+    },
+    setSearchFilter(state, action: PayloadAction<string>) {
+      state.searchFilter = action.payload;
       state.page = 1; // reset page on filter change
     },
   },
@@ -259,16 +266,16 @@ const temporadaSlice = createSlice({
         state.error = payload || null;
       })
 
-      // Reactivar
-      .addCase(reactivateTemporada.fulfilled, (state, { payload }) => {
-        const idx = state.list.findIndex((t) => t.id === payload.id);
-        if (idx !== -1) state.list[idx] = payload;
-      })
-      .addCase(reactivateTemporada.rejected, (state, { payload }) => {
-        state.error = payload || null;
-      });
   },
 });
 
-export const { setPage, setYearFilter, setHuertaId, setHuertaRentadaId } = temporadaSlice.actions;
+export const { 
+  setPage, 
+  setYearFilter, 
+  setHuertaId, 
+  setHuertaRentadaId, 
+  setEstadoFilter, 
+  setFinalizadaFilter, 
+  setSearchFilter 
+} = temporadaSlice.actions;
 export default temporadaSlice.reducer;

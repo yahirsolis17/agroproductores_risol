@@ -1,6 +1,7 @@
 # src/modules/gestion_huerta/views/temporada_views.py
 from django.utils import timezone
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 from rest_framework import viewsets, status, serializers
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -10,7 +11,8 @@ from gestion_huerta.serializers  import TemporadaSerializer
 from gestion_huerta.utils.notification_handler import NotificationHandler
 from gestion_huerta.utils.activity import registrar_actividad
 from gestion_huerta.utils.audit   import ViewSetAuditMixin                 # ⬅️ auditoría
-from gestion_huerta.views.huerta_views import GenericPagination, NotificationMixin
+from gestion_huerta.views.huerta_views import NotificationMixin
+from agroproductores_risol.utils.pagination import TemporadaPagination
 from gestion_huerta.permissions   import HasHuertaModulePermission, HuertaGranularPermission
 
 
@@ -21,7 +23,7 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
     """
     queryset           = Temporada.objects.select_related("huerta", "huerta_rentada").order_by("-año")
     serializer_class   = TemporadaSerializer
-    pagination_class   = GenericPagination
+    pagination_class   = TemporadaPagination
     permission_classes = [
         IsAuthenticated,
         HasHuertaModulePermission,
@@ -30,30 +32,65 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
 
     # ------------------------------------------------------------------ QUERYSET DINÁMICO
     def get_queryset(self):
-        qs     = super().get_queryset()
+        qs = super().get_queryset()
         params = self.request.query_params
 
-        if (year := params.get("año")):                qs = qs.filter(año=year)
-        if (h_id := params.get("huerta")):             qs = qs.filter(huerta_id=h_id)
-        if (hr_id := params.get("huerta_rentada")):    qs = qs.filter(huerta_rentada_id=hr_id)
-        if (arch := params.get("archivado")) is not None:
-            qs = qs.exclude(archivado_en__isnull=(arch.lower() == "false"))
+        # Filtro por año
+        if (year := params.get("año")):
+            qs = qs.filter(año=year)
+
+        # Filtro por huerta propia
+        if (h_id := params.get("huerta")):
+            qs = qs.filter(huerta_id=h_id)
+
+        # Filtro por huerta rentada
+        if (hr_id := params.get("huerta_rentada")):
+            qs = qs.filter(huerta_rentada_id=hr_id)
+
+        # Filtro por estado (activas, archivadas, todas)
+        estado = params.get("estado", "activas")
+        if estado == "activas":
+            qs = qs.filter(is_active=True)
+        elif estado == "archivadas":
+            qs = qs.filter(is_active=False)
+        # Si es "todas", no aplicamos filtro
+
+        # Filtro por finalizada
+        finalizada = params.get("finalizada")
+        if finalizada is not None:
+            if finalizada.lower() in ['true', '1']:
+                qs = qs.filter(finalizada=True)
+            elif finalizada.lower() in ['false', '0']:
+                qs = qs.filter(finalizada=False)
+
+        # Búsqueda general
+        search = params.get("search")
+        if search:
+            qs = qs.filter(
+                Q(año__icontains=search) |
+                Q(huerta__nombre__icontains=search) |
+                Q(huerta_rentada__nombre__icontains=search) |
+                Q(huerta__propietario__nombre__icontains=search) |
+                Q(huerta__propietario__apellidos__icontains=search) |
+                Q(huerta_rentada__propietario__nombre__icontains=search) |
+                Q(huerta_rentada__propietario__apellidos__icontains=search)
+            )
+
         return qs
 
     # ------------------------------------------------------------------ LIST
     def list(self, request, *args, **kwargs):
-        page       = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
-        serializer = self.get_serializer(page, many=True)
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = self.get_serializer(queryset, many=True)
         return self.notify(
             key="no_notification",
-            data={
-                "temporadas": serializer.data,
-                "meta": {
-                    "count":    self.paginator.page.paginator.count,
-                    "next":     self.paginator.get_next_link(),
-                    "previous": self.paginator.get_previous_link(),
-                },
-            },
+            data={"temporadas": serializer.data},
             status_code=status.HTTP_200_OK,
         )
 
