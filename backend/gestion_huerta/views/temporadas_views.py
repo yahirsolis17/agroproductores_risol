@@ -34,6 +34,10 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
     def get_queryset(self):
         qs = super().get_queryset()
         params = self.request.query_params
+        
+        # Si es una acción de detalle (archivar/restaurar/etc), no filtrar por is_active
+        if self.action in ['archivar', 'restaurar', 'retrieve', 'destroy']:
+            return qs
 
         # Filtro por año
         if (year := params.get("año")):
@@ -47,7 +51,7 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         if (hr_id := params.get("huerta_rentada")):
             qs = qs.filter(huerta_rentada_id=hr_id)
 
-        # Filtro por estado (activas, archivadas, todas)
+        # Filtro por estado archivado/activo (prioridad sobre finalizada)
         estado = params.get("estado", "activas")
         if estado == "activas":
             qs = qs.filter(is_active=True)
@@ -55,7 +59,15 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
             qs = qs.filter(is_active=False)
         # Si es "todas", no aplicamos filtro
 
-        # Filtro por finalizada
+        # Filtro por estado de finalización
+        if (fin_estado := params.get("estado_finalizacion")):
+            if fin_estado == "en_curso":
+                qs = qs.filter(finalizada=False)
+            elif fin_estado == "finalizadas":
+                qs = qs.filter(finalizada=True)
+            # Si es "todas", no aplicamos filtro
+
+        # Filtro por finalizada (deprecated - mantener por compatibilidad)
         finalizada = params.get("finalizada")
         if finalizada is not None:
             if finalizada.lower() in ['true', '1']:
@@ -202,9 +214,11 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
     def archivar(self, request, pk=None):
         temp = self.get_object()
         if not temp.is_active:
-            return self.notify(key="temporada_ya_archivada",
-                               data={"info": "Esta temporada ya está archivada."},
-                               status_code=status.HTTP_400_BAD_REQUEST)
+            return self.notify(
+                key="temporada_ya_archivada",
+                data={"info": "Esta temporada ya está archivada."},
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
 
         temp.archivar()
         registrar_actividad(request.user, f"Archivó la temporada {temp.año}")
@@ -214,13 +228,15 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
             data={"temporada": self.get_serializer(temp).data},
         )
 
-    @action(detail=True, methods=["post"], url_path="restaurar")
+    @action(detail=True, methods=["post"], url_path="restaurar") 
     def restaurar(self, request, pk=None):
         temp = self.get_object()
         if temp.is_active:
-            return self.notify(key="temporada_no_archivada",
-                               data={"info": "Esta temporada ya está activa."},
-                               status_code=status.HTTP_400_BAD_REQUEST)
+            return self.notify(
+                key="temporada_no_archivada", 
+                data={"info": "Esta temporada ya está activa."},
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
 
         temp.desarchivar()
         registrar_actividad(request.user, f"Restauró la temporada {temp.año}")
