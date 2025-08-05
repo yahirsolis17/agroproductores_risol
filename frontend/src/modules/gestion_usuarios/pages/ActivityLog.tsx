@@ -96,12 +96,9 @@ const ActivityLog: React.FC = () => {
         params: { page: pageNumber, ordering },
       });
 
-      setActivities(res.data.results || []);
-      setMeta(res.data.meta || {
-        count: res.data.count,
-        next: res.data.next,
-        previous: res.data.previous,
-      });
+      const { results, meta: m } = res.data.data;
+      setActivities(results);
+      setMeta(m);
       localStorage.setItem('activityPage', String(pageNumber));
       setError('');
     } catch (error: any) {

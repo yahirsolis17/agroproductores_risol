@@ -21,6 +21,12 @@ NOTIFICATION_MESSAGES = {
         "type": "success"
     },
 
+    "not_found": {
+        "message": "Recurso no encontrado.",
+        "type": "error",
+        "code": 404
+    },
+
     # -------------------------------------------------
     # Propietarios
     # -------------------------------------------------

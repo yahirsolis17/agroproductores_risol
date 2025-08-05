@@ -272,11 +272,6 @@ class TemporadaSerializer(serializers.ModelSerializer):
         huerta_rentada = data.get('huerta_rentada')
         año = data.get('año')
 
-        print("🔬 Validando temporada:")
-        print("  - Huerta:", huerta)
-        print("  - Rentada:", huerta_rentada)
-        print("  - Año:", año)
-
         if not huerta and not huerta_rentada:
             raise serializers.ValidationError("Debe asignar una huerta o una huerta rentada.")
 

@@ -309,7 +309,7 @@ const HuertaFormModal: React.FC<Props> = ({
                 option.value === value.value
               }
               filterOptions={(options) => options} // Sin filtrado local, se hace en el servidor
-              openOnFocus={false}
+              openOnFocus={true}
               value={
                 values.propietario
                   ? opcionesCombinadas.find(

@@ -238,7 +238,7 @@ const HuertaRentadaFormModal: React.FC<Props> = ({
                 option.value === value.value
               }
               filterOptions={(options) => options} // Sin filtrado local, se hace en el servidor
-              openOnFocus={false}
+              openOnFocus={true}
               value={
                 values.propietario
                   ? opcionesCombinadas.find(
@@ -293,7 +293,7 @@ const HuertaRentadaFormModal: React.FC<Props> = ({
           <DialogActions className="px-6 py-4">
             <Button variant="outlined" onClick={onClose}>Cancelar</Button>
             <PermissionButton
-              perm={initialValues ? 'change_huerta' : 'add_huerta'}
+              perm={initialValues ? 'change_huerta_rentada' : 'add_huerta_rentada'}
               type="submit"
               variant="contained"
               disabled={isSubmitting}

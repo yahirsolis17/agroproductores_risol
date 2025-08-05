@@ -42,7 +42,8 @@ export function usePropietarios() {
 
   /* ——— Nuevo método: sólo propietarios con huertas ——— */
   const getConHuertas = async (): Promise<Propietario[]> => {
-    const { propietarios: lista } = await propietarioService.getConHuertas();
+    // Aquí pasamos '' para cumplir la firma getConHuertas(search: string, ...)
+    const { propietarios: lista } = await propietarioService.getConHuertas('');
     return lista;
   };
 

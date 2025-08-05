@@ -47,12 +47,16 @@ const ChangePassword: React.FC = () => {
 
     if (newPass.length < 4) {
       const msg = 'La contraseña debe tener al menos 4 caracteres.';
-      setErrNew(msg);  handleBackendNotification({ success:false, message:msg });
+      setErrNew(msg);  handleBackendNotification({
+        notification: { key: 'validation_error', message: msg, type: 'error' }
+      });
       return;
     }
     if (newPass !== confirm) {
       const msg = 'Las contraseñas no coinciden.';
-      setErrConfirm(msg); handleBackendNotification({success:false, message:msg});
+      setErrConfirm(msg); handleBackendNotification({
+        notification: { key: 'validation_error', message: msg, type: 'error' }
+      });
       return;
     }
 
