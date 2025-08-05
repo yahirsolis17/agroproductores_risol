@@ -1,7 +1,6 @@
 // src/modules/gestion_usuarios/pages/UsersAdmin.tsx
 import React, { Fragment } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { motion } from 'framer-motion';
 import {
   Typography,
   Paper,
@@ -20,14 +19,12 @@ import { TableLayout, Column } from '../../../components/common/TableLayout';
 import { useUsers } from '../hooks/useUsers';
 import apiClient from '../../../global/api/apiClient';
 
+// Tipo para filtros de vista
 type ViewFilter = 'activos' | 'archivados' | 'todos';
 
+// Columnas definidas con claves y renderers
 const columns: Column<any>[] = [
-  {
-    label: 'Nombre',
-    key: 'nombre',
-    render: (u) => `${u.nombre} ${u.apellido}`,
-  },
+  { label: 'Nombre', key: 'nombre', render: (u) => `${u.nombre} ${u.apellido}` },
   { label: 'Teléfono', key: 'telefono' },
   {
     label: 'Rol',
@@ -49,25 +46,31 @@ const columns: Column<any>[] = [
 ];
 
 const UsersAdmin: React.FC = () => {
+  // Contexto de autenticación y hook de usuarios
   const { user: currentUser } = useAuth();
+  const { users, meta, page, loading, estado, changePage, changeEstado, refetch } = useUsers();
 
-  const {
-    users,
-    meta,
-    page,
-    loading,
-    estado,
-    changePage,
-    changeEstado,
-    refetch,
-  } = useUsers();
-
+  // Estados de diálogo y selección
   const [dialogOpen, setDialogOpen] = React.useState(false);
-  const [selUserId, setSelUserId] = React.useState<number>(0);
+  const [selUserId, setSelUserId] = React.useState(0);
   const [selUserPerms, setSelUserPerms] = React.useState<string[]>([]);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
-  const [confirmUserId, setConfirmUserId] = React.useState<number>(0);
+  const [confirmUserId, setConfirmUserId] = React.useState(0);
 
+  // Acceso solo para admins
+  if (currentUser?.role !== 'admin') {
+    return <div className="p-6 text-center text-red-500">Acceso denegado</div>;
+  }
+
+  // Filtrado y configuraciones de la tabla
+  const filteredUsers = users.filter((u) => u.role !== 'admin');
+  const safeCount = meta.count;
+  const emptyMessage =
+    estado === 'archivados'
+      ? 'No hay usuarios archivados.'
+      : 'No hay usuarios registrados.';
+
+  // Handlers para acciones de usuario
   const handleArchiveOrRestore = async (userId: number, isArchived: boolean) => {
     const endpoint = isArchived ? 'restaurar' : 'archivar';
     try {
@@ -95,34 +98,17 @@ const UsersAdmin: React.FC = () => {
     setDialogOpen(true);
   };
 
-  // Filtrar usuarios: solo mostrar usuarios que NO sean administradores
-  const filteredUsers = users.filter((u) => u.role !== 'admin');
-
-  if (currentUser?.role !== 'admin') {
-    return <div className="p-6 text-center text-red-500">Acceso denegado</div>;
-  }
-
-  const emptyMessage =
-    estado === 'archivados'
-      ? 'No hay usuarios archivados.'
-      : 'No hay usuarios registrados.';
-
   return (
     <Fragment>
-      <motion.div
-        className="p-6 max-w-6xl mx-auto"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.4 }}
-      >
-        <Paper elevation={4} className="p-6 sm:p-10 rounded-2xl shadow-lg bg-white">
+      <div className="p-6 max-w-6xl mx-auto">
+        <Paper className="p-6 sm:p-10 rounded-2xl shadow-lg bg-white">
           <Typography variant="h4" className="text-primary-dark font-bold mb-4">
             Administrar Usuarios
           </Typography>
 
           <Tabs
             value={estado}
-            onChange={(_, v: ViewFilter) => changeEstado(v)}
+            onChange={(_, v) => changeEstado(v as ViewFilter)}
             indicatorColor="primary"
             textColor="primary"
             sx={{ mb: 2 }}
@@ -137,7 +123,7 @@ const UsersAdmin: React.FC = () => {
             columns={columns}
             page={page}
             pageSize={10}
-            count={meta.count}
+            count={safeCount}
             onPageChange={changePage}
             emptyMessage={emptyMessage}
             loading={loading}
@@ -161,7 +147,7 @@ const UsersAdmin: React.FC = () => {
             }}
           />
         </Paper>
-      </motion.div>
+      </div>
 
       <PermissionsDialog
         open={dialogOpen}
@@ -172,9 +158,7 @@ const UsersAdmin: React.FC = () => {
 
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
         <DialogTitle>Confirmar eliminación</DialogTitle>
-        <DialogContent>
-          ¿Estás seguro de que deseas eliminar este usuario?
-        </DialogContent>
+        <DialogContent>¿Estás seguro de que deseas eliminar este usuario?</DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirmOpen(false)}>Cancelar</Button>
           <Button

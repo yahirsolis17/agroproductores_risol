@@ -1,7 +1,8 @@
-//src/global/store/userSlice.ts
+// src/global/store/userSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { userService } from '../../modules/gestion_usuarios/services/userService';
 import { User, PaginationMeta } from '../../modules/gestion_usuarios/types/userTypes';
+
 interface UserState {
   list: User[];
   loading: boolean;
@@ -27,13 +28,8 @@ const initialState: UserState = {
 export const fetchUsers = createAsyncThunk(
   'user/fetchAll',
   async ({ page, estado }: { page: number; estado: 'activos' | 'archivados' | 'todos' }) => {
-    const response = await userService.list(page, estado);
-    return {
-      users: response.data.results,
-      meta: response.data.meta,
-      page,
-      estado,
-    };
+    const { results: users, meta } = await userService.list(page, estado);
+    return { users, meta, page, estado };
   }
 );
 
@@ -46,7 +42,7 @@ const userSlice = createSlice({
     },
     setEstado: (state, action: PayloadAction<'activos' | 'archivados' | 'todos'>) => {
       state.estado = action.payload;
-      state.page = 1; // reset al cambiar filtro
+      state.page = 1;
     },
   },
   extraReducers: (builder) => {

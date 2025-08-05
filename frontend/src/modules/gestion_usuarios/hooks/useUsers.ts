@@ -1,9 +1,23 @@
-//src/modules/gestion_usuarios/hooks/useUsers.ts
+// src/modules/gestion_usuarios/hooks/useUsers.ts
 import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../../global/store/store';
 import { fetchUsers, setPage, setEstado } from '../../../global/store/userSlice';
+import type { User, PaginationMeta } from '../types/userTypes';
 
-export const useUsers = () => {
+export interface UseUsersReturn {
+  users: User[];
+  loading: boolean;
+  error: string | null;
+  page: number;
+  pageSize: number;
+  meta: PaginationMeta;
+  estado: 'activos' | 'archivados' | 'todos';
+  refetch: () => void;
+  changePage: (newPage: number) => void;
+  changeEstado: (nuevo: 'activos' | 'archivados' | 'todos') => void;
+}
+
+export const useUsers = (): UseUsersReturn => {
   const dispatch = useAppDispatch();
   const { list, loading, error, page, pageSize, meta, estado } = useAppSelector(
     (state) => state.user
@@ -12,9 +26,6 @@ export const useUsers = () => {
   useEffect(() => {
     dispatch(fetchUsers({ page, estado }));
   }, [dispatch, page, estado]);
-
-  const changePage = (newPage: number) => dispatch(setPage(newPage));
-  const changeEstado = (nuevo: 'activos' | 'archivados' | 'todos') => dispatch(setEstado(nuevo));
 
   return {
     users: list,
@@ -25,7 +36,7 @@ export const useUsers = () => {
     meta,
     estado,
     refetch: () => dispatch(fetchUsers({ page, estado })),
-    changePage,
-    changeEstado,
+    changePage: (newPage) => dispatch(setPage(newPage)),
+    changeEstado: (nuevo) => dispatch(setEstado(nuevo)),
   };
 };
