@@ -50,7 +50,9 @@ export const fetchPropietarios = createAsyncThunk(
   async (params: any) => {
     // params ya es { page, estado, id, ... }
     const { page, estado, ...filters } = params;
-    console.log('[Redux] fetchPropietarios thunk ejecutado:', { page, estado, ...filters });
+    if (import.meta.env.DEV) {
+      console.log('[Redux] fetchPropietarios thunk ejecutado:', { page, estado, ...filters });
+    }
     return await propietarioService.list(page, estado, filters);
   }
 );
@@ -140,7 +142,9 @@ const propietariosSlice = createSlice({
     setPage:   (s, a: PayloadAction<number>) => { s.page = a.payload; },
     setEstado: (s, a: PayloadAction<Estado>) => { s.estado = a.payload; s.page = 1; },
 setFilters: (s, a: PayloadAction<{ [key: string]: any }>) => {
-  console.log("[Redux] setFilters reducer ejecutado. Payload:", a.payload);
+  if (import.meta.env.DEV) {
+    console.log('[Redux] setFilters reducer ejecutado. Payload:', a.payload);
+  }
   // Forzar nueva referencia
   s.filters = { ...a.payload };
   s.page = 1;

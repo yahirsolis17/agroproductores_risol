@@ -57,15 +57,17 @@ const PropietarioTable: React.FC<Props> = ({
   emptyMessage = 'No hay propietarios registrados.',
   loading,
 }) => {
-  // Log de renderizado de tabla y props
-  console.log('[Table] Renderizando PropietarioTable', {
-    data,
-    page,
-    pageSize,
-    count,
-    filterConfig,
-    applyFiltersInternally
-  });
+  // Log de renderizado de tabla y props (solo en desarrollo)
+  if (import.meta.env.DEV) {
+    console.log('[Table] Renderizando PropietarioTable', {
+      data,
+      page,
+      pageSize,
+      count,
+      filterConfig,
+      applyFiltersInternally,
+    });
+  }
   return (
     <TableLayout<Propietario>
       data={data}
@@ -79,7 +81,9 @@ const PropietarioTable: React.FC<Props> = ({
       /** configuramos el filtro como en Huertas */
       filterConfig={filterConfig}
       onFilterChange={(filters) => {
-        console.log('[Table] onFilterChange:', filters);
+        if (import.meta.env.DEV) {
+          console.log('[Table] onFilterChange:', filters);
+        }
         if (onFilterChange) onFilterChange(filters);
       }}
       applyFiltersInternally={applyFiltersInternally}
