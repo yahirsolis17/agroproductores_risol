@@ -72,21 +72,29 @@ const Propietarios: React.FC = () => {
 
   // Filtro exacto por id (como en huertas)
 const handleFilterChange = (filters: Record<string, any>) => {
-  console.log("[UI] handleFilterChange - Filtros recibidos:", filters);
+  if (import.meta.env.DEV) {
+    console.log('[UI] handleFilterChange - Filtros recibidos:', filters);
+  }
   if (filters.id) {
-    console.log("[UI] Filtro por id detectado:", filters.id);
+    if (import.meta.env.DEV) {
+      console.log('[UI] Filtro por id detectado:', filters.id);
+    }
     changeFilters({ id: filters.id });
     return;
   }
   if (filters.nombre) {
-    const selected = nombreOptions.find(opt => opt.label === filters.nombre);
+    const selected = nombreOptions.find((opt) => opt.label === filters.nombre);
     if (selected) {
-      console.log("[UI] Filtro seleccionado:", selected.value);
+      if (import.meta.env.DEV) {
+        console.log('[UI] Filtro seleccionado:', selected.value);
+      }
       changeFilters({ id: selected.value });
       return;
     }
   }
-  console.log("[UI] Limpiando filtros (no hay id ni nombre seleccionado)");
+  if (import.meta.env.DEV) {
+    console.log('[UI] Limpiando filtros (no hay id ni nombre seleccionado)');
+  }
   changeFilters({});
 };
   /* ──────────────────────────────────────────────────────────────
@@ -146,7 +154,9 @@ const handleFilterChange = (filters: Record<string, any>) => {
 
   // Log cuando se llama a changeFilters desde el componente
   const onChangeFilters = (filters: Record<string, any>) => {
-    console.log('[UI] onChangeFilters (llamando a handleFilterChange):', filters);
+    if (import.meta.env.DEV) {
+      console.log('[UI] onChangeFilters (llamando a handleFilterChange):', filters);
+    }
     handleFilterChange(filters);
   };
 
@@ -179,7 +189,7 @@ const handleFilterChange = (filters: Record<string, any>) => {
             }
             // Finalmente, cambiamos de tab:
             changeEstado(next);
- }}//holiiiiiiiii
+          }}
           indicatorColor="primary"
           textColor="primary"
           sx={{ mb: 2 }}
@@ -239,19 +249,27 @@ loadOptions: async (input: string) => {
             onFilterChange={onChangeFilters}
             applyFiltersInternally={false}
             onPageChange={(p) => {
-              console.log('[UI] Cambio de página:', p);
+              if (import.meta.env.DEV) {
+                console.log('[UI] Cambio de página:', p);
+              }
               changePage(p);
             }}
             onEdit={(p) => {
-              console.log('[UI] Editar propietario:', p);
+              if (import.meta.env.DEV) {
+                console.log('[UI] Editar propietario:', p);
+              }
               launchEdit(p);
             }}
             onArchiveOrRestore={(id, archivado) => {
-              console.log('[UI] Archivar/Restaurar propietario:', { id, archivado });
+              if (import.meta.env.DEV) {
+                console.log('[UI] Archivar/Restaurar propietario:', { id, archivado });
+              }
               handleArchiveOrRestore(id, archivado);
             }}
             onDelete={(id) => {
-              console.log('[UI] Eliminar propietario:', id);
+              if (import.meta.env.DEV) {
+                console.log('[UI] Eliminar propietario:', id);
+              }
               askDelete(id);
             }}
             emptyMessage={emptyMsg}

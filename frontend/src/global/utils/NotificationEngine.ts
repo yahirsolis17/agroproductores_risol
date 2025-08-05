@@ -27,6 +27,8 @@ export function handleBackendNotification(response: any) {
       toast.info(message);
   }
 
-  // Log para debugging (opcional)
-  console.log(`[Notificación: ${key}]`, message);
+  // Log para debugging (solo en desarrollo)
+  if (import.meta.env.DEV) {
+    console.log(`[Notificación: ${key}]`, message);
+  }
 }
