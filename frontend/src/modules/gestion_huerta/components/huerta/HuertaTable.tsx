@@ -130,6 +130,10 @@ const HuertaTable: React.FC<Props> = ({
         onArchiveOrRestore={() => (!h.is_active ? onRestore(h) : onArchive(h))}
         onDelete={() => onDelete(h)}
         onTemporadas={!h.is_active || !onTemporadas ? undefined : () => onTemporadas(h)}
+        permEdit="change_huerta"
+        permArchiveOrRestore="archive_huerta"
+        permDelete="delete_huerta"
+        permTemporadas="view_temporada"
       />
     )}
   />

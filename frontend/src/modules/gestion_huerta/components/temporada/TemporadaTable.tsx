@@ -117,6 +117,10 @@ const TemporadaTable: React.FC<Props> = ({
             isArchived ? onRestore(t) : onArchive(t)
           }
           onDelete={isArchived ? () => onDelete(t) : undefined}
+          permFinalize="change_temporada"
+          permTemporadas="view_temporada"
+          permArchiveOrRestore="archive_temporada"
+          permDelete="delete_temporada"
         />
       );
     }}
