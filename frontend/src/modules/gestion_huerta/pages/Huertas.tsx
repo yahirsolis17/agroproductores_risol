@@ -158,12 +158,17 @@ const Huertas: React.FC = () => {
   const askDelete = (h: Registro) => setDelDialog({ id: h.id, tipo: isRentada(h) ? 'rentada' : 'propia' });
   const confirmDelete = async (): Promise<void> => {
     if (!delDialog) return;
-    const res = delDialog.tipo === 'propia'
-      ? await huertaService.delete(delDialog.id)
-      : await huertaRentadaService.delete(delDialog.id);
-    handleBackendNotification(res);
-    refetchAll();
-    setDelDialog(null);
+    try {
+      const res = delDialog.tipo === 'propia'
+        ? await huertaService.delete(delDialog.id)
+        : await huertaRentadaService.delete(delDialog.id);
+      handleBackendNotification(res);
+      refetchAll();
+    } catch (e: any) {
+      handleBackendNotification(e?.response?.data);
+    } finally {
+      setDelDialog(null);
+    }
   };
 
   const handleArchiveOrRestore = async (h: Registro, arc: boolean): Promise<void> => {
