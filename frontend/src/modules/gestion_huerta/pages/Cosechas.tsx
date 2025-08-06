@@ -142,10 +142,9 @@ const Cosechas: React.FC = () => {
 
   // Crear cosecha (el backend asigna el nombre automáticamente)
   const handleCreate = async () => {
-    const temporada = tempInfo?.id;
-    if (!temporada) return;
+    if (!temporadaId) return;
     try {
-      await addCosecha({ temporada });
+      await addCosecha({ temporada: temporadaId });
     } catch (e: unknown) {
       const err = e as { response?: { data?: { notification?: unknown } } };
       handleBackendNotification(err.response?.data?.notification || e);
