@@ -186,8 +186,12 @@ class Temporada(models.Model):
         return f"{origen} – Temporada {self.año} ({tipo})"
     
     
+# ────────────── CATEGORÍA DE INVERSIÓN ────────────────────────────────────
 class CategoriaInversion(models.Model):
     nombre = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.nombre
 class Cosecha(models.Model):
     """
     Cosecha de una Temporada (obligatoria).
@@ -293,22 +297,19 @@ class Cosecha(models.Model):
     def __str__(self):
         origen = self.huerta or self.huerta_rentada
         return f"{self.nombre} – {origen} – Temp {self.temporada.año}"
+# ────────────── INVERSIONES ───────────────────────────────────────────────
 class InversionesHuerta(models.Model):
-    """
-    Registro de inversiones realizadas en una cosecha específica.
-    Se guarda un nombre, fecha, descripción, gastos en insumos y mano de obra,
-    además de su categoría y la huerta a la que pertenece.
-    """
-    nombre = models.CharField(max_length=100)
-    fecha = models.DateField()
-    descripcion = models.TextField(blank=True, null=True)
-    gastos_insumos = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
+    nombre           = models.CharField(max_length=100)
+    fecha            = models.DateField()
+    descripcion      = models.TextField(blank=True, null=True)
+    gastos_insumos   = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
     gastos_mano_obra = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
-    categoria = models.ForeignKey(CategoriaInversion, on_delete=models.CASCADE)
-    cosecha = models.ForeignKey(Cosecha, on_delete=models.CASCADE, related_name="inversiones")
-    huerta = models.ForeignKey(Huerta, on_delete=models.CASCADE)
-    is_active = models.BooleanField(default=True)              # ⟵ NUEVO
-    archivado_en = models.DateTimeField(null=True, blank=True)
+    categoria        = models.ForeignKey(CategoriaInversion, on_delete=models.CASCADE)
+    cosecha          = models.ForeignKey(Cosecha, on_delete=models.CASCADE, related_name="inversiones")
+    huerta           = models.ForeignKey(Huerta, on_delete=models.CASCADE)
+    is_active        = models.BooleanField(default=True)
+    archivado_en     = models.DateTimeField(null=True, blank=True)
+
     @property
     def gastos_totales(self):
         return (self.gastos_insumos or 0) + (self.gastos_mano_obra or 0)
@@ -317,21 +318,18 @@ class InversionesHuerta(models.Model):
         return f"{self.nombre} ({self.categoria})"
 
 
+# ────────────── VENTAS ────────────────────────────────────────────────────
 class Venta(models.Model):
-    """
-    Representa la venta de productos (p.ej. cajas de mango) en una cosecha dada.
-    Almacena fecha de venta, número de cajas, precio por caja, tipo de mango,
-    gastos (como transporte, empaque, etc.) y calcula la ganancia neta.
-    """
-    cosecha = models.ForeignKey(Cosecha, on_delete=models.CASCADE, related_name="ventas")
-    fecha_venta = models.DateField()
-    num_cajas = models.PositiveIntegerField(validators=[MinValueValidator(1)])
-    precio_por_caja = models.PositiveIntegerField(validators=[MinValueValidator(1)])
-    tipo_mango = models.CharField(max_length=50)
-    descripcion = models.TextField(blank=True, null=True)
-    gasto = models.PositiveIntegerField(validators=[MinValueValidator(0)])
-    is_active = models.BooleanField(default=True)              # ⟵ NUEVO
-    archivado_en = models.DateTimeField(null=True, blank=True)
+    cosecha        = models.ForeignKey(Cosecha, on_delete=models.CASCADE, related_name="ventas")
+    fecha_venta    = models.DateField()
+    num_cajas      = models.PositiveIntegerField(validators=[MinValueValidator(1)])
+    precio_por_caja= models.PositiveIntegerField(validators=[MinValueValidator(1)])
+    tipo_mango     = models.CharField(max_length=50)
+    descripcion    = models.TextField(blank=True, null=True)
+    gasto          = models.PositiveIntegerField(validators=[MinValueValidator(0)])
+    is_active      = models.BooleanField(default=True)
+    archivado_en   = models.DateTimeField(null=True, blank=True)
+
     @property
     def total_venta(self):
         return self.num_cajas * self.precio_por_caja

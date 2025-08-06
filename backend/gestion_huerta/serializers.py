@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 from num2words import num2words   
 import re
+from datetime import date
 
 from gestion_huerta.models import (
     Propietario, Huerta, HuertaRentada,
@@ -364,100 +365,114 @@ class CosechaSerializer(serializers.ModelSerializer):
 # CATEGORÍA + INVERSIONES
 # -----------------------------
 class CategoriaInversionSerializer(serializers.ModelSerializer):
-    """
-    Serializa la categoría de inversión.
-    """
     class Meta:
         model = CategoriaInversion
         fields = ['id', 'nombre']
 
+    def validate_nombre(self, value):
+        val = value.strip()
+        if len(val) < 3:
+            raise serializers.ValidationError("El nombre de la categoría debe tener al menos 3 caracteres.")
+        # Unicidad case-insensitive
+        if CategoriaInversion.objects.filter(nombre__iexact=val).exists() and not (
+            self.instance and self.instance.nombre.lower() == val.lower()
+        ):
+            raise serializers.ValidationError("Ya existe una categoría con este nombre.")
+        return val
 class InversionesHuertaSerializer(serializers.ModelSerializer):
-    """
-    Serializa los datos de una inversión relacionada con una cosecha y huerta.
-    """
-    huerta_id = serializers.PrimaryKeyRelatedField(
-        queryset=Huerta.objects.all(),
-        source='huerta',
-        write_only=True
-    )
-    categoria_id = serializers.PrimaryKeyRelatedField(
-        queryset=CategoriaInversion.objects.all(),
-        source='categoria',
-        write_only=True
-    )
-    cosecha_id = serializers.PrimaryKeyRelatedField(
-        queryset=Cosecha.objects.all(),
-        source='cosecha',
-        write_only=True
-    )
-    categoria = CategoriaInversionSerializer(read_only=True)
-    monto_total = serializers.SerializerMethodField()
-
     class Meta:
-        model = InversionesHuerta
+        model  = InversionesHuerta
         fields = [
-            'id',
-            'nombre',
-            'fecha',
-            'descripcion',
-            'gastos_insumos',
-            'gastos_mano_obra',
-            'categoria_id',
-            'categoria',
-            'cosecha_id',
-            'huerta_id',
-            'monto_total'
+            'id', 'nombre', 'fecha', 'descripcion',
+            'gastos_insumos', 'gastos_mano_obra',
+            'categoria_id', 'cosecha_id', 'huerta_id',
+            'monto_total',
         ]
 
-    def get_monto_total(self, obj):
-        return (obj.gastos_insumos or 0) + (obj.gastos_mano_obra or 0)
+    def validate_nombre(self, value):
+        txt = value.strip()
+        if len(txt) < 3:
+            raise serializers.ValidationError("El nombre debe tener al menos 3 caracteres.")
+        return txt
+
+    def validate_fecha(self, value):
+        # No futura
+        if value > date.today():
+            raise serializers.ValidationError("La fecha de inversión no puede ser futura.")
+        # No anterior al inicio de la cosecha
+        cosecha = Cosecha.objects.get(pk=self.initial_data.get('cosecha_id'))
+        if value < cosecha.fecha_inicio.date():
+            raise serializers.ValidationError(
+                f"La fecha debe ser >= {cosecha.fecha_inicio.date().isoformat()} (fecha inicio de la cosecha)."
+            )
+        return value
+
+    def validate_gastos_insumos(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Los gastos en insumos no pueden ser negativos.")
+        return value
+
+    def validate_gastos_mano_obra(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Los gastos de mano de obra no pueden ser negativos.")
+        return value
 
     def validate(self, data):
-        cosecha = data['cosecha']
-        temporada = getattr(cosecha, 'temporada', None)
-
-        if cosecha.finalizada:
-            raise serializers.ValidationError("No se pueden registrar inversiones en una cosecha finalizada.")
-
-        if temporada and temporada.finalizada:
-            raise serializers.ValidationError("No se pueden registrar inversiones en una temporada finalizada.")
-
-        if (data['gastos_insumos'] + data['gastos_mano_obra']) <= 0:
+        total = (data['gastos_insumos'] or 0) + (data['gastos_mano_obra'] or 0)
+        if total <= 0:
             raise serializers.ValidationError("Los gastos totales deben ser mayores a 0.")
+        # No permitir inversiones en temporada finalizada o archivada
+        temporada = data['cosecha'].temporada
+        if temporada.finalizada or not temporada.is_active:
+            raise serializers.ValidationError("No se pueden registrar inversiones en una temporada finalizada o archivada.")
         return data
 
 # -----------------------------
 # VENTA
 # -----------------------------
 class VentaSerializer(serializers.ModelSerializer):
-    """
-    Serializa la información de una venta, calculando la venta total
-    y la ganancia neta en propiedades de solo lectura.
-    """
-    total_venta = serializers.SerializerMethodField()
-    ganancia_neta = serializers.SerializerMethodField()
-
     class Meta:
-        model = Venta
+        model  = Venta
         fields = [
-            'id', 'cosecha', 'fecha_venta', 'num_cajas',
-            'precio_por_caja', 'tipo_mango', 'gasto',
-            'descripcion', 'total_venta', 'ganancia_neta'
+            'id', 'cosecha', 'fecha_venta',
+            'num_cajas', 'precio_por_caja',
+            'tipo_mango', 'descripcion', 'gasto',
+            'total_venta', 'ganancia_neta'
         ]
 
-    def get_total_venta(self, obj):
-        return obj.num_cajas * obj.precio_por_caja
+    def validate_fecha_venta(self, value):
+        # No futura
+        if value > date.today():
+            raise serializers.ValidationError("La fecha de venta no puede ser futura.")
+        # No anterior al inicio de la cosecha
+        cosecha = Cosecha.objects.get(pk=self.initial_data.get('cosecha'))
+        if value < cosecha.fecha_inicio.date():
+            raise serializers.ValidationError(
+                f"La fecha de venta debe ser >= {cosecha.fecha_inicio.date().isoformat()}."
+            )
+        return value
 
-    def get_ganancia_neta(self, obj):
-        return (obj.num_cajas * obj.precio_por_caja) - obj.gasto
+    def validate_num_cajas(self, value):
+        if value < 1:
+            raise serializers.ValidationError("Debe venderse al menos una caja.")
+        return value
+
+    def validate_precio_por_caja(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("El precio por caja debe ser mayor a 0.")
+        return value
+
+    def validate_gasto(self, value):
+        if value < 0:
+            raise serializers.ValidationError("El gasto no puede ser negativo.")
+        return value
 
     def validate(self, data):
-        cosecha = data['cosecha']
-        temporada = getattr(cosecha, 'temporada', None)
-
-        if cosecha.finalizada:
-            raise serializers.ValidationError("No se pueden registrar ventas en una cosecha finalizada.")
-
-        if temporada and temporada.finalizada:
-            raise serializers.ValidationError("No se pueden registrar ventas en una temporada finalizada.")
+        total_venta = data['num_cajas'] * data['precio_por_caja']
+        if (total_venta - data['gasto']) < 0:
+            raise serializers.ValidationError("La ganancia neta no puede ser negativa.")
+        # Bloquear ventas en temporada finalizada o archivada
+        temporada = data['cosecha'].temporada
+        if temporada.finalizada or not temporada.is_active:
+            raise serializers.ValidationError("No se pueden registrar ventas en una temporada finalizada o archivada.")
         return data

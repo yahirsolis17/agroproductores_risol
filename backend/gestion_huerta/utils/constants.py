@@ -308,6 +308,129 @@ NOTIFICATION_MESSAGES = {
     "toggle_cosecha_success": {
         "message": "Estado de la cosecha cambiado con éxito.",
         "type": "success"
-    }
+    },
 
+    # -------------------------------------------------
+    # Categorías de Inversión
+    # -------------------------------------------------
+    "categoria_inversion_create_success": {
+        "message": "Categoría de inversión creada con éxito.",
+        "type": "success"
+    },
+    "categoria_inversion_update_success": {
+        "message": "Categoría de inversión actualizada con éxito.",
+        "type": "success"
+    },
+    "categoria_inversion_delete_success": {
+        "message": "Categoría de inversión eliminada correctamente.",
+        "type": "success"
+    },
+
+    # -------------------------------------------------
+    # Inversiones
+    # -------------------------------------------------
+    "inversion_create_success": {
+        "message": "Inversión registrada con éxito.",
+        "type": "success"
+    },
+    "inversion_update_success": {
+        "message": "Inversión actualizada con éxito.",
+        "type": "success"
+    },
+    "inversion_delete_success": {
+        "message": "Inversión eliminada correctamente.",
+        "type": "success"
+    },
+    "inversion_archivada": {
+        "message": "Inversión archivada correctamente.",
+        "type": "success"
+    },
+    "inversion_restaurada": {
+        "message": "Inversión restaurada correctamente.",
+        "type": "success"
+    },
+    "inversion_ya_archivada": {
+        "message": "Esta inversión ya está archivada.",
+        "type": "info"
+    },
+    "inversion_no_archivada": {
+        "message": "Esta inversión no está archivada.",
+        "type": "info"
+    },
+
+    # -------------------------------------------------
+    # Ventas
+    # -------------------------------------------------
+    "venta_create_success": {
+        "message": "Venta registrada con éxito.",
+        "type": "success"
+    },
+    "venta_update_success": {
+        "message": "Venta actualizada con éxito.",
+        "type": "success"
+    },
+    "venta_delete_success": {
+        "message": "Venta eliminada correctamente.",
+        "type": "success"
+    },
+    "venta_archivada": {
+        "message": "Venta archivada correctamente.",
+        "type": "success"
+    },
+    "venta_restaurada": {
+        "message": "Venta restaurada correctamente.",
+        "type": "success"
+    },
+    "venta_ya_archivada": {
+        "message": "Esta venta ya está archivada.",
+        "type": "info"
+    },
+    "venta_no_archivada": {
+        "message": "Esta venta no está archivada.",
+        "type": "info"
+    },
+
+    # -------------------------------------------------
+    # Temporadas
+    # -------------------------------------------------
+    "temporada_create_success": {
+        "message": "Temporada creada correctamente back.",
+        "type": "success"
+    },
+    "temporada_update_success": {
+        "message": "Temporada actualizada correctamente back.",
+        "type": "success"
+    },
+    "temporada_delete_success": {
+        "message": "Temporada eliminada correctamente back.",
+        "type": "success"
+    },
+    "temporada_finalizada": {
+        "message": "Temporada finalizada exitosamente back.",
+        "type": "success"
+    },
+    "temporada_reactivada": {
+        "message": "Temporada reactivada correctamente back.",
+        "type": "success"
+    },
+    "temporada_archivada": {
+        "message": "Temporada archivada correctamente back.",
+        "type": "success"
+    },
+    "temporada_restaurada": {
+        "message": "Temporada restaurada correctamente back.",
+        "type": "success"
+    },
+    "temporada_duplicada": {
+        "message": "Ya existe una temporada para este año y esta huerta.",
+        "type": "error"
+    },
+    "temporada_con_dependencias": {
+        "message": "No se puede eliminar. Tiene cosechas asociadas.",
+        "type": "error"
+    },
+    "huerta_archivada_temporada": {
+        "message": "No se puede iniciar una temporada en una huerta archivada.",
+        "type": "error"
+    }
 }
