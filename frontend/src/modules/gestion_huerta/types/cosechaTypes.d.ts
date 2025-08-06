@@ -23,7 +23,7 @@ export interface Cosecha {
 
 export interface CosechaCreateData {
   temporada: number;     // requerido para crear
-  nombre?: string;       // opcional: podemos auto-generarlo en front
+  nombre?: string;       // opcional: el backend lo genera si se omite
 }
 
 export interface CosechaUpdateData {
