@@ -4,6 +4,9 @@ import { TableLayout, Column } from '../../../../components/common/TableLayout';
 import { Cosecha } from '../../types/cosechaTypes';
 import ActionsMenu from '../common/ActionsMenu';
 
+const formatDate = (d: string | null) =>
+  d ? new Date(d).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' }) : '—';
+
 interface Props {
   data: Cosecha[];
   page: number;
@@ -23,10 +26,15 @@ interface Props {
 
 const columns: Column<Cosecha>[] = [
   { label: 'Nombre', key: 'nombre' },
-  { 
-    label: 'Fecha inicio', 
+  {
+    label: 'Fecha inicio',
     key: 'fecha_inicio',
-    render: (c) => c.fecha_inicio ? new Date(c.fecha_inicio).toLocaleString('es-MX') : '—'
+    render: (c) => formatDate(c.fecha_inicio)
+  },
+  {
+    label: 'Fecha fin',
+    key: 'fecha_fin',
+    render: (c) => formatDate(c.fecha_fin)
   },
   {
     label: 'Estado',

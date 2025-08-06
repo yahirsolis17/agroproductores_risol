@@ -1,15 +1,11 @@
 import React from 'react';
-import { Box, TextField, MenuItem, Button, InputAdornment, Chip, Tooltip } from '@mui/material';
+import { Box, TextField, Button, InputAdornment, Chip, Tooltip } from '@mui/material';
 import { Search as SearchIcon, Clear as ClearIcon, Add as AddIcon } from '@mui/icons-material';
 import { PermissionButton } from '../../../../components/common/PermissionButton';
 
 interface Props {
   searchValue: string;
   onSearchChange: (v: string) => void;
-  finalizadaFilter: boolean | null;
-  onFinalizadaChange: (v: boolean | null) => void;
-  estadoFilter: 'activas' | 'archivadas' | 'todas';
-  onEstadoChange: (v: 'activas'|'archivadas'|'todas') => void;
 
   onCreateClick?: () => void;
   canCreate?: boolean;
@@ -23,10 +19,6 @@ interface Props {
 const CosechaToolbar: React.FC<Props> = ({
   searchValue,
   onSearchChange,
-  finalizadaFilter,
-  onFinalizadaChange,
-  estadoFilter,
-  onEstadoChange,
   onCreateClick,
   canCreate = true,
   createTooltip,
@@ -62,32 +54,6 @@ const CosechaToolbar: React.FC<Props> = ({
           }}
           sx={{ minWidth: 300, flexGrow: 1 }}
         />
-
-        <TextField
-          size="small"
-          select
-          label="Finalización"
-          value={finalizadaFilter === null ? '' : String(finalizadaFilter)}
-          onChange={(e) => onFinalizadaChange(e.target.value === '' ? null : e.target.value === 'true')}
-          sx={{ width: 170 }}
-        >
-          <MenuItem value="">Todas</MenuItem>
-          <MenuItem value="false">En curso</MenuItem>
-          <MenuItem value="true">Finalizadas</MenuItem>
-        </TextField>
-
-        <TextField
-          size="small"
-          select
-          label="Archivo"
-          value={estadoFilter}
-          onChange={(e) => onEstadoChange(e.target.value as any)}
-          sx={{ width: 170 }}
-        >
-          <MenuItem value="activas">Activas</MenuItem>
-          <MenuItem value="archivadas">Archivadas</MenuItem>
-          <MenuItem value="todas">Todas</MenuItem>
-        </TextField>
 
         {onCreateClick && (
           <Tooltip title={createTooltip || ''}>

@@ -2,7 +2,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Paper, Typography, Box, CircularProgress, Divider,
-  Dialog, DialogTitle, DialogContent, DialogActions, Button
+  Dialog, DialogTitle, DialogContent, DialogActions, Button,
+  Tabs, Tab,
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useDispatch } from 'react-redux';
@@ -43,8 +44,8 @@ const Cosechas: React.FC = () => {
   // Store de cosechas
   const {
     cosechas, loading, page, meta,
-    search, finalizada, estado,
-    setPage, setTemporadaId, setSearch, setFinalizada, setEstado,
+    search, estado,
+    setPage, setTemporadaId, setSearch, setEstado,
     addCosecha, renameCosecha, removeCosecha,
     archiveCosecha, restoreCosecha, toggleFinalizada,
   } = useCosechas();
@@ -120,10 +121,9 @@ const Cosechas: React.FC = () => {
   const activeFiltersCount = useMemo(() => {
     let c = 0;
     if (search) c++;
-    if (finalizada !== null) c++;
     if (estado !== 'activas') c++; // si no es default
     return c;
-  }, [search, finalizada, estado]);
+  }, [search, estado]);
 
   const emptyMessage = useMemo(() => {
     if (!temporadaId) return 'Selecciona una temporada.';
@@ -201,7 +201,6 @@ const Cosechas: React.FC = () => {
   // Limpiar filtros
   const clearFilters = () => {
     setSearch('');
-    setFinalizada(null);
     setEstado('activas');
   };
 
@@ -233,10 +232,6 @@ const Cosechas: React.FC = () => {
         <CosechaToolbar
           searchValue={search}
           onSearchChange={setSearch}
-          finalizadaFilter={finalizada}
-          onFinalizadaChange={setFinalizada}
-          estadoFilter={estado}
-          onEstadoChange={setEstado}
           onCreateClick={temporadaId ? handleCreate : undefined}
           canCreate={puedeCrear}
           createTooltip={createTooltip}
@@ -244,6 +239,19 @@ const Cosechas: React.FC = () => {
           activeFiltersCount={activeFiltersCount}
           onClearFilters={clearFilters}
         />
+
+        {/* Tabs para estado */}
+        <Tabs
+          value={estado}
+          onChange={(_, v) => setEstado(v)}
+          textColor="primary"
+          indicatorColor="primary"
+          sx={{ mb: 3 }}
+        >
+          <Tab value="activas" label="Activas" />
+          <Tab value="archivadas" label="Archivadas" />
+          <Tab value="todas" label="Todas" />
+        </Tabs>
 
         {/* Tabla */}
         {spin ? (

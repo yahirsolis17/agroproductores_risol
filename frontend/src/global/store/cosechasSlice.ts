@@ -21,7 +21,6 @@ interface CosechasState {
   // filtros
   temporadaId: number | null;
   search: string;
-  finalizada: boolean | null;            // null=Todas, true=Finalizadas, false=En curso
   estado: 'activas' | 'archivadas' | 'todas';
 }
 
@@ -34,20 +33,19 @@ const initialState: CosechasState = {
   meta: { count: 0, next: null, previous: null },
   temporadaId: null,
   search: '',
-  finalizada: null,
   estado: 'activas',
 };
 
 // ───────────────── Thunks ─────────────────
 export const fetchCosechas = createAsyncThunk<
   { cosechas: Cosecha[]; meta: PaginationMeta; page: number },
-  { page: number; temporadaId: number; search?: string; finalizada?: boolean | null; estado?: 'activas'|'archivadas'|'todas' },
+  { page: number; temporadaId: number; search?: string; estado?: 'activas'|'archivadas'|'todas' },
   { rejectValue: Record<string, any> }
 >(
   'cosechas/fetch',
-  async ({ page, temporadaId, search, finalizada, estado }, { rejectWithValue }) => {
+  async ({ page, temporadaId, search, estado }, { rejectWithValue }) => {
     try {
-      const res = await cosechaService.list(page, temporadaId, search, finalizada ?? undefined, estado);
+      const res = await cosechaService.list(page, temporadaId, search, estado);
       handleBackendNotification(res);
       return { cosechas: res.data.cosechas, meta: res.data.meta, page };
     } catch (err: any) {
@@ -188,10 +186,6 @@ const cosechasSlice = createSlice({
       state.search = action.payload;
       state.page = 1;
     },
-    setFinalizada(state, action: PayloadAction<boolean | null>) {
-      state.finalizada = action.payload;
-      state.page = 1;
-    },
     setEstado(state, action: PayloadAction<'activas'|'archivadas'|'todas'>) {
       state.estado = action.payload;
       state.page = 1;
@@ -253,7 +247,6 @@ export const {
   setPage,
   setTemporadaId,
   setSearch,
-  setFinalizada,
   setEstado,
   clear,
 } = cosechasSlice.actions;
