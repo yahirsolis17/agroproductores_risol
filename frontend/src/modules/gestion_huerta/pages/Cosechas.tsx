@@ -140,11 +140,17 @@ const Cosechas: React.FC = () => {
     }
   }, [estado, temporadaId]);
 
-  // Crear cosecha (el backend asigna el nombre automáticamente)
+  // Crear cosecha auto-número
   const handleCreate = async () => {
     if (!temporadaId) return;
+    const nums = cosechas
+      .map(c => c.nombre.match(/Cosecha\s+(\d+)/i)?.[1])
+      .filter(Boolean)
+      .map(Number);
+    const next = nums.length ? Math.max(...nums) + 1 : totalCosechas + 1;
+    const nombre = `Cosecha ${next}`;
     try {
-      await addCosecha({ temporada: temporadaId });
+      await addCosecha({ temporada: temporadaId, nombre });
     } catch (e: any) {
       handleBackendNotification(e?.response?.data?.notification || e);
     }
