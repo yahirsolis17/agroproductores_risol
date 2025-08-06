@@ -249,5 +249,65 @@ NOTIFICATION_MESSAGES = {
     "huerta_archivada_temporada": {
         "message": "No se puede iniciar una temporada en una huerta archivada.",
         "type": "error"
+    },
+    
+    
+    # -------------------------------------------------
+    # Cosechas
+    # -------------------------------------------------
+    "cosecha_create_success": {
+        "message": "Cosecha registrada con éxito.",
+        "type": "success"
+    },
+    "cosecha_update_success": {
+        "message": "Cosecha actualizada con éxito.",
+        "type": "success"
+    },
+    "cosecha_delete_success": {
+        "message": "Cosecha eliminada correctamente.",
+        "type": "success"
+    },
+
+    # Archivado / Restauración
+    "cosecha_archivada": {
+        "message": "Cosecha archivada correctamente.",
+        "type": "success"
+    },
+    "cosecha_restaurada": {
+        "message": "Cosecha restaurada correctamente.",
+        "type": "success"
+    },
+    "cosecha_ya_archivada": {
+        "message": "Esta cosecha ya está archivada.",
+        "type": "warning"
+    },
+    "cosecha_ya_activa": {
+        "message": "Esta cosecha ya está activa.",
+        "type": "info"
+    },
+    "cosecha_debe_estar_archivada": {
+        "message": "Debes archivar la cosecha antes de poder eliminarla.",
+        "type": "error"
+    },
+    "cosecha_con_dependencias": {
+        "message": "No se puede eliminar la cosecha: tiene inversiones o ventas registradas.",
+        "type": "error"
+    },
+
+    # Finalización / Reactivación (toggle)
+    "cosecha_finalizada": {
+        "message": "Cosecha finalizada exitosamente.",
+        "type": "success"
+    },
+    "cosecha_reactivada": {
+        "message": "Cosecha reactivada correctamente.",
+        "type": "success"
+    },
+
+    # (Opcional: mantener por compatibilidad si algún lugar del FE la usa)
+    "toggle_cosecha_success": {
+        "message": "Estado de la cosecha cambiado con éxito.",
+        "type": "success"
     }
+
 }

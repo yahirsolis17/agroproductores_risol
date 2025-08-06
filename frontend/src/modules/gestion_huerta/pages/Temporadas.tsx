@@ -15,7 +15,7 @@ import {
   Divider,
 } from '@mui/material';
 import { motion } from 'framer-motion';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 
 import TemporadaTable from '../components/temporada/TemporadaTable';
@@ -35,6 +35,7 @@ const pageSize = 10;
 
 const Temporadas: React.FC = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate(); // 👈 NUEVO
   const [search] = useSearchParams();
   const huertaId = Number(search.get('huerta_id') || 0) || null;
 
@@ -216,6 +217,11 @@ const Temporadas: React.FC = () => {
     } 
   };
 
+  // 👇 NUEVO: navegar a la lista de cosechas de la temporada
+  const handleCosechas = (t: Temporada) => {
+    navigate(`/cosechas?temporada_id=${t.id}`);
+  };
+
   // Limpiar todos los filtros
   const handleClearFilters = () => {
     setSearch('');
@@ -314,6 +320,8 @@ const Temporadas: React.FC = () => {
             onFinalize={handleFinalize}
             emptyMessage={emptyMsg}
             loading={loading}
+            // 👇 NUEVO: pasamos el handler
+            onCosechas={handleCosechas}
           />
         )}
 

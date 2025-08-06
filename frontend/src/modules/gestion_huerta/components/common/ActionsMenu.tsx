@@ -1,5 +1,3 @@
-// src/modules/gestion_huerta/components/common/ActionsMenu.tsx
-
 import React, { useState } from 'react';
 import {
   IconButton,
@@ -20,6 +18,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import AgricultureIcon from '@mui/icons-material/Agriculture';
 
 interface ActionsMenuProps {
   isArchived: boolean;
@@ -41,6 +40,10 @@ interface ActionsMenuProps {
   permArchiveOrRestore?: string;
   permDelete?: string;
   permTemporadas?: string;
+
+  // 👇 NUEVOS (para navegar a cosechas)
+  onCosechas?: () => void;
+  permCosechas?: string;
 }
 
 const ActionsMenu: React.FC<ActionsMenuProps> = ({
@@ -63,6 +66,10 @@ const ActionsMenu: React.FC<ActionsMenuProps> = ({
   permArchiveOrRestore,
   permDelete,
   permTemporadas,
+
+  // 👇 NUEVOS
+  onCosechas,
+  permCosechas,
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const openMenu = (e: React.MouseEvent<HTMLElement>) => setAnchorEl(e.currentTarget);
@@ -103,10 +110,7 @@ const ActionsMenu: React.FC<ActionsMenuProps> = ({
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
 
-        {/* 
-          1) BOTÓN “FINALIZAR” si no está finalizada, o “REACTIVAR” si ya está finalizada 
-          - Solo se muestra si no está archivada (isArchived===false) y hideFinalize===false 
-        */}
+        {/* 1) FINALIZAR / REACTIVAR (si no está archivada) */}
         {!hideFinalize && !isArchived && onFinalize && (
           (() => {
             const allowed = hasPerm(permFinalize);
@@ -131,7 +135,7 @@ const ActionsMenu: React.FC<ActionsMenuProps> = ({
           })()
         )}
 
-        {/* Consultar / Temporadas */}
+        {/* 2) CONSULTAR (detalle/leer) */}
         {!hideTemporadas && !isArchived && onTemporadas && (
           (() => {
             const allowed = hasPerm(permTemporadas);
@@ -143,6 +147,25 @@ const ActionsMenu: React.FC<ActionsMenuProps> = ({
                       <EventNoteIcon fontSize="small" />
                     </ListItemIcon>
                     <ListItemText primary={labelTemporadas ?? 'Temporadas'} />
+                  </MenuItem>
+                </span>
+              </Tooltip>
+            );
+          })()
+        )}
+
+        {/* 3) VER COSECHAS (nuevo) */}
+        {!isArchived && onCosechas && (
+          (() => {
+            const allowed = hasPerm(permCosechas);
+            return (
+              <Tooltip title={allowed ? '' : 'No tienes permiso'} disableHoverListener={allowed}>
+                <span style={{ display: 'block' }}>
+                  <MenuItem disabled={!allowed} onClick={() => handle(onCosechas)}>
+                    <ListItemIcon>
+                      <AgricultureIcon fontSize="small" />
+                    </ListItemIcon>
+                    <ListItemText primary="Ver cosechas" />
                   </MenuItem>
                 </span>
               </Tooltip>

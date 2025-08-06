@@ -1,16 +1,12 @@
 // src/modules/gestion_huerta/services/temporadaService.ts
-
 import apiClient from '../../../global/api/apiClient';
-import {
-  Temporada,
-  TemporadaCreateData,
-} from '../types/temporadaTypes';
+import { Temporada, TemporadaCreateData } from '../types/temporadaTypes';
 
 export const temporadaService = {
   async list(
-    page: number = 1, 
-    año?: number, 
-    huertaId?: number, 
+    page: number = 1,
+    año?: number,
+    huertaId?: number,
     huertaRentadaId?: number,
     estado?: 'activas' | 'archivadas' | 'todas',
     finalizada?: boolean,
@@ -23,7 +19,7 @@ export const temporadaService = {
     if (estado) params['estado'] = estado;
     if (finalizada !== undefined) params['finalizada'] = finalizada;
     if (search) params['search'] = search;
-    
+
     const response = await apiClient.get<{
       success: boolean;
       notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
@@ -31,9 +27,7 @@ export const temporadaService = {
         temporadas: Temporada[];
         meta: { count: number; next: string | null; previous: string | null };
       };
-    }>('/huerta/temporadas/', {
-      params,
-    });
+    }>('/huerta/temporadas/', { params });
     return response.data;
   },
 
@@ -73,7 +67,6 @@ export const temporadaService = {
     return response.data;
   },
 
-
   async restaurar(id: number) {
     const response = await apiClient.post<{
       success: boolean;
@@ -81,5 +74,14 @@ export const temporadaService = {
       data: { temporada: Temporada };
     }>(`/huerta/temporadas/${id}/restaurar/`);
     return response.data;
+  },
+
+  // 👇 TIPADO EXPLÍCITO DEL RETORNO
+  getById(id: number): Promise<{ data: { temporada: Temporada } }> {
+    return apiClient
+      .get<Temporada>(`/huerta/temporadas/${id}/`)
+      .then((res) => ({
+        data: { temporada: res.data },
+      }));
   },
 };

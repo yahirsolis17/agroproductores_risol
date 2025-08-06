@@ -1,33 +1,34 @@
-// src/modules/gestion_huerta/types/cosechaTypes.d.ts
-
 export interface Cosecha {
-    id: number;
-    nombre: string;
-    fecha_creacion: string;
-    fecha_inicio: string | null;
-    fecha_fin: string | null;
-    finalizada: boolean;
-    huerta: number | null;
-    huerta_rentada: number | null;
-    ventas_totales?: number;
-    gastos_totales?: number;
-    margen_ganancia?: number;
-    is_rentada?: boolean;
-  }
-  
-  export interface CosechaCreateData {
-    nombre: string;
-    huerta?: number; // si es huerta propia
-    huerta_rentada?: number; // si es rentada
-    fecha_inicio?: string;
-    fecha_fin?: string;
-    finalizada?: boolean;
-  }
-  
-  export interface CosechaUpdateData {
-    nombre?: string;
-    fecha_inicio?: string;
-    fecha_fin?: string;
-    finalizada?: boolean;
-  }
-  
+  id: number;
+  nombre: string;
+  fecha_creacion: string;     // ISO
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
+  finalizada: boolean;
+
+  // relaciones
+  temporada?: number | null;
+  huerta?: number | null;
+  huerta_rentada?: number | null;
+
+  // soft delete
+  is_active: boolean;
+  archivado_en: string | null;
+
+  // calculados (opcionales por si el backend los expone)
+  ventas_totales?: number;
+  gastos_totales?: number;
+  margen_ganancia?: number;
+}
+
+export interface CosechaCreateData {
+  temporada: number;     // requerido para crear
+  nombre?: string;       // opcional: podemos auto-generarlo en front
+}
+
+export interface CosechaUpdateData {
+  nombre?: string;
+  finalizada?: boolean;
+  fecha_inicio?: string | null;
+  fecha_fin?: string | null;
+}

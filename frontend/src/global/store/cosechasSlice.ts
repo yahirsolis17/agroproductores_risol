@@ -1,118 +1,261 @@
-// src/global/store/cosechasSlice.ts
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { Cosecha, CosechaCreateData, CosechaUpdateData } from '../../modules/gestion_huerta/types/cosechaTypes';
 import { cosechaService } from '../../modules/gestion_huerta/services/cosechaService';
 import { handleBackendNotification } from '../utils/NotificationEngine';
-import { Cosecha, CosechaCreateData, CosechaUpdateData } from '../../modules/gestion_huerta/types/cosechaTypes';
+
+interface PaginationMeta {
+  count: number;
+  next: string | null;
+  previous: string | null;
+}
 
 interface CosechasState {
   list: Cosecha[];
   loading: boolean;
-  error: string | null;
+  error: Record<string, any> | null;
+  loaded: boolean;
+  page: number;
+  meta: PaginationMeta;
+
+  // filtros
+  temporadaId: number | null;
+  search: string;
+  finalizada: boolean | null;            // null=Todas, true=Finalizadas, false=En curso
+  estado: 'activas' | 'archivadas' | 'todas';
 }
 
 const initialState: CosechasState = {
   list: [],
   loading: false,
   error: null,
+  loaded: false,
+  page: 1,
+  meta: { count: 0, next: null, previous: null },
+  temporadaId: null,
+  search: '',
+  finalizada: null,
+  estado: 'activas',
 };
 
-// Listar cosechas de una huerta
-export const fetchCosechasByHuerta = createAsyncThunk(
-  'cosechas/fetchByHuerta',
-  async (huertaId: number, { rejectWithValue }) => {
+// ───────────────── Thunks ─────────────────
+export const fetchCosechas = createAsyncThunk<
+  { cosechas: Cosecha[]; meta: PaginationMeta; page: number },
+  { page: number; temporadaId: number; search?: string; finalizada?: boolean | null; estado?: 'activas'|'archivadas'|'todas' },
+  { rejectValue: Record<string, any> }
+>(
+  'cosechas/fetch',
+  async ({ page, temporadaId, search, finalizada, estado }, { rejectWithValue }) => {
     try {
-      const data = await cosechaService.listByHuerta(huertaId);
-      // data => array de Cosecha
-      return data;
+      const res = await cosechaService.list(page, temporadaId, search, finalizada ?? undefined, estado);
+      handleBackendNotification(res);
+      return { cosechas: res.data.cosechas, meta: res.data.meta, page };
     } catch (err: any) {
-      handleBackendNotification(err.response?.data);
-      return rejectWithValue(err.response?.data || 'Error al listar cosechas');
+      const payload = err?.response?.data || { message: 'Error al cargar cosechas' };
+      handleBackendNotification(payload.notification || payload);
+      return rejectWithValue(payload);
     }
   }
 );
 
-// Crear cosecha
-export const createCosecha = createAsyncThunk(
+export const createCosecha = createAsyncThunk<
+  Cosecha,
+  CosechaCreateData,
+  { rejectValue: Record<string, any> }
+>(
   'cosechas/create',
-  async (payload: CosechaCreateData, { rejectWithValue }) => {
+  async (payload, { rejectWithValue }) => {
     try {
       const res = await cosechaService.create(payload);
       handleBackendNotification(res);
-      // res => { ...cosecha } u { success, data: { cosecha } } (ajusta según tu backend)
-      return res;
+      return res.data.cosecha;
     } catch (err: any) {
-      handleBackendNotification(err.response?.data);
-      return rejectWithValue(err.response?.data || 'Error al crear cosecha');
+      const payload = err?.response?.data || { message: 'Error al crear cosecha' };
+      handleBackendNotification(payload.notification || payload);
+      return rejectWithValue(payload);
     }
   }
 );
 
-// OJO: si requieres getCosecha, updateCosecha, deleteCosecha, toggleCosecha ...
-// Los creamos igual:
-
-export const updateCosecha = createAsyncThunk(
+export const updateCosecha = createAsyncThunk<
+  Cosecha,
+  { id: number; data: CosechaUpdateData },
+  { rejectValue: Record<string, any> }
+>(
   'cosechas/update',
-  async ({ id, payload }: { id: number; payload: CosechaUpdateData }, { rejectWithValue }) => {
+  async ({ id, data }, { rejectWithValue }) => {
     try {
-      const res = await cosechaService.update(id, payload);
+      const res = await cosechaService.update(id, data);
       handleBackendNotification(res);
-      return res;
+      return res.data.cosecha;
     } catch (err: any) {
-      handleBackendNotification(err.response?.data);
-      return rejectWithValue(err.response?.data || 'Error al actualizar cosecha');
+      const payload = err?.response?.data || { message: 'Error al actualizar cosecha' };
+      handleBackendNotification(payload.notification || payload);
+      return rejectWithValue(payload);
     }
   }
 );
 
-export const deleteCosecha = createAsyncThunk(
+export const deleteCosecha = createAsyncThunk<
+  number,
+  number,
+  { rejectValue: Record<string, any> }
+>(
   'cosechas/delete',
-  async (id: number, { rejectWithValue }) => {
+  async (id, { rejectWithValue }) => {
     try {
       const res = await cosechaService.delete(id);
       handleBackendNotification(res);
       return id;
     } catch (err: any) {
-      handleBackendNotification(err.response?.data);
-      return rejectWithValue(err.response?.data || 'Error al eliminar cosecha');
+      const payload = err?.response?.data || { message: 'Error al eliminar cosecha' };
+      handleBackendNotification(payload.notification || payload);
+      return rejectWithValue(payload);
     }
   }
 );
 
-export const toggleCosecha = createAsyncThunk(
-  'cosechas/toggle',
-  async (id: number, { rejectWithValue }) => {
+export const archivarCosecha = createAsyncThunk<
+  Cosecha,
+  number,
+  { rejectValue: Record<string, any> }
+>(
+  'cosechas/archivar',
+  async (id, { rejectWithValue }) => {
     try {
-      const res = await cosechaService.toggle(id);
+      const res = await cosechaService.archivar(id);
       handleBackendNotification(res);
-      return res;
+      return res.data.cosecha;
     } catch (err: any) {
-      handleBackendNotification(err.response?.data);
-      return rejectWithValue(err.response?.data || 'Error al cambiar estado de cosecha');
+      const payload = err?.response?.data || { message: 'Error al archivar cosecha' };
+      handleBackendNotification(payload.notification || payload);
+      return rejectWithValue(payload);
     }
   }
 );
 
+export const restaurarCosecha = createAsyncThunk<
+  Cosecha,
+  number,
+  { rejectValue: Record<string, any> }
+>(
+  'cosechas/restaurar',
+  async (id, { rejectWithValue }) => {
+    try {
+      const res = await cosechaService.restaurar(id);
+      handleBackendNotification(res);
+      return res.data.cosecha;
+    } catch (err: any) {
+      const payload = err?.response?.data || { message: 'Error al restaurar cosecha' };
+      handleBackendNotification(payload.notification || payload);
+      return rejectWithValue(payload);
+    }
+  }
+);
+
+export const toggleFinalizadaCosecha = createAsyncThunk<
+  Cosecha,
+  number,
+  { rejectValue: Record<string, any> }
+>(
+  'cosechas/toggleFinalizada',
+  async (id, { rejectWithValue }) => {
+    try {
+      const res = await cosechaService.toggleFinalizada(id);
+      handleBackendNotification(res);
+      return res.data.cosecha;
+    } catch (err: any) {
+      const payload = err?.response?.data || { message: 'Error al cambiar estado de cosecha' };
+      handleBackendNotification(payload.notification || payload);
+      return rejectWithValue(payload);
+    }
+  }
+);
+
+// ───────────────── Slice ─────────────────
 const cosechasSlice = createSlice({
   name: 'cosechas',
   initialState,
-  reducers: {},
+  reducers: {
+    setPage(state, action: PayloadAction<number>) {
+      state.page = action.payload;
+    },
+    setTemporadaId(state, action: PayloadAction<number | null>) {
+      state.temporadaId = action.payload;
+      state.page = 1;
+    },
+    setSearch(state, action: PayloadAction<string>) {
+      state.search = action.payload;
+      state.page = 1;
+    },
+    setFinalizada(state, action: PayloadAction<boolean | null>) {
+      state.finalizada = action.payload;
+      state.page = 1;
+    },
+    setEstado(state, action: PayloadAction<'activas'|'archivadas'|'todas'>) {
+      state.estado = action.payload;
+      state.page = 1;
+    },
+    clear: () => ({ ...initialState }),
+  },
   extraReducers: (builder) => {
     builder
-      // fetchCosechasByHuerta
-      .addCase(fetchCosechasByHuerta.pending, (state) => {
+      .addCase(fetchCosechas.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(fetchCosechasByHuerta.fulfilled, (state, action: PayloadAction<Cosecha[]>) => {
-        state.list = action.payload;
+      .addCase(fetchCosechas.fulfilled, (state, { payload }) => {
         state.loading = false;
+        state.loaded = true;
+        state.list = payload.cosechas;
+        state.meta = payload.meta;
+        state.page = payload.page;
       })
-      .addCase(fetchCosechasByHuerta.rejected, (state, action) => {
+      .addCase(fetchCosechas.rejected, (state, { payload }) => {
         state.loading = false;
-        state.error = action.payload as string;
+        state.loaded = true;
+        state.error = payload || null;
+      })
+
+      .addCase(createCosecha.fulfilled, (state, { payload }) => {
+        state.list.unshift(payload);
+        state.meta.count += 1;
+      })
+
+      .addCase(updateCosecha.fulfilled, (state, { payload }) => {
+        const i = state.list.findIndex(c => c.id === payload.id);
+        if (i !== -1) state.list[i] = payload;
+      })
+
+      .addCase(deleteCosecha.fulfilled, (state, { payload }) => {
+        state.list = state.list.filter(c => c.id !== payload);
+        if (state.meta.count > 0) state.meta.count -= 1;
+      })
+
+      .addCase(archivarCosecha.fulfilled, (state, { payload }) => {
+        const i = state.list.findIndex(c => c.id === payload.id);
+        if (i !== -1) state.list[i] = payload;
+      })
+
+      .addCase(restaurarCosecha.fulfilled, (state, { payload }) => {
+        const i = state.list.findIndex(c => c.id === payload.id);
+        if (i !== -1) state.list[i] = payload;
+      })
+
+      .addCase(toggleFinalizadaCosecha.fulfilled, (state, { payload }) => {
+        const i = state.list.findIndex(c => c.id === payload.id);
+        if (i !== -1) state.list[i] = payload;
       });
-    // createCosecha, updateCosecha, deleteCosecha, toggleCosecha => ajusta según necesites
   },
 });
+
+export const {
+  setPage,
+  setTemporadaId,
+  setSearch,
+  setFinalizada,
+  setEstado,
+  clear,
+} = cosechasSlice.actions;
 
 export default cosechasSlice.reducer;

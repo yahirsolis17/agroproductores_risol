@@ -1,54 +1,102 @@
-// src/modules/gestion_huerta/components/cosecha/CosechaTable.tsx
 import React from 'react';
-import {
-  Table,
-  TableContainer,
-  TableHead,
-  TableBody,
-  TableCell,
-  TableRow,
-  Paper,
-} from '@mui/material';
+import { Chip } from '@mui/material';
+import { TableLayout, Column } from '../../../../components/common/TableLayout';
 import { Cosecha } from '../../types/cosechaTypes';
+import ActionsMenu from '../common/ActionsMenu';
 
-interface CosechaTableProps {
+interface Props {
   data: Cosecha[];
+  page: number;
+  pageSize: number;
+  count: number;
+  onPageChange: (p: number) => void;
+
+  onRename: (c: Cosecha) => void;
+  onDelete: (c: Cosecha) => void;
+  onArchive: (c: Cosecha) => void;
+  onRestore: (c: Cosecha) => void;
+  onToggleFinalizada: (c: Cosecha) => void;
+
+  emptyMessage?: string;
+  loading?: boolean;
 }
 
-const CosechaTable: React.FC<CosechaTableProps> = ({ data }) => {
+const columns: Column<Cosecha>[] = [
+  { label: 'Nombre', key: 'nombre' },
+  { 
+    label: 'Fecha inicio', 
+    key: 'fecha_inicio',
+    render: (c) => c.fecha_inicio ? new Date(c.fecha_inicio).toLocaleString('es-MX') : '—'
+  },
+  {
+    label: 'Estado',
+    key: 'finalizada',
+    align: 'center',
+    render: (c) =>
+      c.finalizada ? (
+        <Chip label="Finalizada" size="small" color="warning" />
+      ) : (
+        <Chip label="En curso" size="small" color="primary" />
+      ),
+  },
+  {
+    label: 'Archivo',
+    key: 'is_active',
+    align: 'center',
+    render: (c) =>
+      c.is_active ? (
+        <Chip label="Activa" size="small" color="success" />
+      ) : (
+        <Chip label="Archivada" size="small" color="default" />
+      ),
+  },
+];
+
+const CosechaTable: React.FC<Props> = ({
+  data,
+  page,
+  pageSize,
+  count,
+  onPageChange,
+  onRename,
+  onDelete,
+  onArchive,
+  onRestore,
+  onToggleFinalizada,
+  emptyMessage,
+  loading,
+}) => {
   return (
-    <TableContainer component={Paper} className="rounded-xl border border-neutral-200">
-      <Table size="small">
-        <TableHead className="bg-neutral-100">
-          <TableRow>
-            <TableCell className="font-semibold">Nombre</TableCell>
-            <TableCell className="font-semibold">Fecha Inicio</TableCell>
-            <TableCell className="font-semibold">Fecha Fin</TableCell>
-            <TableCell className="font-semibold">Acciones</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {data.length > 0 ? (
-            data.map((cosecha) => (
-              <TableRow key={cosecha.id} hover>
-                <TableCell>{cosecha.nombre}</TableCell>
-                <TableCell>{cosecha.fecha_inicio || 'N/A'}</TableCell>
-                <TableCell>{cosecha.fecha_fin || 'N/A'}</TableCell>
-                <TableCell>
-                  <span className="text-sm text-neutral-500">🔧 Acciones</span>
-                </TableCell>
-              </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={4} className="text-center text-neutral-500 py-6">
-                No hay cosechas registradas.
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-    </TableContainer>
+    <TableLayout<Cosecha>
+      data={data}
+      page={page}
+      pageSize={pageSize}
+      count={count}
+      onPageChange={onPageChange}
+      serverSidePagination
+      columns={columns}
+      rowKey={(row) => row.id}
+      striped
+      dense
+      loading={loading}
+      emptyMessage={emptyMessage}
+      renderActions={(c) => {
+        const isArchived = !c.is_active;
+        const isFinalized = c.finalizada;
+
+        return (
+          <ActionsMenu
+            isArchived={isArchived}
+            isFinalized={isFinalized}
+            labelFinalize={isFinalized ? 'Reactivar' : 'Finalizar'}
+            onFinalize={() => onToggleFinalizada(c)}
+            onEdit={!isArchived ? () => onRename(c) : undefined}
+            onArchiveOrRestore={() => (isArchived ? onRestore(c) : onArchive(c))}
+            onDelete={isArchived ? () => onDelete(c) : undefined}
+          />
+        );
+      }}
+    />
   );
 };
 

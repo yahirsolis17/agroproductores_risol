@@ -1,40 +1,66 @@
-// src/modules/gestion_huerta/hooks/useHuertas.ts
 import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../../global/store/store';
 import {
-  fetchHuertas,
-  createHuerta,
-  updateHuerta,
-  deleteHuerta,
-} from '../../../global/store/huertaSlice';
-import { HuertaCreateData, HuertaUpdateData } from '../types/huertaTypes';
+  fetchCosechas,
+  setPage,
+  setTemporadaId,
+  setSearch,
+  setFinalizada,
+  setEstado,
+  createCosecha,
+  updateCosecha,
+  deleteCosecha,
+  archivarCosecha,
+  restaurarCosecha,
+  toggleFinalizadaCosecha,
+} from '../../../global/store/cosechasSlice';
+import type { CosechaCreateData, CosechaUpdateData } from '../types/cosechaTypes';
 
-export function useHuertas() {
+export function useCosechas() {
   const dispatch = useAppDispatch();
-  const { list, loading, error } = useAppSelector((state) => state.huerta);
-
-  // Efecto que carga huertas automáticamente si la lista está vacía y no se está cargando.
-  useEffect(() => {
-    if (!list.length && !loading) {
-      dispatch(fetchHuertas());
-    }
-  }, [dispatch, list.length, loading]);
-
-  // Funciones para crear/actualizar/eliminar
-  const addHuerta = (payload: HuertaCreateData) => dispatch(createHuerta(payload));
-  const editHuerta = (id: number, payload: HuertaUpdateData) =>
-    dispatch(updateHuerta({ id, payload }));
-  const removeHuerta = (id: number) => dispatch(deleteHuerta(id));
-
-  // Exponemos estos valores
-  return {
-    huertas: list,
+  const {
+    list,
     loading,
     error,
-    addHuerta,
-    editHuerta,
-    removeHuerta,
-    // Opcionalmente, si deseas refrescar manualmente:
-    fetchHuertas: () => dispatch(fetchHuertas()),
+    page,
+    meta,
+    temporadaId,
+    search,
+    finalizada,
+    estado,
+  } = useAppSelector((s) => s.cosechas);
+
+  useEffect(() => {
+    if (!temporadaId) return;
+    dispatch(fetchCosechas({ page, temporadaId, search, finalizada, estado }));
+  }, [dispatch, page, temporadaId, search, finalizada, estado]);
+
+  return {
+    cosechas: list,
+    loading,
+    error,
+    page,
+    meta,
+    temporadaId,
+    search,
+    finalizada,
+    estado,
+
+    setPage: (p: number) => dispatch(setPage(p)),
+    setTemporadaId: (id: number | null) => dispatch(setTemporadaId(id)),
+    setSearch: (q: string) => dispatch(setSearch(q)),
+    setFinalizada: (v: boolean | null) => dispatch(setFinalizada(v)),
+    setEstado: (v: 'activas'|'archivadas'|'todas') => dispatch(setEstado(v)),
+
+    addCosecha: (payload: CosechaCreateData) => dispatch(createCosecha(payload)).unwrap(),
+    renameCosecha: (id: number, data: CosechaUpdateData) => dispatch(updateCosecha({ id, data })).unwrap(),
+    removeCosecha: (id: number) => dispatch(deleteCosecha(id)).unwrap(),
+    archiveCosecha: (id: number) => dispatch(archivarCosecha(id)).unwrap(),
+    restoreCosecha: (id: number) => dispatch(restaurarCosecha(id)).unwrap(),
+    toggleFinalizada: (id: number) => dispatch(toggleFinalizadaCosecha(id)).unwrap(),
+    refetch: () => {
+      if (!temporadaId) return;
+      return dispatch(fetchCosechas({ page, temporadaId, search, finalizada, estado }));
+    },
   };
 }

@@ -1,4 +1,3 @@
-// src/modules/gestion_huerta/components/temporada/TemporadaTable.tsx
 import React from 'react';
 import { Chip } from '@mui/material';
 import { TableLayout, Column } from '../../../../components/common/TableLayout';
@@ -18,6 +17,9 @@ interface Props {
   onFinalize: (t: Temporada) => void;
   emptyMessage?: string;
   loading?: boolean;
+
+  // 👇 NUEVO: callback para “Ver cosechas”
+  onCosechas: (t: Temporada) => void;
 }
 
 const columns: Column<Temporada>[] = [
@@ -85,6 +87,9 @@ const TemporadaTable: React.FC<Props> = ({
   onFinalize,
   emptyMessage,
   loading,
+
+  // 👇 NUEVO
+  onCosechas,
 }) => (
   <TableLayout<Temporada>
     data={data}
@@ -121,6 +126,10 @@ const TemporadaTable: React.FC<Props> = ({
           permTemporadas="view_temporada"
           permArchiveOrRestore="archive_temporada"
           permDelete="delete_temporada"
+
+          // 👇 NUEVOS props para “Ver cosechas”
+          onCosechas={() => onCosechas(t)}
+          permCosechas="view_cosecha"
         />
       );
     }}
