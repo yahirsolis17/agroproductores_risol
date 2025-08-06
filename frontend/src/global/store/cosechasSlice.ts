@@ -1,14 +1,11 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+// src/global/store/cosechasSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { Cosecha, CosechaCreateData, CosechaUpdateData } from '../../modules/gestion_huerta/types/cosechaTypes';
 import { cosechaService } from '../../modules/gestion_huerta/services/cosechaService';
 import { handleBackendNotification } from '../utils/NotificationEngine';
+import type { RootState } from './store';
 
-interface PaginationMeta {
-  count: number;
-  next: string | null;
-  previous: string | null;
-}
+interface PaginationMeta { count: number; next: string | null; previous: string | null; }
 
 interface CosechasState {
   list: Cosecha[];
@@ -17,33 +14,29 @@ interface CosechasState {
   loaded: boolean;
   page: number;
   meta: PaginationMeta;
-
-  // filtros
   temporadaId: number | null;
   search: string;
   estado: 'activas' | 'archivadas' | 'todas';
 }
 
 const initialState: CosechasState = {
-  list: [],
-  loading: false,
-  error: null,
-  loaded: false,
-  page: 1,
-  meta: { count: 0, next: null, previous: null },
-  temporadaId: null,
-  search: '',
-  estado: 'activas',
+  list: [], loading: false, error: null, loaded: false,
+  page: 1, meta: { count: 0, next: null, previous: null },
+  temporadaId: null, search: '', estado: 'activas',
 };
 
 // ───────────────── Thunks ─────────────────
 export const fetchCosechas = createAsyncThunk<
   { cosechas: Cosecha[]; meta: PaginationMeta; page: number },
-  { page: number; temporadaId: number; search?: string; estado?: 'activas'|'archivadas'|'todas' },
-  { rejectValue: Record<string, any> }
+  void,
+  { state: RootState; rejectValue: Record<string, any> }
 >(
   'cosechas/fetch',
-  async ({ page, temporadaId, search, estado }, { rejectWithValue }) => {
+  async (_, { getState, rejectWithValue }) => {
+    const { page, temporadaId, search, estado } = getState().cosechas;
+    if (!temporadaId) {
+      return rejectWithValue({ message: 'Falta temporada seleccionada.' });
+    }
     try {
       const res = await cosechaService.list(page, temporadaId, search, estado);
       handleBackendNotification(res);
@@ -56,11 +49,7 @@ export const fetchCosechas = createAsyncThunk<
   }
 );
 
-export const createCosecha = createAsyncThunk<
-  Cosecha,
-  CosechaCreateData,
-  { rejectValue: Record<string, any> }
->(
+export const createCosecha = createAsyncThunk<Cosecha, CosechaCreateData, { rejectValue: Record<string, any> }>(
   'cosechas/create',
   async (payload, { rejectWithValue }) => {
     try {
@@ -94,11 +83,7 @@ export const updateCosecha = createAsyncThunk<
   }
 );
 
-export const deleteCosecha = createAsyncThunk<
-  number,
-  number,
-  { rejectValue: Record<string, any> }
->(
+export const deleteCosecha = createAsyncThunk<number, number, { rejectValue: Record<string, any> }>(
   'cosechas/delete',
   async (id, { rejectWithValue }) => {
     try {
@@ -113,11 +98,7 @@ export const deleteCosecha = createAsyncThunk<
   }
 );
 
-export const archivarCosecha = createAsyncThunk<
-  Cosecha,
-  number,
-  { rejectValue: Record<string, any> }
->(
+export const archivarCosecha = createAsyncThunk<Cosecha, number, { rejectValue: Record<string, any> }>(
   'cosechas/archivar',
   async (id, { rejectWithValue }) => {
     try {
@@ -132,11 +113,7 @@ export const archivarCosecha = createAsyncThunk<
   }
 );
 
-export const restaurarCosecha = createAsyncThunk<
-  Cosecha,
-  number,
-  { rejectValue: Record<string, any> }
->(
+export const restaurarCosecha = createAsyncThunk<Cosecha, number, { rejectValue: Record<string, any> }>(
   'cosechas/restaurar',
   async (id, { rejectWithValue }) => {
     try {
@@ -151,11 +128,7 @@ export const restaurarCosecha = createAsyncThunk<
   }
 );
 
-export const toggleFinalizadaCosecha = createAsyncThunk<
-  Cosecha,
-  number,
-  { rejectValue: Record<string, any> }
->(
+export const toggleFinalizadaCosecha = createAsyncThunk<Cosecha, number, { rejectValue: Record<string, any> }>(
   'cosechas/toggleFinalizada',
   async (id, { rejectWithValue }) => {
     try {
@@ -186,7 +159,7 @@ const cosechasSlice = createSlice({
       state.search = action.payload;
       state.page = 1;
     },
-    setEstado(state, action: PayloadAction<'activas'|'archivadas'|'todas'>) {
+    setEstado(state, action: PayloadAction<'activas' | 'archivadas' | 'todas'>) {
       state.estado = action.payload;
       state.page = 1;
     },
@@ -194,6 +167,7 @@ const cosechasSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      // FETCH
       .addCase(fetchCosechas.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -211,31 +185,40 @@ const cosechasSlice = createSlice({
         state.error = payload || null;
       })
 
-      .addCase(createCosecha.fulfilled, (state, { payload }) => {
-        state.list.unshift(payload);
-        state.meta.count += 1;
-      })
+      // CREATE → recargamos lista
+      .addCase(createCosecha.fulfilled, () => {})
 
+      // UPDATE in-place
       .addCase(updateCosecha.fulfilled, (state, { payload }) => {
         const i = state.list.findIndex(c => c.id === payload.id);
         if (i !== -1) state.list[i] = payload;
       })
 
+      // DELETE removes
       .addCase(deleteCosecha.fulfilled, (state, { payload }) => {
         state.list = state.list.filter(c => c.id !== payload);
         if (state.meta.count > 0) state.meta.count -= 1;
       })
 
+      // ARCHIVAR / RESTAURAR
       .addCase(archivarCosecha.fulfilled, (state, { payload }) => {
-        const i = state.list.findIndex(c => c.id === payload.id);
-        if (i !== -1) state.list[i] = payload;
+        if (state.estado === 'activas') {
+          state.list = state.list.filter(c => c.id !== payload.id);
+        } else {
+          const i = state.list.findIndex(c => c.id === payload.id);
+          if (i !== -1) state.list[i] = payload;
+        }
       })
-
       .addCase(restaurarCosecha.fulfilled, (state, { payload }) => {
-        const i = state.list.findIndex(c => c.id === payload.id);
-        if (i !== -1) state.list[i] = payload;
+        if (state.estado === 'archivadas') {
+          state.list = state.list.filter(c => c.id !== payload.id);
+        } else {
+          const i = state.list.findIndex(c => c.id === payload.id);
+          if (i !== -1) state.list[i] = payload;
+        }
       })
 
+      // TOGGLE FINALIZADA
       .addCase(toggleFinalizadaCosecha.fulfilled, (state, { payload }) => {
         const i = state.list.findIndex(c => c.id === payload.id);
         if (i !== -1) state.list[i] = payload;

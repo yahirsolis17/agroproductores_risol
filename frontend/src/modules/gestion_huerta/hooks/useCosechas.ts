@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/hooks/useCosechas.ts
 import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../../global/store/store';
 import {
@@ -18,7 +19,7 @@ import type { CosechaCreateData, CosechaUpdateData } from '../types/cosechaTypes
 export function useCosechas() {
   const dispatch = useAppDispatch();
   const {
-    list,
+    list: cosechas,
     loading,
     error,
     page,
@@ -28,18 +29,21 @@ export function useCosechas() {
     estado,
   } = useAppSelector((s) => s.cosechas);
 
+  // Auto‐fetch cuando cambien filtros/página
   useEffect(() => {
-    if (!temporadaId) return;
-    dispatch(fetchCosechas({ page, temporadaId, search, estado }));
+    if (temporadaId !== null) {
+      dispatch(fetchCosechas());
+    }
   }, [dispatch, page, temporadaId, search, estado]);
 
-  const refreshWithCurrentFilters = () => {
-    if (!temporadaId) return Promise.resolve();
-    return dispatch(fetchCosechas({ page, temporadaId, search, estado })).unwrap();
+  const refresh = async () => {
+    if (temporadaId !== null) {
+      await dispatch(fetchCosechas()).unwrap();
+    }
   };
 
   return {
-    cosechas: list,
+    cosechas,
     loading,
     error,
     page,
@@ -51,20 +55,31 @@ export function useCosechas() {
     setPage: (p: number) => dispatch(setPage(p)),
     setTemporadaId: (id: number | null) => dispatch(setTemporadaId(id)),
     setSearch: (q: string) => dispatch(setSearch(q)),
-    setEstado: (v: 'activas'|'archivadas'|'todas') => dispatch(setEstado(v)),
+    setEstado: (v: 'activas' | 'archivadas' | 'todas') => dispatch(setEstado(v)),
 
-    addCosecha: (payload: CosechaCreateData) =>
-      dispatch(createCosecha(payload)).unwrap().then(() => refreshWithCurrentFilters()),
-    renameCosecha: (id: number, data: CosechaUpdateData) =>
-      dispatch(updateCosecha({ id, data })).unwrap().then(() => refreshWithCurrentFilters()),
-    removeCosecha: (id: number) =>
-      dispatch(deleteCosecha(id)).unwrap().then(() => refreshWithCurrentFilters()),
-    archiveCosecha: (id: number) =>
-      dispatch(archivarCosecha(id)).unwrap().then(() => refreshWithCurrentFilters()),
-    restoreCosecha: (id: number) =>
-      dispatch(restaurarCosecha(id)).unwrap().then(() => refreshWithCurrentFilters()),
-    toggleFinalizada: (id: number) =>
-      dispatch(toggleFinalizadaCosecha(id)).unwrap().then(() => refreshWithCurrentFilters()),
-    refetch: () => refreshWithCurrentFilters(),
+    addCosecha: async (data: CosechaCreateData) => {
+      await dispatch(createCosecha(data)).unwrap();
+      await refresh();
+    },
+    renameCosecha: async (id: number, data: CosechaUpdateData) => {
+      await dispatch(updateCosecha({ id, data })).unwrap();
+      await refresh();
+    },
+    removeCosecha: async (id: number) => {
+      await dispatch(deleteCosecha(id)).unwrap();
+      await refresh();
+    },
+    archiveCosecha: async (id: number) => {
+      await dispatch(archivarCosecha(id)).unwrap();
+      await refresh();
+    },
+    restoreCosecha: async (id: number) => {
+      await dispatch(restaurarCosecha(id)).unwrap();
+      await refresh();
+    },
+    toggleFinalizada: async (id: number) => {
+      await dispatch(toggleFinalizadaCosecha(id)).unwrap();
+      await refresh();
+    },
   };
 }

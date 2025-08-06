@@ -5,7 +5,9 @@ from django.utils import timezone
 from django.db.models import Sum, Value
 from django.db.models.functions import Coalesce
 from django.core.exceptions import ValidationError
-
+from decimal import Decimal
+from django.db.models import F, Value, Sum, DecimalField, ExpressionWrapper
+from django.db.models.functions import Coalesce, Cast
 # ────────────── PROPIETARIO ────────────────────────────────────────────────
 class Propietario(models.Model):
     # ───── datos básicos ─────
@@ -183,161 +185,109 @@ class CategoriaInversion(models.Model):
     nombre = models.CharField(max_length=100)
 class Cosecha(models.Model):
     """
-    Cosecha perteneciente a una Temporada (obligatorio).
-    El origen (huerta propia o rentada) se hereda de la temporada:
-      - Si la temporada es de Huerta → huerta no nula / huerta_rentada nula
-      - Si la temporada es de HuertaRentada → huerta_rentada no nula / huerta nula
+    Cosecha de una Temporada (obligatoria).
+    El origen (huerta vs huerta_rentada) se hereda de la Temporada.
     """
+    nombre         = models.CharField(max_length=100)
+    temporada      = models.ForeignKey("Temporada", on_delete=models.CASCADE, related_name="cosechas")
+    huerta         = models.ForeignKey("Huerta", on_delete=models.CASCADE, null=True, blank=True, related_name="cosechas")
+    huerta_rentada = models.ForeignKey("HuertaRentada", on_delete=models.CASCADE, null=True, blank=True, related_name="cosechas_rentadas")
 
-    # Identidad y relación principal
-    nombre = models.CharField(max_length=100)
-    temporada = models.ForeignKey(
-        "Temporada",
-        on_delete=models.CASCADE,
-        related_name="cosechas",
-    )
-
-    # Origen (normalmente NO es necesario pasarlos si la temporada ya lo define)
-    huerta = models.ForeignKey(
-        "Huerta",
-        on_delete=models.CASCADE,
-        null=True, blank=True,
-        related_name="cosechas"
-    )
-    huerta_rentada = models.ForeignKey(
-        "HuertaRentada",
-        on_delete=models.CASCADE,
-        null=True, blank=True,
-        related_name="cosechas_rentadas"
-    )
-
-    # Ciclo de vida
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_inicio   = models.DateTimeField(null=True, blank=True)
     fecha_fin      = models.DateTimeField(null=True, blank=True)
     finalizada     = models.BooleanField(default=False)
 
-    # Soft-delete / archivado
-    is_active    = models.BooleanField(default=True)
-    archivado_en = models.DateTimeField(null=True, blank=True)
+    is_active      = models.BooleanField(default=True)
+    archivado_en   = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-id"]
         indexes  = [models.Index(fields=["nombre"])]
-        unique_together = (
-            # Un nombre de cosecha no se repite dentro de la misma temporada
-            ("temporada", "nombre"),
-        )
+        unique_together = (("temporada", "nombre"),)
 
-    # ── Agregados económicos (ventas / inversiones) ──────────────────────────
     @property
     def total_ventas(self):
-        # Venta.total_venta = num_cajas * precio_por_caja
-        # Como total_venta no está en DB, agregamos por columnas:
-        from django.db.models import F, ExpressionWrapper, IntegerField
-        expr = ExpressionWrapper(F("num_cajas") * F("precio_por_caja"), output_field=IntegerField())
-        return self.ventas.aggregate(total=Coalesce(Sum(expr), Value(0)))["total"]
+        qty   = Cast(F("num_cajas"), DecimalField(max_digits=14, decimal_places=2))
+        price = Cast(F("precio_por_caja"), DecimalField(max_digits=14, decimal_places=2))
+        expr  = ExpressionWrapper(qty * price, output_field=DecimalField(max_digits=18, decimal_places=2))
+        return self.ventas.aggregate(
+            total=Coalesce(Sum(expr), Value(Decimal("0.00")))
+        )["total"]
 
     @property
     def total_gastos(self):
-        # InversionesHuerta.gastos_totales = gastos_insumos + gastos_mano_obra
-        from django.db.models import F, DecimalField, ExpressionWrapper
-        expr = ExpressionWrapper(
-            Coalesce(F("gastos_insumos"), Value(0)) + Coalesce(F("gastos_mano_obra"), Value(0)),
-            output_field=DecimalField(max_digits=12, decimal_places=2),
-        )
-        return self.inversiones.aggregate(total=Coalesce(Sum(expr), Value(0)))["total"]
+        gi   = Coalesce(Cast(F("gastos_insumos"), DecimalField(max_digits=18, decimal_places=2)), Value(Decimal("0.00")))
+        gm   = Coalesce(Cast(F("gastos_mano_obra"),  DecimalField(max_digits=18, decimal_places=2)), Value(Decimal("0.00")))
+        expr = ExpressionWrapper(gi + gm, output_field=DecimalField(max_digits=18, decimal_places=2))
+        return self.inversiones.aggregate(
+            total=Coalesce(Sum(expr), Value(Decimal("0.00")))
+        )["total"]
 
     @property
     def ganancia_neta(self):
-        # Nota: tipos distintos (int vs decimal) pueden requerir normalizar en DB si lo necesitas con precisión fija
-        return (self.total_ventas or 0) - (self.total_gastos or 0)
+        return (self.total_ventas or Decimal("0.00")) - (self.total_gastos or Decimal("0.00"))
 
-    # ── Validaciones y consistencia con Temporada ────────────────────────────
     def clean(self):
-        # Temporada obligatoria
         if not self.temporada_id:
             raise ValidationError("La cosecha debe pertenecer a una temporada.")
-
-        # La temporada define el origen: o huerta o huerta_rentada (exclusivo)
         t = self.temporada
-        t_origen_huerta = bool(t.huerta_id)
-        t_origen_rentada = bool(t.huerta_rentada_id)
-
-        if not t_origen_huerta and not t_origen_rentada:
-            raise ValidationError("La temporada no tiene origen asignado (huerta / huerta_rentada).")
-
-        # Si la temporada está finalizada o archivada, no se pueden crear/editar cosechas activas
-        if self._state.adding and (t.finalizada or not t.is_active):
+        if (t.finalizada or not t.is_active) and self._state.adding:
             raise ValidationError("No se pueden registrar cosechas en una temporada finalizada o archivada.")
 
-        # Consistencia de origen: autocompletar si no viene, validar si viene
-        if t_origen_huerta:
-            # La cosecha debe ser de huerta propia
+        # Consistencia de origen
+        if bool(t.huerta_id):
             if self.huerta_rentada_id:
-                raise ValidationError("Esta temporada es de huerta propia; no puede asignar huerta rentada en la cosecha.")
-            # Autocompletar si no viene
-            if not self.huerta_id:
-                self.huerta_id = t.huerta_id
-            # Validar coincidencia si sí vino
-            if self.huerta_id and self.huerta_id != t.huerta_id:
-                raise ValidationError("La huerta asignada en la cosecha no coincide con la huerta de la temporada.")
+                raise ValidationError("Esta temporada es de huerta propia; no asigne huerta rentada.")
+            self.huerta_id = t.huerta_id
         else:
-            # La cosecha debe ser de huerta rentada
             if self.huerta_id:
-                raise ValidationError("Esta temporada es de huerta rentada; no puede asignar huerta propia en la cosecha.")
-            if not self.huerta_rentada_id:
-                self.huerta_rentada_id = t.huerta_rentada_id
-            if self.huerta_rentada_id and self.huerta_rentada_id != t.huerta_rentada_id:
-                raise ValidationError("La huerta rentada asignada en la cosecha no coincide con la de la temporada.")
+                raise ValidationError("Esta temporada es de huerta rentada; no asigne huerta propia.")
+            self.huerta_rentada_id = t.huerta_rentada_id
 
-        # Exclusividad interna por si alguien setea ambos por error
-        if self.huerta_id and self.huerta_rentada_id:
-            raise ValidationError("No puede asignar huerta y huerta rentada simultáneamente.")
-
-    # ── Ciclo de vida ────────────────────────────────────────────────────────
     def save(self, *args, **kwargs):
-        # Setear fecha_inicio por defecto al crear
-        if self._state.adding and not self.fecha_inicio:
-            self.fecha_inicio = timezone.now()
-        # Validaciones de consistencia
+        if self._state.adding:
+            if not self.fecha_inicio:
+                self.fecha_inicio = timezone.now()
+            if not self.nombre.strip():
+                # Genera nombre único
+                base = "Cosecha"
+                exist = set(self.temporada.cosechas.values_list("nombre", flat=True))
+                cnt = 1
+                cand = base
+                while cand in exist:
+                    cnt += 1
+                    cand = f"{base} {cnt}"
+                self.nombre = cand
         self.full_clean()
         super().save(*args, **kwargs)
 
     def finalizar(self):
-        """Marca la cosecha como finalizada, con fecha_fin = hoy."""
         if not self.finalizada:
             self.finalizada = True
             self.fecha_fin = timezone.now()
             self.save(update_fields=["finalizada", "fecha_fin"])
 
     def archivar(self):
-        """Soft-delete de la cosecha y sus movimientos (inversiones / ventas)."""
         if self.is_active:
             now = timezone.now()
             self.is_active = False
             self.archivado_en = now
             self.save(update_fields=["is_active", "archivado_en"])
-
-            # Cascada blanda en movimientos
             self.inversiones.update(is_active=False, archivado_en=now)
             self.ventas.update(is_active=False, archivado_en=now)
 
     def desarchivar(self):
-        """Restaura cosecha y sus movimientos."""
         if not self.is_active:
             self.is_active = True
             self.archivado_en = None
             self.save(update_fields=["is_active", "archivado_en"])
-
             self.inversiones.update(is_active=True, archivado_en=None)
             self.ventas.update(is_active=True, archivado_en=None)
 
     def __str__(self):
         origen = self.huerta or self.huerta_rentada
         return f"{self.nombre} – {origen} – Temp {self.temporada.año}"
-
-
 class InversionesHuerta(models.Model):
     """
     Registro de inversiones realizadas en una cosecha específica.
@@ -352,7 +302,8 @@ class InversionesHuerta(models.Model):
     categoria = models.ForeignKey(CategoriaInversion, on_delete=models.CASCADE)
     cosecha = models.ForeignKey(Cosecha, on_delete=models.CASCADE, related_name="inversiones")
     huerta = models.ForeignKey(Huerta, on_delete=models.CASCADE)
-
+    is_active = models.BooleanField(default=True)              # ⟵ NUEVO
+    archivado_en = models.DateTimeField(null=True, blank=True)
     @property
     def gastos_totales(self):
         return (self.gastos_insumos or 0) + (self.gastos_mano_obra or 0)
@@ -374,7 +325,8 @@ class Venta(models.Model):
     tipo_mango = models.CharField(max_length=50)
     descripcion = models.TextField(blank=True, null=True)
     gasto = models.PositiveIntegerField(validators=[MinValueValidator(0)])
-
+    is_active = models.BooleanField(default=True)              # ⟵ NUEVO
+    archivado_en = models.DateTimeField(null=True, blank=True)
     @property
     def total_venta(self):
         return self.num_cajas * self.precio_por_caja

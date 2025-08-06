@@ -292,115 +292,74 @@ class TemporadaSerializer(serializers.ModelSerializer):
 
         return data
 
-
+# -----------------------------
+# COSECHA
+# -----------------------------
+# src/gestion_huerta/serializers/cosecha_serializers.py
 class CosechaSerializer(serializers.ModelSerializer):
-    """
-    Serializa y valida los datos de una cosecha.
-    - Origen (huerta/huerta_rentada) se hereda de la temporada.
-    - Incluye agregados de negocio y flags de estado.
-    """
-    temporada = serializers.PrimaryKeyRelatedField(queryset=Temporada.objects.all())
-
-    # Origen: solo lectura (los resuelve el modelo en clean/save a partir de la temporada)
-    huerta = serializers.PrimaryKeyRelatedField(read_only=True)
-    huerta_rentada = serializers.PrimaryKeyRelatedField(read_only=True)
-
-    # Agregados y metadata
-    ventas_totales   = serializers.SerializerMethodField(read_only=True)
-    gastos_totales   = serializers.SerializerMethodField(read_only=True)
-    margen_ganancia  = serializers.SerializerMethodField(read_only=True)
-    is_rentada       = serializers.SerializerMethodField(read_only=True)
-    huerta_nombre    = serializers.SerializerMethodField(read_only=True)
+    temporada        = serializers.PrimaryKeyRelatedField(queryset=Temporada.objects.all(), required=True)
+    ventas_totales   = serializers.FloatField(source='total_ventas',   read_only=True)
+    gastos_totales   = serializers.FloatField(source='total_gastos',   read_only=True)
+    margen_ganancia  = serializers.FloatField(source='ganancia_neta',  read_only=True)
+    is_rentada       = serializers.SerializerMethodField()
+    nombre           = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     class Meta:
-        model  = Cosecha
+        model = Cosecha
         fields = [
-            'id',
-            'nombre',
-            'temporada',
-            'huerta', 'huerta_rentada',
-            'fecha_creacion',
-            'fecha_inicio',
-            'fecha_fin',
-            'finalizada',
-            'is_active',
-            'archivado_en',
-            # calculados / info extra
-            'ventas_totales',
-            'gastos_totales',
-            'margen_ganancia',
+            'id', 'nombre',
+            'fecha_creacion', 'fecha_inicio', 'fecha_fin', 'finalizada',
+            'temporada', 'huerta', 'huerta_rentada',
+            'is_active', 'archivado_en',
+            'ventas_totales', 'gastos_totales', 'margen_ganancia',
             'is_rentada',
-            'huerta_nombre',
         ]
-        read_only_fields = ('fecha_creacion', 'is_active', 'archivado_en')
-
-    # -------- Calculados --------
-    def get_ventas_totales(self, obj):
-        try:
-            return float(obj.total_ventas or 0)
-        except Exception:
-            return 0.0
-
-    def get_gastos_totales(self, obj):
-        try:
-            return float(obj.total_gastos or 0)
-        except Exception:
-            return 0.0
-
-    def get_margen_ganancia(self, obj):
-        try:
-            return float((obj.total_ventas or 0) - (obj.total_gastos or 0))
-        except Exception:
-            return 0.0
+        read_only_fields = (
+            'id', 'fecha_creacion',
+            'huerta', 'huerta_rentada',
+            'is_active', 'archivado_en',
+            'ventas_totales', 'gastos_totales', 'margen_ganancia', 'is_rentada'
+        )
+        validators = [
+            UniqueTogetherValidator(
+                queryset=Cosecha.objects.all(),
+                fields=['temporada', 'nombre'],
+                message="Ya existe una cosecha con ese nombre en esta temporada."
+            )
+        ]
 
     def get_is_rentada(self, obj):
-        # Determinar por temporada y/o campo en el modelo
-        t = getattr(obj, 'temporada', None)
-        if t:
-            return t.huerta_rentada_id is not None
         return obj.huerta_rentada_id is not None
 
-    def get_huerta_nombre(self, obj):
-        origen = obj.huerta or obj.huerta_rentada
-        return str(origen) if origen else None
-
-    # -------- Validaciones --------
-    def validate_nombre(self, value: str):
-        txt = (value or '').strip()
-        if len(txt) < 3:
+    def validate_nombre(self, value):
+        if value is None:
+            return value
+        v = value.strip()
+        if v and len(v) < 3:
             raise serializers.ValidationError("El nombre de la cosecha debe tener al menos 3 caracteres.")
-        return txt
+        return v
 
     def validate(self, data):
-        """
-        Reglas:
-        - No crear/editar cosechas en temporada finalizada o archivada.
-        - fecha_fin >= fecha_inicio si ambas existen.
-        - Límite de 6 cosechas por temporada (al crear).
-        - El modelo aplica la consistencia de origen (huerta/huerta_rentada) en clean().
-        """
-        instancia  = getattr(self, 'instance', None)
-        temporada  = data.get('temporada') or (instancia.temporada if instancia else None)
-        fecha_ini  = data.get('fecha_inicio') or (instancia.fecha_inicio if instancia else None)
-        fecha_fin  = data.get('fecha_fin') or (instancia.fecha_fin if instancia else None)
+        instance     = getattr(self, 'instance', None)
+        temporada    = data.get('temporada') or (instance.temporada if instance else None)
+        fi           = data.get('fecha_inicio') or (instance.fecha_inicio if instance else None)
+        ff           = data.get('fecha_fin')    or (instance.fecha_fin    if instance else None)
 
-        if not temporada:
-            raise serializers.ValidationError("Debe indicar la temporada.")
+        if fi and ff and ff < fi:
+            raise ValidationError("La fecha de fin no puede ser anterior a la fecha de inicio.")
 
-        if not temporada.is_active or temporada.finalizada:
-            raise serializers.ValidationError("No se pueden registrar cosechas en una temporada archivada o finalizada.")
-
-        if fecha_ini and fecha_fin and fecha_fin < fecha_ini:
-            raise serializers.ValidationError("La fecha de fin no puede ser anterior a la fecha de inicio.")
-
-        # Límite de 6 cosechas por temporada al CREAR
-        if instancia is None:
-            if temporada.cosechas.filter(is_active=True).count() >= 6:
-                raise serializers.ValidationError("Esta temporada ya tiene el máximo de 6 cosechas activas permitidas.")
+        if instance is None:
+            if not temporada.is_active:
+                raise ValidationError("No se pueden crear cosechas en una temporada archivada.")
+            if temporada.finalizada:
+                raise ValidationError("No se pueden crear cosechas en una temporada finalizada.")
+            if temporada.cosechas.count() >= 6:
+                raise ValidationError("Esta temporada ya tiene el máximo de 6 cosechas permitidas.")
+        else:
+            if 'temporada' in data and data['temporada'] != instance.temporada:
+                raise ValidationError("No puedes cambiar la temporada de una cosecha existente.")
 
         return data
-
-
 # -----------------------------
 # CATEGORÍA + INVERSIONES
 # -----------------------------

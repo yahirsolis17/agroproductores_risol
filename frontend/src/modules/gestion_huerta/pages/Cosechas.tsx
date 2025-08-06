@@ -21,14 +21,14 @@ import { setBreadcrumbs, clearBreadcrumbs } from '../../../global/store/breadcru
 import { breadcrumbRoutes } from '../../../global/constants/breadcrumbRoutes';
 import { temporadaService } from '../services/temporadaService';
 
-const pageSize = 10;
+const PAGE_SIZE = 10;
 
 const Cosechas: React.FC = () => {
   const dispatch = useDispatch();
   const [searchParams] = useSearchParams();
-  const temporadaId = Number(searchParams.get('temporada_id') || 0) || null;
+  const temporadaId = Number(searchParams.get('temporada_id')) || null;
 
-  // Estado de la temporada actual para encabezado/breadcrumb
+  // Info de la temporada
   const [tempLoading, setTempLoading] = useState(false);
   const [tempErr, setTempErr] = useState<string | null>(null);
   const [tempInfo, setTempInfo] = useState<{
@@ -41,7 +41,7 @@ const Cosechas: React.FC = () => {
     finalizada: boolean;
   } | null>(null);
 
-  // Store de cosechas
+  // Hook de cosechas
   const {
     cosechas, loading, page, meta,
     search, estado,
@@ -50,7 +50,7 @@ const Cosechas: React.FC = () => {
     archiveCosecha, restoreCosecha, toggleFinalizada,
   } = useCosechas();
 
-  // Cargar temporada para encabezado/breadcrumbs
+  // Carga de temporada
   useEffect(() => {
     if (!temporadaId) {
       setTempInfo(null);
@@ -71,7 +71,6 @@ const Cosechas: React.FC = () => {
           is_active: t.is_active,
           finalizada: t.finalizada,
         });
-
         if (t.huerta_id && t.huerta_nombre) {
           dispatch(setBreadcrumbs(
             breadcrumbRoutes.cosechasList(t.huerta_id, t.huerta_nombre, t.año)
@@ -79,49 +78,56 @@ const Cosechas: React.FC = () => {
         } else {
           dispatch(clearBreadcrumbs());
         }
-      } catch (e: any) {
+      } catch {
         setTempErr('No se pudo cargar la temporada.');
         dispatch(clearBreadcrumbs());
       } finally {
         setTempLoading(false);
       }
     })();
-  }, [dispatch, temporadaId]);
+  }, [temporadaId]);
 
-  // Conectar la temporada en el slice
+  // Comunicar temporada al slice
   useEffect(() => {
     setTemporadaId(temporadaId);
   }, [temporadaId]);
 
-  // Spinner de listado
+  // Delay spinner
   const [spin, setSpin] = useState(false);
   useEffect(() => {
-    let t: any;
-    if (loading) t = setTimeout(() => setSpin(true), 250);
-    else setSpin(false);
-    return () => clearTimeout(t);
+    let timer: number;
+    if (loading) {
+      timer = window.setTimeout(() => setSpin(true), 250);
+    } else {
+      setSpin(false);
+    }
+    return () => clearTimeout(timer);
   }, [loading]);
 
-  // Reglas de creación (máximo 6 y bloqueo por estado de la temporada)
-  const totalCosechas = meta.count || 0;
-  const maxAlcanzado = totalCosechas >= 6;
-  const puedeCrear = !!(temporadaId && tempInfo?.is_active && !tempInfo?.finalizada && !maxAlcanzado);
-
+  // Lógica de creación
+  const totalCosechas = meta.count;
+  const maxReached = totalCosechas >= 6;
+  const canCreate = Boolean(
+    temporadaId &&
+    tempInfo?.is_active &&
+    !tempInfo?.finalizada &&
+    !maxReached
+  );
   const createTooltip = !temporadaId
     ? 'Debes seleccionar una temporada.'
     : tempInfo && !tempInfo.is_active
     ? 'No se pueden iniciar cosechas en una temporada archivada.'
     : tempInfo && tempInfo.finalizada
     ? 'No se pueden iniciar cosechas en una temporada finalizada.'
-    : maxAlcanzado
+    : maxReached
     ? 'Límite de 6 cosechas alcanzado.'
     : '';
 
-  // Filtros activos
+  // Contador de filtros
   const activeFiltersCount = useMemo(() => {
     let c = 0;
     if (search) c++;
-    if (estado !== 'activas') c++; // si no es default
+    if (estado !== 'activas') c++;
     return c;
   }, [search, estado]);
 
@@ -134,20 +140,15 @@ const Cosechas: React.FC = () => {
     }
   }, [estado, temporadaId]);
 
-  // Crear cosecha con nombre auto
+  // Crear cosecha auto-número
   const handleCreate = async () => {
     if (!temporadaId) return;
-
-    // Nombre incremental Cosecha N
-    const existentes = cosechas
-      .map(c => c.nombre)
-      .filter(n => /^Cosecha\s+\d+$/i.test(n))
-      .map(n => parseInt(n.replace(/[^0-9]/g, ''), 10))
-      .filter(x => !Number.isNaN(x));
-
-    const siguiente = existentes.length ? Math.max(...existentes) + 1 : (totalCosechas + 1);
-    const nombre = `Cosecha ${siguiente}`;
-
+    const nums = cosechas
+      .map(c => c.nombre.match(/Cosecha\s+(\d+)/i)?.[1])
+      .filter(Boolean)
+      .map(Number);
+    const next = nums.length ? Math.max(...nums) + 1 : totalCosechas + 1;
+    const nombre = `Cosecha ${next}`;
     try {
       await addCosecha({ temporada: temporadaId, nombre });
     } catch (e: any) {
@@ -158,7 +159,6 @@ const Cosechas: React.FC = () => {
   // Renombrar
   const [editOpen, setEditOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Cosecha | null>(null);
-
   const openRename = (c: Cosecha) => { setEditTarget(c); setEditOpen(true); };
   const submitRename = async (nombre: string) => {
     if (!editTarget) return;
@@ -198,7 +198,6 @@ const Cosechas: React.FC = () => {
     catch (e: any) { handleBackendNotification(e?.response?.data?.notification || e); }
   };
 
-  // Limpiar filtros
   const clearFilters = () => {
     setSearch('');
     setEstado('activas');
@@ -232,15 +231,15 @@ const Cosechas: React.FC = () => {
         <CosechaToolbar
           searchValue={search}
           onSearchChange={setSearch}
-          onCreateClick={temporadaId ? handleCreate : undefined}
-          canCreate={puedeCrear}
+          onCreateClick={canCreate ? handleCreate : undefined}
+          canCreate={canCreate}
           createTooltip={createTooltip}
           totalCount={meta.count}
           activeFiltersCount={activeFiltersCount}
           onClearFilters={clearFilters}
         />
 
-        {/* Tabs para estado */}
+        {/* Pestañas */}
         <Tabs
           value={estado}
           onChange={(_, v) => setEstado(v)}
@@ -253,18 +252,18 @@ const Cosechas: React.FC = () => {
           <Tab value="todas" label="Todas" />
         </Tabs>
 
-        {/* Tabla */}
+        {/* Tabla o spinner */}
         {spin ? (
           <Box display="flex" justifyContent="center" mt={6}><CircularProgress /></Box>
         ) : (
           <CosechaTable
             data={cosechas}
             page={page}
-            pageSize={pageSize}
+            pageSize={PAGE_SIZE}
             count={meta.count}
             onPageChange={setPage}
             onRename={openRename}
-            onDelete={(c) => setDelId(c.id)}
+            onDelete={c => setDelId(c.id)}
             onArchive={handleArchive}
             onRestore={handleRestore}
             onToggleFinalizada={handleToggleFinal}
@@ -273,7 +272,7 @@ const Cosechas: React.FC = () => {
           />
         )}
 
-        {/* Renombrar */}
+        {/* Modal renombrar */}
         <CosechaFormModal
           open={editOpen}
           onClose={() => { setEditOpen(false); setEditTarget(null); }}
