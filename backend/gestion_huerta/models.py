@@ -168,12 +168,17 @@ class Temporada(models.Model):
             self.is_active    = True
             self.archivado_en = None
             self.save(update_fields=['is_active', 'archivado_en'])
-            for cosecha in self.cosechas.all():
-                cosecha.is_active    = True
-                cosecha.archivado_en = None
-                cosecha.save(update_fields=['is_active', 'archivado_en'])
-                cosecha.inversiones.update(is_active=True, archivado_en=None)
-                cosecha.ventas.update(is_active=True, archivado_en=None)
+
+            cosechas = list(self.cosechas.all())
+            for c in cosechas:
+                c.is_active = True
+                c.archivado_en = None
+            from gestion_huerta.models import Cosecha  # import en runtime
+            Cosecha.objects.bulk_update(cosechas, ["is_active", "archivado_en"])
+
+            for c in cosechas:
+                c.inversiones.update(is_active=True, archivado_en=None)
+                c.ventas.update(is_active=True, archivado_en=None)
 
     def __str__(self):
         origen = self.huerta or self.huerta_rentada
