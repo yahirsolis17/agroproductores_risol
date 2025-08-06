@@ -145,9 +145,8 @@ const Cosechas: React.FC = () => {
     if (!temporadaId) return;
     try {
       await addCosecha({ temporada: temporadaId });
-    } catch (e: unknown) {
-      const err = e as { response?: { data?: { notification?: unknown } } };
-      handleBackendNotification(err.response?.data?.notification || e);
+    } catch (e: any) {
+      handleBackendNotification(e?.response?.data?.notification || e);
     }
   };
 
