@@ -5,7 +5,6 @@ import {
   setPage,
   setTemporadaId,
   setSearch,
-  setFinalizada,
   setEstado,
   createCosecha,
   updateCosecha,
@@ -26,14 +25,18 @@ export function useCosechas() {
     meta,
     temporadaId,
     search,
-    finalizada,
     estado,
   } = useAppSelector((s) => s.cosechas);
 
   useEffect(() => {
     if (!temporadaId) return;
-    dispatch(fetchCosechas({ page, temporadaId, search, finalizada, estado }));
-  }, [dispatch, page, temporadaId, search, finalizada, estado]);
+    dispatch(fetchCosechas({ page, temporadaId, search, estado }));
+  }, [dispatch, page, temporadaId, search, estado]);
+
+  const refreshWithCurrentFilters = () => {
+    if (!temporadaId) return Promise.resolve();
+    return dispatch(fetchCosechas({ page, temporadaId, search, estado })).unwrap();
+  };
 
   return {
     cosechas: list,
@@ -43,24 +46,25 @@ export function useCosechas() {
     meta,
     temporadaId,
     search,
-    finalizada,
     estado,
 
     setPage: (p: number) => dispatch(setPage(p)),
     setTemporadaId: (id: number | null) => dispatch(setTemporadaId(id)),
     setSearch: (q: string) => dispatch(setSearch(q)),
-    setFinalizada: (v: boolean | null) => dispatch(setFinalizada(v)),
     setEstado: (v: 'activas'|'archivadas'|'todas') => dispatch(setEstado(v)),
 
-    addCosecha: (payload: CosechaCreateData) => dispatch(createCosecha(payload)).unwrap(),
-    renameCosecha: (id: number, data: CosechaUpdateData) => dispatch(updateCosecha({ id, data })).unwrap(),
-    removeCosecha: (id: number) => dispatch(deleteCosecha(id)).unwrap(),
-    archiveCosecha: (id: number) => dispatch(archivarCosecha(id)).unwrap(),
-    restoreCosecha: (id: number) => dispatch(restaurarCosecha(id)).unwrap(),
-    toggleFinalizada: (id: number) => dispatch(toggleFinalizadaCosecha(id)).unwrap(),
-    refetch: () => {
-      if (!temporadaId) return;
-      return dispatch(fetchCosechas({ page, temporadaId, search, finalizada, estado }));
-    },
+    addCosecha: (payload: CosechaCreateData) =>
+      dispatch(createCosecha(payload)).unwrap().then(() => refreshWithCurrentFilters()),
+    renameCosecha: (id: number, data: CosechaUpdateData) =>
+      dispatch(updateCosecha({ id, data })).unwrap().then(() => refreshWithCurrentFilters()),
+    removeCosecha: (id: number) =>
+      dispatch(deleteCosecha(id)).unwrap().then(() => refreshWithCurrentFilters()),
+    archiveCosecha: (id: number) =>
+      dispatch(archivarCosecha(id)).unwrap().then(() => refreshWithCurrentFilters()),
+    restoreCosecha: (id: number) =>
+      dispatch(restaurarCosecha(id)).unwrap().then(() => refreshWithCurrentFilters()),
+    toggleFinalizada: (id: number) =>
+      dispatch(toggleFinalizadaCosecha(id)).unwrap().then(() => refreshWithCurrentFilters()),
+    refetch: () => refreshWithCurrentFilters(),
   };
 }

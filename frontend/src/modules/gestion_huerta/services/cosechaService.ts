@@ -7,12 +7,10 @@ export const cosechaService = {
     page: number = 1,
     temporadaId: number,
     search?: string,
-    finalizada?: boolean,
     estado?: 'activas' | 'archivadas' | 'todas',
   ) {
     const params: Record<string, any> = { page, temporada: temporadaId };
     if (search) params.search = search;
-    if (finalizada !== undefined && finalizada !== null) params.finalizada = finalizada;
     if (estado) params.estado = estado;
 
     const { data } = await apiClient.get<{
