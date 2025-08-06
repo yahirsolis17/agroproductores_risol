@@ -379,6 +379,12 @@ class HuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
                 data={"error": "No se puede eliminar. Tiene cosechas registradas."},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
+        if instance.temporadas.exists():
+            return self.notify(
+                key="huerta_con_dependencias",
+                data={"error": "No se puede eliminar. Tiene temporadas registradas."},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
         self.perform_destroy(instance)
         return self.notify(
             key="huerta_delete_success",
