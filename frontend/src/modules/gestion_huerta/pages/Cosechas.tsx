@@ -199,9 +199,14 @@ const Cosechas: React.FC = () => {
     catch (e: any) { handleBackendNotification(e?.response?.data?.notification || e); }
   };
 
-  // 👉 NUEVO: Navegar a Finanzas por Cosecha
+// 👉 Navegar a Finanzas por Cosecha con todos los IDs en la URL
 const handleVerFinanzas = (c: Cosecha) => {
-  navigate(`/finanzas/${c.id}`);
+  const params = new URLSearchParams({
+    huerta_id: String(tempInfo?.huerta_id ?? ''),
+    temporada_id: String(temporadaId ?? ''),
+    cosecha_id: String(c.id),
+  });
+  navigate(`/finanzas?${params.toString()}`);
 };
 
   const clearFilters = () => {

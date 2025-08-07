@@ -21,7 +21,6 @@ import type { CategoriaInversion } from '../../types/categoriaInversionTypes';
 
 /* ─────────────────── Yup schema ─────────────────── */
 const schema = Yup.object({
-  nombre: Yup.string().required('Requerido'),
   fecha:  Yup.string().required('Requerido'),
   descripcion: Yup.string().nullable(),
   gastos_insumos:  Yup.number().min(0, '>= 0').required('Requerido'),
@@ -38,8 +37,9 @@ type Props = {
   /* ← contexto del flujo */
   huertaId: number;
   cosechaId: number;
+  temporadaId: number;
 
-  initialValues?: Omit<InversionCreate, 'huerta_id' | 'cosecha_id'> | InversionUpdate;
+  initialValues?: Omit<InversionCreate, 'huerta_id' | 'cosecha_id' | 'temporada_id'> | InversionUpdate;
   onSubmit: (p: InversionCreate | InversionUpdate) => Promise<void>;
 
   /* Categorías */
@@ -65,8 +65,7 @@ const InversionFormModal: React.FC<Props> = (p) => {
   if (!p.open) return null; // evita render innecesario
 
   /* ---------- valores por defecto ---------- */
-  const defaults: Omit<InversionCreate, 'huerta_id' | 'cosecha_id'> = {
-    nombre: '',
+  const defaults: Omit<InversionCreate, 'huerta_id' | 'cosecha_id' | 'temporada_id'> = {
     fecha:  todayISO(),
     descripcion: '',
     gastos_insumos:   0,
@@ -105,6 +104,7 @@ const InversionFormModal: React.FC<Props> = (p) => {
                   ...(base as InversionCreate),
                   huerta_id:  p.huertaId,
                   cosecha_id: p.cosechaId,
+                  temporada_id: p.temporadaId,
                 };
 
             await p.onSubmit(payload);
@@ -119,16 +119,6 @@ const InversionFormModal: React.FC<Props> = (p) => {
             <Form>
               <DialogContent dividers>
                 <Box display="grid" gap={2}>
-                  <TextField
-                    label="Nombre"
-                    name="nombre"
-                    fullWidth
-                    value={values.nombre}
-                    onChange={handleChange}
-                    error={!!errors.nombre}
-                    helperText={(errors.nombre as string) || ''}
-                  />
-
                   <TextField
                     label="Fecha"
                     name="fecha"

@@ -1,7 +1,7 @@
 /* src/modules/gestion_huerta/pages/FinanzasPorCosecha.tsx */
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import {
   Paper,
   Typography,
@@ -27,7 +27,6 @@ import { handleBackendNotification } from '../../../global/utils/NotificationEng
 import { useInversiones }         from '../hooks/useInversiones';
 import { useVentas }              from '../hooks/useVentas';
 import { useCategoriasInversion } from '../hooks/useCategoriasInversion';
-import { cosechaService }         from '../services/cosechaService';
 
 import type { InversionCreate, InversionUpdate } from '../types/inversionTypes';
 import type { VentaCreate, VentaUpdate }         from '../types/ventaTypes';
@@ -38,31 +37,12 @@ type EstadoTab = 'activos' | 'archivados' | 'todos';
 const pageSize = 10;
 
 const FinanzasPorCosecha: React.FC = () => {
-  // ─── Obtiene el parámetro de la URL: /cosechas/:cosechaId/finanzas
-  const { cosechaId: param } = useParams<{ cosechaId: string }>();
-  const cosechaId = Number(param);
-
-  // ─── huertaId asociado a la cosecha (null hasta cargar)
-  const [huertaId, setHuertaId]         = useState<number | null>(null);
-  const [loadingCosecha, setLoadingCosecha] = useState(true);
-
-  // ─── Trae la cosecha para capturar el huertaId
-  useEffect(() => {
-    let ignore = false;
-    (async () => {
-      try {
-        const cosecha = await cosechaService.getById(cosechaId);
-        if (!ignore) {
-          setHuertaId(cosecha.huerta ?? cosecha.huerta_rentada ?? null);
-        }
-      } catch (e) {
-        handleBackendNotification(e);
-      } finally {
-        if (!ignore) setLoadingCosecha(false);
-      }
-    })();
-    return () => { ignore = true; };
-  }, [cosechaId]);
+  // ─── IDs del contexto obtenidos de la URL (?huerta_id&temporada_id&cosecha_id)
+  const [params] = useSearchParams();
+  const cosechaId   = parseInt(params.get('cosecha_id')   ?? '', 10);
+  const huertaId    = parseInt(params.get('huerta_id')    ?? '', 10);
+  const temporadaId = parseInt(params.get('temporada_id') ?? '', 10);
+  const validIds    = [cosechaId, huertaId, temporadaId].every(Number.isInteger);
 
   // ─── Hooks de datos (Inversiones, Ventas, Categorías)
   const inv = useInversiones(cosechaId);
@@ -98,7 +78,8 @@ const FinanzasPorCosecha: React.FC = () => {
       : await inv.addInversion({
           ...(payload as InversionCreate),
           cosecha_id: cosechaId,
-          huerta_id : huertaId!,
+          huerta_id : huertaId,
+          temporada_id: temporadaId,
         });
     handleBackendNotification(resp as any);
     setModalInvOpen(false);
@@ -109,8 +90,14 @@ const FinanzasPorCosecha: React.FC = () => {
   // ─── Enviar venta
   const handleSubmitVenta = async (vals: VentaCreate | VentaUpdate) => {
     const isEdit = Boolean(venEdit);
-    const payload = isEdit ? vals as VentaUpdate
-                           : ({ ...(vals as VentaCreate), cosecha: cosechaId });
+    const payload = isEdit
+      ? vals as VentaUpdate
+      : ({
+          ...(vals as VentaCreate),
+          cosecha: cosechaId,
+          huerta_id: huertaId,
+          temporada_id: temporadaId,
+        });
     const resp = isEdit
       ? await ven.editVenta((venEdit as any).id, payload as VentaUpdate)
       : await ven.addVenta(payload as VentaCreate);
@@ -156,7 +143,15 @@ const FinanzasPorCosecha: React.FC = () => {
     if (!inv.loading && !ven.loading) loadedOnce.current = true;
   }, [inv.loading, ven.loading]);
 
-  if (loadingCosecha || (!loadedOnce.current && (inv.loading || ven.loading))) {
+  if (!validIds) {
+    return (
+      <Box className="flex justify-center p-12">
+        <Typography>Parámetros insuficientes.</Typography>
+      </Box>
+    );
+  }
+
+  if (!loadedOnce.current && (inv.loading || ven.loading)) {
     return (
       <Box className="flex justify-center p-12">
         <CircularProgress size={48} />
@@ -208,7 +203,7 @@ const FinanzasPorCosecha: React.FC = () => {
             <Box display="flex" justifyContent="flex-end" mb={2}>
               <Button
                 variant="contained"
-                disabled={huertaId == null}
+                disabled={!huertaId || !temporadaId || !cosechaId}
                 onClick={() => { setInvEdit(null); setModalInvOpen(true); }}
               >
                 Nueva inversión
@@ -238,10 +233,11 @@ const FinanzasPorCosecha: React.FC = () => {
             {modalInvOpen && (
               <InversionFormModal
                 open={modalInvOpen}
-                onClose={() => setModalInvOpen(false)}
+                onClose={() => { setModalInvOpen(false); setInvEdit(null); }}
                 isEdit={!!invEdit}
                 cosechaId={cosechaId}
-                huertaId={huertaId!}
+                huertaId={huertaId}
+                temporadaId={temporadaId}
                 initialValues={invEdit ?? undefined}
                 onSubmit={handleSubmitInversion}
                 categorias={cat.categorias}

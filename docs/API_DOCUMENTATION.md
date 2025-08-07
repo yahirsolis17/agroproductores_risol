@@ -291,14 +291,14 @@ Authorization: Bearer {token}
 Content-Type: application/json
 
 {
-    "nombre": "Fertilización Marzo",
     "fecha": "2024-03-15",
     "descripcion": "Aplicación de fertilizante NPK",
     "gastos_insumos": 2500.00,
     "gastos_mano_obra": 800.00,
-    "categoria": 1,
-    "cosecha": 1,
-    "huerta": 1
+    "categoria_id": 1,
+    "cosecha_id": 1,
+    "huerta_id": 1,
+    "temporada_id": 1
 }
 ```
 
@@ -318,6 +318,8 @@ Content-Type: application/json
 
 {
     "cosecha": 1,
+    "huerta_id": 1,
+    "temporada_id": 1,
     "fecha_venta": "2024-05-20",
     "num_cajas": 150,
     "precio_por_caja": 180,
