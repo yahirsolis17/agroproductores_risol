@@ -306,13 +306,35 @@ class InversionesHuerta(models.Model):
     gastos_mano_obra = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
     categoria        = models.ForeignKey(CategoriaInversion, on_delete=models.CASCADE)
     cosecha          = models.ForeignKey(Cosecha, on_delete=models.CASCADE, related_name="inversiones")
-    huerta           = models.ForeignKey(Huerta, on_delete=models.CASCADE)
+    huerta           = models.ForeignKey(Huerta, on_delete=models.CASCADE, null=True, blank=True)
+    huerta_rentada   = models.ForeignKey(HuertaRentada, on_delete=models.CASCADE, null=True, blank=True)
     is_active        = models.BooleanField(default=True)
     archivado_en     = models.DateTimeField(null=True, blank=True)
 
     @property
     def gastos_totales(self):
         return (self.gastos_insumos or 0) + (self.gastos_mano_obra or 0)
+
+    def clean(self):
+        if not self.cosecha_id:
+            raise ValidationError("La inversión debe pertenecer a una cosecha.")
+        c = self.cosecha
+        if c.huerta_id:
+            if self.huerta_rentada_id:
+                raise ValidationError("La cosecha es de huerta propia; no asigne huerta rentada.")
+            if self.huerta_id and self.huerta_id != c.huerta_id:
+                raise ValidationError("La huerta indicada no coincide con la de la cosecha.")
+            self.huerta_id = c.huerta_id
+        else:
+            if self.huerta_id:
+                raise ValidationError("La cosecha es de huerta rentada; no asigne huerta propia.")
+            if self.huerta_rentada_id and self.huerta_rentada_id != c.huerta_rentada_id:
+                raise ValidationError("La huerta rentada indicada no coincide con la de la cosecha.")
+            self.huerta_rentada_id = c.huerta_rentada_id
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.nombre} ({self.categoria})"

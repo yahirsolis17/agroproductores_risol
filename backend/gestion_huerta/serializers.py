@@ -380,14 +380,17 @@ class CategoriaInversionSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Ya existe una categoría con este nombre.")
         return val
 class InversionesHuertaSerializer(serializers.ModelSerializer):
+    monto_total = serializers.DecimalField(source='gastos_totales', max_digits=14, decimal_places=2, read_only=True)
+
     class Meta:
         model  = InversionesHuerta
         fields = [
             'id', 'nombre', 'fecha', 'descripcion',
             'gastos_insumos', 'gastos_mano_obra',
-            'categoria_id', 'cosecha_id', 'huerta_id',
+            'categoria_id', 'cosecha_id', 'huerta_id', 'huerta_rentada_id',
             'monto_total',
         ]
+        read_only_fields = ('huerta_id', 'huerta_rentada_id')
 
     def validate_nombre(self, value):
         txt = value.strip()

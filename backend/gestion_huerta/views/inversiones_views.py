@@ -14,7 +14,7 @@ class InversionHuertaViewSet(NotificationMixin, viewsets.ModelViewSet):
     """
     Gestiona inversiones por cosecha: list, create, update, delete + archivar/restaurar
     """
-    queryset = InversionesHuerta.objects.select_related('categoria','cosecha','huerta').order_by('-fecha')
+    queryset = InversionesHuerta.objects.select_related('categoria','cosecha','huerta','huerta_rentada').order_by('-fecha')
     serializer_class = InversionesHuertaSerializer
     pagination_class = GenericPagination
     permission_classes = [IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission]
