@@ -14,13 +14,13 @@ class InversionHuertaViewSet(NotificationMixin, viewsets.ModelViewSet):
     """
     Gestiona inversiones por cosecha: list, create, update, delete + archivar/restaurar
     """
-    queryset = InversionesHuerta.objects.select_related('categoria','cosecha','huerta').order_by('-fecha')
+    queryset = InversionesHuerta.objects.select_related('categoria','cosecha','huerta','temporada').order_by('-fecha')
     serializer_class = InversionesHuertaSerializer
     pagination_class = GenericPagination
     permission_classes = [IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ['cosecha', 'categoria']
-    search_fields = ['nombre', 'descripcion']
+    filterset_fields = ['cosecha', 'categoria', 'temporada', 'huerta']
+    search_fields = ['descripcion']
 
     def list(self, request, *args, **kwargs):
         page = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
