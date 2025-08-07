@@ -14,12 +14,12 @@ class VentaViewSet(NotificationMixin, viewsets.ModelViewSet):
     """
     CRUD de ventas por cosecha + archivar/restaurar
     """
-    queryset = Venta.objects.select_related('cosecha').order_by('-fecha_venta')
+    queryset = Venta.objects.select_related('cosecha','huerta','temporada').order_by('-fecha_venta')
     serializer_class = VentaSerializer
     pagination_class = GenericPagination
     permission_classes = [IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ['cosecha', 'tipo_mango']
+    filterset_fields = ['cosecha', 'huerta', 'temporada', 'tipo_mango']
     search_fields = ['tipo_mango', 'descripcion']
 
     def list(self, request, *args, **kwargs):

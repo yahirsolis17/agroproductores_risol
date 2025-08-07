@@ -1,6 +1,8 @@
 export interface Venta {
   id: number;
   cosecha: number;      // id
+  huerta: number;       // id
+  temporada: number;    // id
   fecha_venta: string;  // ISO
   num_cajas: number;
   precio_por_caja: number;
@@ -19,6 +21,8 @@ export interface Venta {
 
 export interface VentaCreate {
   cosecha: number;        // id (el BE lo nombró "cosecha" en el serializer)
+  huerta_id: number;      // requerido por BE
+  temporada_id: number;   // requerido por BE
   fecha_venta: string;    // ISO
   num_cajas: number;
   precio_por_caja: number;

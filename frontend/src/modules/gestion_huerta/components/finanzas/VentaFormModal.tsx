@@ -30,7 +30,7 @@ const VentaFormModal: React.FC<Props> = (p) => {
   if (!p.open) return null; // ⟵ evita que se renderice cuando está cerrado
 
   // si es edición, initialValues es VentaUpdate, si no, rellenamos defaults
-  const defaults: VentaCreate = {
+  const defaults: Omit<VentaCreate, 'huerta_id' | 'temporada_id'> = {
     cosecha: 'cosecha' in p.initialValues ? p.initialValues.cosecha : p.cosechaId,
     fecha_venta: '',
     num_cajas: 1,

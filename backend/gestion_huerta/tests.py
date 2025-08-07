@@ -40,7 +40,6 @@ class TemporadaDesarchivarTests(TestCase):
                 huerta=self.huerta,
             )
             InversionesHuerta.objects.create(
-                nombre="Inv",
                 fecha=timezone.now().date(),
                 descripcion="",
                 gastos_insumos=0,
@@ -48,9 +47,12 @@ class TemporadaDesarchivarTests(TestCase):
                 categoria=categoria,
                 cosecha=cosecha,
                 huerta=self.huerta,
+                temporada=self.temporada,
             )
             Venta.objects.create(
                 cosecha=cosecha,
+                huerta=self.huerta,
+                temporada=self.temporada,
                 fecha_venta=timezone.now().date(),
                 num_cajas=1,
                 precio_por_caja=1,

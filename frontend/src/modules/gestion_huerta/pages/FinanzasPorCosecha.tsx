@@ -44,6 +44,7 @@ const FinanzasPorCosecha: React.FC = () => {
 
   // ─── huertaId asociado a la cosecha (null hasta cargar)
   const [huertaId, setHuertaId]         = useState<number | null>(null);
+  const [temporadaId, setTemporadaId]   = useState<number | null>(null);
   const [loadingCosecha, setLoadingCosecha] = useState(true);
 
   // ─── Trae la cosecha para capturar el huertaId
@@ -54,6 +55,7 @@ const FinanzasPorCosecha: React.FC = () => {
         const cosecha = await cosechaService.getById(cosechaId);
         if (!ignore) {
           setHuertaId(cosecha.huerta ?? cosecha.huerta_rentada ?? null);
+          setTemporadaId(cosecha.temporada ?? null);
         }
       } catch (e) {
         handleBackendNotification(e);
@@ -99,6 +101,7 @@ const FinanzasPorCosecha: React.FC = () => {
           ...(payload as InversionCreate),
           cosecha_id: cosechaId,
           huerta_id : huertaId!,
+          temporada_id: temporadaId!,
         });
     handleBackendNotification(resp as any);
     setModalInvOpen(false);
@@ -109,8 +112,14 @@ const FinanzasPorCosecha: React.FC = () => {
   // ─── Enviar venta
   const handleSubmitVenta = async (vals: VentaCreate | VentaUpdate) => {
     const isEdit = Boolean(venEdit);
-    const payload = isEdit ? vals as VentaUpdate
-                           : ({ ...(vals as VentaCreate), cosecha: cosechaId });
+    const payload = isEdit
+      ? vals as VentaUpdate
+      : ({
+          ...(vals as VentaCreate),
+          cosecha: cosechaId,
+          huerta_id: huertaId!,
+          temporada_id: temporadaId!,
+        });
     const resp = isEdit
       ? await ven.editVenta((venEdit as any).id, payload as VentaUpdate)
       : await ven.addVenta(payload as VentaCreate);
@@ -238,10 +247,11 @@ const FinanzasPorCosecha: React.FC = () => {
             {modalInvOpen && (
               <InversionFormModal
                 open={modalInvOpen}
-                onClose={() => setModalInvOpen(false)}
+                onClose={() => { setModalInvOpen(false); setInvEdit(null); }}
                 isEdit={!!invEdit}
                 cosechaId={cosechaId}
                 huertaId={huertaId!}
+                temporadaId={temporadaId!}
                 initialValues={invEdit ?? undefined}
                 onSubmit={handleSubmitInversion}
                 categorias={cat.categorias}
