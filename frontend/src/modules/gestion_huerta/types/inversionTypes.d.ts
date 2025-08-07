@@ -9,6 +9,7 @@ export interface Inversion {
   // Relación y derivados
   categoria?: { id: number; nombre: string } | null;
   categoria_id?: number;
+  gastos_totales?: number;
   cosecha: number; // id
   huerta: number;  // id
 

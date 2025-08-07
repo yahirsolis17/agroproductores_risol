@@ -67,7 +67,8 @@ export const moduleRoutes: ModuleRoute[] = [
 
   // 👉 NUEVA RUTA: Finanzas por Cosecha
   {
-    path: '/huerta/finanzas/:cosechaId',
+    // antes: '/finanzas'
+    path: '/finanzas/:cosechaId',
     module: 'gestion_huerta',
     allowedRoles: ['admin', 'usuario'],
     element: lazyRoute(() => import('../../modules/gestion_huerta/pages/FinanzasPorCosecha')),

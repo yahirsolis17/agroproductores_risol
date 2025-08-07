@@ -200,9 +200,9 @@ const Cosechas: React.FC = () => {
   };
 
   // 👉 NUEVO: Navegar a Finanzas por Cosecha
-  const handleVerFinanzas = (c: Cosecha) => {
-    navigate(`/huerta/finanzas/${c.id}`);
-  };
+const handleVerFinanzas = (c: Cosecha) => {
+  navigate(`/finanzas/${c.id}`);
+};
 
   const clearFilters = () => {
     setSearch('');
@@ -273,7 +273,7 @@ const Cosechas: React.FC = () => {
             onArchive={handleArchive}
             onRestore={handleRestore}
             onToggleFinalizada={handleToggleFinal}
-            onVerFinanzas={handleVerFinanzas}  // ← NUEVO
+            onVerFinanzas={handleVerFinanzas}
             emptyMessage={emptyMessage}
             loading={loading}
           />

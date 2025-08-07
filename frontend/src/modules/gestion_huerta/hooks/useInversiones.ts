@@ -37,7 +37,7 @@ export function useInversiones(cosechaId?: number) {
   const setPage    = (n: number)            => dispatch(setIPage(n));
   const setEstado  = (e: Estado)            => dispatch(setIEstado(e));
   const setFilters = (f: InversionFilters)  => dispatch(setIFilters(f));
-
+  
   return {
     inversiones: list,
     loading,

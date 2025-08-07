@@ -365,68 +365,104 @@ class CosechaSerializer(serializers.ModelSerializer):
 # CATEGORÍA + INVERSIONES
 # -----------------------------
 class CategoriaInversionSerializer(serializers.ModelSerializer):
+    archivado_en = serializers.DateTimeField(read_only=True)
+    is_active    = serializers.BooleanField(read_only=True)
+
     class Meta:
-        model = CategoriaInversion
-        fields = ['id', 'nombre']
+        model  = CategoriaInversion
+        fields = ['id', 'nombre', 'is_active', 'archivado_en']
 
     def validate_nombre(self, value):
         val = value.strip()
         if len(val) < 3:
             raise serializers.ValidationError("El nombre de la categoría debe tener al menos 3 caracteres.")
-        # Unicidad case-insensitive
-        if CategoriaInversion.objects.filter(nombre__iexact=val).exists() and not (
-            self.instance and self.instance.nombre.lower() == val.lower()
-        ):
+        qs = CategoriaInversion.objects.filter(nombre__iexact=val)
+        if qs.exists() and not (self.instance and self.instance.nombre.lower() == val.lower()):
             raise serializers.ValidationError("Ya existe una categoría con este nombre.")
         return val
+
+
 class InversionesHuertaSerializer(serializers.ModelSerializer):
+    # ──────── campos calculados (solo lectura) ────────
+    gastos_totales = serializers.DecimalField(read_only=True, max_digits=14, decimal_places=2)
+
+    # ──────── aliases *_id que escribe el front ────────
+    categoria_id = serializers.PrimaryKeyRelatedField(
+        queryset=CategoriaInversion.objects.all(),
+        source='categoria',
+        write_only=True
+    )
+    cosecha_id = serializers.PrimaryKeyRelatedField(
+        queryset=Cosecha.objects.all(),
+        source='cosecha',
+        write_only=True
+    )
+    huerta_id = serializers.PrimaryKeyRelatedField(        # solo si el modelo tiene FK huerta
+        queryset=Huerta.objects.all(),
+        source='huerta',
+        write_only=True
+    )
+
     class Meta:
-        model  = InversionesHuerta
+        model = InversionesHuerta
         fields = [
-            'id', 'nombre', 'fecha', 'descripcion',
-            'gastos_insumos', 'gastos_mano_obra',
+            # write-only ↓                        read-only ↓
             'categoria_id', 'cosecha_id', 'huerta_id',
-            'monto_total',
+            'id', 'nombre', 'fecha', 'descripcion',
+            'gastos_insumos', 'gastos_mano_obra', 'gastos_totales',
+            'categoria', 'cosecha', 'huerta',
         ]
+        read_only_fields = ['gastos_totales', 'categoria', 'cosecha', 'huerta']
 
+    # ──────── validador de nombre ────────
     def validate_nombre(self, value):
-        txt = value.strip()
-        if len(txt) < 3:
-            raise serializers.ValidationError("El nombre debe tener al menos 3 caracteres.")
-        return txt
+        if len(value.strip()) < 3:
+            raise serializers.ValidationError('El nombre debe tener al menos 3 caracteres.')
+        return value
 
+    # ──────── validador de fecha ────────
     def validate_fecha(self, value):
-        # No futura
+        from datetime import date
         if value > date.today():
-            raise serializers.ValidationError("La fecha de inversión no puede ser futura.")
-        # No anterior al inicio de la cosecha
-        cosecha = Cosecha.objects.get(pk=self.initial_data.get('cosecha_id'))
-        if value < cosecha.fecha_inicio.date():
-            raise serializers.ValidationError(
-                f"La fecha debe ser >= {cosecha.fecha_inicio.date().isoformat()} (fecha inicio de la cosecha)."
-            )
+            raise serializers.ValidationError('La fecha de inversión no puede ser futura.')
+
+        cosecha = self.initial_data.get('cosecha_id')
+        if cosecha:
+            cosecha_obj = Cosecha.objects.filter(pk=cosecha).first()
+            if cosecha_obj and cosecha_obj.fecha_inicio and value < cosecha_obj.fecha_inicio.date():
+                raise serializers.ValidationError(
+                    f'La fecha debe ser ≥ {cosecha_obj.fecha_inicio.date().isoformat()} (inicio de la cosecha).'
+                )
         return value
 
-    def validate_gastos_insumos(self, value):
-        if value < 0:
-            raise serializers.ValidationError("Los gastos en insumos no pueden ser negativos.")
-        return value
-
-    def validate_gastos_mano_obra(self, value):
-        if value < 0:
-            raise serializers.ValidationError("Los gastos de mano de obra no pueden ser negativos.")
-        return value
-
+    # ──────── validación de objeto completo ────────
     def validate(self, data):
-        total = (data['gastos_insumos'] or 0) + (data['gastos_mano_obra'] or 0)
+        total = (data.get('gastos_insumos') or 0) + (data.get('gastos_mano_obra') or 0)
         if total <= 0:
-            raise serializers.ValidationError("Los gastos totales deben ser mayores a 0.")
-        # No permitir inversiones en temporada finalizada o archivada
+            raise serializers.ValidationError('Los gastos totales deben ser mayores a 0.')
+
         temporada = data['cosecha'].temporada
         if temporada.finalizada or not temporada.is_active:
-            raise serializers.ValidationError("No se pueden registrar inversiones en una temporada finalizada o archivada.")
+            raise serializers.ValidationError(
+                'No se pueden registrar inversiones en una temporada finalizada o archivada.'
+            )
         return data
 
+    # ─────────────────────────────
+    #  VALIDACIÓN DE OBJETO
+    # ─────────────────────────────
+    def validate(self, data):
+        total = (data.get("gastos_insumos") or 0) + (data.get("gastos_mano_obra") or 0)
+        if total <= 0:
+            raise serializers.ValidationError("Los gastos totales deben ser mayores a 0.")
+
+        cosecha = data["cosecha"]
+        temporada = cosecha.temporada
+        if temporada.finalizada or not temporada.is_active:
+            raise serializers.ValidationError(
+                "No se pueden registrar inversiones en una temporada finalizada o archivada."
+            )
+        return data
 # -----------------------------
 # VENTA
 # -----------------------------

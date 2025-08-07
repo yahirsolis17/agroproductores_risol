@@ -155,4 +155,13 @@ export const cosechaService = {
     );
     return data;
   },
+
+
+  async getById(id: number): Promise<Cosecha> {
+    const { data } = await apiClient.get<ApiEnvelope<{ cosecha: Cosecha }>>(
+      `/huerta/cosechas/${id}/`
+    );
+    return data.data.cosecha;          //  ← extrae la cosecha y la devuelve
+  }
+
 };

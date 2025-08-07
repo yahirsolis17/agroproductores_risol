@@ -188,7 +188,24 @@ class Temporada(models.Model):
     
 # ────────────── CATEGORÍA DE INVERSIÓN ────────────────────────────────────
 class CategoriaInversion(models.Model):
-    nombre = models.CharField(max_length=100)
+    nombre       = models.CharField(max_length=100, unique=True)
+
+    # 🔥 Soft-delete
+    is_active    = models.BooleanField(default=True)
+    archivado_en = models.DateTimeField(null=True, blank=True)
+
+    # ─── helpers ───
+    def archivar(self):
+        if self.is_active:
+            self.is_active   = False
+            self.archivado_en = timezone.now()
+            self.save(update_fields=["is_active", "archivado_en"])
+
+    def desarchivar(self):
+        if not self.is_active:
+            self.is_active   = True
+            self.archivado_en = None
+            self.save(update_fields=["is_active", "archivado_en"])
 
     def __str__(self):
         return self.nombre
@@ -304,20 +321,27 @@ class InversionesHuerta(models.Model):
     descripcion      = models.TextField(blank=True, null=True)
     gastos_insumos   = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
     gastos_mano_obra = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
-    categoria        = models.ForeignKey(CategoriaInversion, on_delete=models.CASCADE)
+
+    # 🔑  PROTECT evita eliminar categoría con inversiones ligadas
+    categoria        = models.ForeignKey(
+        CategoriaInversion,
+        on_delete=models.PROTECT,
+        related_name="inversiones"
+    )
+
     cosecha          = models.ForeignKey(Cosecha, on_delete=models.CASCADE, related_name="inversiones")
     huerta           = models.ForeignKey(Huerta, on_delete=models.CASCADE)
-    is_active        = models.BooleanField(default=True)
-    archivado_en     = models.DateTimeField(null=True, blank=True)
 
+    is_active    = models.BooleanField(default=True)
+    archivado_en = models.DateTimeField(null=True, blank=True)
+
+    # --- helpers ---
     @property
     def gastos_totales(self):
         return (self.gastos_insumos or 0) + (self.gastos_mano_obra or 0)
 
     def __str__(self):
         return f"{self.nombre} ({self.categoria})"
-
-
 # ────────────── VENTAS ────────────────────────────────────────────────────
 class Venta(models.Model):
     cosecha        = models.ForeignKey(Cosecha, on_delete=models.CASCADE, related_name="ventas")

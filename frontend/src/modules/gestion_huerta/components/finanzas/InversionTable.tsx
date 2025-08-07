@@ -9,46 +9,23 @@ const currency = (n: number) =>
 
 const columns: Column<Inversion>[] = [
   { label: 'Nombre', key: 'nombre' },
+  { label: 'Fecha', key: 'fecha', render: (r) => new Date(r.fecha).toLocaleDateString('es-MX') },
+  { label: 'Categoría', key: 'categoria_id', render: (r) => r.categoria?.nombre || '—' },
+  { label: 'Insumos', key: 'gastos_insumos', align: 'right', render: (r) => currency(r.gastos_insumos) },
+  { label: 'Mano de obra', key: 'gastos_mano_obra', align: 'right', render: (r) => currency(r.gastos_mano_obra) },
   {
-    label: 'Fecha',
-    key: 'fecha',
-    render: (row) => new Date(row.fecha).toLocaleDateString('es-MX'),
-  },
-  {
-    label: 'Categoría',
-    key: 'categoria_id',
-    render: (row) => row.categoria?.nombre || '—',
-  },
-  {
-    label: 'Insumos',
-    key: 'gastos_insumos',
-    align: 'right',
-    render: (row) => currency(row.gastos_insumos),
-  },
-  {
-    label: 'Mano de obra',
-    key: 'gastos_mano_obra',
-    align: 'right',
-    render: (row) => currency(row.gastos_mano_obra),
-  },
-  {
-    // ⟵ Usamos un key existente (gastos_insumos) para satisfacer Column<Inversion>,
-    // y calculamos el total en render (antes tenías "monto_total" que no existe en el tipo).
     label: 'Total',
     key: 'gastos_insumos',
     align: 'right',
-    render: (row) => currency((row.gastos_insumos || 0) + (row.gastos_mano_obra || 0)),
+    render: (r) => currency(r.gastos_totales ?? (r.gastos_insumos + r.gastos_mano_obra)),
   },
   {
     label: 'Estado',
     key: 'archivado_en',
     align: 'center',
-    render: (row) =>
-      row.archivado_en ? (
-        <Chip label="Archivada" size="small" color="warning" />
-      ) : (
-        <Chip label="Activa" size="small" color="success" />
-      ),
+    render: (r) => r.archivado_en
+      ? <Chip label="Archivada" size="small" color="warning" />
+      : <Chip label="Activa"    size="small" color="success" />,
   },
 ];
 
@@ -67,25 +44,14 @@ interface Props {
   filterConfig?: FilterConfig[];
   filterValues?: Record<string, any>;
   onFilterChange?: (f: Record<string, any>) => void;
-  limpiarFiltros?: () => void; // ← ahora sí lo usamos
+  limpiarFiltros?: () => void;
 }
 
 const InversionTable: React.FC<Props> = ({
-  data,
-  page,
-  pageSize,
-  count,
-  onPageChange,
-  onEdit,
-  onArchive,
-  onRestore,
-  onDelete,
-  loading = false,
-  emptyMessage,
-  filterConfig = [],
-  filterValues,
-  onFilterChange,
-  limpiarFiltros,
+  data, page, pageSize, count, onPageChange,
+  onEdit, onArchive, onRestore, onDelete,
+  loading = false, emptyMessage,
+  filterConfig = [], filterValues, onFilterChange, limpiarFiltros,
 }) => (
   <TableLayout<Inversion>
     data={data}
@@ -97,8 +63,7 @@ const InversionTable: React.FC<Props> = ({
     serverSidePagination
     loading={loading}
     emptyMessage={emptyMessage}
-    striped
-    dense
+    striped dense
     filterConfig={filterConfig}
     filterValues={filterValues}
     onFilterChange={onFilterChange}

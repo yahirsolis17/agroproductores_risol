@@ -13,20 +13,24 @@ class CategoriaInversionViewSet(NotificationMixin, viewsets.ModelViewSet):
     """
     CRUD de categorías de inversión
     """
-    queryset = CategoriaInversion.objects.all().order_by('id')
+    # Solo activas por defecto
+    queryset = CategoriaInversion.objects.filter(is_active=True).order_by('id')
     serializer_class = CategoriaInversionSerializer
     pagination_class = GenericPagination
     permission_classes = [IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission]
     filter_backends = [filters.SearchFilter]
     search_fields = ['nombre']
 
-    def list(self, request, *args, **kwargs):
-        page = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
-        serializer = self.get_serializer(page, many=True)
+    # --- LISTA TODAS (incluye archivadas) para modo edición ---
+    @action(detail=False, methods=["get"], url_path="all")
+    def list_all(self, request):
+        qs = CategoriaInversion.objects.all().order_by('id')
+        page = self.paginate_queryset(qs)
+        ser  = self.get_serializer(page, many=True)
         return self.notify(
             key="data_processed_success",
             data={
-                "categorias": serializer.data,
+                "categorias": ser.data,
                 "meta": {
                     "count": self.paginator.page.paginator.count,
                     "next": self.paginator.get_next_link(),
@@ -35,46 +39,32 @@ class CategoriaInversionViewSet(NotificationMixin, viewsets.ModelViewSet):
             }
         )
 
-    def create(self, request, *args, **kwargs):
-        ser = self.get_serializer(data=request.data)
-        try:
-            ser.is_valid(raise_exception=True)
-        except serializers.ValidationError:
-            return self.notify(
-                key="validation_error",
-                data={"errors": ser.errors},
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
-        self.perform_create(ser)
-        return self.notify(
-            key="categoria_create_success",
-            data={"categoria": ser.data},
-            status_code=status.HTTP_201_CREATED,
-        )
+    # --- ARCHIVAR ---
+    @action(detail=True, methods=["patch"], url_path="archivar")
+    def archivar(self, request, pk=None):
+        cat = self.get_object()
+        if not cat.is_active:
+            return self.notify(key="categoria_ya_archivada", status_code=status.HTTP_400_BAD_REQUEST)
+        cat.archivar()
+        return self.notify(key="categoria_archivada", data={"categoria": self.get_serializer(cat).data})
 
-    def update(self, request, *args, **kwargs):
-        partial  = kwargs.pop("partial", False)
-        instance = self.get_object()
-        ser      = self.get_serializer(instance, data=request.data, partial=partial)
-        try:
-            ser.is_valid(raise_exception=True)
-        except serializers.ValidationError:
-            return self.notify(
-                key="validation_error",
-                data={"errors": ser.errors},
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
-        self.perform_update(ser)
-        return self.notify(
-            key="categoria_update_success",
-            data={"categoria": ser.data},
-        )
+    # --- RESTAURAR ---
+    @action(detail=True, methods=["patch"], url_path="restaurar")
+    def restaurar(self, request, pk=None):
+        cat = self.get_object()
+        if cat.is_active:
+            return self.notify(key="categoria_no_archivada", status_code=status.HTTP_400_BAD_REQUEST)
+        cat.desarchivar()
+        return self.notify(key="categoria_restaurada", data={"categoria": self.get_serializer(cat).data})
 
+    # --- DELETE seguro ---
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        # Aquí no hay dependencias obligatorias, pero si quieres agregar lógica de negocio, hazlo antes de borrarlo.
+        if instance.inversiones.exists():
+            return self.notify(
+                key="categoria_con_inversiones",
+                data={"info": "No puedes eliminar la categoría porque tiene inversiones asociadas."},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
         self.perform_destroy(instance)
-        return self.notify(
-            key="categoria_delete_success",
-            data={"info": "Categoría eliminada."}
-        )
+        return self.notify(key="categoria_delete_success", data={"info": "Categoría eliminada."})
