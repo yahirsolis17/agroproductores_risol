@@ -15,7 +15,7 @@ type Props = {
   open: boolean;
   onClose: () => void;
   isEdit: boolean;
-  initialValues?: Omit<InversionCreate, 'cosecha_id' | 'huerta_id'> | InversionUpdate;
+  initialValues?: Omit<InversionCreate, 'cosecha' | 'huerta'> | InversionUpdate;
   onSubmit: (payload: InversionCreate | InversionUpdate) => Promise<void>;
 
   // categorías
@@ -36,7 +36,7 @@ const schema = Yup.object({
   gastos_insumos: Yup.number().min(0, '>= 0').required('Requerido'),
   gastos_mano_obra: Yup.number().min(0, '>= 0').required('Requerido'),
   // ← Debe ser número y al menos 1 (0 es placeholder “Seleccione…”)
-  categoria_id: Yup.number().min(1, 'Selecciona una categoría').required('Requerido'),
+  categoria: Yup.number().min(1, 'Selecciona una categoría').required('Requerido'),
 });
 
 const InversionFormModal: React.FC<Props> = (p) => {
@@ -46,20 +46,20 @@ const InversionFormModal: React.FC<Props> = (p) => {
   const [catModalOpen, setCatModalOpen] = useState(false);
   const [catToEdit, setCatToEdit] = useState<CategoriaInversion | null>(null);
 
-  // Valores por defecto — categoria_id = 0 como placeholder
-  const defaults: Omit<InversionCreate, 'cosecha_id' | 'huerta_id'> = {
+  // Valores por defecto — categoria = 0 como placeholder
+  const defaults: Omit<InversionCreate, 'cosecha' | 'huerta'> = {
     nombre: '',
     fecha: '',
     descripcion: '',
     gastos_insumos: 0,
     gastos_mano_obra: 0,
-    categoria_id: 0,
+    categoria: 0,
   };
 
   // Si viene initialValues (edición) y no trae categoría, normalizamos a 0
   const initValues =
     p.initialValues
-      ? { ...p.initialValues, categoria_id: (p.initialValues as any).categoria_id ?? 0 }
+      ? { ...p.initialValues, categoria: (p.initialValues as any).categoria ?? 0 }
       : defaults;
 
   return (
@@ -149,8 +149,8 @@ const InversionFormModal: React.FC<Props> = (p) => {
 
                   <Box>
                     <CategoriaAutocomplete
-                      value={values.categoria_id || null}
-                      onChange={(id) => setFieldValue('categoria_id', id || 0)}
+                      value={values.categoria || null}
+                      onChange={(id) => setFieldValue('categoria', id || 0)}
                       categorias={p.categorias}
                       loading={p.loadingCategorias}
                       onCreateCategoria={() => {
@@ -174,8 +174,8 @@ const InversionFormModal: React.FC<Props> = (p) => {
                         await p.onRefetchCategorias();
                       }}
                     />
-                    {errors.categoria_id && (
-                      <p className="text-red-600 text-sm">{errors.categoria_id as string}</p>
+                    {errors.categoria && (
+                      <p className="text-red-600 text-sm">{errors.categoria as string}</p>
                     )}
                   </Box>
                 </Box>
@@ -205,7 +205,7 @@ const InversionFormModal: React.FC<Props> = (p) => {
             } else {
               const nueva = await p.createCategoria({ nombre });
               await p.onRefetchCategorias();
-              formikRef.current?.setFieldValue('categoria_id', nueva.id);
+              formikRef.current?.setFieldValue('categoria', nueva.id);
             }
           }}
         />

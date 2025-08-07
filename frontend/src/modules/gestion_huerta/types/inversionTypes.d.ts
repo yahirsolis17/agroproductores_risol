@@ -7,10 +7,10 @@ export interface Inversion {
   gastos_mano_obra: number;
 
   // Relación y derivados
-  categoria?: { id: number; nombre: string } | null;
-  categoria_id?: number;
+  categoria: { id: number; nombre: string };
   cosecha: number; // id
-  huerta: number;  // id
+  huerta: number; // id
+  gastos_totales: number;
 
   // Estado
   is_active: boolean;
@@ -23,9 +23,9 @@ export interface InversionCreate {
   descripcion?: string | null;
   gastos_insumos: number;
   gastos_mano_obra: number;
-  categoria_id: number;
-  cosecha_id: number; // requerido por BE
-  huerta_id: number;  // requerido por BE
+  categoria: number;
+  cosecha: number; // requerido por BE
+  huerta: number; // requerido por BE
 }
 
 export interface InversionUpdate {
@@ -34,5 +34,5 @@ export interface InversionUpdate {
   descripcion?: string | null;
   gastos_insumos?: number;
   gastos_mano_obra?: number;
-  categoria_id?: number;
+  categoria?: number;
 }
