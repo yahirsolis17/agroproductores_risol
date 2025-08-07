@@ -45,14 +45,14 @@ export const categoriaInversionService = {
   },
 
   async archivar(id: number) {
-    const { data } = await apiClient.post<ApiEnvelope<{ categoria_id: number }>>(
+    const { data } = await apiClient.post<ApiEnvelope<ItemWrapper>>(
       `/huerta/categorias-inversion/${id}/archivar/`,
     );
     return data;
   },
 
   async restaurar(id: number) {
-    const { data } = await apiClient.post<ApiEnvelope<{ categoria_id: number }>>(
+    const { data } = await apiClient.post<ApiEnvelope<ItemWrapper>>(
       `/huerta/categorias-inversion/${id}/restaurar/`,
     );
     return data;

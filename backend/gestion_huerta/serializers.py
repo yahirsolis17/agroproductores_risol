@@ -367,7 +367,7 @@ class CosechaSerializer(serializers.ModelSerializer):
 class CategoriaInversionSerializer(serializers.ModelSerializer):
     class Meta:
         model = CategoriaInversion
-        fields = ['id', 'nombre']
+        fields = ['id', 'nombre', 'is_active', 'archivado_en']
 
     def validate_nombre(self, value):
         val = value.strip()

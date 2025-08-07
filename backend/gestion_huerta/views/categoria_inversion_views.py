@@ -72,9 +72,36 @@ class CategoriaInversionViewSet(NotificationMixin, viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        # Aquí no hay dependencias obligatorias, pero si quieres agregar lógica de negocio, hazlo antes de borrarlo.
+        if instance.inversiones.exists():
+            return self.notify(
+                key="categoria_referenciada",
+                data={"error": "No se puede eliminar una categoría con inversiones asociadas."},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
         self.perform_destroy(instance)
         return self.notify(
             key="categoria_delete_success",
             data={"info": "Categoría eliminada."}
+        )
+
+    @action(detail=True, methods=["post"], url_path="archivar")
+    def archivar(self, request, pk=None):
+        cat = self.get_object()
+        if not cat.is_active:
+            return self.notify(key="categoria_ya_archivada", status_code=status.HTTP_400_BAD_REQUEST)
+        cat.archivar()
+        return self.notify(
+            key="categoria_archivada",
+            data={"categoria": self.get_serializer(cat).data},
+        )
+
+    @action(detail=True, methods=["post"], url_path="restaurar")
+    def restaurar(self, request, pk=None):
+        cat = self.get_object()
+        if cat.is_active:
+            return self.notify(key="categoria_no_archivada", status_code=status.HTTP_400_BAD_REQUEST)
+        cat.restaurar()
+        return self.notify(
+            key="categoria_restaurada",
+            data={"categoria": self.get_serializer(cat).data},
         )

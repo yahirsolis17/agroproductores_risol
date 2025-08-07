@@ -189,9 +189,24 @@ class Temporada(models.Model):
 # ────────────── CATEGORÍA DE INVERSIÓN ────────────────────────────────────
 class CategoriaInversion(models.Model):
     nombre = models.CharField(max_length=100)
+    is_active = models.BooleanField(default=True)
+    archivado_en = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.nombre
+
+    def archivar(self):
+        if self.is_active:
+            self.is_active = False
+            self.archivado_en = timezone.now()
+            self.save(update_fields=["is_active", "archivado_en"])
+
+    def restaurar(self):
+        if not self.is_active:
+            self.is_active = True
+            self.archivado_en = None
+            self.save(update_fields=["is_active", "archivado_en"])
+
 class Cosecha(models.Model):
     """
     Cosecha de una Temporada (obligatoria).
@@ -304,7 +319,11 @@ class InversionesHuerta(models.Model):
     descripcion      = models.TextField(blank=True, null=True)
     gastos_insumos   = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
     gastos_mano_obra = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
-    categoria        = models.ForeignKey(CategoriaInversion, on_delete=models.CASCADE)
+    categoria        = models.ForeignKey(
+        CategoriaInversion,
+        on_delete=models.PROTECT,
+        related_name="inversiones"
+    )
     cosecha          = models.ForeignKey(Cosecha, on_delete=models.CASCADE, related_name="inversiones")
     huerta           = models.ForeignKey(Huerta, on_delete=models.CASCADE)
     is_active        = models.BooleanField(default=True)

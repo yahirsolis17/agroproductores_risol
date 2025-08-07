@@ -2,6 +2,7 @@ from django.test import TestCase
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
+from django.db.models.deletion import ProtectedError
 
 from .models import (
     Propietario,
@@ -99,3 +100,31 @@ class TemporadaDesarchivarTests(TestCase):
             for venta in cosecha.ventas.all():
                 self.assertTrue(venta.is_active)
                 self.assertIsNone(venta.archivado_en)
+
+
+class CategoriaInversionTests(TestCase):
+    def test_archivar_y_restaurar(self):
+        cat = CategoriaInversion.objects.create(nombre="Cat")
+        cat.archivar()
+        self.assertFalse(cat.is_active)
+        self.assertIsNotNone(cat.archivado_en)
+        cat.restaurar()
+        self.assertTrue(cat.is_active)
+        self.assertIsNone(cat.archivado_en)
+
+    def test_delete_protected(self):
+        propietario = Propietario.objects.create(
+            nombre="Pablo", apellidos="Perez", telefono="1234567891", direccion="Dir"
+        )
+        huerta = Huerta.objects.create(
+            nombre="H1", ubicacion="Ubic", variedades="Var", historial="", hectareas=1, propietario=propietario
+        )
+        temporada = Temporada.objects.create(año=2025, huerta=huerta)
+        cosecha = Cosecha.objects.create(nombre="C1", temporada=temporada, huerta=huerta)
+        cat = CategoriaInversion.objects.create(nombre="Cat")
+        InversionesHuerta.objects.create(
+            nombre="Inv", fecha=timezone.now().date(), descripcion="", gastos_insumos=0,
+            gastos_mano_obra=0, categoria=cat, cosecha=cosecha, huerta=huerta
+        )
+        with self.assertRaises(ProtectedError):
+            cat.delete()
