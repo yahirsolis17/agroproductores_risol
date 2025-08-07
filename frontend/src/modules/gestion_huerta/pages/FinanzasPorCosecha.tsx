@@ -257,6 +257,7 @@ const FinanzasPorCosecha: React.FC = () => {
             <Box display="flex" justifyContent="flex-end" mb={2}>
               <Button
                 variant="contained"
+                disabled={!huertaId || !temporadaId || !cosechaId}
                 onClick={() => { setVenEdit(null); setModalVenOpen(true); }}
               >
                 Nueva venta
