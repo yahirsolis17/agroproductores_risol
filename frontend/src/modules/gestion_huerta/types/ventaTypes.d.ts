@@ -1,29 +1,37 @@
-// src/modules/gestion_huerta/types/ventaTypes.d.ts
-
 export interface Venta {
-    id: number;
-    cosecha: number; // ID de la cosecha
-    fecha_venta: string; // "2023-01-01"
-    num_cajas: number;
-    precio_por_caja: number;
-    tipo_mango: string;
-    descripcion?: string;
-    gasto: number; // entero
-    total_venta?: number; // calculado
-    ganancia_neta?: number; // calculado
-  }
-  
-  export interface VentaCreateData {
-    cosecha: number;
-    fecha_venta: string;
-    num_cajas: number;
-    precio_por_caja: number;
-    tipo_mango: string;
-    descripcion?: string;
-    gasto: number;
-  }
-  
-  export interface VentaUpdateData extends Partial<VentaCreateData> {
-    // Todos opcionales
-  }
-  
+  id: number;
+  cosecha: number;      // id
+  fecha_venta: string;  // ISO
+  num_cajas: number;
+  precio_por_caja: number;
+  tipo_mango: string;
+  descripcion?: string | null;
+  gasto: number;
+
+  // Estado
+  is_active: boolean;
+  archivado_en?: string | null;
+
+  // Derivados (opcionales, si el BE los calcula):
+  total_venta?: number;
+  ganancia_neta?: number;
+}
+
+export interface VentaCreate {
+  cosecha: number;        // id (el BE lo nombró "cosecha" en el serializer)
+  fecha_venta: string;    // ISO
+  num_cajas: number;
+  precio_por_caja: number;
+  tipo_mango: string;
+  descripcion?: string | null;
+  gasto: number;
+}
+
+export interface VentaUpdate {
+  fecha_venta?: string;    
+  num_cajas?: number;
+  precio_por_caja?: number;
+  tipo_mango?: string;
+  descripcion?: string | null;
+  gasto?: number;
+}

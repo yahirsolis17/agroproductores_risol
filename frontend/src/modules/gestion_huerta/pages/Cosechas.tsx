@@ -7,7 +7,7 @@ import {
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useDispatch } from 'react-redux';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom'; // ← NUEVO
 
 import CosechaToolbar from '../components/cosecha/CosechaToolbar';
 import CosechaTable from '../components/cosecha/CosechaTable';
@@ -25,6 +25,7 @@ const PAGE_SIZE = 10;
 
 const Cosechas: React.FC = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate(); // ← NUEVO
   const [searchParams] = useSearchParams();
   const temporadaId = Number(searchParams.get('temporada_id')) || null;
 
@@ -198,6 +199,11 @@ const Cosechas: React.FC = () => {
     catch (e: any) { handleBackendNotification(e?.response?.data?.notification || e); }
   };
 
+  // 👉 NUEVO: Navegar a Finanzas por Cosecha
+  const handleVerFinanzas = (c: Cosecha) => {
+    navigate(`/huerta/finanzas/${c.id}`);
+  };
+
   const clearFilters = () => {
     setSearch('');
     setEstado('activas');
@@ -267,6 +273,7 @@ const Cosechas: React.FC = () => {
             onArchive={handleArchive}
             onRestore={handleRestore}
             onToggleFinalizada={handleToggleFinal}
+            onVerFinanzas={handleVerFinanzas}  // ← NUEVO
             emptyMessage={emptyMessage}
             loading={loading}
           />

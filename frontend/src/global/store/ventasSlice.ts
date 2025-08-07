@@ -1,86 +1,136 @@
-// src/global/store/ventasSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { ventaService } from '../../modules/gestion_huerta/services/ventaService';
+import { ventaService, VentaFilters, Estado } from '../../modules/gestion_huerta/services/ventaService';
 import { handleBackendNotification } from '../utils/NotificationEngine';
-import { Venta, VentaCreateData, VentaUpdateData } from '../../modules/gestion_huerta/types/ventaTypes';
+import { Venta, VentaCreate, VentaUpdate } from '../../modules/gestion_huerta/types/ventaTypes';
 
-interface VentaPaginado {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: Venta[];
-}
-
-interface VentasState extends VentaPaginado {
+interface PaginationMeta { count: number; next: string | null; previous: string | null; }
+interface VentaState {
+  list: Venta[];
   loading: boolean;
+  loaded: boolean;
   error: string | null;
+  page: number;
+  estado: Estado;
+  filters: VentaFilters;
+  meta: PaginationMeta;
+  cosechaId?: number;
 }
 
-const initialState: VentasState = {
-  count: 0,
-  next: null,
-  previous: null,
-  results: [],
+const initialState: VentaState = {
+  list: [],
   loading: false,
+  loaded: false,
   error: null,
+  page: 1,
+  estado: 'activos',
+  filters: {},
+  meta: { count: 0, next: null, previous: null },
+  cosechaId: undefined,
 };
 
-// Listar ventas por cosecha
-export const fetchVentasByCosecha = createAsyncThunk(
-  'ventas/fetchByCosecha',
-  async ({ cosechaId, page }: { cosechaId: number; page?: number }, { rejectWithValue }) => {
+export const fetchVentas = createAsyncThunk<
+  { ventas: Venta[]; meta: PaginationMeta; page: number },
+  { page: number; estado: Estado; filters: VentaFilters; cosechaId: number },
+  { rejectValue: string }
+>(
+  'ventas/fetchAll',
+  async ({ page, estado, filters, cosechaId }, { rejectWithValue }) => {
     try {
-      const data = await ventaService.listByCosecha(cosechaId, page || 1);
-      return data; // { count, next, previous, results: Venta[] }
+      const { ventas, meta } = await ventaService.list(page, estado, cosechaId, filters);
+      return { ventas, meta, page };
     } catch (err: any) {
       handleBackendNotification(err.response?.data);
-      return rejectWithValue(err.response?.data || 'Error al listar ventas');
+      return rejectWithValue('Error al cargar ventas');
     }
   }
 );
 
-// Crear venta
-export const createVenta = createAsyncThunk(
+export const createVenta = createAsyncThunk<
+  Venta,
+  VentaCreate,
+  { rejectValue: string }
+>(
   'ventas/create',
-  async (payload: VentaCreateData, { rejectWithValue }) => {
+  async (payload, { rejectWithValue }) => {
     try {
       const res = await ventaService.create(payload);
       handleBackendNotification(res);
-      // res.data.venta => Venta
       return res.data.venta as Venta;
     } catch (err: any) {
       handleBackendNotification(err.response?.data);
-      return rejectWithValue(err.response?.data || 'Error al crear venta');
+      return rejectWithValue('Error al registrar venta');
     }
   }
 );
 
-// Actualizar venta
-export const updateVenta = createAsyncThunk(
+export const updateVenta = createAsyncThunk<
+  Venta,
+  { id: number; payload: VentaUpdate },
+  { rejectValue: string }
+>(
   'ventas/update',
-  async ({ id, payload }: { id: number; payload: VentaUpdateData }, { rejectWithValue }) => {
+  async ({ id, payload }, { rejectWithValue }) => {
     try {
       const res = await ventaService.update(id, payload);
       handleBackendNotification(res);
       return res.data.venta as Venta;
     } catch (err: any) {
       handleBackendNotification(err.response?.data);
-      return rejectWithValue(err.response?.data || 'Error al actualizar venta');
+      return rejectWithValue('Error al actualizar venta');
     }
   }
 );
 
-// Eliminar venta
-export const deleteVenta = createAsyncThunk(
+export const deleteVenta = createAsyncThunk<
+  number,
+  number,
+  { rejectValue: string }
+>(
   'ventas/delete',
-  async (id: number, { rejectWithValue }) => {
+  async (id, { rejectWithValue }) => {
     try {
       const res = await ventaService.delete(id);
       handleBackendNotification(res);
       return id;
     } catch (err: any) {
       handleBackendNotification(err.response?.data);
-      return rejectWithValue(err.response?.data || 'Error al eliminar venta');
+      return rejectWithValue('Error al eliminar venta');
+    }
+  }
+);
+
+export const archiveVenta = createAsyncThunk<
+  { id: number; archivado_en: string },
+  number,
+  { rejectValue: string }
+>(
+  'ventas/archive',
+  async (id, { rejectWithValue }) => {
+    try {
+      const res = await ventaService.archivar(id);
+      handleBackendNotification(res);
+      return { id, archivado_en: new Date().toISOString() };
+    } catch (err: any) {
+      handleBackendNotification(err.response?.data);
+      return rejectWithValue('Error al archivar venta');
+    }
+  }
+);
+
+export const restoreVenta = createAsyncThunk<
+  { id: number; archivado_en: null },
+  number,
+  { rejectValue: string }
+>(
+  'ventas/restore',
+  async (id, { rejectWithValue }) => {
+    try {
+      const res = await ventaService.restaurar(id);
+      handleBackendNotification(res);
+      return { id, archivado_en: null };
+    } catch (err: any) {
+      handleBackendNotification(err.response?.data);
+      return rejectWithValue('Error al restaurar venta');
     }
   }
 );
@@ -88,50 +138,56 @@ export const deleteVenta = createAsyncThunk(
 const ventasSlice = createSlice({
   name: 'ventas',
   initialState,
-  reducers: {},
-  extraReducers: (builder) => {
-    builder
-      // fetch
-      .addCase(fetchVentasByCosecha.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchVentasByCosecha.fulfilled, (state, action: PayloadAction<VentaPaginado>) => {
-        state.count = action.payload.count;
-        state.next = action.payload.next;
-        state.previous = action.payload.previous;
-        state.results = action.payload.results;
-        state.loading = false;
-      })
-      .addCase(fetchVentasByCosecha.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload as string;
-      })
+  reducers: {
+    setVPage:    (s, a: PayloadAction<number>)            => { s.page = a.payload; },
+    setVEstado:  (s, a: PayloadAction<Estado>)            => { s.estado = a.payload; s.page = 1; },
+    setVFilters: (s, a: PayloadAction<VentaFilters>)      => { s.filters = a.payload; s.page = 1; },
+    setVCosecha: (s, a: PayloadAction<number | undefined>)=> { s.cosechaId = a.payload; s.page = 1; },
+  },
+  extraReducers: (b) => {
+    b.addCase(fetchVentas.pending, (s) => { s.loading = true; s.error = null; });
+    b.addCase(fetchVentas.fulfilled, (s, { payload }) => {
+      s.list = payload.ventas;
+      s.meta = payload.meta;
+      s.page = payload.page;
+      s.loading = false;
+      s.loaded = true;
+    });
+    b.addCase(fetchVentas.rejected, (s, { payload, error }) => {
+      s.loading = false; s.loaded = true; s.error = payload ?? error.message ?? 'Error';
+    });
 
-      // create
-      .addCase(createVenta.fulfilled, (state, action: PayloadAction<Venta>) => {
-        state.results.unshift(action.payload);
-      })
-      .addCase(createVenta.rejected, (state, action) => {
-        state.error = action.payload as string;
-      })
+    b.addCase(createVenta.fulfilled, (s, { payload }) => {
+      if (s.estado === 'activos') s.list.unshift(payload);
+      s.meta.count += 1;
+    });
+    b.addCase(updateVenta.fulfilled, (s, { payload }) => {
+      const i = s.list.findIndex(x => x.id === payload.id);
+      if (i !== -1) s.list[i] = payload;
+    });
+    b.addCase(deleteVenta.fulfilled, (s, { payload: id }) => {
+      s.list = s.list.filter(x => x.id !== id);
+      if (s.meta.count > 0) s.meta.count -= 1;
+    });
 
-      // update
-      .addCase(updateVenta.fulfilled, (state, action: PayloadAction<Venta>) => {
-        const idx = state.results.findIndex(v => v.id === action.payload.id);
-        if (idx !== -1) {
-          state.results[idx] = action.payload;
-        }
-      })
-      .addCase(updateVenta.rejected, (state, action) => {
-        state.error = action.payload as string;
-      })
-
-      // delete
-      .addCase(deleteVenta.fulfilled, (state, action: PayloadAction<number>) => {
-        state.results = state.results.filter(v => v.id !== action.payload);
-      });
+    b.addCase(archiveVenta.fulfilled, (s, { payload }) => {
+      if (s.estado === 'activos') {
+        s.list = s.list.filter(x => x.id !== payload.id);
+      } else {
+        const i = s.list.findIndex(x => x.id === payload.id);
+        if (i !== -1) s.list[i].archivado_en = payload.archivado_en;
+      }
+    });
+    b.addCase(restoreVenta.fulfilled, (s, { payload }) => {
+      if (s.estado === 'archivados') {
+        s.list = s.list.filter(x => x.id !== payload.id);
+      } else {
+        const i = s.list.findIndex(x => x.id === payload.id);
+        if (i !== -1) s.list[i].archivado_en = payload.archivado_en;
+      }
+    });
   },
 });
 
+export const { setVPage, setVEstado, setVFilters, setVCosecha } = ventasSlice.actions;
 export default ventasSlice.reducer;

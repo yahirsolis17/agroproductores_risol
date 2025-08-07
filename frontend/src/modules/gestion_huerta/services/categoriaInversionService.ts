@@ -1,53 +1,60 @@
-// src/modules/gestion_huerta/services/categoriaInversionService.ts
 import apiClient from '../../../global/api/apiClient';
+import type {
+  CategoriaInversion,
+  CategoriaInversionCreate,
+  CategoriaInversionUpdate,
+} from '../types/categoriaInversionTypes';
 
-export interface CategoriaInversion {
-  id: number;
-  nombre: string;
-}
+type ApiEnvelope<T> = {
+  success: boolean;
+  message_key: string;
+  data: T;
+};
 
-interface CategoriaListResponse {
+type PaginationMeta = { count: number; next: string | null; previous: string | null };
+
+type ListResp = {
   categorias: CategoriaInversion[];
-}
+  meta: PaginationMeta;
+};
+
+type ItemWrapper = { categoria: CategoriaInversion };
 
 export const categoriaInversionService = {
-  async list() {
-    // GET /huerta/categorias/
-    const { data } = await apiClient.get<{
-      success: boolean;
-      message_key: string;
-      data: CategoriaListResponse;
-    }>('/huerta/categorias/');
+  async list(page = 1, search?: string): Promise<ListResp> {
+    const params: Record<string, any> = { page };
+    if (search) params.search = search;
+
+    const { data } = await apiClient.get<ApiEnvelope<ListResp>>('/huerta/categorias-inversion/', { params });
+    return data.data;
+  },
+
+  async create(payload: CategoriaInversionCreate) {
+    const { data } = await apiClient.post<ApiEnvelope<ItemWrapper>>('/huerta/categorias-inversion/', payload);
     return data;
   },
 
-  async create(payload: { nombre: string }) {
-    // POST /huerta/categoria/create/
-    const { data } = await apiClient.post<{
-      success: boolean;
-      message_key: string;
-      data: { categoria?: CategoriaInversion };
-    }>('/huerta/categoria/create/', payload);
-    return data;
-  },
-
-  async update(id: number, payload: { nombre: string }) {
-    // PUT /huerta/categoria/update/<id>/
-    const { data } = await apiClient.put<{
-      success: boolean;
-      message_key: string;
-      data: { categoria?: CategoriaInversion };
-    }>(`/huerta/categoria/update/${id}/`, payload);
+  async update(id: number, payload: CategoriaInversionUpdate) {
+    const { data } = await apiClient.put<ApiEnvelope<ItemWrapper>>(`/huerta/categorias-inversion/${id}/`, payload);
     return data;
   },
 
   async delete(id: number) {
-    // DELETE /huerta/categoria/delete/<id>/
-    const { data } = await apiClient.delete<{
-      success: boolean;
-      message_key: string;
-      data: { info?: string };
-    }>(`/huerta/categoria/delete/${id}/`);
+    const { data } = await apiClient.delete<ApiEnvelope<{ info: string }>>(`/huerta/categorias-inversion/${id}/`);
+    return data;
+  },
+
+  async archivar(id: number) {
+    const { data } = await apiClient.post<ApiEnvelope<{ categoria_id: number }>>(
+      `/huerta/categorias-inversion/${id}/archivar/`,
+    );
+    return data;
+  },
+
+  async restaurar(id: number) {
+    const { data } = await apiClient.post<ApiEnvelope<{ categoria_id: number }>>(
+      `/huerta/categorias-inversion/${id}/restaurar/`,
+    );
     return data;
   },
 };

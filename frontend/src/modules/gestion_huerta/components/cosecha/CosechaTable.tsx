@@ -1,8 +1,9 @@
 import React from 'react';
-import { Chip } from '@mui/material';
+import { Chip, Box } from '@mui/material';
 import { TableLayout, Column } from '../../../../components/common/TableLayout';
 import { Cosecha } from '../../types/cosechaTypes';
 import ActionsMenu from '../common/ActionsMenu';
+import { PermissionButton } from '../../../../components/common/PermissionButton';
 
 const formatDate = (d: string | null) =>
   d ? new Date(d).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' }) : '—';
@@ -18,6 +19,7 @@ interface Props {
   onArchive: (c: Cosecha) => void;
   onRestore: (c: Cosecha) => void;
   onToggleFinalizada: (c: Cosecha) => void;
+  onVerFinanzas: (c: Cosecha) => void; // ← NUEVO
   emptyMessage?: string;
   loading?: boolean;
 }
@@ -56,7 +58,7 @@ const columns: Column<Cosecha>[] = [
 
 const CosechaTable: React.FC<Props> = ({
   data, page, pageSize, count, onPageChange,
-  onRename, onDelete, onArchive, onRestore, onToggleFinalizada,
+  onRename, onDelete, onArchive, onRestore, onToggleFinalizada, onVerFinanzas,
   emptyMessage, loading,
 }) => (
   <TableLayout<Cosecha>
@@ -76,15 +78,27 @@ const CosechaTable: React.FC<Props> = ({
       const isArchived = !c.is_active;
       const isFinalized = c.finalizada;
       return (
-        <ActionsMenu
-          isArchived={isArchived}
-          isFinalized={isFinalized}
-          labelFinalize={isFinalized ? 'Reactivar' : 'Finalizar'}
-          onFinalize={() => onToggleFinalizada(c)}
-          onEdit={!isArchived ? () => onRename(c) : undefined}
-          onArchiveOrRestore={() => (isArchived ? onRestore(c) : onArchive(c))}
-          onDelete={isArchived ? () => onDelete(c) : undefined}
-        />
+        <Box display="flex" alignItems="center" gap={1}>
+          <ActionsMenu
+            isArchived={isArchived}
+            isFinalized={isFinalized}
+            labelFinalize={isFinalized ? 'Reactivar' : 'Finalizar'}
+            onFinalize={() => onToggleFinalizada(c)}
+            onEdit={!isArchived ? () => onRename(c) : undefined}
+            onArchiveOrRestore={() => (isArchived ? onRestore(c) : onArchive(c))}
+            onDelete={isArchived ? () => onDelete(c) : undefined}
+          />
+          {/* Botón consistente con permisos; puedes ajustar el permiso si deseas */}
+          <PermissionButton
+            perm="view_inversion"
+            variant="outlined"
+            size="small"
+            onClick={() => onVerFinanzas(c)}
+            sx={{ textTransform: 'none' }}
+          >
+            Ver Finanzas
+          </PermissionButton>
+        </Box>
       );
     }}
   />
