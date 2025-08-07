@@ -5,7 +5,7 @@ export type Estado = 'activos' | 'archivados' | 'todos';
 
 export interface InversionFilters {
   search?: string;
-  categoria_id?: number;
+  categoria?: number;
   fecha_desde?: string; // YYYY-MM-DD
   fecha_hasta?: string; // YYYY-MM-DD
 }
@@ -24,10 +24,10 @@ export const inversionService = {
     filters: InversionFilters = {}
   ): Promise<ListResp> {
     const params: Record<string, any> = { page, estado, cosecha: cosechaId };
-    if (filters.search)      params.search       = filters.search;
-    if (filters.categoria_id) params.categoria_id = filters.categoria_id;
-    if (filters.fecha_desde) params.fecha_desde   = filters.fecha_desde;
-    if (filters.fecha_hasta) params.fecha_hasta   = filters.fecha_hasta;
+    if (filters.search)    params.search     = filters.search;
+    if (filters.categoria) params.categoria  = filters.categoria;
+    if (filters.fecha_desde) params.fecha_desde = filters.fecha_desde;
+    if (filters.fecha_hasta) params.fecha_hasta = filters.fecha_hasta;
 
     const { data } = await apiClient.get<{ success: boolean; message_key: string; data: ListResp }>(
       '/huerta/inversiones/',

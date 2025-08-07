@@ -13,7 +13,7 @@ type Props = {
   open: boolean;
   onClose: () => void;
   isEdit: boolean;
-  initialValues?: Omit<InversionCreate, 'cosecha_id' | 'huerta_id'> | InversionUpdate;
+  initialValues?: Omit<InversionCreate, 'cosecha' | 'huerta'> | InversionUpdate;
   onSubmit: (payload: InversionCreate | InversionUpdate) => Promise<void>;
 
   // categorías
@@ -34,26 +34,26 @@ const schema = Yup.object({
   gastos_insumos: Yup.number().min(0, '>= 0').required('Requerido'),
   gastos_mano_obra: Yup.number().min(0, '>= 0').required('Requerido'),
   // ← Debe ser número y al menos 1 (0 es placeholder “Seleccione…”)
-  categoria_id: Yup.number().min(1, 'Selecciona una categoría').required('Requerido'),
+  categoria: Yup.number().min(1, 'Selecciona una categoría').required('Requerido'),
 });
 
 const InversionFormModal: React.FC<Props> = (p) => {
   if (!p.open) return null; // evita render cuando está cerrado
 
-  // Valores por defecto — categoria_id = 0 como placeholder
-  const defaults: Omit<InversionCreate, 'cosecha_id' | 'huerta_id'> = {
+  // Valores por defecto — categoria = 0 como placeholder
+  const defaults: Omit<InversionCreate, 'cosecha' | 'huerta'> = {
     nombre: '',
     fecha: '',
     descripcion: '',
     gastos_insumos: 0,
     gastos_mano_obra: 0,
-    categoria_id: 0,
+    categoria: 0,
   };
 
   // Si viene initialValues (edición) y no trae categoría, normalizamos a 0
   const initValues =
     p.initialValues
-      ? { ...p.initialValues, categoria_id: (p.initialValues as any).categoria_id ?? 0 }
+      ? { ...p.initialValues, categoria: (p.initialValues as any).categoria ?? 0 }
       : defaults;
 
   return (
@@ -142,16 +142,16 @@ const InversionFormModal: React.FC<Props> = (p) => {
                 {/* Select de categoría (con opción placeholder deshabilitada) */}
                 <TextField
                   label="Categoría"
-                  name="categoria_id"
+                  name="categoria"
                   select
                   SelectProps={{ native: true }}
-                  value={values.categoria_id}
+                  value={values.categoria}
                   onChange={(e) => {
                     const v = Number(e.target.value) || 0;
-                    setFieldValue('categoria_id', v);
+                    setFieldValue('categoria', v);
                   }}
-                  error={!!errors.categoria_id}
-                  helperText={(errors.categoria_id as string) || ''}
+                  error={!!errors.categoria}
+                  helperText={(errors.categoria as string) || ''}
                   fullWidth
                 >
                   <option value={0} disabled>— Selecciona categoría —</option>

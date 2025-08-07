@@ -16,7 +16,7 @@ const columns: Column<Inversion>[] = [
   },
   {
     label: 'Categoría',
-    key: 'categoria_id',
+    key: 'categoria',
     render: (row) => row.categoria?.nombre || '—',
   },
   {
@@ -32,12 +32,10 @@ const columns: Column<Inversion>[] = [
     render: (row) => currency(row.gastos_mano_obra),
   },
   {
-    // ⟵ Usamos un key existente (gastos_insumos) para satisfacer Column<Inversion>,
-    // y calculamos el total en render (antes tenías "monto_total" que no existe en el tipo).
     label: 'Total',
-    key: 'gastos_insumos',
+    key: 'gastos_totales',
     align: 'right',
-    render: (row) => currency((row.gastos_insumos || 0) + (row.gastos_mano_obra || 0)),
+    render: (row) => currency(row.gastos_totales),
   },
   {
     label: 'Estado',

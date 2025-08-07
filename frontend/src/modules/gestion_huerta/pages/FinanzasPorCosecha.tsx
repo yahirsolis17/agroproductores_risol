@@ -59,7 +59,7 @@ const FinanzasPorCosecha: React.FC = () => {
     const isEdit = Boolean(invEdit);
     const payload = isEdit
       ? (vals as InversionUpdate)
-      : ({ ...(vals as InversionCreate), cosecha_id: cosechaId, huerta_id: huertaId });
+      : ({ ...(vals as InversionCreate), cosecha: cosechaId, huerta: huertaId });
     const res = isEdit
       ? await inv.editInversion(invEdit.id, payload)
       : await inv.addInversion(payload as InversionCreate);
@@ -192,7 +192,7 @@ const FinanzasPorCosecha: React.FC = () => {
                         descripcion: invEdit.descripcion,
                         gastos_insumos: invEdit.gastos_insumos,
                         gastos_mano_obra: invEdit.gastos_mano_obra,
-                        categoria_id: invEdit.categoria?.id ?? null,
+                        categoria: invEdit.categoria?.id ?? null,
                       }
                     : undefined
                 }

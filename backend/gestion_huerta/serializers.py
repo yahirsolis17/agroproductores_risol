@@ -380,13 +380,20 @@ class CategoriaInversionSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Ya existe una categoría con este nombre.")
         return val
 class InversionesHuertaSerializer(serializers.ModelSerializer):
+    categoria = serializers.PrimaryKeyRelatedField(queryset=CategoriaInversion.objects.all())
+    cosecha = serializers.PrimaryKeyRelatedField(queryset=Cosecha.objects.all())
+    huerta = serializers.PrimaryKeyRelatedField(queryset=Huerta.objects.all())
+    gastos_totales = serializers.DecimalField(
+        source='gastos_totales', max_digits=12, decimal_places=2, read_only=True
+    )
+
     class Meta:
         model  = InversionesHuerta
         fields = [
             'id', 'nombre', 'fecha', 'descripcion',
             'gastos_insumos', 'gastos_mano_obra',
-            'categoria_id', 'cosecha_id', 'huerta_id',
-            'monto_total',
+            'categoria', 'cosecha', 'huerta',
+            'gastos_totales',
         ]
 
     def validate_nombre(self, value):
@@ -400,7 +407,7 @@ class InversionesHuertaSerializer(serializers.ModelSerializer):
         if value > date.today():
             raise serializers.ValidationError("La fecha de inversión no puede ser futura.")
         # No anterior al inicio de la cosecha
-        cosecha = Cosecha.objects.get(pk=self.initial_data.get('cosecha_id'))
+        cosecha = Cosecha.objects.get(pk=self.initial_data.get('cosecha'))
         if value < cosecha.fecha_inicio.date():
             raise serializers.ValidationError(
                 f"La fecha debe ser >= {cosecha.fecha_inicio.date().isoformat()} (fecha inicio de la cosecha)."
@@ -426,6 +433,11 @@ class InversionesHuertaSerializer(serializers.ModelSerializer):
         if temporada.finalizada or not temporada.is_active:
             raise serializers.ValidationError("No se pueden registrar inversiones en una temporada finalizada o archivada.")
         return data
+
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        rep['categoria'] = CategoriaInversionSerializer(instance.categoria).data
+        return rep
 
 # -----------------------------
 # VENTA
