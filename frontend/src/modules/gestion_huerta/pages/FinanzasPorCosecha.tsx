@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useParams } from 'react-router-dom';
 import {
   Paper,
   Typography,
@@ -27,6 +27,8 @@ import { useInversiones }         from '../hooks/useInversiones';
 import { useVentas }              from '../hooks/useVentas';
 import { useCategoriasInversion } from '../hooks/useCategoriasInversion';
 
+import cosechaService from '../services/cosechaService';
+
 import type { InversionCreate, InversionUpdate } from '../types/inversionTypes';
 import type { VentaCreate, VentaUpdate }         from '../types/ventaTypes';
 
@@ -36,19 +38,47 @@ type EstadoTab = 'activos' | 'archivados' | 'todos';
 const pageSize = 10;
 
 const FinanzasPorCosecha: React.FC = () => {
-  // ─── IDs del contexto obtenidos de la URL (?huerta_id&temporada_id&cosecha_id)
-  const [params] = useSearchParams();
-  const cosechaId   = parseInt(params.get('cosecha_id')   ?? '', 10);
-  const huertaId    = parseInt(params.get('huerta_id')    ?? '', 10);
-  const temporadaId = parseInt(params.get('temporada_id') ?? '', 10);
-  const validIds    = [cosechaId, huertaId, temporadaId].every(Number.isInteger);
+  // ─── IDs que llegan en la URL ------------------------------------------------
+  const [searchParams] = useSearchParams();
+  const { cosechaId: cosechaParam } = useParams<{ cosechaId: string }>();
 
-  // ─── Hooks de datos (Inversiones, Ventas, Categorías)
+  const cosechaId   = Number(cosechaParam);
+  const huertaIdQS  = parseInt(searchParams.get('huerta_id')    ?? '', 10);
+  const temporadaQS = parseInt(searchParams.get('temporada_id') ?? '', 10);
+
+  // Solo validamos que el parámetro de ruta exista
+  const validIds = Number.isFinite(cosechaId);
+
+  // ─── Estados locales --------------------------------------------------------
+  const [huertaId,    setHuertaId]    = useState<number | null>(Number.isFinite(huertaIdQS)  ? huertaIdQS  : null);
+  const [temporadaId, setTemporadaId] = useState<number | null>(Number.isFinite(temporadaQS) ? temporadaQS : null);
+  const [loadingCosecha, setLoadingCosecha] = useState(true);
+
+  // ─── Traer cosecha para obtener huerta / temporada (si hiciera falta) -------
+  useEffect(() => {
+    let ignore = false;
+    (async () => {
+      try {
+        const cosecha = await cosechaService.getById(cosechaId);
+        if (!ignore) {
+          setHuertaId(cosecha.huerta ?? cosecha.huerta_rentada ?? null);
+          setTemporadaId(cosecha.temporada ?? null);
+        }
+      } catch (e) {
+        handleBackendNotification(e);
+      } finally {
+        if (!ignore) setLoadingCosecha(false);
+      }
+    })();
+    return () => { ignore = true; };
+  }, [cosechaId]);
+
+  // ─── Hooks de datos ---------------------------------------------------------
   const inv = useInversiones(cosechaId);
   const ven = useVentas(cosechaId);
   const cat = useCategoriasInversion(true);
 
-  // ─── Control de pestañas
+  // ─── Control de pestañas ----------------------------------------------------
   const [vista, setVista] = useState<Vista>('inversiones');
   const [tab,   setTab]   = useState<EstadoTab>('activos');
   useEffect(() => {
@@ -56,59 +86,63 @@ const FinanzasPorCosecha: React.FC = () => {
     else                         ven.setEstado(tab);
   }, [vista, tab]);
 
-  // ─── Filtros de búsqueda
-  const invFilters: FilterConfig[] = [{ key: 'search', label: 'Buscar', type: 'text' }];
-  const venFilters: FilterConfig[] = [{ key: 'search', label: 'Buscar', type: 'text' }];
+  // ─── Filtros ----------------------------------------------------------------
+  const commonFilters: FilterConfig[] = [{ key: 'search', label: 'Buscar', type: 'text' }];
   const limpiarInv = () => inv.setFilters({});
   const limpiarVen = () => ven.setFilters({});
 
-  // ─── Estados de los modales y edición
+  // ─── Estado de modales / edición -------------------------------------------
   const [modalInvOpen, setModalInvOpen] = useState(false);
   const [modalVenOpen, setModalVenOpen] = useState(false);
-  const [invEdit,      setInvEdit]      = useState<InversionCreate|InversionUpdate|null>(null);
-  const [venEdit,      setVenEdit]      = useState<VentaCreate|VentaUpdate|null>(null);
+  const [invEdit, setInvEdit] = useState<InversionCreate | InversionUpdate | null>(null);
+  const [venEdit, setVenEdit] = useState<VentaCreate | VentaUpdate | null>(null);
 
-  // ─── Enviar inversión
+  // ─── Enviar inversión --------------------------------------------------------
   const handleSubmitInversion = async (vals: InversionCreate | InversionUpdate) => {
-    const payload = { ...vals, fecha: (vals as any).fecha?.slice(0,10) };
+    const payload = { ...vals, fecha: (vals as any).fecha?.slice(0, 10) };
     const isEdit  = Boolean(invEdit);
+
     const resp = isEdit
       ? await inv.editInversion((invEdit as any).id, payload as InversionUpdate)
       : await inv.addInversion({
           ...(payload as InversionCreate),
-          cosecha_id: cosechaId,
-          huerta_id : huertaId,
-          temporada_id: temporadaId,
+          cosecha_id   : cosechaId,
+          huerta_id    : huertaId!,
+          temporada_id : temporadaId!,
         });
+
     handleBackendNotification(resp as any);
     setModalInvOpen(false);
     setInvEdit(null);
     inv.refetch();
   };
 
-  // ─── Enviar venta
+  // ─── Enviar venta -----------------------------------------------------------
   const handleSubmitVenta = async (vals: VentaCreate | VentaUpdate) => {
     const isEdit = Boolean(venEdit);
+
     const payload = isEdit
-      ? vals as VentaUpdate
+      ? (vals as VentaUpdate)
       : ({
           ...(vals as VentaCreate),
-          cosecha: cosechaId,
-          huerta_id: huertaId,
-          temporada_id: temporadaId,
+          cosecha       : cosechaId,
+          huerta_id     : huertaId!,
+          temporada_id  : temporadaId!,
         });
+
     const resp = isEdit
       ? await ven.editVenta((venEdit as any).id, payload as VentaUpdate)
       : await ven.addVenta(payload as VentaCreate);
+
     handleBackendNotification(resp as any);
     setModalVenOpen(false);
     setVenEdit(null);
     ven.refetch();
   };
 
-  // ─── Confirmar eliminación
-  const [delDialog, setDelDialog] = useState<{ kind: 'inv'|'ven'; id: number }|null>(null);
-  const askDelete = (kind: 'inv'|'ven', id: number) => setDelDialog({ kind, id });
+  // ─── Confirmación de borrado ------------------------------------------------
+  const [delDialog, setDelDialog] = useState<{ kind: 'inv' | 'ven'; id: number } | null>(null);
+  const askDelete     = (kind: 'inv' | 'ven', id: number) => setDelDialog({ kind, id });
   const confirmDelete = async () => {
     if (!delDialog) return;
     try {
@@ -118,13 +152,13 @@ const FinanzasPorCosecha: React.FC = () => {
       handleBackendNotification(resp as any);
       delDialog.kind === 'inv' ? inv.refetch() : ven.refetch();
     } catch (e: any) {
-      handleBackendNotification(e?.response?.data||e);
+      handleBackendNotification(e?.response?.data || e);
     } finally {
       setDelDialog(null);
     }
   };
 
-  // ─── Archivar / restaurar filas
+  // ─── Archivar / restaurar ---------------------------------------------------
   const handleArchiveOrRestoreInv = async (row: any, restore: boolean) => {
     const r = restore ? await inv.restore(row.id) : await inv.archive(row.id);
     handleBackendNotification(r as any);
@@ -136,11 +170,11 @@ const FinanzasPorCosecha: React.FC = () => {
     ven.refetch();
   };
 
-  // ─── Loader inicial: espera cosecha + primer fetch
+  // ─── Loader inicial ---------------------------------------------------------
   const loadedOnce = useRef(false);
   useEffect(() => {
-    if (!inv.loading && !ven.loading) loadedOnce.current = true;
-  }, [inv.loading, ven.loading]);
+    if (!inv.loading && !ven.loading && !loadingCosecha) loadedOnce.current = true;
+  }, [inv.loading, ven.loading, loadingCosecha]);
 
   if (!validIds) {
     return (
@@ -150,7 +184,7 @@ const FinanzasPorCosecha: React.FC = () => {
     );
   }
 
-  if (!loadedOnce.current && (inv.loading || ven.loading)) {
+  if (!loadedOnce.current) {
     return (
       <Box className="flex justify-center p-12">
         <CircularProgress size={48} />
@@ -158,7 +192,7 @@ const FinanzasPorCosecha: React.FC = () => {
     );
   }
 
-  // ───────────── Render ───────────────────
+  // ───────────── Render ───────────────────────────────────────────────────────
   return (
     <motion.div
       className="p-6 max-w-6xl mx-auto"
@@ -171,7 +205,7 @@ const FinanzasPorCosecha: React.FC = () => {
           Finanzas por Cosecha
         </Typography>
 
-        {/* Pestañas: Inversiones / Ventas */}
+        {/* Tabs principal */}
         <Tabs
           value={vista}
           onChange={(_, v) => setVista(v as Vista)}
@@ -180,10 +214,10 @@ const FinanzasPorCosecha: React.FC = () => {
           sx={{ mb: 2 }}
         >
           <Tab value="inversiones" label="Inversiones" />
-          <Tab value="ventas"      label="Ventas"       />
+          <Tab value="ventas"      label="Ventas" />
         </Tabs>
 
-        {/* Pestañas de estado */}
+        {/* Tabs de estado */}
         <Tabs
           value={tab}
           onChange={(_, v) => setTab(v as EstadoTab)}
@@ -191,14 +225,14 @@ const FinanzasPorCosecha: React.FC = () => {
           indicatorColor="primary"
           sx={{ mb: 2 }}
         >
-          <Tab value="activos"    label="Activas"    />
+          <Tab value="activos"    label="Activas" />
           <Tab value="archivados" label="Archivadas" />
-          <Tab value="todos"      label="Todas"      />
+          <Tab value="todos"      label="Todas" />
         </Tabs>
 
         {vista === 'inversiones' ? (
           <>
-            {/* Botón Nueva Inversión */}
+            {/* Nueva inversión */}
             <Box display="flex" justifyContent="flex-end" mb={2}>
               <Button
                 variant="contained"
@@ -209,7 +243,7 @@ const FinanzasPorCosecha: React.FC = () => {
               </Button>
             </Box>
 
-            {/* Tabla de inversiones */}
+            {/* Tabla inversiones */}
             <InversionTable
               data={inv.inversiones}
               page={inv.page}
@@ -218,25 +252,25 @@ const FinanzasPorCosecha: React.FC = () => {
               onPageChange={inv.setPage}
               loading={inv.loading}
               emptyMessage={inv.inversiones.length ? '' : 'No hay inversiones.'}
-              filterConfig={invFilters}
+              filterConfig={commonFilters}
               filterValues={inv.filters}
               onFilterChange={inv.setFilters}
               limpiarFiltros={limpiarInv}
-              onEdit={(r) => { setInvEdit(r); setModalInvOpen(true); }}
+              onEdit={r => { setInvEdit(r); setModalInvOpen(true); }}
               onDelete={r => askDelete('inv', r.id)}
               onArchive={r => handleArchiveOrRestoreInv(r, false)}
               onRestore={r => handleArchiveOrRestoreInv(r, true)}
             />
 
-            {/* Modal de inversión */}
+            {/* Modal inversión */}
             {modalInvOpen && (
               <InversionFormModal
                 open={modalInvOpen}
                 onClose={() => { setModalInvOpen(false); setInvEdit(null); }}
                 isEdit={!!invEdit}
                 cosechaId={cosechaId}
-                huertaId={huertaId}
-                temporadaId={temporadaId}
+                huertaId={huertaId!}
+                temporadaId={temporadaId!}
                 initialValues={invEdit ?? undefined}
                 onSubmit={handleSubmitInversion}
                 categorias={cat.categorias}
@@ -252,7 +286,7 @@ const FinanzasPorCosecha: React.FC = () => {
           </>
         ) : (
           <>
-            {/* Botón Nueva Venta */}
+            {/* Nueva venta */}
             <Box display="flex" justifyContent="flex-end" mb={2}>
               <Button
                 variant="contained"
@@ -263,7 +297,7 @@ const FinanzasPorCosecha: React.FC = () => {
               </Button>
             </Box>
 
-            {/* Tabla de ventas */}
+            {/* Tabla ventas */}
             <VentaTable
               data={ven.ventas}
               page={ven.page}
@@ -272,17 +306,17 @@ const FinanzasPorCosecha: React.FC = () => {
               onPageChange={ven.setPage}
               loading={ven.loading}
               emptyMessage={ven.ventas.length ? '' : 'No hay ventas.'}
-              filterConfig={venFilters}
+              filterConfig={commonFilters}
               filterValues={ven.filters}
               onFilterChange={ven.setFilters}
               limpiarFiltros={limpiarVen}
-              onEdit={r   => { setVenEdit(r); setModalVenOpen(true); }}
+              onEdit={r => { setVenEdit(r); setModalVenOpen(true); }}
               onDelete={r => askDelete('ven', r.id)}
               onArchive={r => handleArchiveOrRestoreVen(r, false)}
               onRestore={r => handleArchiveOrRestoreVen(r, true)}
             />
 
-            {/* Modal de venta */}
+            {/* Modal venta */}
             {modalVenOpen && (
               <VentaFormModal
                 open={modalVenOpen}
@@ -296,7 +330,7 @@ const FinanzasPorCosecha: React.FC = () => {
           </>
         )}
 
-        {/* Dialogo de confirmación de eliminación */}
+        {/* Confirmación eliminación */}
         <Dialog open={!!delDialog} onClose={() => setDelDialog(null)}>
           <DialogTitle>Confirmar eliminación</DialogTitle>
           <DialogContent>¿Eliminar este registro permanentemente?</DialogContent>
