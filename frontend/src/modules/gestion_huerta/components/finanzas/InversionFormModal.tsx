@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, TextField, CircularProgress, Box
 } from '@mui/material';
-import { Formik, Form } from 'formik';
+import { Formik, Form, FormikProps } from 'formik';
 import * as Yup from 'yup';
 
 import type { InversionCreate, InversionUpdate } from '../../types/inversionTypes';
 import type { CategoriaInversion } from '../../types/categoriaInversionTypes';
+import CategoriaAutocomplete from './CategoriaAutocomplete';
+import CategoriaFormModal from './CategoriaFormModal';
 
 type Props = {
   open: boolean;
@@ -40,6 +42,10 @@ const schema = Yup.object({
 const InversionFormModal: React.FC<Props> = (p) => {
   if (!p.open) return null; // evita render cuando está cerrado
 
+  const formikRef = useRef<FormikProps<any>>(null);
+  const [catModalOpen, setCatModalOpen] = useState(false);
+  const [catToEdit, setCatToEdit] = useState<CategoriaInversion | null>(null);
+
   // Valores por defecto — categoria_id = 0 como placeholder
   const defaults: Omit<InversionCreate, 'cosecha_id' | 'huerta_id'> = {
     nombre: '',
@@ -57,121 +63,154 @@ const InversionFormModal: React.FC<Props> = (p) => {
       : defaults;
 
   return (
-    <Dialog open={p.open} onClose={p.onClose} fullWidth maxWidth="sm">
-      <DialogTitle className="text-primary-dark font-bold">
-        {p.isEdit ? 'Editar inversión' : 'Nueva inversión'}
-      </DialogTitle>
+    <>
+      <Dialog open={p.open} onClose={p.onClose} fullWidth maxWidth="sm">
+        <DialogTitle className="text-primary-dark font-bold">
+          {p.isEdit ? 'Editar inversión' : 'Nueva inversión'}
+        </DialogTitle>
 
-      <Formik
-        initialValues={initValues}
-        validationSchema={schema}
-        validateOnBlur={false}
-        validateOnChange={false}
-        enableReinitialize
-        onSubmit={async (vals, actions) => {
-          try {
-            await p.onSubmit(vals as any);
-            p.onClose();
-          } catch (e: any) {
-            // mapear errores si aplica
-          } finally {
-            actions.setSubmitting(false);
-          }
-        }}
-      >
-        {({ values, errors, handleChange, setFieldValue, isSubmitting }) => (
-          <Form>
-            <DialogContent dividers>
-              <Box display="grid" gap={2}>
-                <TextField
-                  label="Nombre"
-                  name="nombre"
-                  value={values.nombre}
-                  onChange={handleChange}
-                  error={!!errors.nombre}
-                  helperText={(errors.nombre as string) || ''}
-                  fullWidth
-                />
+        <Formik
+          innerRef={formikRef}
+          initialValues={initValues}
+          validationSchema={schema}
+          validateOnBlur={false}
+          validateOnChange={false}
+          enableReinitialize
+          onSubmit={async (vals, actions) => {
+            try {
+              await p.onSubmit(vals as any);
+              p.onClose();
+            } catch (e: any) {
+              // mapear errores si aplica
+            } finally {
+              actions.setSubmitting(false);
+            }
+          }}
+        >
+          {({ values, errors, handleChange, setFieldValue, isSubmitting }) => (
+            <Form>
+              <DialogContent dividers>
+                <Box display="grid" gap={2}>
+                  <TextField
+                    label="Nombre"
+                    name="nombre"
+                    value={values.nombre}
+                    onChange={handleChange}
+                    error={!!errors.nombre}
+                    helperText={(errors.nombre as string) || ''}
+                    fullWidth
+                  />
 
-                <TextField
-                  label="Fecha"
-                  name="fecha"
-                  type="date"
-                  value={values.fecha}
-                  onChange={handleChange}
-                  error={!!errors.fecha}
-                  helperText={(errors.fecha as string) || ''}
-                  fullWidth
-                  InputLabelProps={{ shrink: true }}
-                />
+                  <TextField
+                    label="Fecha"
+                    name="fecha"
+                    type="date"
+                    value={values.fecha}
+                    onChange={handleChange}
+                    error={!!errors.fecha}
+                    helperText={(errors.fecha as string) || ''}
+                    fullWidth
+                    InputLabelProps={{ shrink: true }}
+                  />
 
-                <TextField
-                  label="Descripción"
-                  name="descripcion"
-                  value={values.descripcion || ''}
-                  onChange={handleChange}
-                  error={!!errors.descripcion}
-                  helperText={(errors.descripcion as string) || ''}
-                  fullWidth
-                  multiline
-                  minRows={2}
-                />
+                  <TextField
+                    label="Descripción"
+                    name="descripcion"
+                    value={values.descripcion || ''}
+                    onChange={handleChange}
+                    error={!!errors.descripcion}
+                    helperText={(errors.descripcion as string) || ''}
+                    fullWidth
+                    multiline
+                    minRows={2}
+                  />
 
-                <TextField
-                  label="Gastos (insumos)"
-                  name="gastos_insumos"
-                  type="number"
-                  value={values.gastos_insumos}
-                  onChange={handleChange}
-                  error={!!errors.gastos_insumos}
-                  helperText={(errors.gastos_insumos as string) || ''}
-                  fullWidth
-                />
+                  <TextField
+                    label="Gastos (insumos)"
+                    name="gastos_insumos"
+                    type="number"
+                    value={values.gastos_insumos}
+                    onChange={handleChange}
+                    error={!!errors.gastos_insumos}
+                    helperText={(errors.gastos_insumos as string) || ''}
+                    fullWidth
+                  />
 
-                <TextField
-                  label="Gastos (mano de obra)"
-                  name="gastos_mano_obra"
-                  type="number"
-                  value={values.gastos_mano_obra}
-                  onChange={handleChange}
-                  error={!!errors.gastos_mano_obra}
-                  helperText={(errors.gastos_mano_obra as string) || ''}
-                  fullWidth
-                />
+                  <TextField
+                    label="Gastos (mano de obra)"
+                    name="gastos_mano_obra"
+                    type="number"
+                    value={values.gastos_mano_obra}
+                    onChange={handleChange}
+                    error={!!errors.gastos_mano_obra}
+                    helperText={(errors.gastos_mano_obra as string) || ''}
+                    fullWidth
+                  />
 
-                {/* Select de categoría (con opción placeholder deshabilitada) */}
-                <TextField
-                  label="Categoría"
-                  name="categoria_id"
-                  select
-                  SelectProps={{ native: true }}
-                  value={values.categoria_id}
-                  onChange={(e) => {
-                    const v = Number(e.target.value) || 0;
-                    setFieldValue('categoria_id', v);
-                  }}
-                  error={!!errors.categoria_id}
-                  helperText={(errors.categoria_id as string) || ''}
-                  fullWidth
-                >
-                  <option value={0} disabled>— Selecciona categoría —</option>
-                  {p.categorias.map((c) => (
-                    <option key={c.id} value={c.id}>{c.nombre}</option>
-                  ))}
-                </TextField>
-              </Box>
-            </DialogContent>
+                  <Box>
+                    <CategoriaAutocomplete
+                      value={values.categoria_id || null}
+                      onChange={(id) => setFieldValue('categoria_id', id || 0)}
+                      categorias={p.categorias}
+                      loading={p.loadingCategorias}
+                      onCreateCategoria={() => {
+                        setCatToEdit(null);
+                        setCatModalOpen(true);
+                      }}
+                      onUpdateCategoria={(cat) => {
+                        setCatToEdit(cat);
+                        setCatModalOpen(true);
+                      }}
+                      onArchiveCategoria={async (cat) => {
+                        await p.archiveCategoria(cat.id);
+                        await p.onRefetchCategorias();
+                      }}
+                      onRestoreCategoria={async (cat) => {
+                        await p.restoreCategoria(cat.id);
+                        await p.onRefetchCategorias();
+                      }}
+                      onDeleteCategoria={async (cat) => {
+                        await p.removeCategoria(cat.id);
+                        await p.onRefetchCategorias();
+                      }}
+                    />
+                    {errors.categoria_id && (
+                      <p className="text-red-600 text-sm">{errors.categoria_id as string}</p>
+                    )}
+                  </Box>
+                </Box>
+              </DialogContent>
 
-            <DialogActions>
-              <Button variant="outlined" onClick={p.onClose}>Cancelar</Button>
-              <Button variant="contained" type="submit" disabled={isSubmitting}>
-                {isSubmitting ? <CircularProgress size={22} /> : 'Guardar'}
-              </Button>
-            </DialogActions>
-          </Form>
-        )}
-      </Formik>
-    </Dialog>
+              <DialogActions>
+                <Button variant="outlined" onClick={p.onClose}>Cancelar</Button>
+                <Button variant="contained" type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? <CircularProgress size={22} /> : 'Guardar'}
+                </Button>
+              </DialogActions>
+            </Form>
+          )}
+        </Formik>
+      </Dialog>
+
+      {catModalOpen && (
+        <CategoriaFormModal
+          open={catModalOpen}
+          onClose={() => setCatModalOpen(false)}
+          isEdit={!!catToEdit}
+          initialName={catToEdit?.nombre}
+          onSubmit={async (nombre) => {
+            if (catToEdit) {
+              await p.updateCategoria(catToEdit.id, { nombre });
+              await p.onRefetchCategorias();
+            } else {
+              const nueva = await p.createCategoria({ nombre });
+              await p.onRefetchCategorias();
+              formikRef.current?.setFieldValue('categoria_id', nueva.id);
+            }
+          }}
+        />
+      )}
+    </>
   );
 };
 
