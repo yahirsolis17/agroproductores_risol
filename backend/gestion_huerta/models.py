@@ -316,7 +316,6 @@ class Cosecha(models.Model):
         return f"{self.nombre} – {origen} – Temp {self.temporada.año}"
 # ────────────── INVERSIONES ───────────────────────────────────────────────
 class InversionesHuerta(models.Model):
-    nombre           = models.CharField(max_length=100)
     fecha            = models.DateField()
     descripcion      = models.TextField(blank=True, null=True)
     gastos_insumos   = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
@@ -331,6 +330,7 @@ class InversionesHuerta(models.Model):
 
     cosecha          = models.ForeignKey(Cosecha, on_delete=models.CASCADE, related_name="inversiones")
     huerta           = models.ForeignKey(Huerta, on_delete=models.CASCADE)
+    temporada        = models.ForeignKey(Temporada, on_delete=models.CASCADE, related_name="inversiones")
 
     is_active    = models.BooleanField(default=True)
     archivado_en = models.DateTimeField(null=True, blank=True)
@@ -341,10 +341,12 @@ class InversionesHuerta(models.Model):
         return (self.gastos_insumos or 0) + (self.gastos_mano_obra or 0)
 
     def __str__(self):
-        return f"{self.nombre} ({self.categoria})"
+        return f"{self.categoria} - {self.cosecha}"
 # ────────────── VENTAS ────────────────────────────────────────────────────
 class Venta(models.Model):
     cosecha        = models.ForeignKey(Cosecha, on_delete=models.CASCADE, related_name="ventas")
+    huerta         = models.ForeignKey(Huerta, on_delete=models.CASCADE, related_name="ventas")
+    temporada      = models.ForeignKey(Temporada, on_delete=models.CASCADE, related_name="ventas")
     fecha_venta    = models.DateField()
     num_cajas      = models.PositiveIntegerField(validators=[MinValueValidator(1)])
     precio_por_caja= models.PositiveIntegerField(validators=[MinValueValidator(1)])

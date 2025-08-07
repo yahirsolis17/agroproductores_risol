@@ -8,7 +8,6 @@ const currency = (n: number) =>
   `$ ${Number(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const columns: Column<Inversion>[] = [
-  { label: 'Nombre', key: 'nombre' },
   { label: 'Fecha', key: 'fecha', render: (r) => new Date(r.fecha).toLocaleDateString('es-MX') },
   { label: 'Categoría', key: 'categoria_id', render: (r) => r.categoria?.nombre || '—' },
   { label: 'Insumos', key: 'gastos_insumos', align: 'right', render: (r) => currency(r.gastos_insumos) },
