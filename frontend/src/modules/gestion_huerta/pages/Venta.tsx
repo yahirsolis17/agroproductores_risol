@@ -126,7 +126,7 @@ const Venta: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDelId(null)}>Cancelar</Button>
-          <Button color="error" onClick={confirmDelete}>
+          <Button type="submit" color="error" onClick={confirmDelete}>
             Eliminar
           </Button>
         </DialogActions>

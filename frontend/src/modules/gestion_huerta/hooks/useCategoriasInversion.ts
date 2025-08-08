@@ -1,4 +1,3 @@
-// src/modules/gestion_huerta/hooks/useCategoriasInversion.ts
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../../global/store/store';
@@ -16,58 +15,46 @@ import {
   CategoriaInversionUpdateData,
 } from '../types/categoriaInversionTypes';
 
-export function useCategoriasInversion() {
+export default function useCategoriasInversion() {
   const dispatch = useAppDispatch();
   const {
-    list: categorias,
+    list,
     loading,
+    loaded,
     error,
     page,
     meta,
-  } = useAppSelector((s) => s.categoriasInversion);
+  } = useAppSelector(s => s.categoriasInversion);
 
-  // Fetch on mount + when page changes
-  useEffect(() => {
-    dispatch(fetchCategorias(page));
-  }, [dispatch, page]);
+  /* ——— carga inicial + cambios de página ——— */
+  useEffect(() => { dispatch(fetchCategorias(page)); }, [dispatch, page]);
 
-  const refetch = () => dispatch(fetchCategorias(page));
-
-  // Pagination
+  /* helpers */
+  const refetch    = () => dispatch(fetchCategorias(page));
   const changePage = (p: number) => dispatch(setPage(p));
 
-  // CRUD actions
-  const addCategoria = (data: CategoriaInversionCreateData) =>
-    dispatch(createCategoria(data)).unwrap();
+  const addCategoria   = (d: CategoriaInversionCreateData) =>
+    dispatch(createCategoria(d)).unwrap();
+  const editCategoria  = (id:number,d:CategoriaInversionUpdateData)=>
+    dispatch(updateCategoria({ id,payload:d })).unwrap();
+  const archive        = (id:number)=>dispatch(archiveCategoria(id)).unwrap();
+  const restore        = (id:number)=>dispatch(restoreCategoria(id)).unwrap();
+  const removeCategoria= (id:number)=>dispatch(deleteCategoria(id)).unwrap();
 
-  const editCategoria = (id: number, data: CategoriaInversionUpdateData) =>
-    dispatch(updateCategoria({ id, payload: data })).unwrap();
-
-  const removeCategoria = (id: number) =>
-    dispatch(deleteCategoria(id)).unwrap();
-
-  const archive = (id: number) =>
-    dispatch(archiveCategoria(id)).unwrap();
-
-  const restore = (id: number) =>
-    dispatch(restoreCategoria(id)).unwrap();
-
+  /* ——— siempre devolvemos un ARRAY, nunca undefined ——— */
   return {
-    categorias,
+    categorias: list ?? [],
     loading,
+    loaded,
     error,
     page,
     meta,
-    // navigation
     changePage,
     refetch,
-    // CRUD
     addCategoria,
     editCategoria,
-    removeCategoria,
     archive,
     restore,
+    removeCategoria,
   };
 }
-
-export default useCategoriasInversion;

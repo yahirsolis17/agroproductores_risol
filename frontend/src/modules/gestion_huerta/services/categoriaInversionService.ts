@@ -5,82 +5,59 @@ import {
   CategoriaInversionUpdateData,
 } from '../types/categoriaInversionTypes';
 
-interface ListEnv {
+interface ListResp {
   success: boolean;
-  data: { categorias: CategoriaInversion[]; meta: any };
+  data: {
+    categorias: CategoriaInversion[];
+    meta: { count: number; next: string | null; previous: string | null };
+  };
 }
-interface ItemEnv {
+
+interface ItemResp {
   success: boolean;
   data: { categoria_inversion: CategoriaInversion };
 }
-interface InfoEnv {
-  success: boolean;
-  data: { info: string };
-}
+
+interface InfoResp { success: boolean; data: { info: string } }
 
 export const categoriaInversionService = {
-  /* ───── Listar solo activas ───── */
-  async listActive(
-    page = 1,
-    pageSize = 10,
-    config: { signal?: AbortSignal } = {}
-  ) {
-    const { data } = await apiClient.get<ListEnv>(
-      '/huerta/categorias-inversion/',
-      { params: { page, page_size: pageSize, archivado: 'false' }, ...config }
-    );
-    return data.data;
+  /* ------------ LIST ACTIVE ------------ */
+  async listActive(page = 1, pageSize = 100) {
+    const { data } = await apiClient.get<ListResp>('/huerta/categorias-inversion/', {
+      params: { page, page_size: pageSize },
+    });
+    return { categorias: data.data.categorias, meta: data.data.meta };
   },
 
-  /* ───── Buscar (autocomplete) ───── */
-  async search(
-    q: string,
-    config: { signal?: AbortSignal } = {}
-  ): Promise<CategoriaInversion[]> {
-    const { data } = await apiClient.get<ListEnv>(
-      '/huerta/categorias-inversion/',
-      { params: { search: q, page_size: 30 }, ...config }
-    );
+  /* ------------ SEARCH (autocomplete) ------------ */
+  async search(query: string, cfg: { signal?: AbortSignal } = {}) {
+    if (!query.trim()) return [];
+    const { data } = await apiClient.get<ListResp>('/huerta/categorias-inversion/', {
+      params: { search: query, page_size: 30 },
+      signal: cfg.signal,
+    });
     return data.data.categorias;
   },
 
-// 1. create
-async create(payload: CategoriaInversionCreateData): Promise<CategoriaInversion> {
-  const { data } = await apiClient.post<ItemEnv>(
-    '/huerta/categorias-inversion/',
-    payload
-  );
-  return data.data.categoria_inversion;
-},
-
-// 2. update
-async update(id: number, payload: CategoriaInversionUpdateData): Promise<CategoriaInversion> {
-  const { data } = await apiClient.patch<ItemEnv>(
-    `/huerta/categorias-inversion/${id}/`,
-    payload
-  );
-  return data.data.categoria_inversion;
-},
-
-// 3. archive
-async archive(id: number): Promise<CategoriaInversion> {
-  const { data } = await apiClient.patch<ItemEnv>(
-    `/huerta/categorias-inversion/${id}/archivar/`
-  );
-  return data.data.categoria_inversion;
-},
-
-// 4. restore
-async restore(id: number): Promise<CategoriaInversion> {
-  const { data } = await apiClient.patch<ItemEnv>(
-    `/huerta/categorias-inversion/${id}/restaurar/`
-  );
-  return data.data.categoria_inversion;
-},
-
-  async remove(id: number) {
-    return apiClient.delete<InfoEnv>(
-      `/huerta/categorias-inversion/${id}/`
-    );
+  /* ------------ CRUD ------------ */
+  create(payload: CategoriaInversionCreateData) {
+    return apiClient.post<ItemResp>('/huerta/categorias-inversion/', payload)
+                    .then(r => r.data.data.categoria_inversion);
+  },
+  update(id: number, payload: CategoriaInversionUpdateData) {
+    return apiClient.patch<ItemResp>(`/huerta/categorias-inversion/${id}/`, payload)
+                    .then(r => r.data.data.categoria_inversion);
+  },
+  archive(id: number) {
+    return apiClient.patch<ItemResp>(`/huerta/categorias-inversion/${id}/archivar/`)
+                    .then(r => r.data.data.categoria_inversion);
+  },
+  restore(id: number) {
+    return apiClient.patch<ItemResp>(`/huerta/categorias-inversion/${id}/restaurar/`)
+                    .then(r => r.data.data.categoria_inversion);
+  },
+  remove(id: number) {
+    return apiClient.delete<InfoResp>(`/huerta/categorias-inversion/${id}/`)
+                    .then(r => r.data);
   },
 };

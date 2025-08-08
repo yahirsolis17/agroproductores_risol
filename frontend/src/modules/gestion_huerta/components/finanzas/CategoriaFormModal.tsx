@@ -1,96 +1,58 @@
-import {
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, Button, CircularProgress
-} from '@mui/material';
+// src/modules/gestion_huerta/components/finanzas/CategoriaInversionFormModal.tsx
+import React from 'react';
+import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, CircularProgress } from '@mui/material';
 import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
-import type { CategoriaInversionCreateData } from '../../types/categoriaInversionTypes';
-import { PermissionButton } from '../../../../components/common/PermissionButton';
-import { handleBackendNotification } from '../../../../global/utils/NotificationEngine';
+import { CategoriaInversion } from '../../types/categoriaInversionTypes';
+import useCategoriasInversion from '../../hooks/useCategoriasInversion';
 
-/* -------------------------------------------------------------------------- */
-/*  Props                                                                     */
-/* -------------------------------------------------------------------------- */
 interface Props {
   open: boolean;
   onClose: () => void;
-  onSubmit: (p: CategoriaInversionCreateData) => Promise<any>;
-  isEdit?: boolean;
-  initialValues?: CategoriaInversionCreateData; // sólo `nombre`
+  onSuccess: (nuevaCat: CategoriaInversion) => void;
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Yup                                                                       */
-/* -------------------------------------------------------------------------- */
 const schema = Yup.object({
-  nombre: Yup.string()
-    .min(3, 'Mínimo 3 caracteres')
-    .required('El nombre es obligatorio'),
+  nombre: Yup.string().min(3, 'Mínimo 3 caracteres').required('Requerido'),
 });
 
-/* -------------------------------------------------------------------------- */
-/*  Componente                                                                */
-/* -------------------------------------------------------------------------- */
-const CategoriaFormModal: React.FC<Props> = ({
-  open, onClose, onSubmit,
-  isEdit = false, initialValues,
-}) => {
-  const defaults: CategoriaInversionCreateData = { nombre: '' };
+const CategoriaInversionFormModal: React.FC<Props> = ({ open, onClose, onSuccess }) => {
+  const { addCategoria } = useCategoriasInversion();
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle className="text-primary-dark font-bold">
-        {isEdit ? 'Editar categoría' : 'Nueva categoría'}
-      </DialogTitle>
-
+      <DialogTitle>Registrar nueva categoría</DialogTitle>
       <Formik
-        initialValues={initialValues || defaults}
+        initialValues={{ nombre: '' }}
         validationSchema={schema}
-        validateOnChange={false}
-        validateOnBlur={false}
-        enableReinitialize
-        onSubmit={async (vals, { setSubmitting, setErrors }) => {
+        onSubmit={async (vals, helpers) => {
           try {
-            await onSubmit(vals);
-            onClose();
-          } catch (err: any) {
-            /* 1️⃣ Mapeo de errores backend → Formik */
-            const be = err?.data || err?.response?.data || {};
-            const errs = be.errors || be.data?.errors || {};
-            const f: Record<string, string> = {};
-            Object.entries(errs).forEach(([k, v]: any) => {
-              f[k] = Array.isArray(v) ? v[0] : String(v);
-            });
-            setErrors(f);
-            handleBackendNotification(be);
-          } finally {
-            setSubmitting(false);
+            // Dispatch al thunk que maneja la notificación con constants
+            const nueva: CategoriaInversion = await addCategoria({ nombre: vals.nombre });
+            onSuccess(nueva);
+          } catch {
+            helpers.setSubmitting(false);
           }
         }}
       >
         {({ values, errors, handleChange, isSubmitting }) => (
           <Form>
-            <DialogContent dividers className="space-y-4">
+            <DialogContent dividers>
               <TextField
-                fullWidth label="Nombre de la categoría"
+                fullWidth
+                label="Nombre de la categoría"
                 name="nombre"
                 value={values.nombre}
                 onChange={handleChange}
-                error={Boolean(errors.nombre)}
+                error={!!errors.nombre}
                 helperText={errors.nombre}
               />
             </DialogContent>
-
             <DialogActions>
               <Button onClick={onClose} disabled={isSubmitting}>Cancelar</Button>
-              <PermissionButton
-                perm={isEdit ? 'change_categoria_inversion' : 'add_categoria_inversion'}
-                type="submit" variant="contained" disabled={isSubmitting}
-              >
-                {isSubmitting
-                  ? <CircularProgress size={22} color="inherit" />
-                  : 'Guardar'}
-              </PermissionButton>
+              <Button type="submit" variant="contained" disabled={isSubmitting}>
+                {isSubmitting ? <CircularProgress size={20} /> : 'Crear'}
+              </Button>
             </DialogActions>
           </Form>
         )}
@@ -99,4 +61,4 @@ const CategoriaFormModal: React.FC<Props> = ({
   );
 };
 
-export default CategoriaFormModal;
+export default CategoriaInversionFormModal;

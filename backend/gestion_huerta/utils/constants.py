@@ -270,7 +270,7 @@ NOTIFICATION_MESSAGES = {
 
     # Archivado / Restauración
     "cosecha_archivada": {
-        "message": "Cosecha archivada correctamente.",
+        "message": "Cosecha archivada correctamente p.",
         "type": "success"
     },
     "cosecha_restaurada": {
