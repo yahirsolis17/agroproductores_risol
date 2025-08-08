@@ -1,5 +1,6 @@
+// Importar sólo useParams, ya no useSearchParams
 import React, { useState, useEffect } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import {
   Paper, Typography, Box, CircularProgress, Divider, Tabs, Tab,
@@ -17,10 +18,15 @@ import { useVentas }      from '../hooks/useVentas';
 
 const FinanzasPorCosecha: React.FC = () => {
   const dispatch = useDispatch();
-  const { temporadaId: tmp } = useParams<{ temporadaId: string }>();
+
+  // 🚀 Leemos ahora ambos params de la ruta
+  const {
+    temporadaId: tmp,
+    cosechaId:  ctm,
+  } = useParams<{ temporadaId: string; cosechaId: string }>();
+
   const temporadaId = Number(tmp) || null;
-  const [searchParams] = useSearchParams();
-  const cosechaId = Number(searchParams.get('cosecha_id')) || null;
+  const cosechaId   = Number(ctm) || null;
 
   const [tempInfo, setTempInfo] = useState<{
     año: number;
@@ -32,7 +38,7 @@ const FinanzasPorCosecha: React.FC = () => {
   const [loadingTemp, setLoadingTemp] = useState(false);
 
   // Los hooks de finanzas:
-  const { setContext: setInvContext } = useInversiones();
+  const { setContext: setInvContext }   = useInversiones();
   const { setContext: setVentaContext } = useVentas();
 
   // 1) cargar info de temporada y breadcrumbs
@@ -65,15 +71,16 @@ const FinanzasPorCosecha: React.FC = () => {
       .finally(() => setLoadingTemp(false));
   }, [temporadaId, dispatch]);
 
-  // 2) Una vez tengamos tempInfo **y** cosechaId, inyectamos el contexto
+  // 2) inyectar contexto a los hooks cuando tengamos ambos IDs
   useEffect(() => {
-    if (tempInfo && cosechaId) {
-      setInvContext(tempInfo.huerta, temporadaId!, cosechaId);
-      setVentaContext(tempInfo.huerta, temporadaId!, cosechaId);
+    // chequeamos que ninguno sea null
+    if (tempInfo && temporadaId !== null && cosechaId !== null) {
+      setInvContext(tempInfo.huerta, temporadaId, cosechaId);
+      setVentaContext(tempInfo.huerta, temporadaId, cosechaId);
     }
-  }, [tempInfo, cosechaId, setInvContext, setVentaContext, temporadaId]);
+  }, [tempInfo, temporadaId, cosechaId, setInvContext, setVentaContext]);
 
-  // 3) Si no hay cosecha seleccionada, mostramos mensaje
+  // 3) Si no hay cosecha, mostramos mensaje
   if (!cosechaId) {
     return (
       <Box p={4}>
