@@ -74,7 +74,7 @@ const Cosechas: React.FC = () => {
         });
         if (t.huerta_id && t.huerta_nombre) {
           dispatch(setBreadcrumbs(
-            breadcrumbRoutes.cosechasList(t.huerta_id, t.huerta_nombre, t.año)
+            breadcrumbRoutes.cosechasList(t.huerta_id, t.huerta_nombre, t.año, t.id)
           ));
         } else {
           dispatch(clearBreadcrumbs());

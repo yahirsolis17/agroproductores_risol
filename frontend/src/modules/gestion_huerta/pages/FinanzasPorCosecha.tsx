@@ -13,8 +13,7 @@ import { breadcrumbRoutes } from '../../../global/constants/breadcrumbRoutes';
 
 import Inversion from './Inversion';
 import Venta     from './Venta';
-import { useInversiones } from '../hooks/useInversiones';
-import { useVentas }      from '../hooks/useVentas';
+
 
 const FinanzasPorCosecha: React.FC = () => {
   const dispatch = useDispatch();
@@ -38,8 +37,7 @@ const FinanzasPorCosecha: React.FC = () => {
   const [loadingTemp, setLoadingTemp] = useState(false);
 
   // Los hooks de finanzas:
-  const { setContext: setInvContext }   = useInversiones();
-  const { setContext: setVentaContext } = useVentas();
+ 
 
   // 1) cargar info de temporada y breadcrumbs
   useEffect(() => {
@@ -72,13 +70,41 @@ const FinanzasPorCosecha: React.FC = () => {
   }, [temporadaId, dispatch]);
 
   // 2) inyectar contexto a los hooks cuando tengamos ambos IDs
-  useEffect(() => {
-    // chequeamos que ninguno sea null
-    if (tempInfo && temporadaId !== null && cosechaId !== null) {
-      setInvContext(tempInfo.huerta, temporadaId, cosechaId);
-      setVentaContext(tempInfo.huerta, temporadaId, cosechaId);
-    }
-  }, [tempInfo, temporadaId, cosechaId, setInvContext, setVentaContext]);
+// 1) cargar info de temporada y breadcrumbs
+useEffect(() => {
+  if (!temporadaId) {
+    dispatch(clearBreadcrumbs());
+    setTempInfo(null);
+    return;
+  }
+  setLoadingTemp(true);
+  temporadaService.getById(temporadaId)
+    .then(res => {
+      const t = res.data.temporada;
+      const huertaId = t.huerta ?? t.huerta_rentada!;
+      setTempInfo({
+        año: t.año,
+        huerta: huertaId,
+        huerta_nombre: t.huerta_nombre!,
+        is_active: t.is_active,
+        finalizada: t.finalizada,
+      });
+
+      // ← AQUÍ: usamos las migas de cosechas y luego agregamos la de finanzas
+      dispatch(setBreadcrumbs([
+        // reutilizamos la lista de cosechas
+        ...breadcrumbRoutes.cosechasList(huertaId, t.huerta_nombre!, t.año, temporadaId!),
+        // añadimos la vista de ventas & inversiones
+        { label: 'Ventas & Inversiones', path: '' }
+      ]));
+    })
+    .catch(() => {
+      dispatch(clearBreadcrumbs());
+      setTempInfo(null);
+    })
+    .finally(() => setLoadingTemp(false));
+}, [temporadaId, dispatch]);
+
 
   // 3) Si no hay cosecha, mostramos mensaje
   if (!cosechaId) {

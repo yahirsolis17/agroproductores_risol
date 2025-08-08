@@ -8,10 +8,12 @@ export const breadcrumbRoutes = {
   ],
 
   /** Temporadas de una huerta */
-  temporadasList: (huertaId: number, huertaName: string): Crumb[] => [
-    // ⬇⬇ ahora el id realmente se usa
+  temporadasList: (
+    huertaId: number,
+    huertaName: string
+  ): Crumb[] => [
     { label: `Huertas – ${huertaName}`, path: `/huertas?huerta_id=${huertaId}` },
-    { label: 'Temporadas', path: '' },
+    { label: 'Temporadas',               path: `/temporadas?huerta_id=${huertaId}` },
   ],
 
   /** Cosechas de una temporada */
@@ -19,20 +21,21 @@ export const breadcrumbRoutes = {
     huertaId: number,
     huertaName: string,
     año: number,
+    temporadaId: number    // ← nuevo parámetro
   ): Crumb[] => [
     { label: `Huertas – ${huertaName}`, path: `/huertas?huerta_id=${huertaId}` },
     { label: `Temporada ${año}`,        path: `/temporadas?huerta_id=${huertaId}` },
-    { label: 'Cosechas',                path: '' },
+    { label: 'Cosechas',                path: `/cosechas?temporada_id=${temporadaId}` }, // ← ahora sí enlaza
   ],
 
   /** Ventas & Inversiones */
   ventasInversiones: (
     huertaId: number,
     huertaName: string,
-    año: number,
+    año: number
   ): Crumb[] => [
-    { label: `Huertas – ${huertaName}`, path: `/huertas?huerta_id=${huertaId}` },
-    { label: `Temporada ${año}`,        path: `/temporadas?huerta_id=${huertaId}` },
-    { label: 'Ventas & Inversiones',    path: '' },
+    { label: `Huertas – ${huertaName}`,     path: `/huertas?huerta_id=${huertaId}` },
+    { label: `Temporada ${año}`,            path: `/temporadas?huerta_id=${huertaId}` },
+    { label: 'Ventas & Inversiones',        path: '' /* permanece en la vista actual */ },
   ],
 };
