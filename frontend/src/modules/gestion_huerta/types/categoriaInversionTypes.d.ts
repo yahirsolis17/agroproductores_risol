@@ -1,3 +1,6 @@
+// src/modules/gestion_huerta/types/categoriaInversionTypes.d.ts
+
+/** Representa una categoría de inversión */
 export interface CategoriaInversion {
   id: number;
   nombre: string;
@@ -5,10 +8,11 @@ export interface CategoriaInversion {
   archivado_en?: string | null;
 }
 
-export interface CategoriaInversionCreate {
+/** Payload para crear una categoría */
+export interface CategoriaInversionCreateData {
   nombre: string;
 }
 
-export interface CategoriaInversionUpdate {
-  nombre?: string;
-}
+/** Payload para actualizar una categoría */
+export interface CategoriaInversionUpdateData
+  extends Partial<CategoriaInversionCreateData> {}

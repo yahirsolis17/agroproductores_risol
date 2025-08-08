@@ -1,132 +1,91 @@
+// src/modules/gestion_huerta/components/finanzas/VentaTable.tsx
 import React from 'react';
-import { Chip, Button } from '@mui/material';
-import { TableLayout, Column, FilterConfig } from '../../../../components/common/TableLayout';
-import { Venta } from '../../types/ventaTypes';
+import { Chip } from '@mui/material';
+import { TableLayout, Column } from '../../../../components/common/TableLayout';
 import ActionsMenu from '../common/ActionsMenu';
 
-const currency = (n: number) =>
-  `$ ${Number(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-const columns: Column<Venta>[] = [
-  {
-    label: 'Fecha',
-    key: 'fecha_venta',
-    render: (row) => new Date(row.fecha_venta).toLocaleDateString('es-MX'),
-  },
-  { label: 'Cajas', key: 'num_cajas', align: 'right' },
-  {
-    label: 'Precio/caja',
-    key: 'precio_por_caja',
-    align: 'right',
-    render: (row) => currency(row.precio_por_caja),
-  },
-  {
-    label: 'Gasto',
-    key: 'gasto',
-    align: 'right',
-    render: (row) => currency(row.gasto),
-  },
-  {
-    // Usamos key existente (precio_por_caja) y calculamos total_venta en render
-    label: 'Total venta',
-    key: 'precio_por_caja',
-    align: 'right',
-    render: (row) => currency((row.num_cajas || 0) * (row.precio_por_caja || 0)),
-  },
-  {
-    // Usamos key existente (gasto) y calculamos ganancia_neta en render
-    label: 'Ganancia neta',
-    key: 'gasto',
-    align: 'right',
-    render: (row) =>
-      currency((row.num_cajas || 0) * (row.precio_por_caja || 0) - (row.gasto || 0)),
-  },
-  {
-    label: 'Tipo mango',
-    key: 'tipo_mango',
-  },
-  {
-    label: 'Estado',
-    key: 'archivado_en',
-    align: 'center',
-    render: (row) =>
-      row.archivado_en ? (
-        <Chip label="Archivada" size="small" color="warning" />
-      ) : (
-        <Chip label="Activa" size="small" color="success" />
-      ),
-  },
-];
+import { VentaHuerta } from '../../types/ventaTypes';
 
 interface Props {
-  data: Venta[];
+  data: VentaHuerta[];
   page: number;
   pageSize: number;
   count: number;
-  onPageChange: (n: number) => void;
-  onEdit: (row: Venta) => void;
-  onArchive: (row: Venta) => void;
-  onRestore: (row: Venta) => void;
-  onDelete: (row: Venta) => void;
+  onPageChange: (p: number) => void;
+
+  /* Acciones por fila */
+  onEdit:    (v: VentaHuerta) => void;
+  onArchive: (id: number) => void;
+  onRestore: (id: number) => void;
+  onDelete:  (id: number) => void;
+
   loading?: boolean;
-  emptyMessage: string;
-  filterConfig?: FilterConfig[];
-  filterValues?: Record<string, any>;
-  onFilterChange?: (f: Record<string, any>) => void;
-  limpiarFiltros?: () => void; // ← ahora sí usado
+  emptyMessage?: string;
 }
 
+const dinero = (n: number) =>
+  `$ ${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+
+const columns: Column<VentaHuerta>[] = [
+  {
+    label: 'Fecha',
+    key:   'fecha_venta',
+    render: v => new Date(v.fecha_venta).toLocaleDateString('es-MX'),
+  },
+  { label: 'Tipo mango', key: 'tipo_mango' },
+  { label: 'Cajas',      key: 'num_cajas',        align: 'right' },
+  { label: 'Precio/caja',key: 'precio_por_caja',  align: 'right',
+    render: v => dinero(v.precio_por_caja) },
+  { label: 'Gasto',      key: 'gasto',            align: 'right',
+    render: v => dinero(v.gasto) },
+  { label: 'Total venta',key: 'total_venta',      align: 'right',
+    render: v => dinero(v.total_venta) },
+  { label: 'Ganancia',   key: 'ganancia_neta',    align: 'right',
+    render: v => dinero(v.ganancia_neta) },
+  {
+    label: 'Estado', key: 'archivado_en', align: 'center',
+    render: v =>
+      v.archivado_en
+        ? <Chip label="Archivada" size="small" color="warning"/>
+        : <Chip label="Activa"    size="small" color="success"/>
+  },
+];
+
 const VentaTable: React.FC<Props> = ({
-  data,
-  page,
-  pageSize,
-  count,
-  onPageChange,
-  onEdit,
-  onArchive,
-  onRestore,
-  onDelete,
+  data, page, pageSize, count, onPageChange,
+  onEdit, onArchive, onRestore, onDelete,
   loading = false,
-  emptyMessage,
-  filterConfig = [],
-  filterValues,
-  onFilterChange,
-  limpiarFiltros,
+  emptyMessage = 'Sin ventas registradas.',
 }) => (
-  <TableLayout<Venta>
+  <TableLayout<VentaHuerta>
     data={data}
     page={page}
     pageSize={pageSize}
     count={count}
     onPageChange={onPageChange}
-    columns={columns}
     serverSidePagination
-    loading={loading}
-    emptyMessage={emptyMessage}
     striped
     dense
-    filterConfig={filterConfig}
-    filterValues={filterValues}
-    onFilterChange={onFilterChange}
-    applyFiltersInternally={false}
-    extraFilterElement={
-      limpiarFiltros && (
-        <Button variant="contained" color="secondary" onClick={limpiarFiltros} sx={{ height: 40 }}>
-          Limpiar filtros
-        </Button>
-      )
-    }
-    renderActions={(row) => (
-      <ActionsMenu
-        isArchived={!!row.archivado_en || !row.is_active}
-        onEdit={!row.archivado_en && row.is_active ? () => onEdit(row) : undefined}
-        onArchiveOrRestore={() => (!row.archivado_en && row.is_active ? onArchive(row) : onRestore(row))}
-        onDelete={() => onDelete(row)}
-        permEdit="change_venta"
-        permArchiveOrRestore="archive_venta"
-        permDelete="delete_venta"
-      />
-    )}
+    loading={loading}
+    emptyMessage={emptyMessage}
+    columns={columns}
+    rowKey={row => row.id}
+    renderActions={v => {
+      const isArchived = !v.is_active;
+      return (
+        <ActionsMenu
+          isArchived={isArchived}
+          onEdit={!isArchived ? () => onEdit(v) : undefined}
+          onArchiveOrRestore={() =>
+            isArchived ? onRestore(v.id) : onArchive(v.id)
+          }
+          onDelete={isArchived ? () => onDelete(v.id) : undefined}
+          permEdit="change_venta"
+          permArchiveOrRestore="archive_venta"
+          permDelete="delete_venta"
+        />
+      );
+    }}
   />
 );
 

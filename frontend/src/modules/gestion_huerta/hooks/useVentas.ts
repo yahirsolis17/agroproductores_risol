@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/hooks/useVentas.ts
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../../global/store/store';
@@ -5,57 +6,86 @@ import {
   fetchVentas,
   createVenta,
   updateVenta,
-  deleteVenta,
   archiveVenta,
   restoreVenta,
-  setVPage,
-  setVEstado,
-  setVFilters,
-  setVCosecha,
+  deleteVenta,
+  setPage,
+  setContext,
+  setFilters,
+  VentaFilters,
 } from '../../../global/store/ventasSlice';
-import type { VentaCreate, VentaUpdate } from '../types/ventaTypes';
-import type { VentaFilters, Estado } from '../services/ventaService';
+import {
+  VentaHuertaCreateData,
+  VentaHuertaUpdateData,
+} from '../types/ventaTypes';
 
-export function useVentas(cosechaId?: number) {
+export function useVentas() {
   const dispatch = useAppDispatch();
-  const { list, loading, error, meta, page, estado, filters, cosechaId: cs } = useAppSelector((s) => s.ventas);
-
-  useEffect(() => { dispatch(setVCosecha(cosechaId)); }, [cosechaId]);
-
-  useEffect(() => {
-    if (!cs) return;
-    dispatch(fetchVentas({ page, estado, filters, cosechaId: cs }));
-  }, [dispatch, page, estado, filters, cs]);
-
-  const addVenta    = (p: VentaCreate)                 => dispatch(createVenta(p)).unwrap();
-  const editVenta   = (id: number, p: VentaUpdate)     => dispatch(updateVenta({ id, payload: p })).unwrap();
-  const removeVenta = (id: number)                     => dispatch(deleteVenta(id)).unwrap();
-  const archive     = (id: number)                     => dispatch(archiveVenta(id)).unwrap();
-  const restore     = (id: number)                     => dispatch(restoreVenta(id)).unwrap();
-  const refetch     = () => cs && dispatch(fetchVentas({ page, estado, filters, cosechaId: cs }));
-
-  const setPage    = (n: number)           => dispatch(setVPage(n));
-  const setEstado  = (e: Estado)           => dispatch(setVEstado(e));
-  const setFilters = (f: VentaFilters)     => dispatch(setVFilters(f));
-
-  return {
-    ventas: list,
+  const {
+    list: ventas,
     loading,
     error,
-    meta,
     page,
-    estado,
+    meta,
+    huertaId,
+    temporadaId,
+    cosechaId,
     filters,
-    setPage,
-    setEstado,
-    setFilters,
+  } = useAppSelector((s) => s.ventas);
+
+  // Fetch on context / page / filters change
+  useEffect(() => {
+    dispatch(fetchVentas());
+  }, [dispatch, huertaId, temporadaId, cosechaId, page, filters]);
+
+  const refetch = () => dispatch(fetchVentas());
+
+  // Context
+  const setContextIds = (h: number, t: number, c: number) =>
+    dispatch(setContext({ huertaId: h, temporadaId: t, cosechaId: c }));
+
+  // Pagination & filters
+  const changePage    = (p: number)         => dispatch(setPage(p));
+  const changeFilters = (f: VentaFilters)   => dispatch(setFilters(f));
+
+  // CRUD
+  const addVenta = (data: VentaHuertaCreateData) =>
+    dispatch(createVenta(data)).unwrap();
+
+  const editVenta = (id: number, data: VentaHuertaUpdateData) =>
+    dispatch(updateVenta({ id, payload: data })).unwrap();
+
+  const removeVenta = (id: number) =>
+    dispatch(deleteVenta(id)).unwrap();
+
+  const archive = (id: number) =>
+    dispatch(archiveVenta(id)).unwrap();
+
+  const restore = (id: number) =>
+    dispatch(restoreVenta(id)).unwrap();
+
+  return {
+    ventas,
+    loading,
+    error,
+    page,
+    meta,
+    huertaId,
+    temporadaId,
+    cosechaId,
+    filters,
+    // context
+    setContext: setContextIds,
+    // navigation
+    changePage,
+    changeFilters,
     refetch,
+    // CRUD
     addVenta,
     editVenta,
     removeVenta,
     archive,
     restore,
-    cosechaId: cs,
   };
 }
 

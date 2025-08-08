@@ -201,7 +201,8 @@ const Cosechas: React.FC = () => {
 
   // 👉 NUEVO: Navegar a Finanzas por Cosecha
 const handleVerFinanzas = (c: Cosecha) => {
-  navigate(`/finanzas/${c.id}`);
+  // usa el temporadaId que ya tienes en useCosechas()
+  navigate(`/finanzas/${temporadaId}?cosecha_id=${c.id}`);
 };
 
   const clearFilters = () => {

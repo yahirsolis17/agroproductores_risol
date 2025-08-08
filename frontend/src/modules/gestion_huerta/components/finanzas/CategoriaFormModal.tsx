@@ -1,103 +1,95 @@
-import React, { useEffect, useRef } from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-  CircularProgress,
+  Dialog, DialogTitle, DialogContent, DialogActions,
+  TextField, Button, CircularProgress
 } from '@mui/material';
-import { Formik, Form, FormikProps } from 'formik';
+import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
+import type { CategoriaInversionCreateData } from '../../types/categoriaInversionTypes';
 import { PermissionButton } from '../../../../components/common/PermissionButton';
+import { handleBackendNotification } from '../../../../global/utils/NotificationEngine';
 
+/* -------------------------------------------------------------------------- */
+/*  Props                                                                     */
+/* -------------------------------------------------------------------------- */
 interface Props {
   open: boolean;
   onClose: () => void;
+  onSubmit: (p: CategoriaInversionCreateData) => Promise<any>;
   isEdit?: boolean;
-  initialName?: string;
-  /** onSubmit debe crear/editar según isEdit; solo recibe el nombre */
-  onSubmit: (nombre: string) => Promise<void>;
+  initialValues?: CategoriaInversionCreateData; // sólo `nombre`
 }
 
+/* -------------------------------------------------------------------------- */
+/*  Yup                                                                       */
+/* -------------------------------------------------------------------------- */
 const schema = Yup.object({
   nombre: Yup.string()
-    .trim()
     .min(3, 'Mínimo 3 caracteres')
-    .max(80, 'Máximo 80 caracteres')
-    .required('Nombre requerido'),
+    .required('El nombre es obligatorio'),
 });
 
+/* -------------------------------------------------------------------------- */
+/*  Componente                                                                */
+/* -------------------------------------------------------------------------- */
 const CategoriaFormModal: React.FC<Props> = ({
-  open,
-  onClose,
-  isEdit = false,
-  initialName = '',
-  onSubmit,
+  open, onClose, onSubmit,
+  isEdit = false, initialValues,
 }) => {
-  const formikRef = useRef<FormikProps<{ nombre: string }>>(null);
-
-  useEffect(() => {
-    if (!open && formikRef.current) {
-      formikRef.current.resetForm();
-    }
-  }, [open]);
+  const defaults: CategoriaInversionCreateData = { nombre: '' };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle className="text-primary-dark font-bold">
         {isEdit ? 'Editar categoría' : 'Nueva categoría'}
       </DialogTitle>
 
       <Formik
-        innerRef={formikRef}
-        initialValues={{ nombre: initialName }}
+        initialValues={initialValues || defaults}
         validationSchema={schema}
-        validateOnBlur={false}
         validateOnChange={false}
+        validateOnBlur={false}
         enableReinitialize
-        onSubmit={async (vals, actions) => {
+        onSubmit={async (vals, { setSubmitting, setErrors }) => {
           try {
-            await onSubmit(vals.nombre.trim());
+            await onSubmit(vals);
             onClose();
-          } catch (e: any) {
-            const backend = e?.data || e?.response?.data || {};
-            const beErrors = backend.errors || backend.data?.errors || {};
-            actions.setErrors({
-              nombre: Array.isArray(beErrors.nombre) ? beErrors.nombre[0] : beErrors.nombre,
+          } catch (err: any) {
+            /* 1️⃣ Mapeo de errores backend → Formik */
+            const be = err?.data || err?.response?.data || {};
+            const errs = be.errors || be.data?.errors || {};
+            const f: Record<string, string> = {};
+            Object.entries(errs).forEach(([k, v]: any) => {
+              f[k] = Array.isArray(v) ? v[0] : String(v);
             });
+            setErrors(f);
+            handleBackendNotification(be);
           } finally {
-            actions.setSubmitting(false);
+            setSubmitting(false);
           }
         }}
       >
         {({ values, errors, handleChange, isSubmitting }) => (
           <Form>
-            <DialogContent dividers className="space-y-3">
+            <DialogContent dividers className="space-y-4">
               <TextField
-                label="Nombre de categoría"
+                fullWidth label="Nombre de la categoría"
                 name="nombre"
                 value={values.nombre}
                 onChange={handleChange}
-                error={!!errors.nombre}
-                helperText={errors.nombre || ''}
-                fullWidth
-                autoFocus
+                error={Boolean(errors.nombre)}
+                helperText={errors.nombre}
               />
             </DialogContent>
 
-            <DialogActions className="px-6 py-4">
-              <Button variant="outlined" onClick={onClose}>
-                Cancelar
-              </Button>
+            <DialogActions>
+              <Button onClick={onClose} disabled={isSubmitting}>Cancelar</Button>
               <PermissionButton
-                perm={isEdit ? 'change_categoriainversion' : 'add_categoriainversion'}
-                type="submit"
-                variant="contained"
-                disabled={isSubmitting}
+                perm={isEdit ? 'change_categoria_inversion' : 'add_categoria_inversion'}
+                type="submit" variant="contained" disabled={isSubmitting}
               >
-                {isSubmitting ? <CircularProgress size={22} /> : 'Guardar'}
+                {isSubmitting
+                  ? <CircularProgress size={22} color="inherit" />
+                  : 'Guardar'}
               </PermissionButton>
             </DialogActions>
           </Form>

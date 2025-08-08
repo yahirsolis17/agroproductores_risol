@@ -1,75 +1,115 @@
+// src/modules/gestion_huerta/services/ventaService.ts
+
 import apiClient from '../../../global/api/apiClient';
-import { Venta, VentaCreate, VentaUpdate } from '../types/ventaTypes';
+import {
+  VentaHuerta,
+  VentaHuertaCreateData,
+  VentaHuertaUpdateData,
+} from '../types/ventaTypes';
 
-export type Estado = 'activos' | 'archivados' | 'todos';
-
+/** Filtros posibles para ventas */
 export interface VentaFilters {
-  search?: string;
-  fecha_desde?: string;
-  fecha_hasta?: string;
-  tipo_mango?: string;
+  tipoMango?: string;
+  fechaDesde?: string;
+  fechaHasta?: string;
 }
 
-interface ListResp {
-  ventas: Venta[];
-  meta: { count: number; next: string | null; previous: string | null };
+interface ListEnvelope {
+  success: boolean;
+  message_key: string;
+  data: {
+    ventas: VentaHuerta[];
+    meta: { count: number; next: string | null; previous: string | null };
+  };
 }
-interface ItemWrapper { venta: Venta; }
+interface ItemEnvelope {
+  success: boolean;
+  message_key: string;
+  data: { venta: VentaHuerta };
+}
+interface InfoEnvelope {
+  success: boolean;
+  message_key: string;
+  data: { info: string };
+}
 
+/** CRUD + archive/restore para Ventas */
 export const ventaService = {
   async list(
-    page = 1,
-    estado: Estado = 'activos',
+    huertaId: number,
+    temporadaId: number,
     cosechaId: number,
-    filters: VentaFilters = {}
-  ): Promise<ListResp> {
-    const params: Record<string, any> = { page, estado, cosecha: cosechaId };
-    if (filters.search)       params.search       = filters.search;
-    if (filters.fecha_desde)  params.fecha_desde  = filters.fecha_desde;
-    if (filters.fecha_hasta)  params.fecha_hasta  = filters.fecha_hasta;
-    if (filters.tipo_mango)   params.tipo_mango   = filters.tipo_mango;
+    page = 1,
+    pageSize = 10,
+    filters: VentaFilters = {},
+    config: { signal?: AbortSignal } = {}
+  ): Promise<ListEnvelope['data']> {
+    const params: Record<string, any> = {
+      huerta: huertaId,
+      temporada: temporadaId,
+      cosecha: cosechaId,
+      page,
+      page_size: pageSize,
+    };
+    if (filters.tipoMango) params.tipo_mango = filters.tipoMango;
+    if (filters.fechaDesde) params.fecha_desde = filters.fechaDesde;
+    if (filters.fechaHasta) params.fecha_hasta = filters.fechaHasta;
 
-    const { data } = await apiClient.get<{ success: boolean; message_key: string; data: ListResp }>(
-      '/huerta/ventas/',
-      { params }
+    const { data } = await apiClient.get<ListEnvelope>(
+      '/gestion_huerta/ventas/',
+      { params, signal: config.signal }
     );
     return data.data;
   },
 
-  async create(payload: VentaCreate) {
-    const { data } = await apiClient.post<{ success: boolean; message_key: string; data: ItemWrapper }>(
+  async create(
+    huertaId: number,
+    temporadaId: number,
+    cosechaId: number,
+    payload: VentaHuertaCreateData
+  ): Promise<VentaHuerta> {
+    const body = {
+      ...payload,
+      huerta_id: huertaId,
+      temporada_id: temporadaId,
+      cosecha_id: cosechaId,
+    };
+    const { data } = await apiClient.post<ItemEnvelope>(
       '/huerta/ventas/',
-      payload
+      body
     );
-    return data;
+    return data.data.venta;
   },
 
-  async update(id: number, payload: VentaUpdate) {
-    const { data } = await apiClient.put<{ success: boolean; message_key: string; data: ItemWrapper }>(
+  async update(
+    id: number,
+    payload: VentaHuertaUpdateData
+  ): Promise<VentaHuerta> {
+    const { data } = await apiClient.patch<ItemEnvelope>(
       `/huerta/ventas/${id}/`,
       payload
     );
-    return data;
+    return data.data.venta;
   },
 
-  async delete(id: number) {
-    const { data } = await apiClient.delete<{ success: boolean; message_key: string; data: { info: string } }>(
-      `/huerta/ventas/${id}/`
-    );
-    return data;
-  },
-
-  async archivar(id: number) {
-    const { data } = await apiClient.post<{ success: boolean; message_key: string; data: { venta_id: number } }>(
+  async archive(id: number): Promise<VentaHuerta> {
+    const { data } = await apiClient.patch<ItemEnvelope>(
       `/huerta/ventas/${id}/archivar/`
     );
-    return data;
+    return data.data.venta;
   },
 
-  async restaurar(id: number) {
-    const { data } = await apiClient.post<{ success: boolean; message_key: string; data: { venta_id: number } }>(
+  async restore(id: number): Promise<VentaHuerta> {
+    const { data } = await apiClient.patch<ItemEnvelope>(
       `/huerta/ventas/${id}/restaurar/`
     );
-    return data;
+    return data.data.venta;
+  },
+
+  async remove(id: number): Promise<string> {
+    const { data } = await apiClient.delete<InfoEnvelope>(
+      `/huerta/ventas/${id}/`
+    );
+    return data.data.info;
   },
 };

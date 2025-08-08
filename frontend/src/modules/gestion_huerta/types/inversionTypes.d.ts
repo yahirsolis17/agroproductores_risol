@@ -1,39 +1,39 @@
-export interface Inversion {
-  id: number;
-  nombre: string;
-  fecha: string; // ISO (YYYY-MM-DD)
-  descripcion?: string | null;
-  gastos_insumos: number;
+/* ══════════════════════════════════════════════════════════════
+   TYPES · Inversiones
+   ══════════════════════════════════════════════════════════════ */
+
+/** Registro que devuelve el backend */
+export interface InversionHuerta {
+  id:               number;
+  fecha:            string;        // YYYY-MM-DD
+  descripcion?:     string | null;
+  gastos_insumos:   number;
   gastos_mano_obra: number;
+  gastos_totales:   number;        // ← calculado
 
-  // Relación y derivados
-  categoria?: { id: number; nombre: string } | null;
-  categoria_id?: number;
-  gastos_totales?: number;
-  cosecha: number; // id
-  huerta: number;  // id
+  categoria: number;               // FK
+  cosecha:   number;               // FK (para URL)
+  temporada: number;
+  huerta:    number;
 
-  // Estado
-  is_active: boolean;
+  is_active:   boolean;
   archivado_en?: string | null;
 }
 
-export interface InversionCreate {
-  nombre: string;
-  fecha: string; // ISO
-  descripcion?: string | null;
-  gastos_insumos: number;
+/** Payload para crear (POST) */
+export interface InversionHuertaCreateData {
+  fecha:            string;        // YYYY-MM-DD
+  descripcion?:     string;
+  gastos_insumos:   number;
   gastos_mano_obra: number;
-  categoria_id: number;
-  cosecha_id: number; // requerido por BE
-  huerta_id: number;  // requerido por BE
+  categoria:        number;        // FK
+  cosecha:          number;        // FK
 }
 
-export interface InversionUpdate {
-  nombre?: string;
-  fecha?: string;
-  descripcion?: string | null;
-  gastos_insumos?: number;
-  gastos_mano_obra?: number;
-  categoria_id?: number;
-}
+/** Payload para actualizar (PATCH) */
+export interface InversionHuertaUpdateData
+  extends Partial<InversionHuertaCreateData> {}
+
+/* Aliases para no romper imports de los formularios */
+export type InversionCreateData = InversionHuertaCreateData;
+export type InversionUpdateData = InversionHuertaUpdateData;

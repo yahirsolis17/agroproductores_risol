@@ -1,74 +1,86 @@
 import apiClient from '../../../global/api/apiClient';
-import type {
+import {
   CategoriaInversion,
-  CategoriaInversionCreate,
-  CategoriaInversionUpdate,
+  CategoriaInversionCreateData,
+  CategoriaInversionUpdateData,
 } from '../types/categoriaInversionTypes';
 
-type ApiEnvelope<T> = { success: boolean; message_key: string; data: T };
-type PaginationMeta  = { count: number; next: string | null; previous: string | null };
-type ListResp        = { categorias: CategoriaInversion[]; meta: PaginationMeta };
-type ItemWrapper     = { categoria: CategoriaInversion };
+interface ListEnv {
+  success: boolean;
+  data: { categorias: CategoriaInversion[]; meta: any };
+}
+interface ItemEnv {
+  success: boolean;
+  data: { categoria_inversion: CategoriaInversion };
+}
+interface InfoEnv {
+  success: boolean;
+  data: { info: string };
+}
 
 export const categoriaInversionService = {
-  /** Solo categorías activas (por defecto en backend) */
-  async list(page = 1, search?: string): Promise<ListResp> {
-    const params: Record<string, any> = { page };
-    if (search) params.search = search;
-
-    const { data } = await apiClient.get<ApiEnvelope<ListResp>>(
+  /* ───── Listar solo activas ───── */
+  async listActive(
+    page = 1,
+    pageSize = 10,
+    config: { signal?: AbortSignal } = {}
+  ) {
+    const { data } = await apiClient.get<ListEnv>(
       '/huerta/categorias-inversion/',
-      { params },
+      { params: { page, page_size: pageSize, archivado: 'false' }, ...config }
     );
     return data.data;
   },
 
-  /** Activas + archivadas → para modo edición de inversión */
-  async listAll(page = 1, search?: string): Promise<ListResp> {
-    const params: Record<string, any> = { page };
-    if (search) params.search = search;
-
-    const { data } = await apiClient.get<ApiEnvelope<ListResp>>(
-      '/huerta/categorias-inversion/all/',
-      { params },
-    );
-    return data.data;
-  },
-
-  async create(payload: CategoriaInversionCreate) {
-    const { data } = await apiClient.post<ApiEnvelope<ItemWrapper>>(
+  /* ───── Buscar (autocomplete) ───── */
+  async search(
+    q: string,
+    config: { signal?: AbortSignal } = {}
+  ): Promise<CategoriaInversion[]> {
+    const { data } = await apiClient.get<ListEnv>(
       '/huerta/categorias-inversion/',
-      payload,
+      { params: { search: q, page_size: 30 }, ...config }
     );
-    return data;
+    return data.data.categorias;
   },
 
-  async update(id: number, payload: CategoriaInversionUpdate) {
-    const { data } = await apiClient.put<ApiEnvelope<ItemWrapper>>(
-      `/huerta/categorias-inversion/${id}/`,
-      payload,
-    );
-    return data;
-  },
+// 1. create
+async create(payload: CategoriaInversionCreateData): Promise<CategoriaInversion> {
+  const { data } = await apiClient.post<ItemEnv>(
+    '/huerta/categorias-inversion/',
+    payload
+  );
+  return data.data.categoria_inversion;
+},
 
-  async delete(id: number) {
-    const { data } = await apiClient.delete<ApiEnvelope<{ info: string }>>(
-      `/huerta/categorias-inversion/${id}/`,
-    );
-    return data;
-  },
+// 2. update
+async update(id: number, payload: CategoriaInversionUpdateData): Promise<CategoriaInversion> {
+  const { data } = await apiClient.patch<ItemEnv>(
+    `/huerta/categorias-inversion/${id}/`,
+    payload
+  );
+  return data.data.categoria_inversion;
+},
 
-  async archivar(id: number) {
-    const { data } = await apiClient.patch<ApiEnvelope<ItemWrapper>>(
-      `/huerta/categorias-inversion/${id}/archivar/`,
-    );
-    return data;
-  },
+// 3. archive
+async archive(id: number): Promise<CategoriaInversion> {
+  const { data } = await apiClient.patch<ItemEnv>(
+    `/huerta/categorias-inversion/${id}/archivar/`
+  );
+  return data.data.categoria_inversion;
+},
 
-  async restaurar(id: number) {
-    const { data } = await apiClient.patch<ApiEnvelope<ItemWrapper>>(
-      `/huerta/categorias-inversion/${id}/restaurar/`,
+// 4. restore
+async restore(id: number): Promise<CategoriaInversion> {
+  const { data } = await apiClient.patch<ItemEnv>(
+    `/huerta/categorias-inversion/${id}/restaurar/`
+  );
+  return data.data.categoria_inversion;
+},
+
+  async remove(id: number) {
+    return apiClient.delete<InfoEnv>(
+      `/huerta/categorias-inversion/${id}/`
     );
-    return data;
   },
 };

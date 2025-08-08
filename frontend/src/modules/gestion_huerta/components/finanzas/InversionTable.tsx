@@ -1,91 +1,93 @@
+// src/modules/gestion_huerta/components/finanzas/InversionTable.tsx
 import React from 'react';
-import { Chip, Button } from '@mui/material';
-import { TableLayout, Column, FilterConfig } from '../../../../components/common/TableLayout';
-import { Inversion } from '../../types/inversionTypes';
+import { Chip } from '@mui/material';
+import { TableLayout, Column } from '../../../../components/common/TableLayout';
 import ActionsMenu from '../common/ActionsMenu';
 
-const currency = (n: number) =>
-  `$ ${Number(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-const columns: Column<Inversion>[] = [
-  { label: 'Nombre', key: 'nombre' },
-  { label: 'Fecha', key: 'fecha', render: (r) => new Date(r.fecha).toLocaleDateString('es-MX') },
-  { label: 'Categoría', key: 'categoria_id', render: (r) => r.categoria?.nombre || '—' },
-  { label: 'Insumos', key: 'gastos_insumos', align: 'right', render: (r) => currency(r.gastos_insumos) },
-  { label: 'Mano de obra', key: 'gastos_mano_obra', align: 'right', render: (r) => currency(r.gastos_mano_obra) },
-  {
-    label: 'Total',
-    key: 'gastos_insumos',
-    align: 'right',
-    render: (r) => currency(r.gastos_totales ?? (r.gastos_insumos + r.gastos_mano_obra)),
-  },
-  {
-    label: 'Estado',
-    key: 'archivado_en',
-    align: 'center',
-    render: (r) => r.archivado_en
-      ? <Chip label="Archivada" size="small" color="warning" />
-      : <Chip label="Activa"    size="small" color="success" />,
-  },
-];
+import { InversionHuerta } from '../../types/inversionTypes';
 
 interface Props {
-  data: Inversion[];
+  data: InversionHuerta[];
   page: number;
   pageSize: number;
   count: number;
-  onPageChange: (n: number) => void;
-  onEdit: (row: Inversion) => void;
-  onArchive: (row: Inversion) => void;
-  onRestore: (row: Inversion) => void;
-  onDelete: (row: Inversion) => void;
+  onPageChange: (p: number) => void;
+
+  /* Acciones fila */
+  onEdit:    (inv: InversionHuerta) => void;
+  onArchive: (id: number) => void;
+  onRestore: (id: number) => void;
+  onDelete:  (id: number) => void;
+
   loading?: boolean;
-  emptyMessage: string;
-  filterConfig?: FilterConfig[];
-  filterValues?: Record<string, any>;
-  onFilterChange?: (f: Record<string, any>) => void;
-  limpiarFiltros?: () => void;
+  emptyMessage?: string;
+
+  /** Opcional: mapa id→nombre de categoría para mostrar texto */
+  categoriesMap?: Record<number, string>;
 }
+
+const dinero = (n: number) =>
+  `$ ${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+
+const columns: (categoriesMap?: Record<number, string>) => Column<InversionHuerta>[] = (map) => [
+  {
+    label: 'Fecha',
+    key: 'fecha',
+    render: i => new Date(i.fecha).toLocaleDateString('es-MX'),
+  },
+  { label: 'Descripción', key: 'descripcion', render: i => i.descripcion || '—' },
+  { label: 'Insumos',      key: 'gastos_insumos',   align: 'right',
+    render: i => dinero(i.gastos_insumos) },
+  { label: 'Mano de obra', key: 'gastos_mano_obra', align: 'right',
+    render: i => dinero(i.gastos_mano_obra) },
+  { label: 'Total',        key: 'gastos_totales',   align: 'right',
+    render: i => dinero(i.gastos_totales) },
+  { label: 'Categoría',    key: 'categoria',
+    render: i => map?.[i.categoria] ?? `#${i.categoria}` },
+  {
+    label: 'Estado', key: 'archivado_en', align: 'center',
+    render: i =>
+      i.archivado_en
+        ? <Chip label="Archivada" size="small" color="warning"/>
+        : <Chip label="Activa"    size="small" color="success"/>
+  },
+];
 
 const InversionTable: React.FC<Props> = ({
   data, page, pageSize, count, onPageChange,
   onEdit, onArchive, onRestore, onDelete,
-  loading = false, emptyMessage,
-  filterConfig = [], filterValues, onFilterChange, limpiarFiltros,
+  loading = false, emptyMessage = 'Sin inversiones registradas.',
+  categoriesMap,
 }) => (
-  <TableLayout<Inversion>
+  <TableLayout<InversionHuerta>
     data={data}
     page={page}
     pageSize={pageSize}
     count={count}
     onPageChange={onPageChange}
-    columns={columns}
     serverSidePagination
+    striped
+    dense
     loading={loading}
     emptyMessage={emptyMessage}
-    striped dense
-    filterConfig={filterConfig}
-    filterValues={filterValues}
-    onFilterChange={onFilterChange}
-    applyFiltersInternally={false}
-    extraFilterElement={
-      limpiarFiltros && (
-        <Button variant="contained" color="secondary" onClick={limpiarFiltros} sx={{ height: 40 }}>
-          Limpiar filtros
-        </Button>
-      )
-    }
-    renderActions={(row) => (
-      <ActionsMenu
-        isArchived={!!row.archivado_en || !row.is_active}
-        onEdit={!row.archivado_en && row.is_active ? () => onEdit(row) : undefined}
-        onArchiveOrRestore={() => (!row.archivado_en && row.is_active ? onArchive(row) : onRestore(row))}
-        onDelete={() => onDelete(row)}
-        permEdit="change_inversioneshuerta"
-        permArchiveOrRestore="archive_inversioneshuerta"
-        permDelete="delete_inversioneshuerta"
-      />
-    )}
+    columns={columns(categoriesMap)}
+    rowKey={i => i.id}
+    renderActions={inv => {
+      const isArchived = !inv.is_active;
+      return (
+        <ActionsMenu
+          isArchived={isArchived}
+          onEdit={!isArchived ? () => onEdit(inv) : undefined}
+          onArchiveOrRestore={() =>
+            isArchived ? onRestore(inv.id) : onArchive(inv.id)
+          }
+          onDelete={isArchived ? () => onDelete(inv.id) : undefined}
+          permEdit="change_inversion"
+          permArchiveOrRestore="archive_inversion"
+          permDelete="delete_inversion"
+        />
+      );
+    }}
   />
 );
 

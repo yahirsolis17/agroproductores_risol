@@ -1,74 +1,115 @@
+// src/modules/gestion_huerta/services/inversionService.ts
+
 import apiClient from '../../../global/api/apiClient';
-import { Inversion, InversionCreate, InversionUpdate } from '../types/inversionTypes';
+import {
+  InversionHuerta,
+  InversionHuertaCreateData,
+  InversionHuertaUpdateData,
+} from '../types/inversionTypes';
 
-export type Estado = 'activos' | 'archivados' | 'todos';
-
+/** Filtros posibles para inversiones */
 export interface InversionFilters {
-  search?: string;
-  categoria_id?: number;
-  fecha_desde?: string; // YYYY-MM-DD
-  fecha_hasta?: string; // YYYY-MM-DD
+  categoria?: number;
+  fechaDesde?: string;  // 'YYYY-MM-DD'
+  fechaHasta?: string;  // 'YYYY-MM-DD'
 }
 
-type PaginationMeta = { count: number; next: string | null; previous: string | null };
-interface ListResp  { inversiones: Inversion[]; meta: PaginationMeta }
-interface ItemWrap  { inversion: Inversion }
+interface ListEnvelope {
+  success: boolean;
+  message_key: string;
+  data: {
+    inversiones: InversionHuerta[];
+    meta: { count: number; next: string | null; previous: string | null };
+  };
+}
+interface ItemEnvelope {
+  success: boolean;
+  message_key: string;
+  data: { inversion: InversionHuerta };
+}
+interface InfoEnvelope {
+  success: boolean;
+  message_key: string;
+  data: { info: string };
+}
 
+/** CRUD + archive/restore para InversionesHuerta */
 export const inversionService = {
   async list(
-    page = 1,
-    estado: Estado = 'activos',
+    huertaId: number,
+    temporadaId: number,
     cosechaId: number,
+    page = 1,
+    pageSize = 10,
     filters: InversionFilters = {},
-  ): Promise<ListResp> {
-    const params: Record<string, any> = { page, estado, cosecha: cosechaId };
+    config: { signal?: AbortSignal } = {}
+  ): Promise<ListEnvelope['data']> {
+    const params: Record<string, any> = {
+      huerta: huertaId,
+      temporada: temporadaId,
+      cosecha: cosechaId,
+      page,
+      page_size: pageSize,
+    };
+    if (filters.categoria) params.categoria = filters.categoria;
+    if (filters.fechaDesde) params.fecha_desde = filters.fechaDesde;
+    if (filters.fechaHasta) params.fecha_hasta = filters.fechaHasta;
 
-    if (filters.search)        params.search       = filters.search;
-    if (filters.categoria_id)  params.categoria    = filters.categoria_id;  // 🔑 backend = categoria
-    if (filters.fecha_desde)   params.fecha_desde  = filters.fecha_desde;
-    if (filters.fecha_hasta)   params.fecha_hasta  = filters.fecha_hasta;
-
-    const { data } = await apiClient.get<{ success: boolean; message_key: string; data: ListResp }>(
+    const { data } = await apiClient.get<ListEnvelope>(
       '/huerta/inversiones/',
-      { params },
+      { params, signal: config.signal }
     );
     return data.data;
   },
 
-  async create(payload: InversionCreate) {
-    const { data } = await apiClient.post<{ success: boolean; message_key: string; data: ItemWrap }>(
+  async create(
+    huertaId: number,
+    temporadaId: number,
+    cosechaId: number,
+    payload: InversionHuertaCreateData
+  ): Promise<InversionHuerta> {
+    const body = {
+      ...payload,
+      huerta_id: huertaId,
+      temporada_id: temporadaId,
+      cosecha_id: cosechaId,
+    };
+    const { data } = await apiClient.post<ItemEnvelope>(
       '/huerta/inversiones/',
-      payload,
+      body
     );
-    return data;
+    return data.data.inversion;
   },
 
-  async update(id: number, payload: InversionUpdate) {
-    const { data } = await apiClient.put<{ success: boolean; message_key: string; data: ItemWrap }>(
+  async update(
+    id: number,
+    payload: InversionHuertaUpdateData
+  ): Promise<InversionHuerta> {
+    const { data } = await apiClient.patch<ItemEnvelope>(
       `/huerta/inversiones/${id}/`,
-      payload,
+      payload
     );
-    return data;
+    return data.data.inversion;
   },
 
-  async delete(id: number) {
-    const { data } = await apiClient.delete<{ success: boolean; message_key: string; data: { info: string } }>(
-      `/huerta/inversiones/${id}/`,
+  async archive(id: number): Promise<InversionHuerta> {
+    const { data } = await apiClient.patch<ItemEnvelope>(
+      `/huerta/inversiones/${id}/archivar/`
     );
-    return data;
+    return data.data.inversion;
   },
 
-  async archivar(id: number) {
-    const { data } = await apiClient.patch<{ success: boolean; message_key: string; data: ItemWrap }>(
-      `/huerta/inversiones/${id}/archivar/`,
+  async restore(id: number): Promise<InversionHuerta> {
+    const { data } = await apiClient.patch<ItemEnvelope>(
+      `/huerta/inversiones/${id}/restaurar/`
     );
-    return data;
+    return data.data.inversion;
   },
 
-  async restaurar(id: number) {
-    const { data } = await apiClient.patch<{ success: boolean; message_key: string; data: ItemWrap }>(
-      `/huerta/inversiones/${id}/restaurar/`,
+  async remove(id: number): Promise<string> {
+    const { data } = await apiClient.delete<InfoEnvelope>(
+      `/huerta/inversiones/${id}/`
     );
-    return data;
+    return data.data.info;
   },
 };

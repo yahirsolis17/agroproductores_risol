@@ -1,194 +1,210 @@
+// src/global/store/categoriaInversionSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { categoriaInversionService } from '../../modules/gestion_huerta/services/categoriaInversionService';
 import { handleBackendNotification } from '../utils/NotificationEngine';
 import {
   CategoriaInversion,
-  CategoriaInversionCreate,
-  CategoriaInversionUpdate,
+  CategoriaInversionCreateData,
+  CategoriaInversionUpdateData,
 } from '../../modules/gestion_huerta/types/categoriaInversionTypes';
 
-interface PaginationMeta { count: number; next: string | null; previous: string | null; }
+interface PaginationMeta {
+  count: number;
+  next: string | null;
+  previous: string | null;
+}
 
 interface CategoriaState {
-  list:   CategoriaInversion[];
+  list:    CategoriaInversion[];
   loading: boolean;
   loaded:  boolean;
   error:   string | null;
-  // UI state
   page:    number;
-  search?: string;
-  showAll: boolean; // ← activas vs activas+archivadas
   meta:    PaginationMeta;
 }
 
 const initialState: CategoriaState = {
-  list: [],
+  list:    [],
   loading: false,
-  loaded: false,
-  error: null,
-  page: 1,
-  search: '',
-  showAll: false,
-  meta: { count: 0, next: null, previous: null },
+  loaded:  false,
+  error:   null,
+  page:    1,
+  meta:    { count: 0, next: null, previous: null },
 };
 
-/* ───────────────────────────────────────────────
- * THUNKS
- * ─────────────────────────────────────────────── */
+// ─── THUNKS ─────────────────────────────────────────────────────────────
+
+/** Trae sólo las categorías activas paginadas */
 export const fetchCategorias = createAsyncThunk<
   { categorias: CategoriaInversion[]; meta: PaginationMeta; page: number },
-  { page: number; search?: string; showAll?: boolean },
+  number,
   { rejectValue: string }
 >(
-  'categorias/fetch',
-  async ({ page, search, showAll }, { rejectWithValue }) => {
+  'categoriasInversion/fetch',
+  async (page, { rejectWithValue }) => {
     try {
-      const svc = showAll ? categoriaInversionService.listAll : categoriaInversionService.list;
-      const { categorias, meta } = await svc(page, search);
-      return { categorias, meta, page };
+      const data = await categoriaInversionService.listActive(page);
+      return { categorias: data.categorias, meta: data.meta, page };
     } catch (err: any) {
       handleBackendNotification(err.response?.data);
       return rejectWithValue('Error al cargar categorías');
     }
-  },
+  }
 );
 
+/** Crea una categoría nueva */
 export const createCategoria = createAsyncThunk<
   CategoriaInversion,
-  CategoriaInversionCreate,
+  CategoriaInversionCreateData,
   { rejectValue: string }
 >(
-  'categorias/create',
+  'categoriasInversion/create',
   async (payload, { rejectWithValue }) => {
     try {
-      const res = await categoriaInversionService.create(payload);
-      handleBackendNotification(res);
-      return res.data.categoria;
+      const cat = await categoriaInversionService.create(payload);
+      handleBackendNotification({ success: true, message_key: 'categoria_create_success' });
+      return cat;
     } catch (err: any) {
       handleBackendNotification(err.response?.data);
       return rejectWithValue('Error al crear categoría');
     }
-  },
+  }
 );
 
+/** Actualiza una categoría existente */
 export const updateCategoria = createAsyncThunk<
   CategoriaInversion,
-  { id: number; payload: CategoriaInversionUpdate },
+  { id: number; payload: CategoriaInversionUpdateData },
   { rejectValue: string }
 >(
-  'categorias/update',
+  'categoriasInversion/update',
   async ({ id, payload }, { rejectWithValue }) => {
     try {
-      const res = await categoriaInversionService.update(id, payload);
-      handleBackendNotification(res);
-      return res.data.categoria;
+      const cat = await categoriaInversionService.update(id, payload);
+      handleBackendNotification({ success: true, message_key: 'categoria_update_success' });
+      return cat;
     } catch (err: any) {
       handleBackendNotification(err.response?.data);
       return rejectWithValue('Error al actualizar categoría');
     }
-  },
+  }
 );
 
-export const deleteCategoria = createAsyncThunk<number, number, { rejectValue: string }>(
-  'categorias/delete',
+/** Archiva (soft-delete) una categoría */
+export const archiveCategoria = createAsyncThunk<
+  CategoriaInversion,
+  number,
+  { rejectValue: string }
+>(
+  'categoriasInversion/archive',
   async (id, { rejectWithValue }) => {
     try {
-      const res = await categoriaInversionService.delete(id);
-      handleBackendNotification(res);
+      const cat = await categoriaInversionService.archive(id);
+      handleBackendNotification({ success: true, message_key: 'categoria_archivada' });
+      return cat;
+    } catch (err: any) {
+      handleBackendNotification(err.response?.data);
+      return rejectWithValue('Error al archivar categoría');
+    }
+  }
+);
+
+/** Restaura una categoría archivada */
+export const restoreCategoria = createAsyncThunk<
+  CategoriaInversion,
+  number,
+  { rejectValue: string }
+>(
+  'categoriasInversion/restore',
+  async (id, { rejectWithValue }) => {
+    try {
+      const cat = await categoriaInversionService.restore(id);
+      handleBackendNotification({ success: true, message_key: 'categoria_restaurada' });
+      return cat;
+    } catch (err: any) {
+      handleBackendNotification(err.response?.data);
+      return rejectWithValue('Error al restaurar categoría');
+    }
+  }
+);
+
+/** Elimina definitivamente una categoría */
+export const deleteCategoria = createAsyncThunk<
+  number,
+  number,
+  { rejectValue: string }
+>(
+  'categoriasInversion/delete',
+  async (id, { rejectWithValue }) => {
+    try {
+      await categoriaInversionService.remove(id);
+      handleBackendNotification({ success: true, message_key: 'categoria_delete_success' });
       return id;
     } catch (err: any) {
       handleBackendNotification(err.response?.data);
       return rejectWithValue('Error al eliminar categoría');
     }
-  },
+  }
 );
 
-export const archiveCategoria = createAsyncThunk<CategoriaInversion, number, { rejectValue: string }>(
-  'categorias/archive',
-  async (id, { rejectWithValue }) => {
-    try {
-      const res = await categoriaInversionService.archivar(id);
-      handleBackendNotification(res);
-      return res.data.categoria;
-    } catch (err: any) {
-      handleBackendNotification(err.response?.data);
-      return rejectWithValue('Error al archivar categoría');
-    }
-  },
-);
-
-export const restoreCategoria = createAsyncThunk<CategoriaInversion, number, { rejectValue: string }>(
-  'categorias/restore',
-  async (id, { rejectWithValue }) => {
-    try {
-      const res = await categoriaInversionService.restaurar(id);
-      handleBackendNotification(res);
-      return res.data.categoria;
-    } catch (err: any) {
-      handleBackendNotification(err.response?.data);
-      return rejectWithValue('Error al restaurar categoría');
-    }
-  },
-);
-
-/* ───────────────────────────────────────────────
- * SLICE
- * ─────────────────────────────────────────────── */
-const categoriasSlice = createSlice({
-  name: 'categorias',
+// ─── SLICE ────────────────────────────────────────────────────────────────
+const categoriaSlice = createSlice({
+  name: 'categoriasInversion',
   initialState,
   reducers: {
-    setCPage:     (s, a: PayloadAction<number>)  => { s.page = a.payload; },
-    setCSearch:   (s, a: PayloadAction<string | undefined>) => { s.search = a.payload; s.page = 1; },
-    toggleShowAll:(s) => { s.showAll = !s.showAll; s.page = 1; },
+    setPage: (state, action: PayloadAction<number>) => {
+      state.page = action.payload;
+    },
   },
-  extraReducers: (b) => {
-    /* fetch */
-    b.addCase(fetchCategorias.pending,  (s) => { s.loading = true; s.error = null; });
-    b.addCase(fetchCategorias.fulfilled,(s, a) => {
-      s.list = a.payload.categorias;
-      s.meta = a.payload.meta;
-      s.page = a.payload.page;
-      s.loading = false;
-      s.loaded  = true;
-    });
-    b.addCase(fetchCategorias.rejected, (s, a) => {
-      s.loading = false; s.loaded = true; s.error = a.payload ?? a.error.message ?? 'Error';
-    });
+  extraReducers: builder => {
+    builder
+      // FETCH
+      .addCase(fetchCategorias.pending, state => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchCategorias.fulfilled, (state, { payload }) => {
+        state.list    = payload.categorias;
+        state.meta    = payload.meta;
+        state.page    = payload.page;
+        state.loading = false;
+        state.loaded  = true;
+      })
+      .addCase(fetchCategorias.rejected, (state, { payload, error }) => {
+        state.loading = false;
+        state.error   = payload ?? error.message ?? 'Error al cargar categorías';
+        state.loaded  = true;
+      })
 
-    /* create */
-    b.addCase(createCategoria.fulfilled, (s, { payload }) => {
-      s.list.unshift(payload);
-      s.meta.count += 1;
-    });
+      // CREATE
+      .addCase(createCategoria.fulfilled, (state, { payload }) => {
+        state.list.unshift(payload);
+        state.meta.count += 1;
+      })
 
-    /* update */
-    b.addCase(updateCategoria.fulfilled, (s, { payload }) => {
-      const i = s.list.findIndex(c => c.id === payload.id);
-      if (i !== -1) s.list[i] = payload;
-    });
+      // UPDATE
+      .addCase(updateCategoria.fulfilled, (state, { payload }) => {
+        const idx = state.list.findIndex(c => c.id === payload.id);
+        if (idx !== -1) state.list[idx] = payload;
+      })
 
-    /* delete */
-    b.addCase(deleteCategoria.fulfilled, (s, { payload: id }) => {
-      s.list = s.list.filter(c => c.id !== id);
-      if (s.meta.count > 0) s.meta.count -= 1;
-    });
+      // ARCHIVE
+      .addCase(archiveCategoria.fulfilled, (state, { payload }) => {
+        state.list = state.list.filter(c => c.id !== payload.id);
+      })
 
-    /* archive / restore */
-    const upsert = (s: CategoriaState, cat: CategoriaInversion) => {
-      const i = s.list.findIndex(c => c.id === cat.id);
-      if (i !== -1) s.list[i] = cat;
-    };
-    b.addCase(archiveCategoria.fulfilled, (s, { payload }) => {
-      if (!s.showAll) s.list = s.list.filter(c => c.id !== payload.id);
-      else upsert(s, payload);
-    });
-    b.addCase(restoreCategoria.fulfilled, (s, { payload }) => {
-      if (!s.showAll) s.list.unshift(payload);
-      else upsert(s, payload);
-    });
+      // RESTORE
+      .addCase(restoreCategoria.fulfilled, (state, { payload }) => {
+        state.list.unshift(payload);
+      })
+
+      // DELETE
+      .addCase(deleteCategoria.fulfilled, (state, { payload: id }) => {
+        state.list = state.list.filter(c => c.id !== id);
+        if (state.meta.count > 0) state.meta.count -= 1;
+      });
   },
 });
 
-export const { setCPage, setCSearch, toggleShowAll } = categoriasSlice.actions;
-export default categoriasSlice.reducer;
+export const { setPage } = categoriaSlice.actions;
+export default categoriaSlice.reducer;

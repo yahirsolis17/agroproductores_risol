@@ -316,43 +316,45 @@ class Cosecha(models.Model):
         return f"{self.nombre} – {origen} – Temp {self.temporada.año}"
 # ────────────── INVERSIONES ───────────────────────────────────────────────
 class InversionesHuerta(models.Model):
-    nombre           = models.CharField(max_length=100)
-    fecha            = models.DateField()
-    descripcion      = models.TextField(blank=True, null=True)
-    gastos_insumos   = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
-    gastos_mano_obra = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
-
-    # 🔑  PROTECT evita eliminar categoría con inversiones ligadas
     categoria        = models.ForeignKey(
         CategoriaInversion,
         on_delete=models.PROTECT,
         related_name="inversiones"
     )
+    fecha            = models.DateField()
+    descripcion      = models.TextField(blank=True, null=True)
+    gastos_insumos   = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
+    gastos_mano_obra = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
 
     cosecha          = models.ForeignKey(Cosecha, on_delete=models.CASCADE, related_name="inversiones")
+    temporada        = models.ForeignKey(Temporada, on_delete=models.CASCADE, related_name="inversiones")
     huerta           = models.ForeignKey(Huerta, on_delete=models.CASCADE)
 
-    is_active    = models.BooleanField(default=True)
-    archivado_en = models.DateTimeField(null=True, blank=True)
+    is_active        = models.BooleanField(default=True)
+    archivado_en     = models.DateTimeField(null=True, blank=True)
 
-    # --- helpers ---
     @property
     def gastos_totales(self):
         return (self.gastos_insumos or 0) + (self.gastos_mano_obra or 0)
 
     def __str__(self):
-        return f"{self.nombre} ({self.categoria})"
+        return f"{self.categoria.nombre} – {self.fecha}"
+# ────────────── VENTAS ────────────────────────────────────────────────────
 # ────────────── VENTAS ────────────────────────────────────────────────────
 class Venta(models.Model):
-    cosecha        = models.ForeignKey(Cosecha, on_delete=models.CASCADE, related_name="ventas")
-    fecha_venta    = models.DateField()
-    num_cajas      = models.PositiveIntegerField(validators=[MinValueValidator(1)])
-    precio_por_caja= models.PositiveIntegerField(validators=[MinValueValidator(1)])
-    tipo_mango     = models.CharField(max_length=50)
-    descripcion    = models.TextField(blank=True, null=True)
-    gasto          = models.PositiveIntegerField(validators=[MinValueValidator(0)])
-    is_active      = models.BooleanField(default=True)
-    archivado_en   = models.DateTimeField(null=True, blank=True)
+    fecha_venta      = models.DateField()
+    num_cajas        = models.PositiveIntegerField(validators=[MinValueValidator(1)])
+    precio_por_caja  = models.PositiveIntegerField(validators=[MinValueValidator(1)])
+    tipo_mango       = models.CharField(max_length=50)
+    descripcion      = models.TextField(blank=True, null=True)
+    gasto            = models.PositiveIntegerField(validators=[MinValueValidator(0)])
+
+    cosecha          = models.ForeignKey(Cosecha, on_delete=models.CASCADE, related_name="ventas")
+    temporada        = models.ForeignKey(Temporada, on_delete=models.CASCADE, related_name="ventas")
+    huerta           = models.ForeignKey(Huerta, on_delete=models.CASCADE)
+
+    is_active        = models.BooleanField(default=True)
+    archivado_en     = models.DateTimeField(null=True, blank=True)
 
     @property
     def total_venta(self):
@@ -363,4 +365,4 @@ class Venta(models.Model):
         return self.total_venta - self.gasto
 
     def __str__(self):
-        return f"{self.num_cajas} cajas - {self.tipo_mango} - {self.cosecha}"
+        return f"{self.num_cajas} cajas - {self.tipo_mango} – {self.fecha_venta}"

@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/hooks/useCategoriasInversion.ts
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../../global/store/store';
@@ -5,81 +6,67 @@ import {
   fetchCategorias,
   createCategoria,
   updateCategoria,
-  deleteCategoria,
   archiveCategoria,
   restoreCategoria,
-  setCPage,
-  setCSearch,
-  toggleShowAll,
+  deleteCategoria,
+  setPage,
 } from '../../../global/store/categoriaInversionSlice';
-import type {
-  CategoriaInversionCreate,
-  CategoriaInversionUpdate,
+import {
+  CategoriaInversionCreateData,
+  CategoriaInversionUpdateData,
 } from '../types/categoriaInversionTypes';
 
-export function useCategoriasInversion(showAll = false) {
+export function useCategoriasInversion() {
   const dispatch = useAppDispatch();
-
-  /* 🔑  nota: root reducer la registra como `categoriasInversion` */
   const {
-    list,
+    list: categorias,
     loading,
     error,
-    meta,
     page,
-    search,
-    showAll: sliceShowAll,
+    meta,
   } = useAppSelector((s) => s.categoriasInversion);
 
-  /* Sincronizar prop → slice */
+  // Fetch on mount + when page changes
   useEffect(() => {
-    if (showAll !== sliceShowAll) dispatch(toggleShowAll());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showAll]);
+    dispatch(fetchCategorias(page));
+  }, [dispatch, page]);
 
-  /* Fetch */
-  useEffect(() => {
-    dispatch(fetchCategorias({ page, search, showAll }));
-  }, [dispatch, page, search, showAll]);
+  const refetch = () => dispatch(fetchCategorias(page));
 
-  // CRUD
-  const addCategoria    = (p: CategoriaInversionCreate) =>
-    dispatch(createCategoria(p)).unwrap();
+  // Pagination
+  const changePage = (p: number) => dispatch(setPage(p));
 
-  const editCategoria   = (id: number, p: CategoriaInversionUpdate) =>
-    dispatch(updateCategoria({ id, payload: p })).unwrap();
+  // CRUD actions
+  const addCategoria = (data: CategoriaInversionCreateData) =>
+    dispatch(createCategoria(data)).unwrap();
+
+  const editCategoria = (id: number, data: CategoriaInversionUpdateData) =>
+    dispatch(updateCategoria({ id, payload: data })).unwrap();
 
   const removeCategoria = (id: number) =>
     dispatch(deleteCategoria(id)).unwrap();
 
-  // Archive / Restore
-  const archive = (id: number) => dispatch(archiveCategoria(id)).unwrap();
-  const restore = (id: number) => dispatch(restoreCategoria(id)).unwrap();
+  const archive = (id: number) =>
+    dispatch(archiveCategoria(id)).unwrap();
 
-  // Helpers
-  const setPage   = (n: number)  => dispatch(setCPage(n));
-  const setSearch = (q?: string) => dispatch(setCSearch(q));
-  const refetch   = ()            => dispatch(fetchCategorias({ page, search, showAll }));
+  const restore = (id: number) =>
+    dispatch(restoreCategoria(id)).unwrap();
 
   return {
-    categorias: list,
+    categorias,
     loading,
     error,
-    meta,
     page,
-    search,
-    showAll,
-
-    setPage,
-    setSearch,
-    toggleShowAll: () => dispatch(toggleShowAll()),
-
+    meta,
+    // navigation
+    changePage,
+    refetch,
+    // CRUD
     addCategoria,
     editCategoria,
     removeCategoria,
     archive,
     restore,
-    refetch,
   };
 }
 
