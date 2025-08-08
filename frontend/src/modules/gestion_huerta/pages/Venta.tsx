@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Box,
   CircularProgress,
@@ -11,6 +11,10 @@ import {
 } from '@mui/material';
 
 import { useVentas } from '../hooks/useVentas';
+import { useDispatch } from 'react-redux';
+import { useAppSelector } from '../../../global/store/store';
+import { setBreadcrumbs } from '../../../global/store/breadcrumbsSlice';
+import { breadcrumbRoutes } from '../../../global/constants/breadcrumbRoutes';
 import {
   VentaHuerta,
   VentaCreateData,
@@ -24,12 +28,15 @@ import VentaFormModal from '../components/finanzas/VentaFormModal';
 const PAGE_SIZE = 10;
 
 const Venta: React.FC = () => {
+  const dispatch = useDispatch();
   const {
     ventas,
     loading,
     page,
     meta,
     filters,
+    huertaId,
+    temporadaId,
     changePage,
     changeFilters,
     addVenta,
@@ -38,6 +45,25 @@ const Venta: React.FC = () => {
     restore,
     removeVenta,
   } = useVentas();
+
+  const temporada = useAppSelector((s) =>
+    s.temporada.list.find((t) => t.id === temporadaId)
+  );
+  const huertaNombre = temporada?.huerta_nombre;
+  const año = temporada?.año;
+
+  useEffect(() => {
+    if (huertaId && huertaNombre && año) {
+      dispatch(
+        setBreadcrumbs(
+          breadcrumbRoutes.ventasInversiones(huertaId, huertaNombre, año)
+        )
+      );
+    }
+    return () => {
+      // No limpiamos las migas para que persistan al cambiar de pestaña
+    };
+  }, [dispatch, huertaId, huertaNombre, año]);
 
   // Conteo de filtros activos
   const activeFiltersCount = useMemo(() => {
