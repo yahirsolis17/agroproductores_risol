@@ -1,22 +1,15 @@
+// ============================================================================
+// src/modules/gestion_huerta/components/finanzas/Inversion.tsx
+// ============================================================================
 /* eslint-disable react-hooks/exhaustive-deps */
-import React, { useMemo, useState } from 'react';
-import {
-  Box,
-  CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-} from '@mui/material';
+import React, { useMemo, useState, useEffect } from 'react';
+import { Box, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
+import { useParams } from 'react-router-dom';
 
 import { useInversiones } from '../hooks/useInversiones';
-import {
-  InversionHuerta,
-  InversionCreateData,
-  InversionUpdateData,
-} from '../types/inversionTypes';
+import { InversionHuerta, InversionCreateData, InversionUpdateData } from '../types/inversionTypes';
 
+import { temporadaService } from '../services/temporadaService';
 import InversionToolbar from '../components/finanzas/InversionToolbar';
 import InversionTable   from '../components/finanzas/InversionTable';
 import InversionFormModal from '../components/finanzas/InversionFormModal';
@@ -37,7 +30,33 @@ const Inversion: React.FC = () => {
     archive,
     restore,
     removeInversion,
+    setContext,
+    temporadaId,
+    cosechaId,
+    huertaId,
+    huertaRentadaId,
   } = useInversiones();
+
+  const { temporadaId: tStr, cosechaId: cStr } = useParams<{ temporadaId: string; cosechaId: string }>();
+  const tId = Number(tStr) || null;
+  const cId = Number(cStr) || null;
+
+  // Inicializar contexto desde la URL (y levantar huerta u huerta_rentada desde la temporada)
+  const [booting, setBooting] = useState(true);
+  useEffect(() => {
+    (async () => {
+      if (!tId || !cId) { setBooting(false); return; }
+      try {
+        const res = await temporadaService.getById(tId);
+        const t = res.data.temporada;
+        const origenHuertaId = t.huerta ?? null;
+        const origenRentadaId = t.huerta_rentada ?? null;
+        setContext({ temporadaId: tId, cosechaId: cId, huertaId: origenHuertaId, huertaRentadaId: origenRentadaId });
+      } finally {
+        setBooting(false);
+      }
+    })();
+  }, [tId, cId]);
 
   // Conteo de filtros activos
   const activeFiltersCount = useMemo(() => {
@@ -48,25 +67,17 @@ const Inversion: React.FC = () => {
     return c;
   }, [filters]);
 
-  const handleClearFilters = () => changeFilters({});
+  const handleClearFilters = () => changeFilters({ estado: filters.estado });
 
   // Estado para modal de crear/editar
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<InversionHuerta | null>(null);
 
-  const openCreate = () => {
-    setEditTarget(null);
-    setModalOpen(true);
-  };
-  const openEdit = (inv: InversionHuerta) => {
-    setEditTarget(inv);
-    setModalOpen(true);
-  };
+  const openCreate = () => { setEditTarget(null); setModalOpen(true); };
+  const openEdit   = (inv: InversionHuerta) => { setEditTarget(inv); setModalOpen(true); };
 
   // onSubmit para el formulario
-  const handleSubmit = async (
-    vals: InversionCreateData | InversionUpdateData
-  ) => {
+  const handleSubmit = async (vals: InversionCreateData | InversionUpdateData) => {
     if (editTarget) {
       await editInversion(editTarget.id, vals as InversionUpdateData);
     } else {
@@ -76,11 +87,13 @@ const Inversion: React.FC = () => {
 
   // Confirmación de eliminación
   const [delId, setDelId] = useState<number | null>(null);
-  const confirmDelete = async () => {
-    if (delId == null) return;
-    await removeInversion(delId);
-    setDelId(null);
-  };
+  const confirmDelete = async () => { if (delId != null) { await removeInversion(delId); setDelId(null); } };
+
+  if (booting || !tId || !cId) {
+    return (
+      <Box display="flex" justifyContent="center" mt={4}><CircularProgress/></Box>
+    );
+  }
 
   return (
     <Box p={2}>
@@ -91,12 +104,11 @@ const Inversion: React.FC = () => {
         onClearFilters={handleClearFilters}
         onCreateClick={openCreate}
         totalCount={meta.count}
+        canCreate={Boolean(temporadaId && cosechaId && (huertaId || huertaRentadaId))}
       />
 
       {loading ? (
-        <Box display="flex" justifyContent="center" mt={4}>
-          <CircularProgress />
-        </Box>
+        <Box display="flex" justifyContent="center" mt={4}><CircularProgress /></Box>
       ) : (
         <InversionTable
           data={inversiones}
@@ -105,7 +117,6 @@ const Inversion: React.FC = () => {
           count={meta.count}
           onPageChange={changePage}
           onEdit={openEdit}
-          // Ahora cada callback recibe directamente el id
           onArchive={(id) => archive(id)}
           onRestore={(id) => restore(id)}
           onDelete={(id) => setDelId(id)}
@@ -121,14 +132,10 @@ const Inversion: React.FC = () => {
 
       <Dialog open={delId != null} onClose={() => setDelId(null)}>
         <DialogTitle>Confirmar eliminación</DialogTitle>
-        <DialogContent>
-          ¿Eliminar esta inversión permanentemente?
-        </DialogContent>
+        <DialogContent>¿Eliminar esta inversión permanentemente?</DialogContent>
         <DialogActions>
           <Button onClick={() => setDelId(null)}>Cancelar</Button>
-          <Button color="error" onClick={confirmDelete}>
-            Eliminar
-          </Button>
+          <Button color="error" onClick={confirmDelete}>Eliminar</Button>
         </DialogActions>
       </Dialog>
     </Box>

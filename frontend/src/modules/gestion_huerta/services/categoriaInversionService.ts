@@ -1,63 +1,53 @@
+// ============================================================================
+// src/modules/gestion_huerta/services/categoriaInversionService.ts
+// ============================================================================
 import apiClient from '../../../global/api/apiClient';
-import {
-  CategoriaInversion,
-  CategoriaInversionCreateData,
-  CategoriaInversionUpdateData,
-} from '../types/categoriaInversionTypes';
+import { CategoriaInversion, CategoriaInversionCreateData, CategoriaInversionUpdateData } from '../types/categoriaInversionTypes';
 
 interface ListResp {
   success: boolean;
-  data: {
-    categorias: CategoriaInversion[];
-    meta: { count: number; next: string | null; previous: string | null };
-  };
+  notification?: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
+  data: { categorias: CategoriaInversion[]; meta: { count: number; next: string | null; previous: string | null } };
 }
-
 interface ItemResp {
   success: boolean;
-  data: { categoria_inversion: CategoriaInversion };
+  notification?: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
+  data: { categoria: CategoriaInversion };
+}
+interface InfoResp {
+  success: boolean;
+  notification?: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
+  data: { info: string };
 }
 
-interface InfoResp { success: boolean; data: { info: string } }
-
 export const categoriaInversionService = {
-  /* ------------ LIST ACTIVE ------------ */
   async listActive(page = 1, pageSize = 100) {
-    const { data } = await apiClient.get<ListResp>('/huerta/categorias-inversion/', {
-      params: { page, page_size: pageSize },
-    });
-    return { categorias: data.data.categorias, meta: data.data.meta };
+    const { data } = await apiClient.get<ListResp>('/huerta/categorias-inversion/', { params: { page, page_size: pageSize } });
+    return data;
   },
-
-  /* ------------ SEARCH (autocomplete) ------------ */
   async search(query: string, cfg: { signal?: AbortSignal } = {}) {
-    if (!query.trim()) return [];
-    const { data } = await apiClient.get<ListResp>('/huerta/categorias-inversion/', {
-      params: { search: query, page_size: 30 },
-      signal: cfg.signal,
-    });
+    if (!query.trim()) return [] as CategoriaInversion[];
+    const { data } = await apiClient.get<ListResp>('/huerta/categorias-inversion/', { params: { search: query, page_size: 30 }, signal: cfg.signal });
     return data.data.categorias;
   },
-
-  /* ------------ CRUD ------------ */
-  create(payload: CategoriaInversionCreateData) {
-    return apiClient.post<ItemResp>('/huerta/categorias-inversion/', payload)
-                    .then(r => r.data.data.categoria_inversion);
+  async create(payload: CategoriaInversionCreateData) {
+    const { data } = await apiClient.post<ItemResp>('/huerta/categorias-inversion/', payload);
+    return data;
   },
-  update(id: number, payload: CategoriaInversionUpdateData) {
-    return apiClient.patch<ItemResp>(`/huerta/categorias-inversion/${id}/`, payload)
-                    .then(r => r.data.data.categoria_inversion);
+  async update(id: number, payload: CategoriaInversionUpdateData) {
+    const { data } = await apiClient.patch<ItemResp>(`/huerta/categorias-inversion/${id}/`, payload);
+    return data;
   },
-  archive(id: number) {
-    return apiClient.patch<ItemResp>(`/huerta/categorias-inversion/${id}/archivar/`)
-                    .then(r => r.data.data.categoria_inversion);
+  async archive(id: number) {
+    const { data } = await apiClient.post<ItemResp>(`/huerta/categorias-inversion/${id}/archivar/`);
+    return data;
   },
-  restore(id: number) {
-    return apiClient.patch<ItemResp>(`/huerta/categorias-inversion/${id}/restaurar/`)
-                    .then(r => r.data.data.categoria_inversion);
+  async restore(id: number) {
+    const { data } = await apiClient.post<ItemResp>(`/huerta/categorias-inversion/${id}/restaurar/`);
+    return data;
   },
-  remove(id: number) {
-    return apiClient.delete<InfoResp>(`/huerta/categorias-inversion/${id}/`)
-                    .then(r => r.data);
+  async remove(id: number) {
+    const { data } = await apiClient.delete<InfoResp>(`/huerta/categorias-inversion/${id}/`);
+    return data;
   },
 };

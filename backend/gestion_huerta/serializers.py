@@ -5,6 +5,7 @@ from django.utils import timezone
 from num2words import num2words   
 import re
 from datetime import date
+from decimal import Decimal
 
 from gestion_huerta.models import (
     Propietario, Huerta, HuertaRentada,
@@ -372,8 +373,8 @@ class CategoriaInversionSerializer(serializers.ModelSerializer):
         model  = CategoriaInversion
         fields = ['id', 'nombre', 'is_active', 'archivado_en']
 
-    def validate_nombre(self, value):
-        val = value.strip()
+    def validate_nombre(self, value: str) -> str:
+        val = (value or '').strip()
         if len(val) < 3:
             raise serializers.ValidationError("El nombre de la categoría debe tener al menos 3 caracteres.")
         qs = CategoriaInversion.objects.filter(nombre__iexact=val)
@@ -383,93 +384,86 @@ class CategoriaInversionSerializer(serializers.ModelSerializer):
 
 
 class InversionesHuertaSerializer(serializers.ModelSerializer):
-    # ──────── campos calculados (solo lectura) ────────
+    # Calculado
     gastos_totales = serializers.DecimalField(read_only=True, max_digits=14, decimal_places=2)
 
-    # ──────── aliases *_id que escribe el front ────────
-    categoria_id = serializers.PrimaryKeyRelatedField(
-        queryset=CategoriaInversion.objects.all(),
-        source='categoria',
-        write_only=True
-    )
-    cosecha_id = serializers.PrimaryKeyRelatedField(
-        queryset=Cosecha.objects.all(),
-        source='cosecha',
-        write_only=True
-    )
-    temporada_id = serializers.PrimaryKeyRelatedField(
-        queryset=Temporada.objects.all(),
-        source='temporada',
-        write_only=True
-    )
-    huerta_id = serializers.PrimaryKeyRelatedField(
-        queryset=Huerta.objects.all(),
-        source='huerta',
-        write_only=True
-    )
+    # Aliases *_id que escribe el front
+    categoria_id      = serializers.PrimaryKeyRelatedField(queryset=CategoriaInversion.objects.all(), source='categoria', write_only=True)
+    cosecha_id        = serializers.PrimaryKeyRelatedField(queryset=Cosecha.objects.all(),               source='cosecha',   write_only=True)
+    temporada_id      = serializers.PrimaryKeyRelatedField(queryset=Temporada.objects.all(),             source='temporada', write_only=True)
+    huerta_id         = serializers.PrimaryKeyRelatedField(queryset=Huerta.objects.all(),                source='huerta',         write_only=True, required=False, allow_null=True)
+    huerta_rentada_id = serializers.PrimaryKeyRelatedField(queryset=HuertaRentada.objects.all(),         source='huerta_rentada', write_only=True, required=False, allow_null=True)
 
     class Meta:
-        model = InversionesHuerta
+        model  = InversionesHuerta
         fields = [
             'id',
             'fecha', 'descripcion',
             'gastos_insumos', 'gastos_mano_obra', 'gastos_totales',
-            'categoria', 'cosecha', 'temporada', 'huerta',
-            'categoria_id', 'cosecha_id', 'temporada_id', 'huerta_id'
+            'categoria', 'cosecha', 'temporada', 'huerta', 'huerta_rentada',
+            'categoria_id', 'cosecha_id', 'temporada_id', 'huerta_id', 'huerta_rentada_id',
+            'is_active', 'archivado_en',
         ]
         read_only_fields = [
-            'gastos_totales', 'categoria', 'cosecha', 'temporada', 'huerta'
+            'gastos_totales', 'categoria', 'cosecha', 'temporada', 'huerta', 'huerta_rentada',
+            'is_active', 'archivado_en',
         ]
 
-    # ──────── validaciones de campos ────────
+    # ——— Validaciones de campo ———
     def validate_fecha(self, value):
         if value > date.today():
             raise serializers.ValidationError("La fecha no puede ser futura.")
+        # Validación contra inicio de cosecha usando initial_data (para alta)
         cosecha_id = self.initial_data.get('cosecha_id')
         if cosecha_id:
-            cosecha_obj = Cosecha.objects.filter(pk=cosecha_id).first()
-            if cosecha_obj and cosecha_obj.fecha_inicio and value < cosecha_obj.fecha_inicio.date():
+            c = Cosecha.objects.filter(pk=cosecha_id).only('fecha_inicio').first()
+            if c and c.fecha_inicio and value < c.fecha_inicio.date():
                 raise serializers.ValidationError(
-                    f"La fecha debe ser ≥ {cosecha_obj.fecha_inicio.date().isoformat()} (inicio de la cosecha)."
+                    f"La fecha debe ser ≥ {c.fecha_inicio.date().isoformat()} (inicio de la cosecha)."
                 )
         return value
 
-    # ──────── validación de consistencia ────────
+    # ——— Validación de objeto (todas las reglas en una sola) ———
     def validate(self, data):
-        total = (data.get("gastos_insumos") or 0) + (data.get("gastos_mano_obra") or 0)
-        if total <= 0:
+        categoria   = data.get('categoria')
+        cosecha     = data.get('cosecha')
+        temporada   = data.get('temporada')
+        huerta      = data.get('huerta')
+        huerta_rentada = data.get('huerta_rentada')
+        gi = data.get('gastos_insumos') or Decimal('0')
+        gm = data.get('gastos_mano_obra') or Decimal('0')
+
+        # total > 0
+        if (gi + gm) <= 0:
             raise serializers.ValidationError("Los gastos totales deben ser mayores a 0.")
 
-        cosecha = data["cosecha"]
-        temporada = data["temporada"]
-        huerta = data["huerta"]
+        if not all([categoria, cosecha, temporada]):
+            return data  # DRF ya marcará los faltantes; evitamos ruido
 
+        # temporada vs cosecha
         if temporada != cosecha.temporada:
             raise serializers.ValidationError("La temporada no coincide con la temporada de la cosecha.")
 
-        if huerta != cosecha.huerta:
-            raise serializers.ValidationError("La huerta no coincide con la huerta de la cosecha.")
-
-        if not temporada.is_active or temporada.finalizada:
+        # estado temporada
+        if temporada.finalizada or not temporada.is_active:
             raise serializers.ValidationError("No se pueden registrar inversiones en una temporada finalizada o archivada.")
 
-        return data
+        # coherencia con origen (mutuamente excluyente)
+        if cosecha.huerta_id:
+            # Debe venir huerta y coincidir; NO debe venir huerta_rentada
+            if not huerta or huerta.id != cosecha.huerta_id:
+                raise serializers.ValidationError("La huerta no coincide con la huerta de la cosecha.")
+            if huerta_rentada is not None:
+                raise serializers.ValidationError("No asignes huerta rentada en una cosecha de huerta propia.")
+        elif cosecha.huerta_rentada_id:
+            # Debe venir huerta_rentada y coincidir; NO debe venir huerta
+            if not huerta_rentada or huerta_rentada.id != cosecha.huerta_rentada_id:
+                raise serializers.ValidationError("La huerta rentada no coincide con la de la cosecha.")
+            if huerta is not None:
+                raise serializers.ValidationError("No asignes huerta propia en una cosecha de huerta rentada.")
+        else:
+            raise serializers.ValidationError("La cosecha no tiene origen (huerta/huerta_rentada) definido.")
 
-
-    # ─────────────────────────────
-    #  VALIDACIÓN DE OBJETO
-    # ─────────────────────────────
-    def validate(self, data):
-        total = (data.get("gastos_insumos") or 0) + (data.get("gastos_mano_obra") or 0)
-        if total <= 0:
-            raise serializers.ValidationError("Los gastos totales deben ser mayores a 0.")
-
-        cosecha = data["cosecha"]
-        temporada = cosecha.temporada
-        if temporada.finalizada or not temporada.is_active:
-            raise serializers.ValidationError(
-                "No se pueden registrar inversiones en una temporada finalizada o archivada."
-            )
         return data
 # -----------------------------
 # VENTA

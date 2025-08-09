@@ -1,22 +1,19 @@
+// ============================================================================
+// src/modules/gestion_huerta/components/finanzas/InversionFormModal.tsx
+// ============================================================================
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import {
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, Button, CircularProgress,
-} from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, CircularProgress } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
 import { Formik, Form, FormikProps } from 'formik';
 import * as Yup from 'yup';
-import {
-  InversionCreateData, InversionUpdateData, InversionHuerta,
-} from '../../types/inversionTypes';
+import { InversionCreateData, InversionUpdateData, InversionHuerta } from '../../types/inversionTypes';
 import { PermissionButton } from '../../../../components/common/PermissionButton';
 import { handleBackendNotification } from '../../../../global/utils/NotificationEngine';
 import CategoriaInversionFormModal from './CategoriaFormModal';
 import useCategoriasInversion from '../../hooks/useCategoriasInversion';
 import { CategoriaInversion } from '../../types/categoriaInversionTypes';
 
-/* ——— Prop types ——— */
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -24,14 +21,12 @@ interface Props {
   initialValues?: InversionHuerta;
 }
 
-/* ——— valores por defecto ——— */
 const defaults: InversionCreateData = {
   fecha: new Date().toISOString().slice(0, 10),
   categoria: 0, gastos_insumos: 0, gastos_mano_obra: 0,
   descripcion: '', cosecha: 0,
 };
 
-/* ——— validación Yup ——— */
 const schema = Yup.object({
   fecha: Yup.date().required('Requerido'),
   categoria: Yup.number().min(1,'Selecciona una categoría').required('Requerido'),
@@ -40,64 +35,50 @@ const schema = Yup.object({
   descripcion: Yup.string().max(250),
 });
 
-/* ─────────────────────────────────────────────────────────── */
 const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValues }) => {
   const formikRef = useRef<FormikProps<InversionCreateData | InversionUpdateData>>(null);
   const [openCatModal,setOpenCatModal] = useState(false);
 
-  /* --- categorías globales --- */
-  const {
-    categorias,
-    loading: loadingCats,
-    refetch,
-  } = useCategoriasInversion();
-
-  /* recarga al abrir */
+  const { categorias, loading: loadingCats, refetch } = useCategoriasInversion();
   useEffect(()=>{ if (open) refetch(); },[open]);
 
-  /* opciones Autocomplete */
   type CatOpt = { id:number; value:number; label:string };
   type NewOpt = { id:'new'; value:'new'; label:string };
   type Opt    = CatOpt | NewOpt;
 
   const newOpt:NewOpt = { id:'new', value:'new', label:'Registrar nueva categoría' };
-  const catOpts:CatOpt[] = useMemo(
-    ()=> (categorias ?? []).map(c=>({ id:c.id, value:c.id, label:c.nombre })),
-    [categorias]
-  );
+  const catOpts:CatOpt[] = useMemo(() => (categorias ?? []).map(c=>({ id:c.id, value:c.id, label:c.nombre })), [categorias]);
   const options:Opt[] = useMemo(()=>[newOpt, ...catOpts],[catOpts]);
 
-  /* cuando se crea una categoría desde el modal anidado */
   const handleNewCat = (c:CategoriaInversion) => {
     setOpenCatModal(false);
-    refetch();                                     // refetch lista
+    refetch();
     formikRef.current?.setFieldValue('categoria', c.id);
   };
 
-  /* submit inversión */
   const handleSubmit = async (vals:InversionCreateData|InversionUpdateData, helpers:any) => {
-    try { await onSubmit(vals); onClose(); }
-    catch(err:any){
+    try {
+      // normalizar numéricos
+      const payload = {
+        ...vals,
+        gastos_insumos: Number(vals.gastos_insumos),
+        gastos_mano_obra: Number(vals.gastos_mano_obra),
+      } as any;
+      await onSubmit(payload);
+      onClose();
+    } catch(err:any){
       const backend = err?.data || err?.response?.data || {};
       const beErrors= backend.errors || backend.data?.errors || {};
       const fErrors :Record<string,string> = {};
-      Object.entries(beErrors).forEach(([f,msg]:any)=>{
-        fErrors[f] = Array.isArray(msg)? msg[0] : String(msg);
-      });
+      Object.entries(beErrors).forEach(([f,msg]:any)=>{ fErrors[f] = Array.isArray(msg)? msg[0] : String(msg); });
       helpers.setErrors(fErrors);
       handleBackendNotification(backend);
     } finally { helpers.setSubmitting(false); }
   };
 
-  /* ——— Render ——— */
   return (
     <>
-      {/* modal anidado */}
-      <CategoriaInversionFormModal
-        open={openCatModal}
-        onClose={()=>setOpenCatModal(false)}
-        onSuccess={handleNewCat}
-      />
+      <CategoriaInversionFormModal open={openCatModal} onClose={()=>setOpenCatModal(false)} onSuccess={handleNewCat} />
 
       <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
         <DialogTitle>{initialValues ? 'Editar inversión':'Nueva inversión'}</DialogTitle>
@@ -118,16 +99,11 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
           validateOnBlur={false}
           onSubmit={handleSubmit}
         >
-          {({ values, errors, handleChange, setFieldValue, isSubmitting }) => (
+          {({ values, errors, handleChange, setFieldValue, isSubmitting, submitForm }) => (
             <Form>
               <DialogContent dividers className="space-y-4">
-
-                <TextField
-                  fullWidth type="date" name="fecha" label="Fecha"
-                  InputLabelProps={{ shrink:true }}
-                  value={values.fecha} onChange={handleChange}
-                  error={!!errors.fecha} helperText={errors.fecha}
-                />
+                <TextField fullWidth type="date" name="fecha" label="Fecha" InputLabelProps={{ shrink:true }}
+                  value={values.fecha} onChange={handleChange} error={!!errors.fecha} helperText={errors.fecha} />
 
                 <Autocomplete
                   options={options}
@@ -136,58 +112,33 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
                   getOptionLabel={o=>o.label}
                   value={options.find(o=>o.value===values.categoria) || null}
                   onChange={(_,sel)=>{
-                    if (sel?.value==='new'){
-                      setOpenCatModal(true);
-                      setFieldValue('categoria',0);
-                    } else if (sel && typeof sel.value==='number'){
-                      setFieldValue('categoria',sel.value);
-                    }
+                    if (sel?.value==='new'){ setOpenCatModal(true); setFieldValue('categoria',0); }
+                    else if (sel && typeof sel.value==='number'){ setFieldValue('categoria',sel.value); }
                   }}
-                  renderInput={params=>(
-                    <TextField
-                      {...params}
-                      label="Categoría"
-                      error={!!errors.categoria}
-                      helperText={errors.categoria}
-                      InputProps={{
-                        ...params.InputProps,
-                        endAdornment:(
-                          <>
-                            {loadingCats && <CircularProgress size={20}/>}
-                            {params.InputProps.endAdornment}
-                          </>
-                        ),
-                      }}
+                  renderInput={params => (
+                    <TextField {...params} label="Categoría" error={!!errors.categoria} helperText={errors.categoria}
+                      InputProps={{ ...params.InputProps, endAdornment:(<>
+                        {loadingCats && <CircularProgress size={20}/>} {params.InputProps.endAdornment}
+                      </>) }}
                     />
                   )}
                 />
 
-                <TextField
-                  fullWidth label="Gastos en insumos" name="gastos_insumos" type="number"
-                  value={values.gastos_insumos} onChange={handleChange}
-                  error={!!errors.gastos_insumos} helperText={errors.gastos_insumos}
-                />
+                <TextField fullWidth label="Gastos en insumos" name="gastos_insumos" type="number"
+                  value={values.gastos_insumos} onChange={handleChange} error={!!errors.gastos_insumos} helperText={errors.gastos_insumos} />
 
-                <TextField
-                  fullWidth label="Gastos mano de obra" name="gastos_mano_obra" type="number"
-                  value={values.gastos_mano_obra} onChange={handleChange}
-                  error={!!errors.gastos_mano_obra} helperText={errors.gastos_mano_obra}
-                />
+                <TextField fullWidth label="Gastos mano de obra" name="gastos_mano_obra" type="number"
+                  value={values.gastos_mano_obra} onChange={handleChange} error={!!errors.gastos_mano_obra} helperText={errors.gastos_mano_obra} />
 
-                <TextField
-                  fullWidth label="Descripción (opcional)" name="descripcion"
-                  multiline minRows={2}
-                  value={values.descripcion} onChange={handleChange}
-                  error={!!errors.descripcion} helperText={errors.descripcion}
-                />
+                <TextField fullWidth label="Descripción (opcional)" name="descripcion" multiline minRows={2}
+                  value={values.descripcion} onChange={handleChange} error={!!errors.descripcion} helperText={errors.descripcion} />
               </DialogContent>
 
               <DialogActions>
                 <Button variant="outlined" onClick={onClose}>Cancelar</Button>
-                <PermissionButton
-                  perm={initialValues ? 'change_inversion':'add_inversion'}
-                  type="submit" variant="contained" disabled={isSubmitting}
-                >
+                {/* Fallback: si PermissionButton no propaga type, también forzamos submit por onClick */}
+                <PermissionButton perm={initialValues ? 'change_inversion':'add_inversion'} type="submit" variant="contained"
+                  onClick={() => submitForm()} disabled={isSubmitting}>
                   {isSubmitting ? <CircularProgress size={22}/> : 'Guardar'}
                 </PermissionButton>
               </DialogActions>

@@ -1,4 +1,6 @@
+// ============================================================================
 // src/modules/gestion_huerta/hooks/useInversiones.ts
+// ============================================================================
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../../global/store/store';
@@ -10,82 +12,52 @@ import {
   restoreInversion,
   deleteInversion,
   setPage,
-  setContext,
-  setFilters,
-  InversionFilters,
+  setContext as setCtx,
+  setFilters as setFs,
 } from '../../../global/store/inversionesSlice';
-import {
-  InversionHuertaCreateData,
-  InversionHuertaUpdateData,
-} from '../types/inversionTypes';
+import { InversionHuertaCreateData, InversionHuertaUpdateData } from '../types/inversionTypes';
+import { InversionFilters } from '../services/inversionService';
 
 export function useInversiones() {
   const dispatch = useAppDispatch();
-  const {
-    list: inversiones,
-    loading,
-    error,
-    page,
-    meta,
-    huertaId,
-    temporadaId,
-    cosechaId,
-    filters,
-  } = useAppSelector((s) => s.inversiones);
+  const state = useAppSelector((s) => s.inversiones);
+  const { list, loading, loaded, error, page, meta, huertaId, huertaRentadaId, temporadaId, cosechaId, filters } = state;
 
-  // Fetch whenever context, page or filters change
   useEffect(() => {
-    dispatch(fetchInversiones());
-  }, [dispatch, huertaId, temporadaId, cosechaId, page, filters]);
-
-  const refetch = () => dispatch(fetchInversiones());
-
-  // Context setters
-  const setContextIds = (h: number, t: number, c: number) =>
-    dispatch(setContext({ huertaId: h, temporadaId: t, cosechaId: c }));
-
-  // Pagination & filters
-  const changePage    = (p: number)            => dispatch(setPage(p));
-  const changeFilters = (f: InversionFilters)  => dispatch(setFilters(f));
-
-  // CRUD actions
-  const addInversion = (data: InversionHuertaCreateData) =>
-    dispatch(createInversion(data)).unwrap();
-
-  const editInversion = (id: number, data: InversionHuertaUpdateData) =>
-    dispatch(updateInversion({ id, payload: data })).unwrap();
-
-  const removeInversion = (id: number) =>
-    dispatch(deleteInversion(id)).unwrap();
-
-  const archive = (id: number) =>
-    dispatch(archiveInversion(id)).unwrap();
-
-  const restore = (id: number) =>
-    dispatch(restoreInversion(id)).unwrap();
+    if (temporadaId && cosechaId && (huertaId || huertaRentadaId)) {
+      dispatch(fetchInversiones());
+    }
+  }, [dispatch, page, filters, huertaId, huertaRentadaId, temporadaId, cosechaId]);
 
   return {
-    inversiones,
+    // state
+    inversiones: list,
     loading,
+    loaded,
     error,
     page,
     meta,
     huertaId,
+    huertaRentadaId,
     temporadaId,
     cosechaId,
     filters,
+
     // context
-    setContext: setContextIds,
+    setContext: (args: { temporadaId: number; cosechaId: number; huertaId?: number | null; huertaRentadaId?: number | null }) =>
+      dispatch(setCtx(args)),
+
     // navigation
-    changePage,
-    changeFilters,
-    refetch,
+    changePage: (p: number) => dispatch(setPage(p)),
+    changeFilters: (f: InversionFilters) => dispatch(setFs(f)),
+    refetch: () => dispatch(fetchInversiones()),
+
     // CRUD
-    addInversion,
-    editInversion,
-    removeInversion,
-    archive,
-    restore,
+    addInversion:  (data: InversionHuertaCreateData)               => dispatch(createInversion(data)).unwrap(),
+    editInversion: (id: number, data: InversionHuertaUpdateData)   => dispatch(updateInversion({ id, payload: data })).unwrap(),
+    removeInversion: (id: number)                                   => dispatch(deleteInversion(id)).unwrap(),
+    archive: (id: number)                                           => dispatch(archiveInversion(id)).unwrap(),
+    restore: (id: number)                                           => dispatch(restoreInversion(id)).unwrap(),
   };
 }
 

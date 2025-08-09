@@ -1,6 +1,6 @@
-/* ══════════════════════════════════════════════════════════════
-   TYPES · Inversiones
-   ══════════════════════════════════════════════════════════════ */
+// ============================================================================
+// src/modules/gestion_huerta/types/inversionTypes.ts
+// ============================================================================
 
 /** Registro que devuelve el backend */
 export interface InversionHuerta {
@@ -11,10 +11,11 @@ export interface InversionHuerta {
   gastos_mano_obra: number;
   gastos_totales:   number;        // ← calculado
 
-  categoria: number;               // FK
-  cosecha:   number;               // FK (para URL)
-  temporada: number;
-  huerta:    number;
+  categoria: number;               // FK (read-only en API)
+  cosecha:   number;               // FK (read-only)
+  temporada: number;               // FK (read-only)
+  huerta?:          number | null; // FK (read-only; propia)
+  huerta_rentada?:  number | null; // FK (read-only; rentada)
 
   is_active:   boolean;
   archivado_en?: string | null;
@@ -26,14 +27,12 @@ export interface InversionHuertaCreateData {
   descripcion?:     string;
   gastos_insumos:   number;
   gastos_mano_obra: number;
-  categoria:        number;        // FK
-  cosecha:          number;        // FK
+  categoria:        number;        // ID de categoría
+  cosecha?:         number;        // opcional (el service usa el contexto)
 }
 
 /** Payload para actualizar (PATCH) */
-export interface InversionHuertaUpdateData
-  extends Partial<InversionHuertaCreateData> {}
+export interface InversionHuertaUpdateData extends Partial<InversionHuertaCreateData> {}
 
-/* Aliases para no romper imports de los formularios */
 export type InversionCreateData = InversionHuertaCreateData;
 export type InversionUpdateData = InversionHuertaUpdateData;

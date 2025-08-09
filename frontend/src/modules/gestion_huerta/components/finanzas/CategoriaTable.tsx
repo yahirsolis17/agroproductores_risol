@@ -1,4 +1,6 @@
+// ============================================================================
 // src/modules/gestion_huerta/components/finanzas/CategoriaTable.tsx
+// ============================================================================
 import React from 'react';
 import { Chip } from '@mui/material';
 import { TableLayout, Column } from '../../../../components/common/TableLayout';
@@ -11,37 +13,23 @@ interface Props {
   pageSize: number;
   count: number;
   onPageChange: (p: number) => void;
-
-  /* Acciones */
   onEdit:    (c: CategoriaInversion) => void;
   onArchive: (c: CategoriaInversion) => void;
   onRestore: (c: CategoriaInversion) => void;
   onDelete:  (c: CategoriaInversion) => void;
-
   loading?: boolean;
   emptyMessage?: string;
 }
 
-/* ——— Columnas ——— */
 const columns: Column<CategoriaInversion>[] = [
   { label: 'Nombre', key: 'nombre' },
   {
-    label: 'Estado',
-    key: 'archivado_en',
-    align: 'center',
-    render: c =>
-      c.archivado_en
-        ? <Chip label="Archivada" size="small" color="warning" />
-        : <Chip label="Activa"    size="small" color="success" />
+    label: 'Estado', key: 'archivado_en', align: 'center',
+    render: c => c.archivado_en ? <Chip label="Archivada" size="small" color="warning" /> : <Chip label="Activa" size="small" color="success" />
   },
 ];
 
-const CategoriaTable: React.FC<Props> = ({
-  data, page, pageSize, count, onPageChange,
-  onEdit, onArchive, onRestore, onDelete,
-  loading = false,
-  emptyMessage = 'No hay categorías registradas.',
-}) => (
+const CategoriaTable: React.FC<Props> = ({ data, page, pageSize, count, onPageChange, onEdit, onArchive, onRestore, onDelete, loading = false, emptyMessage = 'No hay categorías registradas.' }) => (
   <TableLayout<CategoriaInversion>
     data={data}
     columns={columns}
