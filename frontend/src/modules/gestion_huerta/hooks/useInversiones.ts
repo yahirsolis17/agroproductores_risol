@@ -1,6 +1,3 @@
-// ============================================================================
-// src/modules/gestion_huerta/hooks/useInversiones.ts
-// ============================================================================
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../../global/store/store';
@@ -12,28 +9,20 @@ import {
   restoreInversion,
   deleteInversion,
   setPage,
-  setContext as setCtx,
-  setFilters as setFs,
+  setContext,
+  setFilters,
+  InversionFilters,
 } from '../../../global/store/inversionesSlice';
-import { InversionHuertaCreateData, InversionHuertaUpdateData } from '../types/inversionTypes';
-import { InversionFilters } from '../services/inversionService';
+import {
+  InversionHuertaCreateData,
+  InversionHuertaUpdateData,
+} from '../types/inversionTypes';
 
 export function useInversiones() {
   const dispatch = useAppDispatch();
-  const state = useAppSelector((s) => s.inversiones);
-  const { list, loading, loaded, error, page, meta, huertaId, huertaRentadaId, temporadaId, cosechaId, filters } = state;
-
-  useEffect(() => {
-    if (temporadaId && cosechaId && (huertaId || huertaRentadaId)) {
-      dispatch(fetchInversiones());
-    }
-  }, [dispatch, page, filters, huertaId, huertaRentadaId, temporadaId, cosechaId]);
-
-  return {
-    // state
-    inversiones: list,
+  const {
+    list: inversiones,
     loading,
-    loaded,
     error,
     page,
     meta,
@@ -42,22 +31,60 @@ export function useInversiones() {
     temporadaId,
     cosechaId,
     filters,
+  } = useAppSelector((s) => s.inversiones);
 
+  // fetch en cambios de contexto/página/filtros
+  useEffect(() => {
+    if ((!huertaId && !huertaRentadaId) || !temporadaId || !cosechaId) return;
+    dispatch(fetchInversiones());
+  }, [dispatch, huertaId, huertaRentadaId, temporadaId, cosechaId, page, filters]);
+
+  const refetch = () => dispatch(fetchInversiones());
+
+  // Context setters
+  const setContextIds = (args: { huertaId?: number; huertaRentadaId?: number; temporadaId: number; cosechaId: number }) =>
+    dispatch(setContext(args));
+
+  // Pagination & filters
+  const changePage    = (p: number)           => dispatch(setPage(p));
+  const changeFilters = (f: InversionFilters)  => dispatch(setFilters(f));
+
+  // CRUD actions
+  const addInversion = (data: InversionHuertaCreateData) =>
+    dispatch(createInversion(data)).unwrap();
+
+  const editInversion = (id: number, data: InversionHuertaUpdateData) =>
+    dispatch(updateInversion({ id, payload: data })).unwrap();
+
+  const removeInversion = (id: number) =>
+    dispatch(deleteInversion(id)).unwrap();
+
+  const archive = (id: number) => dispatch(archiveInversion(id)).unwrap();
+  const restore = (id: number) => dispatch(restoreInversion(id)).unwrap();
+
+  return {
+    inversiones,
+    loading,
+    error,
+    page,
+    meta,
+    huertaId,
+    huertaRentadaId,
+    temporadaId,
+    cosechaId,
+    filters,
     // context
-    setContext: (args: { temporadaId: number; cosechaId: number; huertaId?: number | null; huertaRentadaId?: number | null }) =>
-      dispatch(setCtx(args)),
-
+    setContext: setContextIds,
     // navigation
-    changePage: (p: number) => dispatch(setPage(p)),
-    changeFilters: (f: InversionFilters) => dispatch(setFs(f)),
-    refetch: () => dispatch(fetchInversiones()),
-
+    changePage,
+    changeFilters,
+    refetch,
     // CRUD
-    addInversion:  (data: InversionHuertaCreateData)               => dispatch(createInversion(data)).unwrap(),
-    editInversion: (id: number, data: InversionHuertaUpdateData)   => dispatch(updateInversion({ id, payload: data })).unwrap(),
-    removeInversion: (id: number)                                   => dispatch(deleteInversion(id)).unwrap(),
-    archive: (id: number)                                           => dispatch(archiveInversion(id)).unwrap(),
-    restore: (id: number)                                           => dispatch(restoreInversion(id)).unwrap(),
+    addInversion,
+    editInversion,
+    removeInversion,
+    archive,
+    restore,
   };
 }
 

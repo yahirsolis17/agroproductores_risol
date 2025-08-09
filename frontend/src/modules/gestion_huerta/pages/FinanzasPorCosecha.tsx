@@ -1,5 +1,4 @@
 // src/modules/gestion_huerta/pages/FinanzasPorCosecha.tsx
-// (lo dejamos como indicas: converge inversiones/ventas; breadcrumbs OK)
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
@@ -11,6 +10,8 @@ import { motion } from 'framer-motion';
 import { temporadaService } from '../services/temporadaService';
 import { setBreadcrumbs, clearBreadcrumbs } from '../../../global/store/breadcrumbsSlice';
 import { breadcrumbRoutes } from '../../../global/constants/breadcrumbRoutes';
+
+import { setContext as setInvContext } from '../../../global/store/inversionesSlice'; // ⬅️ NUEVO
 
 import Inversion from './Inversion';
 import Venta     from './Venta';
@@ -28,13 +29,16 @@ const FinanzasPorCosecha: React.FC = () => {
 
   const [tempInfo, setTempInfo] = useState<{
     año: number;
-    huerta: number;
+    huertaId: number | null;           // ⬅️ guardamos ambos por separado
+    huertaRentadaId: number | null;    // ⬅️
     huerta_nombre: string;
     is_active: boolean;
     finalizada: boolean;
   } | null>(null);
+
   const [loadingTemp, setLoadingTemp] = useState(false);
 
+  // Carga de temporada + breadcrumbs
   useEffect(() => {
     if (!temporadaId) {
       dispatch(clearBreadcrumbs());
@@ -45,16 +49,22 @@ const FinanzasPorCosecha: React.FC = () => {
     temporadaService.getById(temporadaId)
       .then(res => {
         const t = res.data.temporada;
-        const huertaId = t.huerta ?? t.huerta_rentada!;
+        // t.huerta y t.huerta_rentada vienen del backend (uno u otro)
+        const huertaId        = t.huerta ?? null;
+        const huertaRentadaId = t.huerta_rentada ?? null;
+
         setTempInfo({
           año: t.año,
-          huerta: huertaId,
+          huertaId,
+          huertaRentadaId,
           huerta_nombre: t.huerta_nombre!,
           is_active: t.is_active,
           finalizada: t.finalizada,
         });
+
+        const origenId = huertaId ?? huertaRentadaId!;
         dispatch(setBreadcrumbs([
-          ...breadcrumbRoutes.cosechasList(huertaId, t.huerta_nombre!, t.año, temporadaId!),
+          ...breadcrumbRoutes.cosechasList(origenId, t.huerta_nombre!, t.año, temporadaId!),
           { label: 'Ventas & Inversiones', path: '' }
         ]));
       })
@@ -64,6 +74,17 @@ const FinanzasPorCosecha: React.FC = () => {
       })
       .finally(() => setLoadingTemp(false));
   }, [temporadaId, dispatch]);
+
+  // ⬅️ Inyectar contexto de inversiones (requisito para que el thunk create funcione)
+  useEffect(() => {
+    if (!temporadaId || !cosechaId || !tempInfo) return;
+
+    const payload: any = { temporadaId, cosechaId };
+    if (tempInfo.huertaId)        payload.huertaId = tempInfo.huertaId;
+    if (tempInfo.huertaRentadaId) payload.huertaRentadaId = tempInfo.huertaRentadaId;
+
+    dispatch(setInvContext(payload));
+  }, [temporadaId, cosechaId, tempInfo, dispatch]);
 
   if (!cosechaId) {
     return (
