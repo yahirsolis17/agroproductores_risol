@@ -293,6 +293,10 @@ NOTIFICATION_MESSAGES = {
         "message": "No se puede eliminar la cosecha: tiene inversiones o ventas registradas.",
         "type": "error"
     },
+    "cosecha_limite_temporada": {
+        "message": "Se ha alcanzado el límite de cosechas por temporada.",
+        "type": "error"
+    },
 
     # Finalización / Reactivación (toggle)
     "cosecha_finalizada": {

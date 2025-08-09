@@ -4,6 +4,12 @@ import { TableLayout, Column } from '../../../../components/common/TableLayout';
 import ActionsMenu from '../common/ActionsMenu';
 import { InversionHuerta } from '../../types/inversionTypes';
 
+const money = (n: number | string) => {
+  const num = typeof n === 'string' ? Number(n.replace(/,/g, '')) : n;
+  if (Number.isNaN(num)) return '—';
+  return num.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
 interface Props {
   data: InversionHuerta[];
   page: number;
@@ -23,7 +29,6 @@ interface Props {
   categoriesMap?: Record<number, string>;
 }
 
-const dinero = (n: number) => `$ ${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
 const fmtFechaLarga = (iso: string) => {
   const d = new Date(iso + 'T00:00:00'); // asegura no desfase
@@ -33,9 +38,9 @@ const fmtFechaLarga = (iso: string) => {
 const columns = (map?: Record<number,string>): Column<InversionHuerta>[] => [
   { label: 'Fecha', key: 'fecha', render: i => fmtFechaLarga(i.fecha) },
   { label: 'Descripción', key: 'descripcion', render: i => i.descripcion || '—' },
-  { label: 'Insumos', key: 'gastos_insumos', align: 'right', render: i => dinero(i.gastos_insumos) },
-  { label: 'Mano de obra', key: 'gastos_mano_obra', align: 'right', render: i => dinero(i.gastos_mano_obra) },
-  { label: 'Total', key: 'gastos_totales', align: 'right', render: i => dinero(i.gastos_totales) },
+  { label: 'Insumos',      key: 'gastos_insumos',   align: 'right', render: i => `$ ${money(i.gastos_insumos)}` },
+  { label: 'Mano de obra', key: 'gastos_mano_obra', align: 'right', render: i => `$ ${money(i.gastos_mano_obra)}` },
+  { label: 'Total',        key: 'gastos_totales',   align: 'right', render: i => `$ ${money(i.gastos_totales)}` },
   {
     label: 'Categoría',
     key: 'categoria',

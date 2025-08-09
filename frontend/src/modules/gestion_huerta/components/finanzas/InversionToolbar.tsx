@@ -2,7 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   Box, TextField, Button, InputAdornment,
-  Tooltip, Chip, CircularProgress
+  Tooltip, Chip, CircularProgress, Tabs, Tab, Paper
 } from '@mui/material';
 import { Add as AddIcon, Clear as ClearIcon } from '@mui/icons-material';
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
@@ -31,7 +31,6 @@ interface Props {
   activeFiltersCount: number;
   onClearFilters: () => void;
 
-  // lista completa de categorías ya cargada por el padre
   categoriesOptions: { id:number; nombre:string; is_active:boolean }[];
   categoriesLoading?: boolean;
   onCategoryCreated?: (cat: CategoriaInversion)=>void;
@@ -44,7 +43,6 @@ const GroupHeader = styled('div')(({ theme }) => ({
   padding: '4px 10px',
   color: theme.palette.primary.main,
   backgroundColor: lighten(theme.palette.primary.light, 0.85),
-  // opcional si tu theme no define applyStyles
   ...((theme as any).applyStyles?.('dark', {
     backgroundColor: darken(theme.palette.primary.main, 0.8),
   }) || {}),
@@ -57,7 +55,7 @@ type Opt = { id: number | 'new' | 'all'; label: string; firstLetter?: string };
 /* ---------- Filtro tipado correctamente a Opt ---------- */
 const filter = createFilterOptions<Opt>();
 
-/* ---------- Type guards para separar opciones ---------- */
+/* ---------- Type guards ---------- */
 const isCat = (o: Opt): o is Extract<Opt, { id: number }> => typeof o.id === 'number';
 const isFixedOpt = (o: Opt): o is Extract<Opt, { id: 'new' | 'all' }> => o.id === 'new' || o.id === 'all';
 
@@ -70,6 +68,13 @@ const InversionToolbar: React.FC<Props> = ({
 }) => {
   const [openCatModal, setOpenCatModal] = useState(false);
   const [catInput, setCatInput] = useState('');
+
+  // Tabs de estado (mismo diseño que el resto del sistema)
+  const estadoValue = filters.estado ?? 'activas';
+  const handleEstadoChange = (_: any, val: 'activas'|'archivadas'|'todas') => {
+    if (!val) return;
+    onFiltersChange({ ...filters, estado: val });
+  };
 
   /* --------- Opciones del Autocomplete (orden alfabético + grupos) --------- */
   const options: Opt[] = useMemo(() => {
@@ -100,11 +105,6 @@ const InversionToolbar: React.FC<Props> = ({
     onFiltersChange({ ...filters, [field]: value || undefined });
   };
 
-  /* ----------------------------- Estado (tabs) ------------------------------ */
-  const setEstado = (val: 'activas'|'archivadas'|'todas') => {
-    onFiltersChange({ ...filters, estado: val });
-  };
-
   /* --------------------- Valor seleccionado para categoría ------------------ */
   const selectedCat: Opt | null = useMemo(() => {
     if (filters.categoria == null) return options.find(o => o.id === 'all') || null;
@@ -112,32 +112,51 @@ const InversionToolbar: React.FC<Props> = ({
     return found || null;
   }, [filters.categoria, options]);
 
-  /* -------------------------------- Render --------------------------------- */
   return (
-    <Box mb={6}>
-      {/* Tabs de estado (backend-driven) */}
-      <Box display="flex" gap={1} mb={1} flexWrap="wrap">
-        <Button
-          size="small" variant={filters.estado === 'activas' || !filters.estado ? 'contained' : 'outlined'}
-          onClick={() => setEstado('activas')}
-        >Activas</Button>
-        <Button
-          size="small" variant={filters.estado === 'archivadas' ? 'contained' : 'outlined'}
-          onClick={() => setEstado('archivadas')}
-        >Archivadas</Button>
-        <Button
-          size="small" variant={filters.estado === 'todas' ? 'contained' : 'outlined'}
-          onClick={() => setEstado('todas')}
-        >Todas</Button>
-      </Box>
+    <Paper
+      elevation={0}
+      sx={{
+        mb: 3,
+        p: { xs: 1.5, sm: 2 },
+        borderRadius: 2,
+        border: theme => `1px solid ${theme.palette.divider}`,
+        // micro–suavizado de cambios (evita pantallazo visual)
+        transition: 'opacity .15s ease',
+      }}
+    >
+      {/* -------- Tabs de estado (consistentes con el resto) -------- */}
+      <Tabs
+        value={estadoValue}
+        onChange={handleEstadoChange}
+        textColor="primary"
+        indicatorColor="primary"
+        sx={{
+          mb: 1.5,
+          minHeight: 36,
+          '& .MuiTab-root': { textTransform: 'none', minHeight: 36, fontWeight: 600 },
+        }}
+      >
+        <Tab value="activas" label="Activas" />
+        <Tab value="archivadas" label="Archivadas" />
+        <Tab value="todas" label="Todas" />
+      </Tabs>
 
-      {/* Línea principal de filtros + botón crear */}
-      <Box display="flex" flexWrap="wrap" gap={2} mb={2} alignItems="center">
-
+      {/* -------- Bloque de filtros (más aireado y segmentado) -------- */}
+      <Box
+        display="grid"
+        gridTemplateColumns="repeat(auto-fit, minmax(220px, 1fr))"
+        columnGap={2.5}
+        rowGap={2}
+        alignItems="center"
+        sx={{ mt: 1 }}
+      >
         {/* Fecha Desde */}
         <TextField
-          size="small" label="Desde" type="date" sx={{ width: 150 }}
-          value={filters.fechaDesde ?? ''} onChange={e => handleDate('fechaDesde', e.target.value)}
+          size="small"
+          label="Desde"
+          type="date"
+          value={filters.fechaDesde ?? ''}
+          onChange={e => handleDate('fechaDesde', e.target.value)}
           InputLabelProps={{ shrink: true }}
           InputProps={{
             endAdornment: filters.fechaDesde && (
@@ -152,8 +171,11 @@ const InversionToolbar: React.FC<Props> = ({
 
         {/* Fecha Hasta */}
         <TextField
-          size="small" label="Hasta" type="date" sx={{ width: 150 }}
-          value={filters.fechaHasta ?? ''} onChange={e => handleDate('fechaHasta', e.target.value)}
+          size="small"
+          label="Hasta"
+          type="date"
+          value={filters.fechaHasta ?? ''}
+          onChange={e => handleDate('fechaHasta', e.target.value)}
           InputLabelProps={{ shrink: true }}
           InputProps={{
             endAdornment: filters.fechaHasta && (
@@ -166,10 +188,9 @@ const InversionToolbar: React.FC<Props> = ({
           }}
         />
 
-        {/* Categoría (orden alfabético con grupos + opción Registrar arriba) */}
+        {/* Categoría (orden alfabético, grouped, “Registrar…” arriba) */}
         <Autocomplete<Opt>
           size="small"
-          sx={{ width: 320 }}
           options={options}
           value={selectedCat}
           loading={categoriesLoading}
@@ -177,12 +198,9 @@ const InversionToolbar: React.FC<Props> = ({
           onInputChange={(_, v) => setCatInput(v)}
           groupBy={(opt) => (typeof opt.id === 'number' ? (opt.firstLetter || '') : '')}
           filterOptions={(opts: Opt[], params: FilterOptionsState<Opt>): Opt[] => {
-            // Usamos el filtro de MUI SOLO para las categorías (id numérico),
-            // y luego anteponemos las opciones fijas ('new' y 'all')
             const cats = opts.filter(isCat);
             const fixed = opts.filter(isFixedOpt);
-            const filteredCats = filter(cats, params)
-              .sort((a,b)=>a.label.localeCompare(b.label, 'es'));
+            const filteredCats = filter(cats, params).sort((a,b)=>a.label.localeCompare(b.label, 'es'));
             return [...fixed, ...filteredCats];
           }}
           getOptionLabel={(opt) => opt.label}
@@ -204,7 +222,8 @@ const InversionToolbar: React.FC<Props> = ({
           renderInput={(params) => (
             <TextField
               {...params}
-              label="Categoría (todas ordenadas)"
+              label="Categoría"
+              placeholder="Todas"
               InputProps={{
                 ...params.InputProps,
                 endAdornment: (
@@ -224,37 +243,54 @@ const InversionToolbar: React.FC<Props> = ({
           )}
         />
 
-        {/* Botón Nueva inversión */}
-        {onCreateClick && (
-          <Tooltip title={createTooltip || ''}>
-            <span>
-              <PermissionButton
-                perm="add_inversion"
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={onCreateClick}
-                disabled={!canCreate}
-              >
-                Nueva Inversión
-              </PermissionButton>
-            </span>
-          </Tooltip>
-        )}
+        {/* Acciones de filtros (alineadas con los filtros) */}
+        <Box
+          display="flex"
+          alignItems="center"
+          gap={1}
+          sx={{ justifySelf: { xs: 'start', sm: 'end' } }}
+        >
+          <Button
+            size="small"
+            onClick={onClearFilters}
+            startIcon={<ClearIcon />}
+            sx={{ textTransform: 'none' }}
+          >
+            Limpiar filtros
+          </Button>
+          {onCreateClick && (
+            <Tooltip title={createTooltip || ''}>
+              <span>
+                <PermissionButton
+                  perm="add_inversion"
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={onCreateClick}
+                  disabled={!canCreate}
+                >
+                  Nueva Inversión
+                </PermissionButton>
+              </span>
+            </Tooltip>
+          )}
+        </Box>
       </Box>
 
-      {/* Línea info & filtros activos */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
+      {/* Pie: info y contador de filtros activos */}
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        flexWrap="wrap"
+        gap={1}
+        sx={{ mt: 2 }}
+      >
         <span className="text-sm text-gray-600">{totalLabel}</span>
         {activeFiltersCount > 0 && (
-          <Box display="flex" alignItems="center" gap={1}>
-            <Chip
-              label={`${activeFiltersCount} filtro${activeFiltersCount !== 1 ? 's' : ''} activo${activeFiltersCount !== 1 ? 's' : ''}`}
-              size="small" color="primary" variant="outlined"
-            />
-            <Button size="small" onClick={onClearFilters} startIcon={<ClearIcon />} sx={{ textTransform: 'none' }}>
-              Limpiar filtros
-            </Button>
-          </Box>
+          <Chip
+            label={`${activeFiltersCount} filtro${activeFiltersCount !== 1 ? 's' : ''} activo${activeFiltersCount !== 1 ? 's' : ''}`}
+            size="small" color="primary" variant="outlined"
+          />
         )}
       </Box>
 
@@ -268,7 +304,7 @@ const InversionToolbar: React.FC<Props> = ({
           onFiltersChange({ ...filters, categoria: nueva.id });
         }}
       />
-    </Box>
+    </Paper>
   );
 };
 
