@@ -1,4 +1,3 @@
-// src/modules/gestion_huerta/services/categoriaInversionService.ts
 import apiClient from '../../../global/api/apiClient';
 import {
   CategoriaInversion,
@@ -16,13 +15,9 @@ interface ListResp {
 
 interface ItemResp {
   success: boolean;
-  data: { categoria: CategoriaInversion };
+  data: { categoria: CategoriaInversion } | { categoria_inversion: CategoriaInversion };
 }
-
-interface InfoResp {
-  success: boolean;
-  data: { info: string };
-}
+interface InfoResp { success: boolean; data: { info: string } }
 
 export const categoriaInversionService = {
   /* ------------ LIST ACTIVE ------------ */
@@ -33,12 +28,19 @@ export const categoriaInversionService = {
     return { categorias: data.data.categorias, meta: data.data.meta };
   },
 
+  /* ------------ LIST ALL (activas + archivadas) ------------ */
+  async listAll(page = 1, pageSize = 500) {
+    const { data } = await apiClient.get<ListResp>('/huerta/categorias-inversion/all', {
+      params: { page, page_size: pageSize },
+    });
+    return { categorias: data.data.categorias, meta: data.data.meta };
+  },
+
   /* ------------ SEARCH (autocomplete) ------------ */
   async search(query: string, cfg: { signal?: AbortSignal } = {}) {
-    // si el usuario todavía no escribe nada útil, devolvemos vacío
-    if (!query || !query.trim()) return [];
+    if (!query.trim()) return [];
     const { data } = await apiClient.get<ListResp>('/huerta/categorias-inversion/', {
-      params: { search: query.trim(), page_size: 30 },
+      params: { search: query, page_size: 50 },
       signal: cfg.signal,
     });
     return data.data.categorias;
@@ -47,27 +49,23 @@ export const categoriaInversionService = {
   /* ------------ CRUD ------------ */
   async create(payload: CategoriaInversionCreateData) {
     const { data } = await apiClient.post<ItemResp>('/huerta/categorias-inversion/', payload);
-    return data.data.categoria; // ← backend devuelve "categoria"
+    // backend a veces usa 'categoria' y a veces 'categoria_inversion'
+    return (data.data as any).categoria ?? (data.data as any).categoria_inversion;
   },
-
   async update(id: number, payload: CategoriaInversionUpdateData) {
     const { data } = await apiClient.patch<ItemResp>(`/huerta/categorias-inversion/${id}/`, payload);
-    return data.data.categoria; // ← backend devuelve "categoria"
+    return (data.data as any).categoria ?? (data.data as any).categoria_inversion;
   },
-
   async archive(id: number) {
-    // backend usa POST (no PATCH) para acciones
     const { data } = await apiClient.post<ItemResp>(`/huerta/categorias-inversion/${id}/archivar/`);
-    return data.data.categoria;
+    return (data.data as any).categoria ?? (data.data as any).categoria_inversion;
   },
-
   async restore(id: number) {
     const { data } = await apiClient.post<ItemResp>(`/huerta/categorias-inversion/${id}/restaurar/`);
-    return data.data.categoria;
+    return (data.data as any).categoria ?? (data.data as any).categoria_inversion;
   },
-
   async remove(id: number) {
     const { data } = await apiClient.delete<InfoResp>(`/huerta/categorias-inversion/${id}/`);
-    return data.data.info;
+    return data;
   },
 };

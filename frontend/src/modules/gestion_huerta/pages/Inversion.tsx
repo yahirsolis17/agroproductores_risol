@@ -1,27 +1,14 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import React, { useMemo, useState } from 'react';
-import {
-  Box,
-  CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Tabs,
-  Tab,
-} from '@mui/material';
+import React, { useMemo, useState, useEffect } from 'react';
+import { Box, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
 
 import { useInversiones } from '../hooks/useInversiones';
-import {
-  InversionHuerta,
-  InversionCreateData,
-  InversionUpdateData,
-} from '../types/inversionTypes';
+import { InversionHuerta, InversionCreateData, InversionUpdateData } from '../types/inversionTypes';
 
 import InversionToolbar from '../components/finanzas/InversionToolbar';
 import InversionTable   from '../components/finanzas/InversionTable';
 import InversionFormModal from '../components/finanzas/InversionFormModal';
+import { categoriaInversionService } from '../services/categoriaInversionService';
 
 const PAGE_SIZE = 10;
 
@@ -41,40 +28,51 @@ const Inversion: React.FC = () => {
     removeInversion,
   } = useInversiones();
 
-  // Tabs estado
-  const estado = filters.estado ?? 'activas';
-  const handleEstado = (_: any, val: 'activas'|'archivadas'|'todas') => {
-    changeFilters({ ...filters, estado: val });
-  };
+  /* ---------- Cargar TODAS las categorías (para nombres y filtro) ---------- */
+  const [catsLoading, setCatsLoading] = useState(false);
+  const [categorias, setCategorias] = useState<{ id:number; nombre:string; is_active:boolean }[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        setCatsLoading(true);
+        const { categorias } = await categoriaInversionService.listAll(1, 1000);
+        if (!alive) return;
+        setCategorias(categorias);
+      } finally {
+        setCatsLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  const categoriesMap = useMemo<Record<number,string>>(
+    () => Object.fromEntries(categorias.map(c => [c.id, c.nombre])),
+    [categorias]
+  );
 
   // Conteo de filtros activos
   const activeFiltersCount = useMemo(() => {
     let c = 0;
+    if (filters.estado && filters.estado !== 'activas') c++;
     if (filters.categoria)  c++;
     if (filters.fechaDesde) c++;
     if (filters.fechaHasta) c++;
     return c;
   }, [filters]);
 
-  const handleClearFilters = () => changeFilters({ estado }); // limpia todo menos el tab actual
+  const handleClearFilters = () => changeFilters({});
 
-  // Modal create/edit
+  // Modal crear/editar
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<InversionHuerta | null>(null);
 
-  const openCreate = () => {
-    setEditTarget(null);
-    setModalOpen(true);
-  };
-  const openEdit = (inv: InversionHuerta) => {
-    setEditTarget(inv);
-    setModalOpen(true);
-  };
+  const openCreate = () => { setEditTarget(null); setModalOpen(true); };
+  const openEdit   = (inv: InversionHuerta) => { setEditTarget(inv); setModalOpen(true); };
 
-  // submit
-  const handleSubmit = async (
-    vals: InversionCreateData | InversionUpdateData
-  ) => {
+  // onSubmit
+  const handleSubmit = async (vals: InversionCreateData | InversionUpdateData) => {
     if (editTarget) {
       await editInversion(editTarget.id, vals as InversionUpdateData);
     } else {
@@ -82,7 +80,7 @@ const Inversion: React.FC = () => {
     }
   };
 
-  // confirm delete
+  // Confirm delete
   const [delId, setDelId] = useState<number | null>(null);
   const confirmDelete = async () => {
     if (delId == null) return;
@@ -92,20 +90,6 @@ const Inversion: React.FC = () => {
 
   return (
     <Box p={2}>
-      {/* Tabs de estado */}
-      <Box mb={1}>
-        <Tabs
-          value={estado}
-          onChange={handleEstado}
-          textColor="primary"
-          indicatorColor="primary"
-        >
-          <Tab value="activas"    label="Activas" />
-          <Tab value="archivadas" label="Archivadas" />
-          <Tab value="todas"      label="Todas" />
-        </Tabs>
-      </Box>
-
       <InversionToolbar
         filters={filters}
         onFiltersChange={changeFilters}
@@ -113,12 +97,15 @@ const Inversion: React.FC = () => {
         onClearFilters={handleClearFilters}
         onCreateClick={openCreate}
         totalCount={meta.count}
+        // opciones para el filtro de categoría (orden alfabético y agrupado se hacen en el propio toolbar)
+        categoriesOptions={categorias}
+        categoriesLoading={catsLoading}
+        // callback opcional: cuando se crea una categoría desde el filtro, actualizamos lista local
+        onCategoryCreated={(cat) => setCategorias(prev => [cat, ...prev].sort((a,b)=>a.nombre.localeCompare(b.nombre)))}
       />
 
       {loading ? (
-        <Box display="flex" justifyContent="center" mt={4}>
-          <CircularProgress />
-        </Box>
+        <Box display="flex" justifyContent="center" mt={4}><CircularProgress /></Box>
       ) : (
         <InversionTable
           data={inversiones}
@@ -130,6 +117,7 @@ const Inversion: React.FC = () => {
           onArchive={(id) => archive(id)}
           onRestore={(id) => restore(id)}
           onDelete={(id) => setDelId(id)}
+          categoriesMap={categoriesMap} // ⬅️ ahora sí, nombre en la tabla
         />
       )}
 
@@ -142,14 +130,10 @@ const Inversion: React.FC = () => {
 
       <Dialog open={delId != null} onClose={() => setDelId(null)}>
         <DialogTitle>Confirmar eliminación</DialogTitle>
-        <DialogContent>
-          ¿Eliminar esta inversión permanentemente?
-        </DialogContent>
+        <DialogContent>¿Eliminar esta inversión permanentemente?</DialogContent>
         <DialogActions>
           <Button onClick={() => setDelId(null)}>Cancelar</Button>
-          <Button color="error" onClick={confirmDelete}>
-            Eliminar
-          </Button>
+          <Button color="error" onClick={confirmDelete}>Eliminar</Button>
         </DialogActions>
       </Dialog>
     </Box>
