@@ -110,11 +110,12 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
 
   const handleNewCatSuccess = (c: CategoriaInversion) => {
     setOpenCatModal(false);
-    // Avisar al Autocomplete para insertar/seleccionar sin recargar
-    window.dispatchEvent(new CustomEvent('categoria-created', { detail: c }));
-    // Además, setear el valor del form
+    // avisa a cualquier Autocomplete escuchando que recargue su lista
+    window.dispatchEvent(new CustomEvent('categoria-inversion/refresh'));
+    // y selecciona la nueva
     formikRef.current?.setFieldValue('categoria', c.id);
   };
+
 
   const handleSubmit = async (vals: FormValues, helpers: FormikHelpers<FormValues>) => {
     const payload: InversionCreateData | InversionUpdateData = {
