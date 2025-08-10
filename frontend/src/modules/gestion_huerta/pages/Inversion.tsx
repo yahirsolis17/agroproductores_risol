@@ -47,6 +47,28 @@ const Inversion: React.FC = () => {
     return () => { alive = false; };
   }, []);
 
+  // 🔔 Escuchar creaciones/ediciones para actualizar el map sin recargar
+  useEffect(() => {
+    const upsert = (cat: { id:number; nombre:string; is_active:boolean; archivado_en?: string|null }) => {
+      setCategorias(prev => {
+        const exists = prev.some(c => c.id === cat.id);
+        const next = exists
+          ? prev.map(c => (c.id === cat.id ? { ...c, ...cat } : c))
+          : [cat, ...prev];
+        return next.sort((a,b) => a.nombre.localeCompare(b.nombre, 'es'));
+      });
+    };
+    const onCreated = (e: any) => e?.detail && upsert(e.detail);
+    const onUpdated = (e: any) => e?.detail && upsert(e.detail);
+
+    window.addEventListener('categoria-created', onCreated as any);
+    window.addEventListener('categoria-updated', onUpdated as any);
+    return () => {
+      window.removeEventListener('categoria-created', onCreated as any);
+      window.removeEventListener('categoria-updated', onUpdated as any);
+    };
+  }, []);
+
   const categoriesMap = useMemo<Record<number,string>>(
     () => Object.fromEntries(categorias.map(c => [c.id, c.nombre])),
     [categorias]

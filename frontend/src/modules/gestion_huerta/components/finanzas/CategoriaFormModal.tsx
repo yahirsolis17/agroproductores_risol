@@ -40,6 +40,11 @@ const CategoriaFormModal: React.FC<Props> = ({ open, onClose, onSuccess, initial
               ? await editCategoria(initial!.id, { nombre })
               : await addCategoria({ nombre });
 
+            // 🔔 Notificar globalmente para refrescar mapas/listas sin recargar página
+            window.dispatchEvent(
+              new CustomEvent(isEdit ? 'categoria-updated' : 'categoria-created', { detail: cat })
+            );
+
             onSuccess(cat);
             onClose();
           } catch (err: any) {

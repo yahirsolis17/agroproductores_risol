@@ -48,6 +48,10 @@ const CategoriaInversionEditModal: React.FC<Props> = ({ open, categoria, onClose
               return;
             }
             const updated = await editCategoria(categoria.id, { nombre });
+
+            // 🔔 Notificar globalmente para refrescar mapas/listas
+            window.dispatchEvent(new CustomEvent('categoria-updated', { detail: updated }));
+
             onSuccess(updated); // devuelve la categoría actualizada al caller
           } catch (err: any) {
             const be = err?.response?.data || err?.data || {};
