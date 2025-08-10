@@ -22,10 +22,10 @@ import CategoriaAutocomplete from './CategoriaAutocomplete';
 
 /** YYYY-MM-DD local */
 function formatLocalDateYYYYMMDD(d = new Date()) {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return `${y}-${m}-${day}`;
 }
 
 /** enteros (sin decimales) desde UI con comas */
@@ -85,7 +85,9 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
 
   const { refetch: refetchCategorias } = useCategoriasInversion();
 
-  useEffect(() => { if (open) refetchCategorias(); }, [open]);
+  useEffect(() => {
+    if (open) refetchCategorias();
+  }, [open]);
 
   // abrir modal crear desde el Autocomplete (evento global)
   useEffect(() => {
@@ -94,28 +96,32 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
     return () => window.removeEventListener('open-create-categoria', onOpen as any);
   }, []);
 
-  const initialFormValues: FormValues = initialValues ? {
-    fecha: initialValues.fecha,
-    categoria: initialValues.categoria,
-    gastos_insumos: initialValues.gastos_insumos ? formatMX(initialValues.gastos_insumos) : '',
-    gastos_mano_obra: initialValues.gastos_mano_obra ? formatMX(initialValues.gastos_mano_obra) : '',
-    descripcion: initialValues.descripcion ?? '',
-  } : {
-    fecha: formatLocalDateYYYYMMDD(new Date()),
-    categoria: 0,
-    gastos_insumos: '',
-    gastos_mano_obra: '',
-    descripcion: '',
-  };
+  const initialFormValues: FormValues = initialValues
+    ? {
+        fecha: initialValues.fecha,
+        categoria: initialValues.categoria,
+        gastos_insumos: initialValues.gastos_insumos ? formatMX(initialValues.gastos_insumos) : '',
+        gastos_mano_obra: initialValues.gastos_mano_obra ? formatMX(initialValues.gastos_mano_obra) : '',
+        descripcion: initialValues.descripcion ?? '',
+      }
+    : {
+        fecha: formatLocalDateYYYYMMDD(new Date()),
+        categoria: 0,
+        gastos_insumos: '',
+        gastos_mano_obra: '',
+        descripcion: '',
+      };
 
   const handleNewCatSuccess = (c: CategoriaInversion) => {
     setOpenCatModal(false);
-    // avisa a cualquier Autocomplete escuchando que recargue su lista
-    window.dispatchEvent(new CustomEvent('categoria-inversion/refresh'));
-    // y selecciona la nueva
-    formikRef.current?.setFieldValue('categoria', c.id);
+    // refrescamos y seteamos valor seleccionado
+    refetchCategorias().then(() => {
+      // setear el formik
+      formikRef.current?.setFieldValue('categoria', c.id);
+      // avisar al Autocomplete para que actualice listado y se cierre
+      window.dispatchEvent(new CustomEvent('categoria-created', { detail: c }));
+    });
   };
-
 
   const handleSubmit = async (vals: FormValues, helpers: FormikHelpers<FormValues>) => {
     const payload: InversionCreateData | InversionUpdateData = {
@@ -199,7 +205,7 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
                   helperText={msg(errors.fecha)}
                 />
 
-                {/* Categoría (Autocomplete con menú contextual) */}
+                {/* Categoría */}
                 <CategoriaAutocomplete
                   valueId={values.categoria || null}
                   onChangeId={(id) => setFieldValue('categoria', id ?? 0)}

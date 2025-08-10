@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/components/finanzas/CategoriaInversionEditModal.tsx
 import React from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
@@ -11,32 +12,43 @@ import { handleBackendNotification } from '../../../../global/utils/Notification
 
 interface Props {
   open: boolean;
-  initial?: CategoriaInversion;
+  categoria: CategoriaInversion | null;
   onClose: () => void;
-  onSuccess: () => void; // el caller refresca lista/selección
+  onSuccess: (updated?: CategoriaInversion) => void;
 }
 
 const schema = Yup.object({
   nombre: Yup.string().trim().min(3, 'Mínimo 3 caracteres').required('Requerido'),
 });
 
-const CategoriaInversionEditModal: React.FC<Props> = ({ open, initial, onClose, onSuccess }) => {
+const CategoriaInversionEditModal: React.FC<Props> = ({ open, categoria, onClose, onSuccess }) => {
   const { editCategoria } = useCategoriasInversion();
+
+  const initialNombre = categoria?.nombre ?? '';
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle>Editar categoría</DialogTitle>
+
       <Formik
-        initialValues={{ nombre: initial?.nombre ?? '' }}
         enableReinitialize
+        initialValues={{ nombre: initialNombre }}
         validationSchema={schema}
         validateOnChange={false}
         validateOnBlur={false}
         onSubmit={async (vals, helpers) => {
-          if (!initial) return;
+          if (!categoria) {
+            onClose();
+            return;
+          }
           try {
-            await editCategoria(initial.id, { nombre: vals.nombre.trim() });
-            onSuccess();
+            const nombre = vals.nombre.trim();
+            if (!nombre || nombre === categoria.nombre) {
+              onClose();
+              return;
+            }
+            const updated = await editCategoria(categoria.id, { nombre });
+            onSuccess(updated); // devuelve la categoría actualizada al caller
           } catch (err: any) {
             const be = err?.response?.data || err?.data || {};
             const fieldErrors = be?.errors || be?.data?.errors || {};
@@ -49,7 +61,7 @@ const CategoriaInversionEditModal: React.FC<Props> = ({ open, initial, onClose, 
           }
         }}
       >
-        {({ values, errors, handleChange, isSubmitting }) => (
+        {({ values, errors, handleChange, isSubmitting, submitForm }) => (
           <Form>
             <DialogContent dividers>
               <TextField
@@ -65,8 +77,12 @@ const CategoriaInversionEditModal: React.FC<Props> = ({ open, initial, onClose, 
             </DialogContent>
             <DialogActions>
               <Button onClick={onClose} disabled={isSubmitting}>Cancelar</Button>
-              <Button type="submit" variant="contained" disabled={isSubmitting}>
-                {isSubmitting ? <CircularProgress size={20} /> : 'Guardar cambios'}
+              <Button
+                variant="contained"
+                disabled={isSubmitting}
+                onClick={submitForm}
+              >
+                {isSubmitting ? <CircularProgress size={20} /> : 'Guardar'}
               </Button>
             </DialogActions>
           </Form>

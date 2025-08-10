@@ -1,22 +1,36 @@
-import React, { useEffect, useMemo, useState } from 'react';
+// src/modules/gestion_huerta/components/finanzas/CategoriaAutocomplete.tsx
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  TextField, IconButton, Menu, MenuItem, ListItemIcon, ListItemText, Tooltip,
-  Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography,
+  TextField,
+  IconButton,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
+  Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
 } from '@mui/material';
+import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
+import Popper from '@mui/material/Popper';
+import { styled, lighten, darken } from '@mui/system';
 import {
   MoreVert as MoreVertIcon,
   Edit as EditIcon,
   Archive as ArchiveIcon,
   Unarchive as UnarchiveIcon,
   Delete as DeleteIcon,
+  Add as AddIcon,
 } from '@mui/icons-material';
-import { styled, lighten, darken } from '@mui/system';
-import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import { CategoriaInversion } from '../../types/categoriaInversionTypes';
 import { categoriaInversionService } from '../../services/categoriaInversionService';
 import useCategoriasInversion from '../../hooks/useCategoriasInversion';
 import CategoriaInversionEditModal from './CategoriaInversionEditModal';
 
+/* ---------- Encabezado por grupo ---------- */
 const GroupHeader = styled('div')(({ theme }) => ({
   position: 'sticky',
   top: '-8px',
@@ -28,6 +42,12 @@ const GroupHeader = styled('div')(({ theme }) => ({
   }),
 }));
 const GroupItems = styled('ul')({ padding: 0 });
+
+/* ---------- Popper del Autocomplete con z-index elevado ---------- */
+const PopperHighZ = styled(Popper)(({ theme }) => {
+  const base = (theme as any)?.zIndex?.modal ?? 1300;
+  return { zIndex: base + 1 };
+});
 
 type Option = CategoriaInversion | { id: -1; nombre: 'Registrar nueva categoría' };
 const filter = createFilterOptions<Option>();
@@ -41,16 +61,20 @@ type Props = {
 };
 
 const CategoriaAutocomplete: React.FC<Props> = ({
-  valueId, onChangeId, label = 'Categoría', error, helperText,
+  valueId,
+  onChangeId,
+  label = 'Categoría',
+  error,
+  helperText,
 }) => {
   const [list, setList] = useState<CategoriaInversion[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const { archive, restore, removeCategoria } = useCategoriasInversion();
+  // Control de apertura del listbox
+  const [openList, setOpenList] = useState(false);
+  const keepOpenRef = useRef(false); // true mientras menú o modal estén activos
 
-  // estado de apertura controlada del Autocomplete
-  const [openAC, setOpenAC] = useState(false);
-  const [inputValue, setInputValue] = useState('');
+  const { archive, restore, removeCategoria } = useCategoriasInversion();
 
   const loadAll = async () => {
     setLoading(true);
@@ -64,12 +88,23 @@ const CategoriaAutocomplete: React.FC<Props> = ({
 
   useEffect(() => { loadAll(); }, []);
 
-  // refrescos globales (crear/editar/etc)
+  // Cuando se crea una categoría desde fuera, auto-inyectar + auto-seleccionar
   useEffect(() => {
-    const handler = () => loadAll();
-    window.addEventListener('categoria-inversion/refresh', handler as any);
-    return () => window.removeEventListener('categoria-inversion/refresh', handler as any);
-  }, []);
+    const handler = (e: any) => {
+      const nueva: CategoriaInversion | undefined = e?.detail;
+      if (!nueva) return;
+      setList(prev => {
+        const exists = prev.some(c => c.id === nueva.id);
+        const next = exists ? prev.map(c => (c.id === nueva.id ? nueva : c)) : [nueva, ...prev];
+        return next.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+      });
+      onChangeId(nueva.id);
+      setOpenList(false); // cerrar al autoseleccionar
+      keepOpenRef.current = false;
+    };
+    window.addEventListener('categoria-created', handler as any);
+    return () => window.removeEventListener('categoria-created', handler as any);
+  }, [onChangeId]);
 
   const newOption: Option = { id: -1, nombre: 'Registrar nueva categoría' };
 
@@ -88,50 +123,86 @@ const CategoriaAutocomplete: React.FC<Props> = ({
     return (list.find(c => c.id === valueId) as Option) || null;
   }, [valueId, list]);
 
-  // menú contextual anclado por posición (evita “salto” y queda sobre el popper)
-  const [menu, setMenu] = useState<{ pos: { top: number; left: number } | null; cat: CategoriaInversion | null }>({
-    pos: null, cat: null,
+  /* ---------- Menú contextual y modales ---------- */
+  const [menu, setMenu] = useState<{ anchorEl: HTMLElement | null; cat: CategoriaInversion | null }>({
+    anchorEl: null,
+    cat: null,
   });
-  const openMenu = (e: React.MouseEvent<HTMLElement>, cat: CategoriaInversion) => {
-    e.preventDefault();
-    e.stopPropagation(); // no cerrar el popup
-    setMenu({ pos: { top: e.clientY + 6, left: e.clientX - 6 }, cat });
+
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<CategoriaInversion | null>(null);
+
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deletingCategory, setDeletingCategory] = useState<CategoriaInversion | null>(null);
+
+  const openMenu = (el: HTMLElement, cat: CategoriaInversion) => {
+    keepOpenRef.current = true; // mantener abierto mientras el menú esté activo
+    setOpenList(true);
+    setMenu({ anchorEl: el, cat });
   };
-  const closeMenu = () => setMenu({ pos: null, cat: null });
-  const isMenuOpen = Boolean(menu.pos);
 
-  // confirmación de borrado
-  const [confirm, setConfirm] = useState<{ open: boolean; cat: CategoriaInversion | null }>({ open: false, cat: null });
-  const openConfirm = (cat: CategoriaInversion) => setConfirm({ open: true, cat });
-  const closeConfirm = () => setConfirm({ open: false, cat: null });
+  // 👇 ahora acepta una bandera para decidir si mantenemos abierto el autocomplete
+  const closeMenu = (opts?: { keepAutoOpen?: boolean }) => {
+    setMenu({ anchorEl: null, cat: null });
+    if (!opts?.keepAutoOpen) {
+      // si no abrimos un modal, liberamos el bloqueo para que pueda cerrarse al click afuera o con la “V”
+      keepOpenRef.current = false;
+    }
+  };
 
-  // modal de edición consistente
-  const [editCat, setEditCat] = useState<CategoriaInversion | null>(null);
-  const openEditModal = (cat: CategoriaInversion) => setEditCat(cat);
-  const closeEditModal = () => setEditCat(null);
+  const handleEdit = () => {
+    if (!menu.cat) return;
+    setEditingCategory(menu.cat);
+    setEditModalOpen(true);
+    // cerramos menú pero dejamos keepOpenRef activo mientras el modal esté abierto
+    closeMenu({ keepAutoOpen: true });
+  };
 
-  const doArchive = async () => {
+  const handleDelete = () => {
+    if (!menu.cat) return;
+    setDeletingCategory(menu.cat);
+    setConfirmOpen(true);
+    closeMenu({ keepAutoOpen: true });
+  };
+
+  const handleArchive = async () => {
     if (!menu.cat) return;
     await archive(menu.cat.id);
-    closeMenu();
-    loadAll();
-    window.dispatchEvent(new CustomEvent('categoria-inversion/refresh'));
+    await loadAll();
+    // aquí ya podemos permitir que se cierre si el usuario hace click afuera
+    closeMenu(); // keepAutoOpen = false
   };
-  const doRestore = async () => {
+
+  const handleRestore = async () => {
     if (!menu.cat) return;
     await restore(menu.cat.id);
+    await loadAll();
     closeMenu();
-    loadAll();
-    window.dispatchEvent(new CustomEvent('categoria-inversion/refresh'));
   };
-  const doDelete = async () => {
-    const cat = confirm.cat;
-    if (!cat) return;
-    await removeCategoria(cat.id);
-    closeConfirm();
-    if (valueId === cat.id) onChangeId(null);
-    loadAll();
-    window.dispatchEvent(new CustomEvent('categoria-inversion/refresh'));
+
+  const confirmDelete = async () => {
+    if (!deletingCategory) return;
+    await removeCategoria(deletingCategory.id);
+    if (valueId === deletingCategory.id) onChangeId(null);
+    setConfirmOpen(false);
+    setDeletingCategory(null);
+    // después de confirmar, ya no bloqueamos: que se pueda cerrar normal
+    keepOpenRef.current = false;
+    await loadAll();
+  };
+
+  const handleEditClose = () => {
+    setEditModalOpen(false);
+    setEditingCategory(null);
+    // si cierra sin guardar, seguimos permitiendo que se cierre el autocomplete
+    keepOpenRef.current = false;
+  };
+
+  const handleEditSuccess = async () => {
+    setEditModalOpen(false);
+    setEditingCategory(null);
+    keepOpenRef.current = false;
+    await loadAll();
   };
 
   return (
@@ -140,46 +211,59 @@ const CategoriaAutocomplete: React.FC<Props> = ({
         options={options}
         value={value}
         loading={loading}
-        open={openAC}
-        onOpen={() => setOpenAC(true)}
-        onClose={(_, reason) => {
-          // mantener abierto si el cierre fue por blur mientras el menú está abierto
-          if (isMenuOpen && reason === 'blur') return;
-          setOpenAC(false);
+        open={openList}
+        onOpen={() => setOpenList(true)}
+        onClose={(_e, reason) => {
+          // ✅ siempre permitir cerrar con el icono “V” (toggle)
+          if (reason === 'toggleInput') {
+            keepOpenRef.current = false;
+            setOpenList(false);
+            return;
+          }
+          // Si hay menú/modal activos, no cerrar por click afuera/escape
+          if (keepOpenRef.current) return;
+          setOpenList(false);
         }}
-        inputValue={inputValue}
-        onInputChange={(_, v, reason) => {
-          if (reason === 'reset') return; // evita parpadeo al seleccionar
-          setInputValue(v);
-        }}
-        disableCloseOnSelect={false}     // ← cerrar al seleccionar (lo pediste)
+        blurOnSelect={false}
+        disableCloseOnSelect
         clearOnBlur={false}
-        selectOnFocus={false}
+        forcePopupIcon // asegura que la “V” esté visible para poder cerrar manualmente
+        slotProps={{
+          popper: { component: PopperHighZ as any },
+        }}
         groupBy={(opt) =>
-          (typeof (opt as any).id === 'number' && (opt as any).id !== -1 ? ((opt as any).firstLetter || '') : '')
+          (typeof (opt as any).id === 'number' && (opt as any).id !== -1 ? (opt as any).firstLetter || '' : '')
         }
         filterOptions={(opts, params) => {
           const fixed = opts.filter(o => (o as any).id === -1);
           const cats  = opts.filter(o => (o as any).id !== -1) as CategoriaInversion[];
-          const filtered = filter(cats as any, params)
-            .sort((a: any, b: any) => a.nombre.localeCompare(b.nombre, 'es'));
-          return [...fixed as any, ...filtered as any];
+          const filtered = filter(cats as any, params).sort((a: any, b: any) =>
+            a.nombre.localeCompare(b.nombre, 'es')
+          );
+          return [...(fixed as any), ...(filtered as any)];
         }}
         getOptionLabel={(opt) =>
           (opt as any).id === -1 ? 'Registrar nueva categoría' : (opt as CategoriaInversion).nombre
         }
         isOptionEqualToValue={(o, v) => (o as any).id === (v as any).id}
         onChange={(_, sel) => {
-          if (!sel) { onChangeId(null); setOpenAC(false); return; }
+          if (!sel) {
+            onChangeId(null);
+            setOpenList(false);
+            keepOpenRef.current = false;
+            return;
+          }
           const s: any = sel;
           if (s.id === -1) {
             window.dispatchEvent(new CustomEvent('open-create-categoria'));
+            keepOpenRef.current = true; // mantener abierto mientras se crea
+            setOpenList(true);
             return;
           }
-          if ('is_active' in s && !s.is_active) return; // archivadas no seleccionables
+          if ('is_active' in s && !s.is_active) return; // no seleccionable si está archivada
           onChangeId(s.id);
-          // cerrar al seleccionar
-          setOpenAC(false);
+          setOpenList(false); // cerrar al seleccionar
+          keepOpenRef.current = false;
         }}
         renderInput={(params) => (
           <TextField
@@ -189,25 +273,27 @@ const CategoriaAutocomplete: React.FC<Props> = ({
             helperText={helperText}
           />
         )}
-        // subimos el z-index del popper; el menú tendrá uno aún mayor
-        slotProps={{
-          popper: { sx: { zIndex: (t: any) => t.zIndex.modal + 1 } },
-          paper:  { sx: { zIndex: (t: any) => t.zIndex.modal + 1 } },
-        }}
         renderOption={(props, option) => {
           const anyOpt = option as any;
+
+          // Opción "nueva categoría"
           if (anyOpt.id === -1) {
             return (
               <li
                 {...props}
-                onMouseDown={(e) => e.preventDefault()} // no cerrar popup
+                onMouseDown={(e) => e.preventDefault()} // evita seleccionar/cerrar
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                   window.dispatchEvent(new CustomEvent('open-create-categoria'));
+                  keepOpenRef.current = true;
+                  setOpenList(true);
                 }}
               >
-                ➕ Registrar nueva categoría
+                <ListItemIcon sx={{ minWidth: 32 }}>
+                  <AddIcon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText primary="Registrar nueva categoría" />
               </li>
             );
           }
@@ -215,18 +301,21 @@ const CategoriaAutocomplete: React.FC<Props> = ({
           const cat = option as CategoriaInversion;
           const isArchived = !cat.is_active;
 
-          // NO perdemos el onClick interno para permitir la selección normal
-          const { onClick, ...liProps } = props as any;
-          const handleLiClick: React.MouseEventHandler<HTMLLIElement> = (e) => {
-            if (isArchived) { e.preventDefault(); e.stopPropagation(); return; }
-            onClick?.(e);
-          };
-
           return (
             <li
-              {...liProps}
-              onClick={handleLiClick}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}
+              {...props}
+              onMouseDown={(e) => {
+                if (isArchived) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 8,
+              }}
             >
               <Tooltip title={isArchived ? 'Archivada · no seleccionable' : ''}>
                 <span style={{ opacity: isArchived ? 0.55 : 1 }}>{cat.nombre}</span>
@@ -234,8 +323,16 @@ const CategoriaAutocomplete: React.FC<Props> = ({
 
               <IconButton
                 size="small"
-                onMouseDown={(e) => e.preventDefault()} // evita blur/cierre del popup
-                onClick={(e) => openMenu(e, cat)}
+                onMouseDown={(e) => {
+                  // NO dejar que el listbox interprete mousedown como selección/cierre
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  openMenu(e.currentTarget as HTMLElement, cat);
+                }}
               >
                 <MoreVertIcon fontSize="small" />
               </IconButton>
@@ -250,70 +347,81 @@ const CategoriaAutocomplete: React.FC<Props> = ({
         )}
       />
 
-      {/* Menú contextual anclado a posición (siempre por encima del popper) */}
+      {/* Menú contextual */}
       <Menu
-        open={Boolean(menu.pos)}
-        onClose={closeMenu}
-        anchorReference="anchorPosition"
-        anchorPosition={menu.pos || undefined}
-        keepMounted
-        PaperProps={{ sx: { zIndex: (t) => t.zIndex.modal + 3 } }}
+        anchorEl={menu.anchorEl}
+        open={Boolean(menu.anchorEl)}
+        onClose={() => closeMenu()}
+        anchorOrigin={{ vertical: 'center', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        MenuListProps={{ autoFocusItem: false }}
+        slotProps={{
+          paper: {
+            sx: (theme) => {
+              const base = (theme as any)?.zIndex?.modal ?? 1300;
+              return { zIndex: base + 2 };
+            },
+          },
+        }}
       >
-        <MenuItem onClick={() => { if (menu.cat) openEditModal(menu.cat); closeMenu(); }}>
+        <MenuItem onClick={handleEdit}>
           <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
           <ListItemText>Editar</ListItemText>
         </MenuItem>
 
         {menu.cat?.is_active ? (
-          <MenuItem onClick={doArchive}>
+          <MenuItem onClick={handleArchive}>
             <ListItemIcon><ArchiveIcon fontSize="small" /></ListItemIcon>
             <ListItemText>Archivar</ListItemText>
           </MenuItem>
         ) : (
-          <MenuItem onClick={doRestore}>
+          <MenuItem onClick={handleRestore}>
             <ListItemIcon><UnarchiveIcon fontSize="small" /></ListItemIcon>
             <ListItemText>Restaurar</ListItemText>
           </MenuItem>
         )}
 
-        <MenuItem
-          onClick={() => {
-            if (menu.cat) openConfirm(menu.cat);
-            closeMenu();
-          }}
-        >
+        <MenuItem onClick={handleDelete}>
           <ListItemIcon><DeleteIcon fontSize="small" /></ListItemIcon>
           <ListItemText>Eliminar</ListItemText>
         </MenuItem>
       </Menu>
 
-      {/* Confirmación de eliminación */}
-      <Dialog open={confirm.open} onClose={closeConfirm}>
+      {/* Modal editar */}
+      <CategoriaInversionEditModal
+        open={editModalOpen}
+        categoria={editingCategory}
+        onClose={handleEditClose}
+        onSuccess={handleEditSuccess}
+      />
+
+      {/* Confirmar eliminación */}
+      <Dialog
+        open={confirmOpen}
+        onClose={() => {
+          setConfirmOpen(false);
+          // al cerrar el confirm, dejamos que el autocomplete pueda cerrarse si el usuario quiere
+          keepOpenRef.current = false;
+        }}
+      >
         <DialogTitle>Confirmar eliminación</DialogTitle>
-        <DialogContent dividers>
-          <Typography>¿Eliminar la categoría <b>{confirm.cat?.nombre}</b>?</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            (Solo se puede eliminar si no tiene inversiones asociadas)
-          </Typography>
+        <DialogContent>
+          ¿Eliminar permanentemente la categoría “{deletingCategory?.nombre}”?
         </DialogContent>
         <DialogActions>
-          <Button onClick={closeConfirm}>Cancelar</Button>
-          <Button color="error" variant="contained" onClick={doDelete}>Eliminar</Button>
+          <Button
+            onClick={() => {
+              setConfirmOpen(false);
+              keepOpenRef.current = false;
+            }}
+          >
+            Cancelar
+          </Button>
+          <Button color="error" variant="contained" onClick={confirmDelete}>
+            Eliminar
+          </Button>
         </DialogActions>
       </Dialog>
-
-      {/* Modal de edición consistente */}
-      <CategoriaInversionEditModal
-        open={Boolean(editCat)}
-        initial={editCat || undefined}
-        onClose={closeEditModal}
-        onSuccess={() => {
-          closeEditModal();
-          loadAll();
-          window.dispatchEvent(new CustomEvent('categoria-inversion/refresh'));
-        }}
-      />
     </>
   );
 };
