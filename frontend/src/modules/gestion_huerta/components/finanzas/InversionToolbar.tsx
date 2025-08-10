@@ -69,7 +69,7 @@ const InversionToolbar: React.FC<Props> = ({
   const [openCatModal, setOpenCatModal] = useState(false);
   const [catInput, setCatInput] = useState('');
 
-  // Tabs de estado (mismo diseño que el resto del sistema)
+  // Tabs de estado
   const estadoValue = filters.estado ?? 'activas';
   const handleEstadoChange = (_: any, val: 'activas'|'archivadas'|'todas') => {
     if (!val) return;
@@ -95,10 +95,7 @@ const InversionToolbar: React.FC<Props> = ({
   }, [categoriesOptions]);
 
   /* ------------------------ etiqueta total registros ------------------------ */
-  const totalLabel = useMemo(
-    () => `${totalCount} inversión${totalCount !== 1 ? 'es' : ''} encontrada${totalCount !== 1 ? 's' : ''}`,
-    [totalCount]
-  );
+  const totalLabel = `${totalCount} inversión${totalCount !== 1 ? 'es' : ''} encontrada${totalCount !== 1 ? 's' : ''}`;
 
   /* --------------------------- Fechas (filtros) ----------------------------- */
   const handleDate = (field: 'fechaDesde' | 'fechaHasta', value: string) => {
@@ -120,11 +117,10 @@ const InversionToolbar: React.FC<Props> = ({
         p: { xs: 1.5, sm: 2 },
         borderRadius: 2,
         border: theme => `1px solid ${theme.palette.divider}`,
-        // micro–suavizado de cambios (evita pantallazo visual)
         transition: 'opacity .15s ease',
       }}
     >
-      {/* -------- Tabs de estado (consistentes con el resto) -------- */}
+      {/* -------- Tabs de estado -------- */}
       <Tabs
         value={estadoValue}
         onChange={handleEstadoChange}
@@ -141,7 +137,26 @@ const InversionToolbar: React.FC<Props> = ({
         <Tab value="todas" label="Todas" />
       </Tabs>
 
-      {/* -------- Bloque de filtros (más aireado y segmentado) -------- */}
+      {/* --------- FILA SUPERIOR: Botón crear (separado de los filtros) --------- */}
+      {onCreateClick && (
+        <Box display="flex" justifyContent="flex-end" sx={{ mb: 1.5 }}>
+          <Tooltip title={createTooltip || ''}>
+            <span>
+              <PermissionButton
+                perm="add_inversion"
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={onCreateClick}
+                disabled={!canCreate}
+              >
+                Nueva Inversión
+              </PermissionButton>
+            </span>
+          </Tooltip>
+        </Box>
+      )}
+
+      {/* -------- Bloque de filtros -------- */}
       <Box
         display="grid"
         gridTemplateColumns="repeat(auto-fit, minmax(220px, 1fr))"
@@ -188,7 +203,7 @@ const InversionToolbar: React.FC<Props> = ({
           }}
         />
 
-        {/* Categoría (orden alfabético, grouped, “Registrar…” arriba) */}
+        {/* Categoría */}
         <Autocomplete<Opt>
           size="small"
           options={options}
@@ -207,17 +222,9 @@ const InversionToolbar: React.FC<Props> = ({
           isOptionEqualToValue={(o,v) => o.id === v.id}
           onChange={(_, opt) => {
             if (!opt) return;
-            if (opt.id === 'new') {
-              setOpenCatModal(true);
-              return;
-            }
-            if (opt.id === 'all') {
-              onFiltersChange({ ...filters, categoria: undefined });
-              return;
-            }
-            if (typeof opt.id === 'number') {
-              onFiltersChange({ ...filters, categoria: opt.id });
-            }
+            if (opt.id === 'new') { setOpenCatModal(true); return; }
+            if (opt.id === 'all') { onFiltersChange({ ...filters, categoria: undefined }); return; }
+            if (typeof opt.id === 'number') { onFiltersChange({ ...filters, categoria: opt.id }); }
           }}
           renderInput={(params) => (
             <TextField
@@ -243,35 +250,22 @@ const InversionToolbar: React.FC<Props> = ({
           )}
         />
 
-        {/* Acciones de filtros (alineadas con los filtros) */}
+        {/* Acciones de filtros: solo mostrar “Limpiar filtros” si hay filtros activos */}
         <Box
           display="flex"
           alignItems="center"
           gap={1}
           sx={{ justifySelf: { xs: 'start', sm: 'end' } }}
         >
-          <Button
-            size="small"
-            onClick={onClearFilters}
-            startIcon={<ClearIcon />}
-            sx={{ textTransform: 'none' }}
-          >
-            Limpiar filtros
-          </Button>
-          {onCreateClick && (
-            <Tooltip title={createTooltip || ''}>
-              <span>
-                <PermissionButton
-                  perm="add_inversion"
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  onClick={onCreateClick}
-                  disabled={!canCreate}
-                >
-                  Nueva Inversión
-                </PermissionButton>
-              </span>
-            </Tooltip>
+          {activeFiltersCount > 0 && (
+            <Button
+              size="small"
+              onClick={onClearFilters}
+              startIcon={<ClearIcon />}
+              sx={{ textTransform: 'none' }}
+            >
+              Limpiar filtros
+            </Button>
           )}
         </Box>
       </Box>

@@ -1,4 +1,3 @@
-// src/modules/gestion_huerta/components/finanzas/CategoriaInversionFormModal.tsx
 import React from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
@@ -13,33 +12,37 @@ import { handleBackendNotification } from '../../../../global/utils/Notification
 interface Props {
   open: boolean;
   onClose: () => void;
-  onSuccess: (nuevaCat: CategoriaInversion) => void;
+  onSuccess: (cat: CategoriaInversion) => void;
+  initial?: CategoriaInversion;  // ← NUEVO: si viene, editamos
 }
 
 const schema = Yup.object({
   nombre: Yup.string().trim().min(3, 'Mínimo 3 caracteres').required('Requerido'),
 });
 
-const CategoriaFormModal: React.FC<Props> = ({ open, onClose, onSuccess }) => {
-  const { addCategoria } = useCategoriasInversion();
+const CategoriaFormModal: React.FC<Props> = ({ open, onClose, onSuccess, initial }) => {
+  const { addCategoria, editCategoria } = useCategoriasInversion();
+  const isEdit = Boolean(initial);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Registrar nueva categoría</DialogTitle>
+      <DialogTitle>{isEdit ? 'Editar categoría' : 'Registrar nueva categoría'}</DialogTitle>
       <Formik
-        initialValues={{ nombre: '' }}
+        initialValues={{ nombre: initial?.nombre ?? '' }}
         validationSchema={schema}
         enableReinitialize
         validateOnChange={false}
         validateOnBlur={false}
         onSubmit={async (vals, helpers) => {
           try {
-            const nueva = await addCategoria({ nombre: vals.nombre.trim() });
-            // Notificación viene del thunk/slice (message_key)
-            onSuccess(nueva);
+            const nombre = vals.nombre.trim();
+            const cat = isEdit
+              ? await editCategoria(initial!.id, { nombre })
+              : await addCategoria({ nombre });
+
+            onSuccess(cat);
             onClose();
           } catch (err: any) {
-            // Inyectar errores del backend si existen
             const be = err?.response?.data || err?.data || {};
             const fieldErrors = be?.errors || be?.data?.errors || {};
             Object.entries(fieldErrors).forEach(([k, v]: any) => {
@@ -68,7 +71,7 @@ const CategoriaFormModal: React.FC<Props> = ({ open, onClose, onSuccess }) => {
             <DialogActions>
               <Button onClick={onClose} disabled={isSubmitting}>Cancelar</Button>
               <Button type="submit" variant="contained" disabled={isSubmitting}>
-                {isSubmitting ? <CircularProgress size={20} /> : 'Crear'}
+                {isEdit ? (isSubmitting ? <CircularProgress size={20} /> : 'Guardar') : (isSubmitting ? <CircularProgress size={20} /> : 'Crear')}
               </Button>
             </DialogActions>
           </Form>

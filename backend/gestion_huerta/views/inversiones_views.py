@@ -2,21 +2,18 @@ from rest_framework import viewsets, filters, status, serializers
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
-from django.utils import timezone
-from gestion_huerta.utils.audit   import ViewSetAuditMixin                 # ⬅️ auditoría
 from datetime import datetime
 
-from gestion_huerta.models import InversionesHuerta
-from gestion_huerta.serializers import InversionesHuertaSerializer
+from gestion_huerta.utils.audit   import ViewSetAuditMixin
 from gestion_huerta.views.huerta_views import NotificationMixin
 from gestion_huerta.permissions import HasHuertaModulePermission, HuertaGranularPermission
 from agroproductores_risol.utils.pagination import GenericPagination
 from gestion_huerta.utils.activity import registrar_actividad
 
+from gestion_huerta.models import InversionesHuerta
+from gestion_huerta.serializers import InversionesHuertaSerializer
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  INVERSIONES
-# ─────────────────────────────────────────────────────────────────────────────
+
 class InversionHuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
     """
     Gestiona inversiones por cosecha: CRUD + archivar/restaurar (POST|PATCH),
@@ -45,7 +42,7 @@ class InversionHuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
             return qs
 
         # Estado: activas / archivadas / todas
-        estado = (params.get('estado') or '').strip().lower()
+        estado = (params.get('estado') or 'activas').strip().lower()
         if estado == 'activas':
             qs = qs.filter(is_active=True)
         elif estado == 'archivadas':

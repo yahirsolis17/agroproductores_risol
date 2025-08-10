@@ -19,99 +19,114 @@ type Ctx = {
   cosechaId: number;
 };
 
-interface ListEnvelope {
-  success: boolean;
-  message_key: string;
-  data: {
-    inversiones: InversionHuerta[];
-    meta: { count: number; next: string | null; previous: string | null };
-  };
-}
-interface ItemEnvelope {
-  success: boolean;
-  message_key: string;
-  data: { inversion: InversionHuerta };
-}
-interface InfoEnvelope {
-  success: boolean;
-  message_key: string;
-  data: { info: string };
-}
+type PaginationMeta = { count: number; next: string | null; previous: string | null };
 
 export const inversionService = {
+  // LIST (con fallback a DRF nativo, igual que temporadas/cosechas)
   async list(
     ctx: Ctx,
     page = 1,
     pageSize = 10,
     filters: InversionFilters = {},
     config: { signal?: AbortSignal } = {}
-  ): Promise<ListEnvelope['data']> {
+  ) {
     const params: Record<string, any> = {
-      temporada: ctx.temporadaId,
-      cosecha: ctx.cosechaId,
       page,
       page_size: pageSize,
+      temporada: ctx.temporadaId,
+      cosecha: ctx.cosechaId,
     };
-    // solo uno de estos, según origen
-    if (ctx.huertaId) params.huerta = ctx.huertaId;
-    if (ctx.huertaRentadaId) params.huerta_rentada = ctx.huertaRentadaId;
+    if (ctx.huertaId)        params['huerta'] = ctx.huertaId;
+    if (ctx.huertaRentadaId) params['huerta_rentada'] = ctx.huertaRentadaId;
+    if (filters.categoria)   params['categoria'] = filters.categoria;
+    if (filters.fechaDesde)  params['fecha_desde'] = filters.fechaDesde;
+    if (filters.fechaHasta)  params['fecha_hasta'] = filters.fechaHasta;
+    if (filters.estado)      params['estado'] = filters.estado;
 
-    if (filters.categoria)  params.categoria    = filters.categoria;
-    if (filters.fechaDesde) params.fecha_desde  = filters.fechaDesde;
-    if (filters.fechaHasta) params.fecha_hasta  = filters.fechaHasta;
-    if (filters.estado)     params.estado       = filters.estado;
+    // Intento 1: DRF nativo (count/results)
+    const probe = await apiClient.get<any>('/huerta/inversiones/', { params, signal: config.signal });
+    if (probe?.data && typeof probe.data.count === 'number' && Array.isArray(probe.data.results)) {
+      return {
+        success: true,
+        notification: { key: 'no_notification', message: '', type: 'info' as const },
+        data: {
+          inversiones: probe.data.results as InversionHuerta[],
+          meta: { count: probe.data.count, next: probe.data.next, previous: probe.data.previous } as PaginationMeta,
+        },
+      };
+    }
 
-    const { data } = await apiClient.get<ListEnvelope>('/huerta/inversiones/', {
-      params, signal: config.signal
-    });
-    return data.data;
+    // Intento 2: envelope del backend
+    const { data } = await apiClient.get<{
+      success: boolean;
+      notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
+      data: { inversiones: InversionHuerta[]; meta: PaginationMeta };
+    }>('/huerta/inversiones/', { params, signal: config.signal });
+
+    return data;
   },
 
-  async create(
-    ctx: Ctx,
-    payload: InversionHuertaCreateData
-  ): Promise<InversionHuerta> {
-    const body: any = {
-      // mapear correctamente al backend
+  // CREATE (envuelve como temporadas/cosechas: retorna envelope completo)
+  async create(ctx: Ctx, payload: InversionHuertaCreateData) {
+    const body: Record<string, any> = {
       fecha: payload.fecha,
       descripcion: payload.descripcion,
       gastos_insumos: payload.gastos_insumos,
       gastos_mano_obra: payload.gastos_mano_obra,
-      categoria_id: payload.categoria, // ← IMPORTANTE
+      categoria_id: payload.categoria,   // ← mapping requerido por backend
       cosecha_id: ctx.cosechaId,
       temporada_id: ctx.temporadaId,
     };
-    if (ctx.huertaId)        body.huerta_id = ctx.huertaId;
-    if (ctx.huertaRentadaId) body.huerta_rentada_id = ctx.huertaRentadaId;
+    if (ctx.huertaId)        body['huerta_id'] = ctx.huertaId;
+    if (ctx.huertaRentadaId) body['huerta_rentada_id'] = ctx.huertaRentadaId;
 
-    const { data } = await apiClient.post<ItemEnvelope>('/huerta/inversiones/', body);
-    return data.data.inversion;
+    const { data } = await apiClient.post<{
+      success: boolean;
+      notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
+      data: { inversion: InversionHuerta };
+    }>('/huerta/inversiones/', body);
+    return data;
   },
 
-  async update(id: number, payload: InversionHuertaUpdateData): Promise<InversionHuerta> {
+  // UPDATE (PATCH parcial; mapeo de categoria -> categoria_id si viene)
+  async update(id: number, payload: InversionHuertaUpdateData) {
     const body: any = { ...payload };
-    // si el caller manda categoria, mapear a categoria_id
     if (typeof payload.categoria === 'number') {
+      body.categoria = undefined;
       body.categoria_id = payload.categoria;
-      delete body.categoria;
     }
-    const { data } = await apiClient.patch<ItemEnvelope>(`/huerta/inversiones/${id}/`, body);
-    return data.data.inversion;
+    const { data } = await apiClient.patch<{
+      success: boolean;
+      notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
+      data: { inversion: InversionHuerta };
+    }>(`/huerta/inversiones/${id}/`, body);
+    return data;
   },
 
-  async archive(id: number): Promise<InversionHuerta> {
-    // backend usa POST /archivar/
-    const { data } = await apiClient.post<ItemEnvelope>(`/huerta/inversiones/${id}/archivar/`);
-    return data.data.inversion;
+  async archivar(id: number) {
+    const { data } = await apiClient.post<{
+      success: boolean;
+      notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
+      data: { inversion: InversionHuerta };
+    }>(`/huerta/inversiones/${id}/archivar/`);
+    return data;
   },
 
-  async restore(id: number): Promise<InversionHuerta> {
-    const { data } = await apiClient.post<ItemEnvelope>(`/huerta/inversiones/${id}/restaurar/`);
-    return data.data.inversion;
+  async restaurar(id: number) {
+    const { data } = await apiClient.post<{
+      success: boolean;
+      notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
+      data: { inversion: InversionHuerta };
+    }>(`/huerta/inversiones/${id}/restaurar/`);
+    return data;
   },
 
-  async remove(id: number): Promise<string> {
-    const { data } = await apiClient.delete<InfoEnvelope>(`/huerta/inversiones/${id}/`);
-    return data.data.info;
+  async remove(id: number) {
+    const { data } = await apiClient.delete<{
+      success: boolean;
+      notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
+      data: { info: string };
+    }>(`/huerta/inversiones/${id}/`);
+    return data;
   },
 };

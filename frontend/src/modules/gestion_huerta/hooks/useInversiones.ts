@@ -11,7 +11,6 @@ import {
   setPage,
   setContext,
   setFilters,
-  InversionFilters,
 } from '../../../global/store/inversionesSlice';
 import {
   InversionHuertaCreateData,
@@ -33,21 +32,19 @@ export function useInversiones() {
     filters,
   } = useAppSelector((s) => s.inversiones);
 
-  // fetch en cambios de contexto/página/filtros
+  // Auto-fetch cuando cambien contexto / paginación / filtros
   useEffect(() => {
     if ((!huertaId && !huertaRentadaId) || !temporadaId || !cosechaId) return;
     dispatch(fetchInversiones());
   }, [dispatch, huertaId, huertaRentadaId, temporadaId, cosechaId, page, filters]);
-
-  const refetch = () => dispatch(fetchInversiones());
 
   // Context setters
   const setContextIds = (args: { huertaId?: number; huertaRentadaId?: number; temporadaId: number; cosechaId: number }) =>
     dispatch(setContext(args));
 
   // Pagination & filters
-  const changePage    = (p: number)           => dispatch(setPage(p));
-  const changeFilters = (f: InversionFilters)  => dispatch(setFilters(f));
+  const changePage    = (p: number)          => dispatch(setPage(p));
+  const changeFilters = (f: typeof filters)   => dispatch(setFilters(f));
 
   // CRUD actions
   const addInversion = (data: InversionHuertaCreateData) =>
@@ -78,7 +75,6 @@ export function useInversiones() {
     // navigation
     changePage,
     changeFilters,
-    refetch,
     // CRUD
     addInversion,
     editInversion,

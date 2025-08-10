@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useMemo, useState, useEffect } from 'react';
-import { Box, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
+import { Box, Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
 
 import { useInversiones } from '../hooks/useInversiones';
 import { InversionHuerta, InversionCreateData, InversionUpdateData } from '../types/inversionTypes';
@@ -78,6 +78,7 @@ const Inversion: React.FC = () => {
     } else {
       await addInversion(vals as InversionCreateData);
     }
+    // no cerramos/abrimos nada extra; el modal se cierra desde el propio form
   };
 
   // Confirm delete
@@ -97,29 +98,28 @@ const Inversion: React.FC = () => {
         onClearFilters={handleClearFilters}
         onCreateClick={openCreate}
         totalCount={meta.count}
-        // opciones para el filtro de categoría (orden alfabético y agrupado se hacen en el propio toolbar)
+        // opciones para el filtro de categoría
         categoriesOptions={categorias}
         categoriesLoading={catsLoading}
-        // callback opcional: cuando se crea una categoría desde el filtro, actualizamos lista local
-        onCategoryCreated={(cat) => setCategorias(prev => [cat, ...prev].sort((a,b)=>a.nombre.localeCompare(b.nombre)))}
+        onCategoryCreated={(cat) =>
+          setCategorias(prev => [cat, ...prev].sort((a,b)=>a.nombre.localeCompare(b.nombre)))
+        }
       />
 
-      {loading ? (
-        <Box display="flex" justifyContent="center" mt={4}><CircularProgress /></Box>
-      ) : (
-        <InversionTable
-          data={inversiones}
-          page={page}
-          pageSize={PAGE_SIZE}
-          count={meta.count}
-          onPageChange={changePage}
-          onEdit={openEdit}
-          onArchive={(id) => archive(id)}
-          onRestore={(id) => restore(id)}
-          onDelete={(id) => setDelId(id)}
-          categoriesMap={categoriesMap} // ⬅️ ahora sí, nombre en la tabla
-        />
-      )}
+      {/* Siempre montada → TableLayout maneja su propio skeleton con `loading` */}
+      <InversionTable
+        data={inversiones}
+        page={page}
+        pageSize={PAGE_SIZE}
+        count={meta.count}
+        onPageChange={changePage}
+        onEdit={openEdit}
+        onArchive={(id) => archive(id)}
+        onRestore={(id) => restore(id)}
+        onDelete={(id) => setDelId(id)}
+        categoriesMap={categoriesMap}
+        loading={loading}
+      />
 
       <InversionFormModal
         open={modalOpen}
@@ -128,7 +128,7 @@ const Inversion: React.FC = () => {
         initialValues={editTarget ?? undefined}
       />
 
-      <Dialog open={delId != null} onClose={() => setDelId(null)}>
+      <Dialog open={delId != null} onClose={() => setDelId(null)} maxWidth="xs" fullWidth>
         <DialogTitle>Confirmar eliminación</DialogTitle>
         <DialogContent>¿Eliminar esta inversión permanentemente?</DialogContent>
         <DialogActions>

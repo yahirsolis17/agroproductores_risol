@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { inversionService } from '../../modules/gestion_huerta/services/inversionService';
+import { inversionService, InversionFilters as SvcFilters } from '../../modules/gestion_huerta/services/inversionService';
 import { handleBackendNotification } from '../utils/NotificationEngine';
 import {
   InversionHuerta,
@@ -9,13 +9,7 @@ import {
 import type { RootState } from './store';
 
 export type EstadoFiltro = 'activas' | 'archivadas' | 'todas';
-
-export interface InversionFilters {
-  categoria?: number;
-  fechaDesde?: string;
-  fechaHasta?: string;
-  estado?: EstadoFiltro; // ← tabs
-}
+export interface InversionFilters extends SvcFilters {}
 
 interface PaginationMeta { count: number; next: string | null; previous: string | null; }
 
@@ -29,7 +23,7 @@ interface InversionesState {
 
   // contexto (FKs)
   huertaId: number | null;
-  huertaRentadaId: number | null; // ← clave cuando es rentada
+  huertaRentadaId: number | null;
   temporadaId: number | null;
   cosechaId: number | null;
 
@@ -50,6 +44,7 @@ const initialState: InversionesState = {
   filters: { estado: 'activas' },
 };
 
+// ───────────────── Thunks ─────────────────
 export const fetchInversiones = createAsyncThunk<
   { inversiones: InversionHuerta[]; meta: PaginationMeta; page: number },
   void,
@@ -63,11 +58,23 @@ export const fetchInversiones = createAsyncThunk<
       return rejectWithValue('Faltan IDs de contexto (huerta/huerta_rentada, temporada o cosecha).');
     }
     try {
-      const data = await inversionService.list(
-        { huertaId: huertaId ?? undefined, huertaRentadaId: huertaRentadaId ?? undefined, temporadaId, cosechaId },
-        page, 10, filters
+      const res = await inversionService.list(
+        {
+          huertaId: huertaId ?? undefined,
+          huertaRentadaId: huertaRentadaId ?? undefined,
+          temporadaId: temporadaId!,
+          cosechaId: cosechaId!,
+        },
+        page,
+        10,
+        filters
       );
-      return { inversiones: data.inversiones, meta: data.meta, page };
+      handleBackendNotification(res);
+      return {
+        inversiones: res.data.inversiones,
+        meta: res.data.meta,
+        page,
+      };
     } catch (err: any) {
       handleBackendNotification(err?.response?.data || err);
       return rejectWithValue('Error al cargar inversiones');
@@ -88,12 +95,17 @@ export const createInversion = createAsyncThunk<
       return rejectWithValue('Contexto incompleto');
     }
     try {
-      const inv = await inversionService.create(
-        { huertaId: huertaId ?? undefined, huertaRentadaId: huertaRentadaId ?? undefined, temporadaId, cosechaId },
+      const res = await inversionService.create(
+        {
+          huertaId: huertaId ?? undefined,
+          huertaRentadaId: huertaRentadaId ?? undefined,
+          temporadaId: temporadaId!,
+          cosechaId: cosechaId!,
+        },
         payload
       );
-      handleBackendNotification({ success: true, message_key: 'inversion_create_success', data: { inversion: inv } });
-      return inv;
+      handleBackendNotification(res);
+      return res.data.inversion;
     } catch (err: any) {
       handleBackendNotification(err?.response?.data || err);
       return rejectWithValue('Error al crear inversión');
@@ -109,9 +121,9 @@ export const updateInversion = createAsyncThunk<
   'inversiones/update',
   async ({ id, payload }, { rejectWithValue }) => {
     try {
-      const inv = await inversionService.update(id, payload);
-      handleBackendNotification({ success: true, message_key: 'inversion_update_success', data: { inversion: inv } });
-      return inv;
+      const res = await inversionService.update(id, payload);
+      handleBackendNotification(res);
+      return res.data.inversion;
     } catch (err: any) {
       handleBackendNotification(err?.response?.data || err);
       return rejectWithValue('Error al actualizar inversión');
@@ -127,9 +139,9 @@ export const archiveInversion = createAsyncThunk<
   'inversiones/archive',
   async (id, { rejectWithValue }) => {
     try {
-      const inv = await inversionService.archive(id);
-      handleBackendNotification({ success: true, message_key: 'inversion_archivada', data: { inversion: inv } });
-      return inv;
+      const res = await inversionService.archivar(id);
+      handleBackendNotification(res);
+      return res.data.inversion;
     } catch (err: any) {
       handleBackendNotification(err?.response?.data || err);
       return rejectWithValue('Error al archivar inversión');
@@ -145,9 +157,9 @@ export const restoreInversion = createAsyncThunk<
   'inversiones/restore',
   async (id, { rejectWithValue }) => {
     try {
-      const inv = await inversionService.restore(id);
-      handleBackendNotification({ success: true, message_key: 'inversion_restaurada', data: { inversion: inv } });
-      return inv;
+      const res = await inversionService.restaurar(id);
+      handleBackendNotification(res);
+      return res.data.inversion;
     } catch (err: any) {
       handleBackendNotification(err?.response?.data || err);
       return rejectWithValue('Error al restaurar inversión');
@@ -163,8 +175,8 @@ export const deleteInversion = createAsyncThunk<
   'inversiones/delete',
   async (id, { rejectWithValue }) => {
     try {
-      const info = await inversionService.remove(id);
-      handleBackendNotification({ success: true, message_key: 'inversion_delete_success', data: { info } });
+      const res = await inversionService.remove(id);
+      handleBackendNotification(res);
       return id;
     } catch (err: any) {
       handleBackendNotification(err?.response?.data || err);
@@ -173,6 +185,7 @@ export const deleteInversion = createAsyncThunk<
   }
 );
 
+// ───────────────── Slice ─────────────────
 const inversionesSlice = createSlice({
   name: 'inversiones',
   initialState,
@@ -189,6 +202,7 @@ const inversionesSlice = createSlice({
       s.page = 1;
     },
     setFilters: (s, a: PayloadAction<InversionFilters>) => { s.filters = a.payload; s.page = 1; },
+    clear: () => ({ ...initialState }),
   },
   extraReducers: b => {
     b.addCase(fetchInversiones.pending, s => { s.loading = true; s.error = null; })
@@ -205,20 +219,29 @@ const inversionesSlice = createSlice({
        s.loaded = true;
      })
 
+     // CREATE → insert inmediata (UX fluida, sin flashes)
      .addCase(createInversion.fulfilled, (s, { payload }) => {
        s.list.unshift(payload);
        s.meta.count += 1;
      })
+
+     // UPDATE in-place
      .addCase(updateInversion.fulfilled, (s, { payload }) => {
        const i = s.list.findIndex(inv => inv.id === payload.id);
        if (i !== -1) s.list[i] = payload;
      })
+
+     // ARCHIVAR: si estás en "activas", se remueve de la vista
      .addCase(archiveInversion.fulfilled, (s, { payload }) => {
        s.list = s.list.filter(inv => inv.id !== payload.id);
      })
+
+     // RESTAURAR: vuelve arriba
      .addCase(restoreInversion.fulfilled, (s, { payload }) => {
        s.list.unshift(payload);
      })
+
+     // DELETE
      .addCase(deleteInversion.fulfilled, (s, { payload: id }) => {
        s.list = s.list.filter(inv => inv.id !== id);
        if (s.meta.count > 0) s.meta.count -= 1;
@@ -226,5 +249,5 @@ const inversionesSlice = createSlice({
   }
 });
 
-export const { setPage, setContext, setFilters } = inversionesSlice.actions;
+export const { setPage, setContext, setFilters, clear } = inversionesSlice.actions;
 export default inversionesSlice.reducer;

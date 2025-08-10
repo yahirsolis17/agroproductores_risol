@@ -458,9 +458,11 @@ class Cosecha(models.Model):
         origen = self.huerta or self.huerta_rentada
         return f"{self.nombre} – {origen} – Temp {self.temporada.año}"
 # ────────────── INVERSIONES ───────────────────────────────────────────────
+# ────────────── INVERSIONES ───────────────────────────────────────────────
 class InversionesHuerta(models.Model):
     """
     Inversión asociada a una Cosecha. Soporta huerta propia o rentada (mutuamente excluyentes).
+    *Validaciones movidas al serializer para no chocar con las del front.*
     """
     categoria        = models.ForeignKey(
         CategoriaInversion,
@@ -494,68 +496,9 @@ class InversionesHuerta(models.Model):
     def gastos_totales(self) -> Decimal:
         return (self.gastos_insumos or Decimal('0')) + (self.gastos_mano_obra or Decimal('0'))
 
-    def clean(self):
-        """
-        Coherencia con la cosecha: si la cosecha es de huerta propia → huerta obligatoria y huerta_rentada = None.
-        Si la cosecha es de huerta rentada → huerta_rentada obligatoria y huerta = None.
-        Además, la temporada debe coincidir con la de la cosecha.
-        """
-        if not self.cosecha_id or not self.temporada_id:
-            # DRF validará que vengan; aquí evitamos errores cuando se instancia incompleta
-            return
-
-        # Temporada debe coincidir con la de la cosecha
-        if self.temporada_id != self.cosecha.temporada_id:
-            from django.core.exceptions import ValidationError
-            raise ValidationError("La temporada no coincide con la temporada de la cosecha.")
-
-        # Origen de la cosecha determina qué FK de huerta aplicar
-        if self.cosecha.huerta_id:
-            # Propia
-            if not self.huerta_id or self.huerta_id != self.cosecha.huerta_id:
-                from django.core.exceptions import ValidationError
-                raise ValidationError("La huerta no coincide con la huerta de la cosecha.")
-            if self.huerta_rentada_id:
-                from django.core.exceptions import ValidationError
-                raise ValidationError("No asignes huerta rentada en una cosecha de huerta propia.")
-        elif self.cosecha.huerta_rentada_id:
-            # Rentada
-            if not self.huerta_rentada_id or self.huerta_rentada_id != self.cosecha.huerta_rentada_id:
-                from django.core.exceptions import ValidationError
-                raise ValidationError("La huerta rentada no coincide con la de la cosecha.")
-            if self.huerta_id:
-                from django.core.exceptions import ValidationError
-                raise ValidationError("No asignes huerta propia en una cosecha de huerta rentada.")
-        else:
-            from django.core.exceptions import ValidationError
-            raise ValidationError("La cosecha no tiene origen (huerta/huerta_rentada) definido.")
-
-        # La fecha no puede ser anterior al inicio de la cosecha (si existe)
-        if self.fecha and self.cosecha.fecha_inicio and self.fecha < self.cosecha.fecha_inicio.date():
-            from django.core.exceptions import ValidationError
-            raise ValidationError(
-                {"fecha": f"La fecha debe ser ≥ {self.cosecha.fecha_inicio.date().isoformat()} (inicio de la cosecha)."}
-            )
-
-        # La fecha no puede ser futura
-        if self.fecha and self.fecha > date.today():
-            from django.core.exceptions import ValidationError
-            raise ValidationError({"fecha": "La fecha no puede ser futura."})
-
-        # Temporada debe estar activa y no finalizada
-        t = self.temporada
-        if t.finalizada or not t.is_active:
-            from django.core.exceptions import ValidationError
-            raise ValidationError("No se pueden registrar inversiones en una temporada finalizada o archivada.")
-
-        # Total > 0
-        total = (self.gastos_insumos or Decimal('0')) + (self.gastos_mano_obra or Decimal('0'))
-        if total <= 0:
-            from django.core.exceptions import ValidationError
-            raise ValidationError("Los gastos totales deben ser mayores a 0.")
-
+    # ❗️Sin clean(); dejamos toda la validación al serializer
     def save(self, *args, **kwargs):
-        self.full_clean()
+        # No llamamos a full_clean() para evitar choques con validaciones del front
         return super().save(*args, **kwargs)
 
     def archivar(self):
@@ -573,6 +516,7 @@ class InversionesHuerta(models.Model):
     def __str__(self):
         origen = self.huerta or self.huerta_rentada
         return f"{self.categoria.nombre} – {self.fecha} – {origen}"
+
 # ────────────── VENTAS ────────────────────────────────────────────────────
 # ────────────── VENTAS ────────────────────────────────────────────────────
 class Venta(models.Model):

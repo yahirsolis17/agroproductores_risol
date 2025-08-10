@@ -166,6 +166,27 @@ NOTIFICATION_MESSAGES = {
         "message": "Categoría de inversión eliminada correctamente.",
         "type": "success"
     },
+    "categoria_con_inversiones": {
+        "message": "No puedes eliminar la categoría porque tiene inversiones asociadas.",
+        "type": "error"
+    },
+    "categoria_archivada": {
+        "message": "Categoría archivada back.",
+        "type": "success"
+    },
+    "categoria_restaurada": {
+        "message": "Categoría restaurada.",
+        "type": "success"
+    },
+    "categoria_ya_archivada": {
+        "message": "La categoría ya está archivada.",
+        "type": "warning"
+    },
+    "categoria_no_archivada": {
+        "message": "La categoría no está archivada.",
+        "type": "warning"
+    },
+
 
     # -------------------------------------------------
     # Inversiones

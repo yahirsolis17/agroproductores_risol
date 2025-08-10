@@ -20,20 +20,19 @@ export interface InversionHuerta {
   archivado_en?: string | null;
 }
 
-/** Payload para crear (POST) — el service inyecta *_id faltantes */
+/** Payload para crear (POST) — el service inyecta *_id faltantes vía contexto */
 export interface InversionHuertaCreateData {
   fecha:            string;        // YYYY-MM-DD
   descripcion?:     string;
   gastos_insumos:   number;
   gastos_mano_obra: number;
   categoria:        number;        // FK
-  cosecha:          number;        // FK (el form lo seta al abrir)
+  cosecha:          number;        // (el form puede setearlo, pero el service usa el del contexto)
 }
 
 /** Payload para actualizar (PATCH) */
-export interface InversionHuertaUpdateData
-  extends Partial<InversionHuertaCreateData> {}
+export interface InversionHuertaUpdateData extends Partial<InversionHuertaCreateData> {}
 
-/* Aliases para no romper imports de los formularios */
+/* Aliases para no romper imports de formularios */
 export type InversionCreateData = InversionHuertaCreateData;
 export type InversionUpdateData = InversionHuertaUpdateData;

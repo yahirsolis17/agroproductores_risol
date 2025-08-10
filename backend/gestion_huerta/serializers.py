@@ -361,10 +361,11 @@ class CosechaSerializer(serializers.ModelSerializer):
 class CategoriaInversionSerializer(serializers.ModelSerializer):
     archivado_en = serializers.DateTimeField(read_only=True)
     is_active    = serializers.BooleanField(read_only=True)
+    uso_count    = serializers.IntegerField(read_only=True)  # ← EXPUESTO AL FRONT
 
     class Meta:
         model  = CategoriaInversion
-        fields = ['id', 'nombre', 'is_active', 'archivado_en']
+        fields = ['id', 'nombre', 'is_active', 'archivado_en', 'uso_count']
 
     def validate_nombre(self, value: str) -> str:
         val = (value or '').strip()
@@ -374,7 +375,6 @@ class CategoriaInversionSerializer(serializers.ModelSerializer):
         if qs.exists() and not (self.instance and self.instance.nombre.lower() == val.lower()):
             raise serializers.ValidationError("Ya existe una categoría con este nombre.")
         return val
-
 
 class InversionesHuertaSerializer(serializers.ModelSerializer):
     # Calculado
@@ -416,15 +416,15 @@ class InversionesHuertaSerializer(serializers.ModelSerializer):
                 )
         return value
 
-    # ——— Validación de objeto (todas las reglas en una sola) ———
+    # ——— Validación de objeto (reglas de negocio) ———
     def validate(self, data):
-        categoria   = data.get('categoria')
-        cosecha     = data.get('cosecha')
-        temporada   = data.get('temporada')
-        huerta      = data.get('huerta')
-        huerta_rentada = data.get('huerta_rentada')
-        gi = data.get('gastos_insumos') or Decimal('0')
-        gm = data.get('gastos_mano_obra') or Decimal('0')
+        categoria       = data.get('categoria')
+        cosecha         = data.get('cosecha')
+        temporada       = data.get('temporada')
+        huerta          = data.get('huerta')
+        huerta_rentada  = data.get('huerta_rentada')
+        gi              = data.get('gastos_insumos') or Decimal('0')
+        gm              = data.get('gastos_mano_obra') or Decimal('0')
 
         # total > 0
         if (gi + gm) <= 0:
@@ -458,6 +458,7 @@ class InversionesHuertaSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("La cosecha no tiene origen (huerta/huerta_rentada) definido.")
 
         return data
+
 # -----------------------------
 # VENTA
 # -----------------------------

@@ -1,6 +1,8 @@
-from rest_framework import viewsets, filters, status
+# gestion_huerta/views/categoria_inversion_views.py
+from rest_framework import viewsets, filters, status, serializers
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
+from django.db.models import Count
 
 from gestion_huerta.models import CategoriaInversion
 from gestion_huerta.serializers import CategoriaInversionSerializer
@@ -8,16 +10,14 @@ from gestion_huerta.views.huerta_views import NotificationMixin
 from gestion_huerta.permissions import HasHuertaModulePermission, HuertaGranularPermission
 from agroproductores_risol.utils.pagination import GenericPagination
 from gestion_huerta.utils.activity import registrar_actividad
-from gestion_huerta.utils.audit   import ViewSetAuditMixin                 # ⬅️ auditoría
+from gestion_huerta.utils.audit import ViewSetAuditMixin
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  CATEGORÍAS DE INVERSIÓN
-# ─────────────────────────────────────────────────────────────────────────────
+
 class CategoriaInversionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
     """
-    CRUD de categorías con soft-delete + endpoint /all para incluir inactivas.
+    CRUD de categorías con soft-delete + filtro por estado (activas|archivadas|todas)
+    y orden alfabético por nombre. Expone uso_count para saber si puede eliminarse.
     """
-    queryset           = CategoriaInversion.objects.filter(is_active=True).order_by('id')
     serializer_class   = CategoriaInversionSerializer
     pagination_class   = GenericPagination
     permission_classes = [IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission]
@@ -25,6 +25,27 @@ class CategoriaInversionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.M
     search_fields      = ['nombre']
     ordering_fields    = ['nombre', 'id']
 
+    def get_queryset(self):
+        base = (
+            CategoriaInversion.objects
+            .all()
+            .annotate(uso_count=Count('inversiones'))
+            .order_by('nombre')
+        )
+
+        # ⚠️ Para acciones de detalle NO filtramos por estado, así /restaurar no da 404
+        if getattr(self, 'action', None) in ['retrieve', 'update', 'partial_update', 'destroy', 'archivar', 'restaurar']:
+            return base
+
+        # Listados: estado = activas|archivadas|todas (default activas)
+        estado = (self.request.query_params.get('estado') or 'activas').strip().lower()
+        if estado == 'activas':
+            return base.filter(is_active=True)
+        elif estado == 'archivadas':
+            return base.filter(is_active=False)
+        return base
+
+    # ------------------------------ LIST
     def list(self, request, *args, **kwargs):
         page       = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
         serializer = self.get_serializer(page, many=True)
@@ -41,9 +62,10 @@ class CategoriaInversionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.M
             status_code=status.HTTP_200_OK
         )
 
+    # GET /huerta/categorias-inversion/all
     @action(detail=False, methods=["get"], url_path="all")
     def list_all(self, request):
-        qs         = CategoriaInversion.objects.all().order_by('id')
+        qs         = CategoriaInversion.objects.all().annotate(uso_count=Count('inversiones')).order_by('nombre')
         page       = self.paginate_queryset(qs)
         serializer = self.get_serializer(page, many=True)
         return self.notify(
@@ -59,6 +81,7 @@ class CategoriaInversionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.M
             status_code=status.HTTP_200_OK
         )
 
+    # ------------------------------ CREATE
     def create(self, request, *args, **kwargs):
         ser = self.get_serializer(data=request.data)
         try:
@@ -72,11 +95,12 @@ class CategoriaInversionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.M
         self.perform_create(ser)
         registrar_actividad(request.user, f"Creó categoría {ser.instance.id}")
         return self.notify(
-            key="categoria_create_success",
+            key="categoria_inversion_create_success",
             data={"categoria": ser.data},
             status_code=status.HTTP_201_CREATED,
         )
 
+    # ------------------------------ UPDATE
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop("partial", False)
         inst    = self.get_object()
@@ -92,11 +116,12 @@ class CategoriaInversionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.M
         self.perform_update(ser)
         registrar_actividad(request.user, f"Actualizó categoría {inst.id}")
         return self.notify(
-            key="categoria_update_success",
+            key="categoria_inversion_update_success",
             data={"categoria": ser.data},
             status_code=status.HTTP_200_OK,
         )
 
+    # ------------------------------ DELETE (bloqueada si tiene inversiones)
     def destroy(self, request, *args, **kwargs):
         cat = self.get_object()
         if cat.inversiones.exists():
@@ -107,8 +132,13 @@ class CategoriaInversionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.M
             )
         self.perform_destroy(cat)
         registrar_actividad(request.user, f"Eliminó categoría {cat.id}")
-        return self.notify(key="categoria_delete_success", data={"info": "Categoría eliminada."}, status_code=status.HTTP_200_OK)
+        return self.notify(
+            key="categoria_inversion_delete_success",
+            data={"info": "Categoría eliminada."},
+            status_code=status.HTTP_200_OK
+        )
 
+    # ------------------------------ ARCHIVAR / RESTAURAR
     @action(detail=True, methods=["post"], url_path="archivar")
     def archivar(self, request, pk=None):
         cat = self.get_object()
