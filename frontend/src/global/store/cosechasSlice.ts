@@ -1,4 +1,3 @@
-// src/global/store/cosechasSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { Cosecha, CosechaCreateData, CosechaUpdateData } from '../../modules/gestion_huerta/types/cosechaTypes';
 import { cosechaService } from '../../modules/gestion_huerta/services/cosechaService';
@@ -25,7 +24,7 @@ const initialState: CosechasState = {
   temporadaId: null, search: '', estado: 'activas',
 };
 
-// ───────────────── Thunks ─────────────────
+// FETCH
 export const fetchCosechas = createAsyncThunk<
   { cosechas: Cosecha[]; meta: PaginationMeta; page: number },
   void,
@@ -34,9 +33,7 @@ export const fetchCosechas = createAsyncThunk<
   'cosechas/fetch',
   async (_, { getState, rejectWithValue }) => {
     const { page, temporadaId, search, estado } = getState().cosechas;
-    if (!temporadaId) {
-      return rejectWithValue({ message: 'Falta temporada seleccionada.' });
-    }
+    if (!temporadaId) return rejectWithValue({ message: 'Falta temporada seleccionada.' });
     try {
       const res = await cosechaService.list(page, temporadaId, search, estado);
       handleBackendNotification(res);
@@ -49,6 +46,7 @@ export const fetchCosechas = createAsyncThunk<
   }
 );
 
+// CREATE
 export const createCosecha = createAsyncThunk<Cosecha, CosechaCreateData, { rejectValue: Record<string, any> }>(
   'cosechas/create',
   async (payload, { rejectWithValue }) => {
@@ -64,6 +62,7 @@ export const createCosecha = createAsyncThunk<Cosecha, CosechaCreateData, { reje
   }
 );
 
+// UPDATE
 export const updateCosecha = createAsyncThunk<
   Cosecha,
   { id: number; data: CosechaUpdateData },
@@ -83,6 +82,7 @@ export const updateCosecha = createAsyncThunk<
   }
 );
 
+// DELETE
 export const deleteCosecha = createAsyncThunk<number, number, { rejectValue: Record<string, any> }>(
   'cosechas/delete',
   async (id, { rejectWithValue }) => {
@@ -98,6 +98,7 @@ export const deleteCosecha = createAsyncThunk<number, number, { rejectValue: Rec
   }
 );
 
+// ARCHIVAR
 export const archivarCosecha = createAsyncThunk<Cosecha, number, { rejectValue: Record<string, any> }>(
   'cosechas/archivar',
   async (id, { rejectWithValue }) => {
@@ -113,6 +114,7 @@ export const archivarCosecha = createAsyncThunk<Cosecha, number, { rejectValue: 
   }
 );
 
+// RESTAURAR
 export const restaurarCosecha = createAsyncThunk<Cosecha, number, { rejectValue: Record<string, any> }>(
   'cosechas/restaurar',
   async (id, { rejectWithValue }) => {
@@ -128,6 +130,7 @@ export const restaurarCosecha = createAsyncThunk<Cosecha, number, { rejectValue:
   }
 );
 
+// TOGGLE FINALIZADA
 export const toggleFinalizadaCosecha = createAsyncThunk<Cosecha, number, { rejectValue: Record<string, any> }>(
   'cosechas/toggleFinalizada',
   async (id, { rejectWithValue }) => {
@@ -143,95 +146,65 @@ export const toggleFinalizadaCosecha = createAsyncThunk<Cosecha, number, { rejec
   }
 );
 
-// ───────────────── Slice ─────────────────
+// SLICE
 const cosechasSlice = createSlice({
   name: 'cosechas',
   initialState,
   reducers: {
-    setPage(state, action: PayloadAction<number>) {
-      state.page = action.payload;
-    },
-    setTemporadaId(state, action: PayloadAction<number | null>) {
-      state.temporadaId = action.payload;
-      state.page = 1;
-    },
-    setSearch(state, action: PayloadAction<string>) {
-      state.search = action.payload;
-      state.page = 1;
-    },
-    setEstado(state, action: PayloadAction<'activas' | 'archivadas' | 'todas'>) {
-      state.estado = action.payload;
-      state.page = 1;
-    },
+    setPage: (s, a: PayloadAction<number>) => { s.page = a.payload; },
+    setTemporadaId: (s, a: PayloadAction<number | null>) => { s.temporadaId = a.payload; s.page = 1; },
+    setSearch: (s, a: PayloadAction<string>) => { s.search = a.payload; s.page = 1; },
+    setEstado: (s, a: PayloadAction<'activas' | 'archivadas' | 'todas'>) => { s.estado = a.payload; s.page = 1; },
     clear: () => ({ ...initialState }),
   },
-  extraReducers: (builder) => {
-    builder
-      // FETCH
-      .addCase(fetchCosechas.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchCosechas.fulfilled, (state, { payload }) => {
-        state.loading = false;
-        state.loaded = true;
-        state.list = payload.cosechas;
-        state.meta = payload.meta;
-        state.page = payload.page;
-      })
-      .addCase(fetchCosechas.rejected, (state, { payload }) => {
-        state.loading = false;
-        state.loaded = true;
-        state.error = payload || null;
-      })
+  extraReducers: (b) => {
+    b.addCase(fetchCosechas.pending,  (s)=>{ s.loading=true; s.error=null; });
+    b.addCase(fetchCosechas.fulfilled,(s,{payload})=>{
+      s.loading=false; s.loaded=true;
+      s.list = payload.cosechas;
+      s.meta = payload.meta;
+      s.page = payload.page;
+    });
+    b.addCase(fetchCosechas.rejected, (s,{payload})=>{
+      s.loading=false; s.loaded=true; s.error=payload||null;
+    });
 
-      // CREATE → recargamos lista
-      .addCase(createCosecha.fulfilled, () => {})
+    b.addCase(createCosecha.fulfilled, ()=>{ /* recargamos luego en hook */ });
 
-      // UPDATE in-place
-      .addCase(updateCosecha.fulfilled, (state, { payload }) => {
-        const i = state.list.findIndex(c => c.id === payload.id);
-        if (i !== -1) state.list[i] = payload;
-      })
+    b.addCase(updateCosecha.fulfilled,(s,{payload})=>{
+      const i = s.list.findIndex(c=>c.id===payload.id);
+      if (i!==-1) s.list[i]=payload;
+    });
 
-      // DELETE removes
-      .addCase(deleteCosecha.fulfilled, (state, { payload }) => {
-        state.list = state.list.filter(c => c.id !== payload);
-        if (state.meta.count > 0) state.meta.count -= 1;
-      })
+    b.addCase(deleteCosecha.fulfilled,(s,{payload:id})=>{
+      s.list = s.list.filter(c=>c.id!==id);
+      if (s.meta.count>0) s.meta.count -= 1;
+    });
 
-      // ARCHIVAR / RESTAURAR
-      .addCase(archivarCosecha.fulfilled, (state, { payload }) => {
-        if (state.estado === 'activas') {
-          state.list = state.list.filter(c => c.id !== payload.id);
-        } else {
-          const i = state.list.findIndex(c => c.id === payload.id);
-          if (i !== -1) state.list[i] = payload;
-        }
-      })
-      .addCase(restaurarCosecha.fulfilled, (state, { payload }) => {
-        if (state.estado === 'archivadas') {
-          state.list = state.list.filter(c => c.id !== payload.id);
-        } else {
-          const i = state.list.findIndex(c => c.id === payload.id);
-          if (i !== -1) state.list[i] = payload;
-        }
-      })
+    b.addCase(archivarCosecha.fulfilled,(s,{payload})=>{
+      if (s.estado==='activas') {
+        s.list = s.list.filter(c=>c.id!==payload.id);
+      } else {
+        const i = s.list.findIndex(c=>c.id===payload.id);
+        if (i!==-1) s.list[i]=payload;
+      }
+    });
 
-      // TOGGLE FINALIZADA
-      .addCase(toggleFinalizadaCosecha.fulfilled, (state, { payload }) => {
-        const i = state.list.findIndex(c => c.id === payload.id);
-        if (i !== -1) state.list[i] = payload;
-      });
+    b.addCase(restaurarCosecha.fulfilled,(s,{payload})=>{
+      if (s.estado==='archivadas') {
+        s.list = s.list.filter(c=>c.id!==payload.id);
+      } else {
+        const i = s.list.findIndex(c=>c.id===payload.id);
+        if (i!==-1) s.list[i]=payload;
+      }
+    });
+
+    b.addCase(toggleFinalizadaCosecha.fulfilled,(s,{payload})=>{
+      const i = s.list.findIndex(c=>c.id===payload.id);
+      if (i!==-1) s.list[i]=payload;
+    });
   },
 });
 
-export const {
-  setPage,
-  setTemporadaId,
-  setSearch,
-  setEstado,
-  clear,
-} = cosechasSlice.actions;
-
+export const { setPage, setTemporadaId, setSearch, setEstado, clear } = cosechasSlice.actions;
 export default cosechasSlice.reducer;

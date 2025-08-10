@@ -1,52 +1,46 @@
 import apiClient from '../../../global/api/apiClient';
-import {
-  Huerta,
-  HuertaCreateData,
-  HuertaUpdateData,
-} from '../types/huertaTypes';
+import { Huerta, HuertaCreateData, HuertaUpdateData } from '../types/huertaTypes';
+import { Estado, PaginationMeta, AffectedCounts } from '../types/shared';
 
-/** Estado para filtrar en servidor */
-export type Estado = 'activos' | 'archivados' | 'todos';
-
-/** Filtros aceptados por el endpoint de huertas propias */
 export interface HuertaFilters {
-  /** Búsqueda global sobre nombre, ubicación, variedades */
   search?: string;
-  /** Filtro específico por nombre */
   nombre?: string;
-  /** Filtro específico por propietario (ID) */
   propietario?: number;
 }
 
-interface ListResp {
-  huertas: Huerta[];
-  meta: { count: number; next: string | null; previous: string | null };
+interface ListRespRaw {
+  // el backend puede devolver results o huertas (alias de compat)
+  results?: Huerta[];
+  huertas?: Huerta[];
+  meta: PaginationMeta;
 }
+
 interface ItemWrapper { huerta: Huerta; }
 
-/** CRUD completo para Huertas propias */
 export const huertaService = {
-  /** Listar huertas (pag; estado; filtros opcionales) */
   async list(
     page = 1,
     estado: Estado = 'activos',
-    filters: HuertaFilters = {}
-  ): Promise<ListResp> {
+    filters: HuertaFilters = {},
+    config: { signal?: AbortSignal; pageSize?: number } = {}
+  ): Promise<{ huertas: Huerta[]; meta: PaginationMeta }> {
     const params: Record<string, any> = { page, estado };
-    if (filters.search)      params.search     = filters.search;
-    if (filters.nombre)      params.nombre     = filters.nombre;
+    if (config.pageSize) params.page_size = config.pageSize;
+    if (filters.search) params.search = filters.search;
+    if (filters.nombre) params.nombre = filters.nombre;
     if (filters.propietario) params.propietario = filters.propietario;
 
     const { data } = await apiClient.get<{
       success: boolean;
       message_key: string;
-      data: ListResp;
-    }>('/huerta/huertas/', { params });
+      data: ListRespRaw;
+    }>('/huerta/huertas/', { params, signal: config.signal });
 
-    return data.data;
+    const raw = data.data;
+    const list = raw.results ?? raw.huertas ?? [];
+    return { huertas: list, meta: raw.meta };
   },
 
-  /** Crear una nueva huerta */
   async create(payload: HuertaCreateData) {
     const { data } = await apiClient.post<{
       success: boolean;
@@ -56,7 +50,6 @@ export const huertaService = {
     return data;
   },
 
-  /** Actualizar huerta existente */
   async update(id: number, payload: HuertaUpdateData) {
     const { data } = await apiClient.put<{
       success: boolean;
@@ -66,7 +59,6 @@ export const huertaService = {
     return data;
   },
 
-  /** Eliminar huerta (solo si está archivada) */
   async delete(id: number) {
     const { data } = await apiClient.delete<{
       success: boolean;
@@ -76,22 +68,20 @@ export const huertaService = {
     return data;
   },
 
-  /** Archivar huerta */
   async archivar(id: number) {
     const { data } = await apiClient.post<{
       success: boolean;
       message_key: string;
-      data: { huerta_id: number };
+      data: { huerta_id: number; affected?: AffectedCounts };
     }>(`/huerta/huertas/${id}/archivar/`);
     return data;
   },
 
-  /** Restaurar huerta archivada */
   async restaurar(id: number) {
     const { data } = await apiClient.post<{
       success: boolean;
       message_key: string;
-      data: { huerta_id: number };
+      data: { huerta_id: number; affected?: AffectedCounts };
     }>(`/huerta/huertas/${id}/restaurar/`);
     return data;
   },

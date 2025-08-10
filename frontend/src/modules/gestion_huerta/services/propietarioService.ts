@@ -7,8 +7,10 @@ import {
 } from '../types/propietarioTypes';
 
 /* -------------------------------------------------------------------------- */
-/*  Interfaces de respuesta                                                   */
+/*  Tipos auxiliares                                                          */
 /* -------------------------------------------------------------------------- */
+type ReqCfg = { signal?: AbortSignal };
+
 interface ListResp {
   propietarios: Propietario[];
   meta: { count: number; next: string | null; previous: string | null };
@@ -52,20 +54,20 @@ export const propietarioService = {
     return data.data;
   },
 
-getConHuertas(search: string, config: { signal?: AbortSignal } = {}) {
-  const params: Record<string, any> = {};
-  if (search) params.search = search;
+  /* ------------ SOLO CON HUERTAS (con cancelación) ------------ */
+  getConHuertas(search: string, config: ReqCfg = {}) {
+    const params: Record<string, any> = {};
+    if (search) params.search = search;
 
-  return apiClient.get<{
-    success: boolean;
-    message_key: string;
-    data: ListResp;
-  }>('/huerta/propietarios/solo-con-huertas/', {
-    params,
-    signal: config.signal, // 💥 esto es lo que faltaba
-  }).then(res => res.data.data);
-},
-
+    return apiClient.get<{
+      success: boolean;
+      message_key: string;
+      data: ListResp;
+    }>('/huerta/propietarios/solo-con-huertas/', {
+      params,
+      signal: config.signal,
+    }).then(res => res.data.data);
+  },
 
   /* ------------ CREATE ------------ */
   async create(payload: PropietarioCreateData) {
@@ -106,13 +108,16 @@ getConHuertas(search: string, config: { signal?: AbortSignal } = {}) {
   },
 
   /* ------------ FETCH BY ID (para precarga) ------------ */
-  async fetchById(id: string | number): Promise<Propietario | null> {
+  async fetchById(id: string | number, config: ReqCfg = {}): Promise<Propietario | null> {
     try {
       const { data } = await apiClient.get<{
         success: boolean;
         message_key: string;
         data: { propietario: Propietario };
-      }>('/huerta/propietarios/buscar/', { params: { id } });
+      }>('/huerta/propietarios/buscar/', {
+        params: { id },
+        signal: config.signal,
+      });
       return data.data.propietario;
     } catch {
       return null;
@@ -120,35 +125,31 @@ getConHuertas(search: string, config: { signal?: AbortSignal } = {}) {
   },
 
   /* ------------ SEARCH Autocomplete (ID o texto) ------------ */
-  /* ------------ SEARCH Autocomplete (ID o texto) ------------ */
   async searchAutocomplete(
     query: string,
-    signal?: AbortSignal              // <- NUEVO parámetro opcional
+    signal?: AbortSignal
   ): Promise<{ label: string; value: number }[]> {
     if (!query.trim()) return [];
 
-    /* --- Si es numérico → buscar por ID exacto --- */
     if (/^\d+$/.test(query)) {
-      const p = await this.fetchById(query);
+      const p = await this.fetchById(query, { signal });
       return p ? [toOption(p)] : [];
     }
 
-    /* --- Caso texto → búsqueda parcial --- */
     const { data } = await apiClient.get<{
       success: boolean;
       message_key: string;
       data: { propietarios: Propietario[] };
     }>('/huerta/propietarios/', {
       params: { search: query, page_size: 50 },
-      signal,                           // <-- se reenvía para poder cancelar
+      signal,
     });
 
     return data.data.propietarios.map(toOption);
   },
 
-
-  /* ------------ Legacy búsqueda por texto (sin formato option) ------------ */
-  async search(query: string): Promise<Propietario[]> {
+  /* ------------ SEARCH (lista cruda) con cancelación ------------ */
+  async search(query: string, config: ReqCfg = {}): Promise<Propietario[]> {
     if (!query.trim()) return [];
     const { data } = await apiClient.get<{
       success: boolean;
@@ -156,6 +157,7 @@ getConHuertas(search: string, config: { signal?: AbortSignal } = {}) {
       data: { propietarios: Propietario[] };
     }>('/huerta/propietarios/', {
       params: { search: query, page_size: 50 },
+      signal: config.signal,
     });
     return data.data.propietarios;
   },

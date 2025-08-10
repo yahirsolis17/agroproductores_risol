@@ -1,45 +1,42 @@
 import apiClient from '../../../global/api/apiClient';
-import {
-  HuertaRentada,
-  HuertaRentadaCreateData,
-  HuertaRentadaUpdateData,
-} from '../types/huertaRentadaTypes';
+import { HuertaRentada, HuertaRentadaCreateData, HuertaRentadaUpdateData } from '../types/huertaRentadaTypes';
+import { Estado, PaginationMeta, AffectedCounts } from '../types/shared';
 
-/** Estado para filtrar en servidor */
-export type Estado = 'activos' | 'archivados' | 'todos';
-
-/** Filtros aceptados por el endpoint de huertas rentadas */
 export interface HRFilters {
   search?: string;
   nombre?: string;
   propietario?: number;
 }
 
-interface ListResp {
-  huertas_rentadas: HuertaRentada[];
-  meta: { count: number; next: string | null; previous: string | null };
+interface ListRespRaw {
+  results?: HuertaRentada[];
+  huertas_rentadas?: HuertaRentada[];
+  meta: PaginationMeta;
 }
 interface ItemWrapper { huerta_rentada: HuertaRentada; }
 
-/** CRUD completo para Huertas rentadas */
 export const huertaRentadaService = {
   async list(
     page = 1,
     estado: Estado = 'activos',
-    filters: HRFilters = {}
-  ): Promise<ListResp> {
+    filters: HRFilters = {},
+    config: { signal?: AbortSignal; pageSize?: number } = {}
+  ): Promise<{ huertas_rentadas: HuertaRentada[]; meta: PaginationMeta }> {
     const params: Record<string, any> = { page, estado };
-    if (filters.search)      params.search     = filters.search;
-    if (filters.nombre)      params.nombre     = filters.nombre;
+    if (config.pageSize) params.page_size = config.pageSize;
+    if (filters.search) params.search = filters.search;
+    if (filters.nombre) params.nombre = filters.nombre;
     if (filters.propietario) params.propietario = filters.propietario;
 
     const { data } = await apiClient.get<{
       success: boolean;
       message_key: string;
-      data: ListResp;
-    }>('/huerta/huertas-rentadas/', { params });
+      data: ListRespRaw;
+    }>('/huerta/huertas-rentadas/', { params, signal: config.signal });
 
-    return data.data;
+    const raw = data.data;
+    const list = raw.results ?? raw.huertas_rentadas ?? [];
+    return { huertas_rentadas: list, meta: raw.meta };
   },
 
   async create(payload: HuertaRentadaCreateData) {
@@ -47,10 +44,7 @@ export const huertaRentadaService = {
       success: boolean;
       message_key: string;
       data: ItemWrapper;
-    }>(
-      '/huerta/huertas-rentadas/',
-      payload
-    );
+    }>('/huerta/huertas-rentadas/', payload);
     return data;
   },
 
@@ -76,7 +70,7 @@ export const huertaRentadaService = {
     const { data } = await apiClient.post<{
       success: boolean;
       message_key: string;
-      data: { huerta_rentada_id: number };
+      data: { huerta_rentada_id: number; affected?: AffectedCounts };
     }>(`/huerta/huertas-rentadas/${id}/archivar/`);
     return data;
   },
@@ -85,7 +79,7 @@ export const huertaRentadaService = {
     const { data } = await apiClient.post<{
       success: boolean;
       message_key: string;
-      data: { huerta_rentada_id: number };
+      data: { huerta_rentada_id: number; affected?: AffectedCounts };
     }>(`/huerta/huertas-rentadas/${id}/restaurar/`);
     return data;
   },

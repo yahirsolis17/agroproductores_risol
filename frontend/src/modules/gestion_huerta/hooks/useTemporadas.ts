@@ -44,10 +44,11 @@ export function useTemporadas() {
       huertaId: huertaId || undefined, 
       huertaRentadaId: huertaRentadaId || undefined,
       estado: estadoFilter,
-      finalizada: finalizadaFilter || undefined,
+      finalizada: finalizadaFilter ?? undefined,   // <- antes: finalizadaFilter || undefined
       search: searchFilter || undefined,
     }));
   }, [dispatch, page, yearFilter, huertaId, huertaRentadaId, estadoFilter, finalizadaFilter, searchFilter]);
+
 
   const setPageNumber = (n: number) => dispatch(setPage(n));
   const setYear = (y: number | null) => dispatch(setYearFilter(y));
@@ -65,7 +66,7 @@ export function useTemporadas() {
       huertaId: huertaId || undefined, 
       huertaRentadaId: huertaRentadaId || undefined,
       estado: estadoFilter,
-      finalizada: finalizadaFilter || undefined,
+      finalizada: finalizadaFilter ?? undefined,   // <- antes: finalizadaFilter || undefined
       search: searchFilter || undefined,
     })).unwrap();
   };

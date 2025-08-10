@@ -1,9 +1,12 @@
 export interface Cosecha {
   id: number;
   nombre: string;
-  fecha_creacion: string;     // ISO
+
+  // fechas (ISO)
+  fecha_creacion: string;
   fecha_inicio: string | null;
   fecha_fin: string | null;
+
   finalizada: boolean;
 
   // relaciones
@@ -15,15 +18,15 @@ export interface Cosecha {
   is_active: boolean;
   archivado_en: string | null;
 
-  // calculados (opcionales por si el backend los expone)
+  // calculados (opcionales)
   ventas_totales?: number;
   gastos_totales?: number;
   margen_ganancia?: number;
 }
 
 export interface CosechaCreateData {
-  temporada: number;     // requerido para crear
-  nombre?: string;       // opcional: el backend lo genera si se omite
+  temporada: number;      // requerido
+  nombre?: string;        // opcional (el backend lo genera si se omite)
 }
 
 export interface CosechaUpdateData {

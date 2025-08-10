@@ -1,5 +1,5 @@
 # backend/gestion_huerta/models.py
-from django.db import models
+from django.db import models, transaction
 from django.core.validators import RegexValidator, MinValueValidator
 from django.utils import timezone
 from django.db.models import Sum, Value
@@ -9,127 +9,258 @@ from decimal import Decimal
 from django.db.models import F, Value, Sum, DecimalField, ExpressionWrapper
 from django.db.models.functions import Coalesce, Cast
 from datetime import date
+from django.db.models import Q
 
 # ────────────── PROPIETARIO ────────────────────────────────────────────────
 class Propietario(models.Model):
-    # ───── datos básicos ─────
     nombre     = models.CharField(max_length=100)
     apellidos  = models.CharField(max_length=100)
     telefono   = models.CharField(max_length=15, unique=True)
     direccion  = models.CharField(max_length=255)
 
-    # ───── soft-delete ─────
-    is_active   = models.BooleanField(default=True)
+    is_active    = models.BooleanField(default=True)
     archivado_en = models.DateTimeField(null=True, blank=True)
 
-    # ───── helpers ─────
+    class Meta:
+        indexes = [
+            models.Index(fields=['nombre'], name='idx_prop_nombre'),
+            models.Index(fields=['apellidos'], name='idx_prop_apellidos'),
+            models.Index(fields=['direccion'], name='idx_prop_direccion'),
+            models.Index(fields=['is_active'], name='idx_prop_is_active'),
+            models.Index(fields=['archivado_en'], name='idx_prop_archivado'),
+            models.Index(fields=['nombre', 'apellidos'], name='idx_prop_nom_ape'),
+        ]
+        ordering = ['-id']
+
     def __str__(self):
         return f'{self.nombre} {self.apellidos}'
 
     def archivar(self):
         if self.is_active:
-            self.is_active   = False
+            self.is_active = False
             self.archivado_en = timezone.now()
             self.save(update_fields=['is_active', 'archivado_en'])
 
     def desarchivar(self):
         if not self.is_active:
-            self.is_active   = True
+            self.is_active = True
             self.archivado_en = None
             self.save(update_fields=['is_active', 'archivado_en'])
 
 
 # ────────────── HUERTA PROPIA ──────────────────────────────────────────────
+# Sugerencia: si tienes las otras entidades en otras apps, ajusta los related_name.
+# Temporada: related_name='temporadas' (FK a Huerta / HuertaRentada)
+# Cosecha:   related_name='cosechas'   (FK a Temporada)
+# Inversion: related_name='inversiones' (FK a Cosecha)
+# Venta:     related_name='ventas'      (FK a Cosecha)
+
+def _sum_counts(a: dict, b: dict) -> dict:
+    if not b:
+        return a
+    for k, v in b.items():
+        a[k] = a.get(k, 0) + int(v or 0)
+    return a
+
+
 class Huerta(models.Model):
-    nombre      = models.CharField(max_length=100)
-    ubicacion   = models.CharField(max_length=255)
-    variedades  = models.CharField(max_length=255)
-    historial   = models.TextField(blank=True, null=True)
-    hectareas   = models.FloatField(validators=[MinValueValidator(0.1)])
+    nombre       = models.CharField(max_length=100)
+    ubicacion    = models.CharField(max_length=255)
+    variedades   = models.CharField(max_length=255)
+    historial    = models.TextField(blank=True, null=True)
+    hectareas    = models.FloatField(validators=[MinValueValidator(0.1)])
     is_active    = models.BooleanField(default=True)
     archivado_en = models.DateTimeField(null=True, blank=True)
-    propietario = models.ForeignKey(
-        Propietario,
+
+    propietario  = models.ForeignKey(
+        'gestion_huerta.Propietario',
         on_delete=models.CASCADE,
         related_name="huertas"
     )
 
     class Meta:
         unique_together = ('nombre', 'ubicacion', 'propietario')
-        ordering        = ['id']
-        indexes         = [models.Index(fields=['nombre'])]
+        ordering = ['id']
+        indexes = [
+            models.Index(fields=['nombre'], name='idx_huerta_nombre'),
+            models.Index(fields=['archivado_en'], name='idx_huerta_archivado'),
+            models.Index(fields=['is_active'], name='idx_huerta_is_active'),
+            models.Index(fields=['propietario', 'archivado_en'], name='idx_huerta_prop_arch'),
+        ]
 
     def __str__(self):
         return f"{self.nombre} ({self.propietario})"
 
+    # ---------- Reglas de unicidad activa (nivel app) ----------
+    def _has_active_duplicate(self) -> bool:
+        return Huerta.objects.filter(
+            archivado_en__isnull=True,
+            nombre=self.nombre,
+            ubicacion=self.ubicacion,
+            propietario=self.propietario
+        ).exclude(pk=self.pk).exists()
 
-# gestion_huerta/models/huerta.py  (solo el modelo HuertaRentada)
+    # ---------- Cascada ----------
+    @transaction.atomic
+    def archivar(self) -> dict:
+        if not self.is_active:
+            return {'huertas': 0, 'temporadas': 0, 'cosechas': 0, 'inversiones': 0, 'ventas': 0}
+
+        self.is_active = False
+        self.archivado_en = timezone.now()
+        self.save(update_fields=['is_active', 'archivado_en'])
+
+        counts = {'huertas': 1, 'temporadas': 0, 'cosechas': 0, 'inversiones': 0, 'ventas': 0}
+
+        # Cascada: Temporadas -> (Cosechas -> Inversiones/Ventas)
+        if hasattr(self, 'temporadas'):
+            for temporada in self.temporadas.all():
+                if hasattr(temporada, 'archivar'):
+                    c = temporada.archivar()
+                    counts = _sum_counts(counts, c)
+        return counts
+
+    @transaction.atomic
+    def desarchivar(self) -> dict:
+        # Conflicto por unicidad activa
+        if self._has_active_duplicate():
+            raise ValueError("conflicto_unicidad_al_restaurar")
+
+        if self.is_active:
+            return {'huertas': 0, 'temporadas': 0, 'cosechas': 0, 'inversiones': 0, 'ventas': 0}
+
+        self.is_active = True
+        self.archivado_en = None
+        self.save(update_fields=['is_active', 'archivado_en'])
+
+        counts = {'huertas': 1, 'temporadas': 0, 'cosechas': 0, 'inversiones': 0, 'ventas': 0}
+
+        # Cascada: Temporadas -> (Cosechas -> Inversiones/Ventas)
+        if hasattr(self, 'temporadas'):
+            for temporada in self.temporadas.all():
+                if hasattr(temporada, 'desarchivar'):
+                    c = temporada.desarchivar()
+                    counts = _sum_counts(counts, c)
+        return counts
+
+
 class HuertaRentada(models.Model):
-    nombre      = models.CharField(max_length=100)
-    ubicacion   = models.CharField(max_length=255)
-    variedades  = models.CharField(max_length=255)
-    historial   = models.TextField(blank=True, null=True)
-    hectareas   = models.FloatField(validators=[MinValueValidator(0.1)])
-
-    propietario = models.ForeignKey(
-        Propietario,
+    nombre       = models.CharField(max_length=100)
+    ubicacion    = models.CharField(max_length=255)
+    variedades   = models.CharField(max_length=255)
+    historial    = models.TextField(blank=True, null=True)
+    hectareas    = models.FloatField(validators=[MinValueValidator(0.1)])
+    propietario  = models.ForeignKey(
+        'gestion_huerta.Propietario',
         on_delete=models.CASCADE,
         related_name="huertas_rentadas"
     )
+    monto_renta  = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0.01)])
 
-    monto_renta = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        validators=[MinValueValidator(0.01)]
-    )
-
-    # 🆕  Paridad con Huerta
     is_active    = models.BooleanField(default=True)
     archivado_en = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         unique_together = ('nombre', 'ubicacion', 'propietario')
-        ordering        = ['id']
+        ordering = ['id']
         indexes = [
-            models.Index(fields=['nombre']),
-            models.Index(fields=['ubicacion']),
+            models.Index(fields=['nombre'], name='idx_hr_nombre'),
+            models.Index(fields=['ubicacion'], name='idx_hr_ubicacion'),
+            models.Index(fields=['archivado_en'], name='idx_hr_archivado'),
+            models.Index(fields=['is_active'], name='idx_hr_is_active'),
+            models.Index(fields=['propietario', 'archivado_en'], name='idx_hr_prop_arch'),
         ]
 
     def __str__(self):
-        return f"{self.nombre} (Rentada – {self.propietario})"
+        return f"{self.nombre} (Rentada) ({self.propietario})"
+
+    def _has_active_duplicate(self) -> bool:
+        return HuertaRentada.objects.filter(
+            archivado_en__isnull=True,
+            nombre=self.nombre,
+            ubicacion=self.ubicacion,
+            propietario=self.propietario
+        ).exclude(pk=self.pk).exists()
+
+    @transaction.atomic
+    def archivar(self) -> dict:
+        if not self.is_active:
+            return {'huertas_rentadas': 0, 'temporadas': 0, 'cosechas': 0, 'inversiones': 0, 'ventas': 0}
+
+        self.is_active = False
+        self.archivado_en = timezone.now()
+        self.save(update_fields=['is_active', 'archivado_en'])
+
+        counts = {'huertas_rentadas': 1, 'temporadas': 0, 'cosechas': 0, 'inversiones': 0, 'ventas': 0}
+
+        if hasattr(self, 'temporadas'):
+            for temporada in self.temporadas.all():
+                if hasattr(temporada, 'archivar'):
+                    c = temporada.archivar()
+                    counts = _sum_counts(counts, c)
+        return counts
+
+    @transaction.atomic
+    def desarchivar(self) -> dict:
+        if self._has_active_duplicate():
+            raise ValueError("conflicto_unicidad_al_restaurar")
+
+        if self.is_active:
+            return {'huertas_rentadas': 0, 'temporadas': 0, 'cosechas': 0, 'inversiones': 0, 'ventas': 0}
+
+        self.is_active = True
+        self.archivado_en = None
+        self.save(update_fields=['is_active', 'archivado_en'])
+
+        counts = {'huertas_rentadas': 1, 'temporadas': 0, 'cosechas': 0, 'inversiones': 0, 'ventas': 0}
+
+        if hasattr(self, 'temporadas'):
+            for temporada in self.temporadas.all():
+                if hasattr(temporada, 'desarchivar'):
+                    c = temporada.desarchivar()
+                    counts = _sum_counts(counts, c)
+        return counts
 class Temporada(models.Model):
     """
     Una temporada representa un año agrícola de una huerta propia o rentada.
-    - Solo una temporada por año por huerta.
+    - Solo una temporada por año por huerta (propia o rentada).
     - Soporta cierre (finalizada) y soft-delete (archivado_en).
     """
-    año           = models.PositiveIntegerField()
-    huerta         = models.ForeignKey(
-        "Huerta",
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name='temporadas'
-    )
-    huerta_rentada = models.ForeignKey(
-        "HuertaRentada",
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name='temporadas'
-    )
+    año            = models.PositiveIntegerField()
+    huerta         = models.ForeignKey("Huerta", on_delete=models.CASCADE, null=True, blank=True, related_name='temporadas')
+    huerta_rentada = models.ForeignKey("HuertaRentada", on_delete=models.CASCADE, null=True, blank=True, related_name='temporadas')
 
     fecha_inicio = models.DateField(default=timezone.now)
     fecha_fin    = models.DateField(null=True, blank=True)
     finalizada   = models.BooleanField(default=False)
 
-    # ── Soft-delete ──
+    # Soft-delete
     is_active    = models.BooleanField(default=True)
     archivado_en = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['-año']
-        indexes = [models.Index(fields=['año'])]
+        indexes = [
+            models.Index(fields=['año']),
+            models.Index(fields=['huerta']),
+            models.Index(fields=['huerta_rentada']),
+            models.Index(fields=['is_active']),
+            models.Index(fields=['finalizada']),
+            models.Index(fields=['año', 'huerta']),
+            models.Index(fields=['año', 'huerta_rentada']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['año', 'huerta'],
+                condition=Q(huerta__isnull=False),
+                name='uniq_temporada_anio_huerta'
+            ),
+            models.UniqueConstraint(
+                fields=['año', 'huerta_rentada'],
+                condition=Q(huerta_rentada__isnull=False),
+                name='uniq_temporada_anio_huerta_rentada'
+            ),
+        ]
 
     def clean(self):
         if not self.huerta and not self.huerta_rentada:
@@ -138,46 +269,46 @@ class Temporada(models.Model):
             raise ValidationError("No puede asignar ambas huertas a la vez.")
 
     def finalizar(self):
-        """Marca la temporada como finalizada, bloqueando nuevos registros."""
         if not self.finalizada:
             self.finalizada = True
-            # Guardar sólo la parte de fecha (no datetime completo)
-            self.fecha_fin = timezone.now().date()
+            self.fecha_fin  = timezone.now().date()
             self.save(update_fields=['finalizada', 'fecha_fin'])
 
     def archivar(self):
-        """Soft-delete: archiva temporada y hace cascada a cosechas/inversiones/ventas."""
         if self.is_active:
+            now = timezone.now()
             self.is_active = False
-            self.archivado_en = timezone.now()
+            self.archivado_en = now
             self.save(update_fields=["is_active", "archivado_en"])
 
-            now = timezone.now()
+            # Cascada a cosechas
+            from gestion_huerta.models import Cosecha
             cosechas = list(self.cosechas.all())
             for c in cosechas:
                 c.is_active = False
                 c.archivado_en = now
-            from gestion_huerta.models import Cosecha  # import en runtime
             Cosecha.objects.bulk_update(cosechas, ["is_active", "archivado_en"])
 
+            # Cascada a inversiones/ventas por cosecha
             for c in cosechas:
                 c.inversiones.update(is_active=False, archivado_en=now)
                 c.ventas.update(is_active=False, archivado_en=now)
 
     def desarchivar(self):
-        """Restaura temporada y en cascada todas sus cosechas/inversiones/ventas."""
         if not self.is_active:
-            self.is_active    = True
+            self.is_active = True
             self.archivado_en = None
             self.save(update_fields=['is_active', 'archivado_en'])
 
+            # Cascada a cosechas
+            from gestion_huerta.models import Cosecha
             cosechas = list(self.cosechas.all())
             for c in cosechas:
                 c.is_active = True
                 c.archivado_en = None
-            from gestion_huerta.models import Cosecha  # import en runtime
             Cosecha.objects.bulk_update(cosechas, ["is_active", "archivado_en"])
 
+            # Cascada a inversiones/ventas por cosecha
             for c in cosechas:
                 c.inversiones.update(is_active=True, archivado_en=None)
                 c.ventas.update(is_active=True, archivado_en=None)
@@ -235,8 +366,14 @@ class Cosecha(models.Model):
 
     class Meta:
         ordering = ["-id"]
-        indexes  = [models.Index(fields=["nombre"])]
         unique_together = (("temporada", "nombre"),)
+        indexes = [
+            models.Index(fields=["nombre"]),
+            # 🔥 Índices para acelerar listados/filtrado por temporada/estado
+            models.Index(fields=["temporada"]),
+            models.Index(fields=["is_active"]),
+            models.Index(fields=["temporada", "is_active"]),
+        ]
 
     @property
     def total_ventas(self):
@@ -281,8 +418,8 @@ class Cosecha(models.Model):
         if self._state.adding:
             if not self.fecha_inicio:
                 self.fecha_inicio = timezone.now()
-            if not self.nombre.strip():
-                # Genera nombre único
+            if not (self.nombre or "").strip():
+                # Fallback defensivo (por si no pasó por serializer)
                 base = "Cosecha"
                 exist = set(self.temporada.cosechas.values_list("nombre", flat=True))
                 cnt = 1

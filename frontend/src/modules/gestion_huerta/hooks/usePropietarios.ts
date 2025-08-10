@@ -41,11 +41,11 @@ export function usePropietarios() {
   }, [dispatch, page, estado, filters]);
 
   /* ——— Nuevo método: sólo propietarios con huertas ——— */
-  const getConHuertas = async (): Promise<Propietario[]> => {
-    // Aquí pasamos '' para cumplir la firma getConHuertas(search: string, ...)
-    const { propietarios: lista } = await propietarioService.getConHuertas('');
+  const getConHuertas = async (search = '', cfg?: { signal?: AbortSignal }): Promise<Propietario[]> => {
+    const { propietarios: lista } = await propietarioService.getConHuertas(search, cfg);
     return lista;
   };
+
 
   /* CRUD wrappers */
   const addPropietario = (v: PropietarioCreateData): Promise<Propietario> =>

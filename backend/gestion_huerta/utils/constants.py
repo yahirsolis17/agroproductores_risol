@@ -63,6 +63,14 @@ NOTIFICATION_MESSAGES = {
         "type": "error"
     },
 
+    "conflicto_unicidad_al_restaurar": {
+    "message": "No se puede restaurar: existe un registro activo que provocaría duplicidad.",
+    "type": "error"
+},
+"operacion_atomica_fallida": {
+    "message": "No se pudo completar la operación por una regla de negocio.",
+    "type": "error"
+},
     # -------------------------------------------------
     # Huertas propias
     # -------------------------------------------------

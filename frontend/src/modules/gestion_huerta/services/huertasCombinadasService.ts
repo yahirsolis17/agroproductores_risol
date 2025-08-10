@@ -1,10 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import apiClient from '../../../global/api/apiClient';
+import { Estado, PaginationMeta } from '../types/shared';
 
-/** Estado para filtrar en servidor */
-export type Estado = 'activos' | 'archivados' | 'todos';
-
-/** Filtros para la vista combinada */
 export interface HCFilters {
   tipo?: '' | 'propia' | 'rentada';
   nombre?: string;
@@ -34,45 +31,32 @@ export interface RegistroCombinado {
   is_active: boolean;
   archivado_en: string | null;
   tipo: 'propia' | 'rentada';
-  monto_renta: number;
+  monto_renta?: number;
   monto_renta_palabras?: string;
 }
 
-interface ListResp {
-  huertas: RegistroCombinado[];
-  meta: { count: number; next: string | null; previous: string | null };
-}
-
-/** Servicio para consultar huertas propias + rentadas en un solo endpoint */
-/** Servicio para consultar huertas propias + rentadas en un solo endpoint */
 export const huertasCombinadasService = {
   async list(
     page = 1,
     estado: Estado = 'activos',
     filters: HCFilters = {},
-    config: { signal?: AbortSignal } = {} // <- Nuevo parámetro opcional
-  ): Promise<ListResp> {
-    const params: Record<string, any> = { page, page_size: 10, estado };
+    config: { signal?: AbortSignal; pageSize?: number } = {}
+  ): Promise<{ huertas: RegistroCombinado[]; meta: PaginationMeta }> {
+    const params: Record<string, any> = { page, estado };
+    if (config.pageSize) params.page_size = config.pageSize;
 
-    if (filters.tipo)        params.tipo        = filters.tipo;
-    if (filters.nombre)      params.nombre      = filters.nombre;
+    if (filters.tipo) params.tipo = filters.tipo;
+    if (filters.nombre) params.nombre = filters.nombre;
     if (filters.propietario) params.propietario = filters.propietario;
 
     const { data } = await apiClient.get<{
       success: boolean;
       notification: any;
-      data: {
-        huertas: RegistroCombinado[];
-        meta:    { count: number; next: string | null; previous: string | null };
-      };
-    }>('/huerta/huertas-combinadas/combinadas/', {
-      params,
-      signal: config.signal, // <- Esta es la clave para abortar solicitudes
-    });
+      data: { huertas?: RegistroCombinado[]; results?: RegistroCombinado[]; meta: PaginationMeta };
+    }>('/huerta/huertas-combinadas/combinadas/', { params, signal: config.signal });
 
-    return {
-      huertas: data.data.huertas,
-      meta:    data.data.meta,
-    };
+    const raw = data.data;
+    const list = raw.results ?? raw.huertas ?? [];
+    return { huertas: list, meta: raw.meta };
   },
 };

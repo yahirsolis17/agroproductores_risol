@@ -157,7 +157,7 @@ const Navbar: React.FC = () => {
               open={openLogout} 
               onClose={() => setOpenLogout(false)}
             >
-              <DialogTitle>¿Confirmar cierre de sesión?</DialogTitle>
+              <DialogTitle>Confirmar cierre de sesión</DialogTitle>
               <DialogContent>
                 ¿Estás seguro de que deseas cerrar sesión?
               </DialogContent>

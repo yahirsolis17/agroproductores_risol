@@ -1,9 +1,5 @@
-// src/modules/gestion_huerta/types/huertaRentadaTypes.ts
 import { Propietario } from './propietarioTypes';
 
-/* ══════════════════════════════════════════════════════════════
-   Modelo base para Huerta Rentada (idéntico a Huerta + campo renta)
-   ══════════════════════════════════════════════════════════════ */
 export interface HuertaRentada {
   id: number;
   nombre: string;
@@ -11,8 +7,10 @@ export interface HuertaRentada {
   variedades: string;
   historial?: string | null;
   hectareas: number;
+
   propietario: number;
   propietario_detalle?: Propietario;
+  propietario_archivado?: boolean; // ← reflejo del serializer
 
   monto_renta: number;
   monto_renta_palabras?: string;
@@ -21,9 +19,6 @@ export interface HuertaRentada {
   archivado_en?: string | null;
 }
 
-/* ══════════════════════════════════════════════════════════════
-   Payloads para operaciones CRUD (exactamente como en huertaTypes)
-   ══════════════════════════════════════════════════════════════ */
 export interface HuertaRentadaCreateData {
   nombre: string;
   ubicacion: string;

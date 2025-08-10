@@ -11,7 +11,6 @@ import {
 import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
 import { PropietarioCreateData } from '../../types/propietarioTypes';
-import { handleBackendNotification } from '../../../../global/utils/NotificationEngine';
 import { PermissionButton } from '../../../../components/common/PermissionButton'; // ← Import
 
 interface Props {
@@ -73,27 +72,22 @@ export default function PropietarioFormModal({
         validateOnBlur={false}
         onSubmit={async (vals, { setSubmitting, setErrors }) => {
           try {
-            const nuevo = await onSubmit(vals);
-            handleBackendNotification(nuevo);
+            const nuevo = await onSubmit(vals); // ← el thunk ya mostró el toast
             onSuccess?.(nuevo);
             onClose();
           } catch (error: any) {
-            // Capturamos el payload de error que viene del thunk/unwrap
             const backend = error?.data || error?.response?.data || {};
-            // Backend monta los errores en backend.data.errors
-            const erroresDelBackend =
-              backend.errors || backend.data?.errors || {};
+            const beErrors = backend.errors || backend.data?.errors || {};
             const formikErrors: Record<string, string> = {};
-
-            Object.entries(erroresDelBackend).forEach(([key, value]) => {
+            Object.entries(beErrors).forEach(([key, value]) => {
               formikErrors[key] = Array.isArray(value) ? value[0] : String(value);
             });
-
             setErrors(formikErrors);
           } finally {
             setSubmitting(false);
           }
         }}
+
       >
         {({
           values,

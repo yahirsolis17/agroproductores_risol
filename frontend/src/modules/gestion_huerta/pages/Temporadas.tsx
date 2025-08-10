@@ -33,6 +33,24 @@ import { breadcrumbRoutes } from '../../../global/constants/breadcrumbRoutes';
 const currentYear = new Date().getFullYear();
 const pageSize = 10;
 
+const formatFechaLarga = (iso?: string | null) => {
+  if (!iso) return '—';
+  // Parse seguro para "YYYY-MM-DD" evitando desfases de zona horaria
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  const d = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+
+  let s = new Intl.DateTimeFormat('es-MX', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(d);
+
+  // Último toque: "de 2025" → "del 2025"
+  s = s.replace(/ de (\d{4})$/, ' del $1');
+  return s;
+};
+
 const Temporadas: React.FC = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate(); // 👈 NUEVO
@@ -343,7 +361,9 @@ const Temporadas: React.FC = () => {
           <DialogContent dividers>
             <Typography>Año: {currentYear}</Typography>
             <Typography>Huerta: {huertaSel?.nombre}</Typography>
-            <Typography>Fecha inicio: {new Date().toISOString().slice(0, 10)}</Typography>
+            <Typography>
+              Fecha inicio: {formatFechaLarga(new Date().toISOString())}
+            </Typography>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setConfirmOpen(false)}>Cancelar</Button>

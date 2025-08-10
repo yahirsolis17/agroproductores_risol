@@ -33,7 +33,7 @@ import {
 /* ──────────────────────────────────────────────────────────────
  *  Constantes
  * ──────────────────────────────────────────────────────────── */
-type Estado = 'activos' | 'archivados' | 'todos';
+import type { Estado } from '../../../global/store/propietariosSlice';
 const pageSize = 10;
 
 /* ──────────────────────────────────────────────────────────────

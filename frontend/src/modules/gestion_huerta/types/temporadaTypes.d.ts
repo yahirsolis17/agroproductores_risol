@@ -7,17 +7,19 @@ export interface Temporada {
   id: number;
   año: number;
   fecha_inicio: string;
-  fecha_fin?: string | null;
+  fecha_fin: string | null;
   finalizada: boolean;
   is_active: boolean;
-  archivado_en?: string | null;
-  // Relaciones
+  archivado_en: string | null;           // <- ya no opcional, puede venir null
+
+  // Relaciones (pueden venir en null)
   huerta?: number | null;
   huerta_rentada?: number | null;
-  // Campos auxiliares para UI
+
+  // Campos auxiliares para UI (pueden venir en null)
   is_rentada: boolean;
-  huerta_nombre: string;
-  huerta_id: number;
+  huerta_nombre: string | null;          // <- puede ser null
+  huerta_id: number | null;              // <- puede ser null
 }
 
 /**

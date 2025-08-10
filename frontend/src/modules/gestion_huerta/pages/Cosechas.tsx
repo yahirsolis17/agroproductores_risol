@@ -1,13 +1,13 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Paper, Typography, Box, CircularProgress, Divider,
+  Paper, Typography, Box, Divider,
   Dialog, DialogTitle, DialogContent, DialogActions, Button,
-  Tabs, Tab,
+  Tabs, Tab, Skeleton, // 👈 añadimos Skeleton
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useDispatch } from 'react-redux';
-import { useSearchParams, useNavigate } from 'react-router-dom'; // ← NUEVO
+import { useSearchParams, useNavigate } from 'react-router-dom';
 
 import CosechaToolbar from '../components/cosecha/CosechaToolbar';
 import CosechaTable from '../components/cosecha/CosechaTable';
@@ -25,7 +25,7 @@ const PAGE_SIZE = 10;
 
 const Cosechas: React.FC = () => {
   const dispatch = useDispatch();
-  const navigate = useNavigate(); // ← NUEVO
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const temporadaId = Number(searchParams.get('temporada_id')) || null;
 
@@ -92,18 +92,6 @@ const Cosechas: React.FC = () => {
   useEffect(() => {
     setTemporadaId(temporadaId);
   }, [temporadaId]);
-
-  // Delay spinner
-  const [spin, setSpin] = useState(false);
-  useEffect(() => {
-    let timer: number;
-    if (loading) {
-      timer = window.setTimeout(() => setSpin(true), 250);
-    } else {
-      setSpin(false);
-    }
-    return () => clearTimeout(timer);
-  }, [loading]);
 
   // Lógica de creación
   const totalCosechas = meta.count;
@@ -187,23 +175,22 @@ const Cosechas: React.FC = () => {
 
   // Acciones fila
   const handleArchive = async (c: Cosecha) => {
-    try { await archiveCosecha(c.id); } 
+    try { await archiveCosecha(c.id); }
     catch (e: any) { handleBackendNotification(e?.response?.data?.notification || e); }
   };
   const handleRestore = async (c: Cosecha) => {
-    try { await restoreCosecha(c.id); } 
+    try { await restoreCosecha(c.id); }
     catch (e: any) { handleBackendNotification(e?.response?.data?.notification || e); }
   };
   const handleToggleFinal = async (c: Cosecha) => {
-    try { await toggleFinalizada(c.id); } 
+    try { await toggleFinalizada(c.id); }
     catch (e: any) { handleBackendNotification(e?.response?.data?.notification || e); }
   };
 
-  // 👉 NUEVO: Navegar a Finanzas por Cosecha
-const handleVerFinanzas = (c: Cosecha) => {
-  // temporadaId lo tienes en contexto de este componente
-  navigate(`/finanzas/${temporadaId}/${c.id}`);
-};
+  // Navegar a Finanzas por Cosecha
+  const handleVerFinanzas = (c: Cosecha) => {
+    navigate(`/finanzas/${temporadaId}/${c.id}`);
+  };
 
   const clearFilters = () => {
     setSearch('');
@@ -217,9 +204,13 @@ const handleVerFinanzas = (c: Cosecha) => {
           Gestión de Cosechas
         </Typography>
 
-        {/* Encabezado de temporada */}
+        {/* Encabezado de temporada: usar Skeletons para evitar saltos */}
         {tempLoading ? (
-          <Box display="flex" justifyContent="center" my={4}><CircularProgress /></Box>
+          <Box mb={2}>
+            <Skeleton variant="text" width={320} height={28} />
+            <Skeleton variant="text" width={260} height={20} />
+            <Divider sx={{ mt: 1 }} />
+          </Box>
         ) : tempInfo ? (
           <Box mb={2}>
             <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
@@ -259,26 +250,22 @@ const handleVerFinanzas = (c: Cosecha) => {
           <Tab value="todas" label="Todas" />
         </Tabs>
 
-        {/* Tabla o spinner */}
-        {spin ? (
-          <Box display="flex" justifyContent="center" mt={6}><CircularProgress /></Box>
-        ) : (
-          <CosechaTable
-            data={cosechas}
-            page={page}
-            pageSize={PAGE_SIZE}
-            count={meta.count}
-            onPageChange={setPage}
-            onRename={openRename}
-            onDelete={c => setDelId(c.id)}
-            onArchive={handleArchive}
-            onRestore={handleRestore}
-            onToggleFinalizada={handleToggleFinal}
-            onVerFinanzas={handleVerFinanzas}
-            emptyMessage={emptyMessage}
-            loading={loading}
-          />
-        )}
+        {/* Tabla SIEMPRE montada; el overlay de carga lo maneja TableLayout */}
+        <CosechaTable
+          data={cosechas}
+          page={page}
+          pageSize={PAGE_SIZE}
+          count={meta.count}
+          onPageChange={setPage}
+          onRename={openRename}
+          onDelete={c => setDelId(c.id)}
+          onArchive={handleArchive}
+          onRestore={handleRestore}
+          onToggleFinalizada={handleToggleFinal}
+          onVerFinanzas={handleVerFinanzas}
+          emptyMessage={emptyMessage}
+          loading={loading}   // 👈 deja que la tabla muestre el overlay; sin pantallazos
+        />
 
         {/* Modal renombrar */}
         <CosechaFormModal

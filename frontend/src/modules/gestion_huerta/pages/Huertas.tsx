@@ -1,4 +1,3 @@
-// src/modules/gestion_huerta/pages/Huertas.tsx
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -34,7 +33,6 @@ import { handleBackendNotification } from '../../../global/utils/NotificationEng
 import { FilterConfig } from '../../../components/common/TableLayout';
 import { isRentada } from '../utils/huertaTypeGuards';
 
-// Importa los tipos de payload
 import type { HuertaCreateData, HuertaUpdateData } from '../types/huertaTypes';
 import type { HuertaRentadaCreateData, HuertaRentadaUpdateData } from '../types/huertaRentadaTypes';
 
@@ -54,6 +52,13 @@ const Huertas: React.FC = () => {
   useEffect(() => {
     hComb.setEstado(tab);
   }, [tab]);
+
+  // 🔧 Mueve los estados que usas en handlers por ENCIMA de las funciones:
+  const [modalOpen, setModalOpen] = useState(false);
+  const [propModal, setPropModal] = useState(false);
+  const [defaultPropietarioId, setDefaultPropietarioId] = useState<number>();
+  const [editTarget, setEditTarget] = useState<{ tipo: 'propia' | 'rentada'; data: Registro } | null>(null);
+  const [delDialog, setDelDialog] = useState<{ id: number; tipo: 'propia' | 'rentada' } | null>(null);
 
   // para distinguir la primera carga
   const hasLoadedOnce = useRef(false);
@@ -128,6 +133,19 @@ const Huertas: React.FC = () => {
     { key: 'propietario', label: 'Propietario', type: 'autocomplete-async', width: 320, loadOptions: loadPropietarioOptions },
   ];
 
+  // ✅ Normaliza datos para HuertaTable (monto_renta debe ser number en rentadas)
+  const dataForTable = useMemo<Registro[]>(() =>
+    hComb.huertas.map(h => {
+      if (h.tipo === 'rentada') {
+        // garantizamos number
+        const mr = typeof (h as any).monto_renta === 'number' ? (h as any).monto_renta : 0;
+        return { ...(h as any), monto_renta: mr } as Registro;
+      }
+      // propia: no requiere monto_renta
+      return h as unknown as Registro;
+    }),
+  [hComb.huertas]);
+
   // CRUD
   const refetchAll = () => hComb.refetch();
   const savePropia = async (v: HuertaCreateData): Promise<void> => {
@@ -184,12 +202,6 @@ const Huertas: React.FC = () => {
     refetchAll();
   };
 
-  const [modalOpen, setModalOpen] = useState(false);
-  const [propModal, setPropModal] = useState(false);
-  const [defaultPropietarioId, setDefaultPropietarioId] = useState<number>();
-  const [editTarget, setEditTarget] = useState<{ tipo: 'propia' | 'rentada'; data: Registro } | null>(null);
-  const [delDialog, setDelDialog] = useState<{ id: number; tipo: 'propia' | 'rentada' } | null>(null);
-
   const propietariosParaModal = useMemo(() => {
     const extra = editTarget?.data.propietario_detalle;
     return extra && !propietarios.some(p => p.id === extra.id)
@@ -235,14 +247,14 @@ const Huertas: React.FC = () => {
           )}
 
           <HuertaTable
-            data={hComb.huertas}
+            data={dataForTable}              
             page={hComb.page}
             pageSize={pageSize}
             count={hComb.meta.count}
             onPageChange={hComb.setPage}
             loading={false}
             emptyMessage={
-              hComb.huertas.length
+              dataForTable.length
                 ? ''
                 : tab === 'activos'
                 ? 'No hay huertas activas.'

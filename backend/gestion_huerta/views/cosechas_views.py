@@ -1,5 +1,4 @@
 # src/modules/gestion_huerta/views/cosecha_views.py
-
 from django.utils import timezone
 from rest_framework import viewsets, status, serializers, filters
 from rest_framework.decorators import action
@@ -17,7 +16,7 @@ from gestion_huerta.permissions import HasHuertaModulePermission, HuertaGranular
 class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
     """
     CRUD de cosechas + acciones custom (archivar, restaurar, finalizar, toggle-finalizada, reactivar)
-    con integridad de datos (soft‐delete, cascada, validaciones) y notificaciones uniformes.
+    con integridad de datos (soft-delete, cascada, validaciones) y notificaciones uniformes.
     """
     serializer_class   = CosechaSerializer
     queryset           = Cosecha.objects.select_related("temporada", "huerta", "huerta_rentada").order_by("-id")
@@ -27,6 +26,8 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
         HasHuertaModulePermission,
         HuertaGranularPermission,
     ]
+
+    # 🔎 Usamos SearchFilter para búsquedas por nombre (sin duplicar lógica)
     filter_backends = [filters.SearchFilter]
     search_fields   = ['nombre']
 
@@ -53,44 +54,43 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
         elif estado == "archivadas":
             qs = qs.filter(is_active=False)
 
-        # Búsqueda por nombre
-        if search := params.get("search"):
-            qs = qs.filter(nombre__icontains=search)
-            self.pagination_class.page_size = 10
-
         return qs.order_by("-id")
 
-    # ------------------------------ LIST
+    # ------------------------------ LIST (robusta si no hay paginación)
     def list(self, request, *args, **kwargs):
-        page       = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
-        serializer = self.get_serializer(page, many=True)
+        queryset = self.filter_queryset(self.get_queryset())
+        page     = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.notify(
+                key="data_processed_success",
+                data={
+                    "cosechas": serializer.data,
+                    "meta": {
+                        "count": self.paginator.page.paginator.count,
+                        "next": self.paginator.get_next_link(),
+                        "previous": self.paginator.get_previous_link(),
+                    }
+                }
+            )
+
+        serializer = self.get_serializer(queryset, many=True)
         return self.notify(
             key="data_processed_success",
             data={
                 "cosechas": serializer.data,
                 "meta": {
-                    "count": self.paginator.page.paginator.count,
-                    "next": self.paginator.get_next_link(),
-                    "previous": self.paginator.get_previous_link(),
+                    "count": len(serializer.data),
+                    "next": None,
+                    "previous": None,
                 }
             }
         )
 
-    # ------------------------------ CREACIÓN (con nombre único)
-    def _nombre_unico(self, temporada: Temporada, propuesto: str | None) -> str:
-        base = (propuesto or "").strip() or "Cosecha"
-        existentes = set(temporada.cosechas.values_list("nombre", flat=True))
-        if base not in existentes:
-            return base
-        i = 2
-        while True:
-            cand = f"{base} {i}"
-            if cand not in existentes:
-                return cand
-            i += 1
-
+    # ------------------------------ CREACIÓN
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
+        # Normalizar fechas vacías
         for f in ("fecha_inicio", "fecha_fin"):
             if f in data and data[f] in [None, "", "null", "None"]:
                 data[f] = None
@@ -105,11 +105,9 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        temporada = serializer.validated_data["temporada"]
-        nombre    = self._nombre_unico(temporada, serializer.validated_data.get("nombre"))
-        instance  = serializer.save(nombre=nombre, is_active=True, archivado_en=None)
-
+        instance = serializer.save()  # is_active por defecto True en el modelo
         registrar_actividad(request.user, f"Creó la cosecha: {instance.nombre}")
+
         return self.notify(
             key="cosecha_create_success",
             data={"cosecha": self.get_serializer(instance).data},
@@ -135,17 +133,15 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
             data={"cosecha": serializer.data},
         )
 
-    # ------------------------------ ELIMINACIÓN (soft‐delete primero)
+    # ------------------------------ ELIMINACIÓN (soft-delete primero)
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        # Debe estar archivada
         if instance.is_active:
             return self.notify(
                 key="cosecha_debe_estar_archivada",
                 data={"error": "Debes archivar la cosecha antes de eliminarla."},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
-        # No puede borrar si tiene inversiones o ventas asociadas
         if instance.inversiones.exists() or instance.ventas.exists():
             return self.notify(
                 key="cosecha_con_dependencias",
@@ -202,5 +198,4 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
 
     @action(detail=True, methods=["post"], url_path="reactivar")
     def reactivar(self, request, pk=None):
-        # Alias para deshacer la finalización
         return self.toggle_finalizada(request, pk)

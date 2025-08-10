@@ -14,6 +14,24 @@ import { Huerta } from '../../types/huertaTypes';
 import { HuertaRentada } from '../../types/huertaRentadaTypes';
 import { Temporada, TemporadaCreateData } from '../../types/temporadaTypes';
 import { PermissionButton } from '../../../../components/common/PermissionButton';
+
+const formatFechaLarga = (iso?: string | null) => {
+  if (!iso) return '—';
+  // Parse seguro para "YYYY-MM-DD" evitando desfases de zona horaria
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  const d = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+
+  let s = new Intl.DateTimeFormat('es-MX', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(d);
+
+  // Último toque: "de 2025" → "del 2025"
+  s = s.replace(/ de (\d{4})$/, ' del $1');
+  return s;
+};
 interface TemporadaFormModalProps {
   open: boolean;
   onClose: () => void;
@@ -144,12 +162,18 @@ const TemporadaFormModal: React.FC<TemporadaFormModalProps> = ({
                 fullWidth
                 name="fecha_inicio"
                 label="Fecha de Inicio"
-                type="date"
-                InputLabelProps={{ shrink: true }}
-                value={values.fecha_inicio}
+                value={formatFechaLarga(values.fecha_inicio)}
                 onChange={handleChange}
                 error={Boolean(errors.fecha_inicio)}
                 helperText={errors.fecha_inicio}
+                InputProps={{ readOnly: true }}
+              />
+
+              <TextField
+                fullWidth
+                name="fecha_fin"
+                label="Fecha de Fin"
+                value={formatFechaLarga((initialValues as any)?.fecha_fin)}
                 InputProps={{ readOnly: true }}
               />
 

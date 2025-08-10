@@ -5,8 +5,14 @@ import { Cosecha } from '../../types/cosechaTypes';
 import ActionsMenu from '../common/ActionsMenu';
 import { PermissionButton } from '../../../../components/common/PermissionButton';
 
-const formatDate = (d: string | null) =>
-  d ? new Date(d).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' }) : '—';
+const formatPretty = (iso: string | null) => {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  const dia = d.getDate();
+  const mes = d.toLocaleString('es-MX', { month: 'long' });
+  const anio = d.getFullYear();
+  return `${dia} de ${mes} del ${anio}`;
+};
 
 interface Props {
   data: Cosecha[];
@@ -19,7 +25,7 @@ interface Props {
   onArchive: (c: Cosecha) => void;
   onRestore: (c: Cosecha) => void;
   onToggleFinalizada: (c: Cosecha) => void;
-  onVerFinanzas: (c: Cosecha) => void; // ← NUEVO
+  onVerFinanzas: (c: Cosecha) => void;
   emptyMessage?: string;
   loading?: boolean;
 }
@@ -29,12 +35,12 @@ const columns: Column<Cosecha>[] = [
   {
     label: 'Fecha inicio',
     key: 'fecha_inicio',
-    render: c => formatDate(c.fecha_inicio),
+    render: c => formatPretty(c.fecha_inicio),
   },
   {
     label: 'Fecha fin',
     key: 'fecha_fin',
-    render: c => formatDate(c.fecha_fin),
+    render: c => formatPretty(c.fecha_fin),
   },
   {
     label: 'Estado',
@@ -88,7 +94,6 @@ const CosechaTable: React.FC<Props> = ({
             onArchiveOrRestore={() => (isArchived ? onRestore(c) : onArchive(c))}
             onDelete={isArchived ? () => onDelete(c) : undefined}
           />
-          {/* Botón consistente con permisos; puedes ajustar el permiso si deseas */}
           <PermissionButton
             perm="view_inversion"
             variant="outlined"

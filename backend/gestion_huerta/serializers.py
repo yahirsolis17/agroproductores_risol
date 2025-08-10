@@ -78,11 +78,13 @@ class PropietarioSerializer(serializers.ModelSerializer):
 
 
 # ---------------------------- HUERTA ---------------------------------------
+# -------------------- Huerta --------------------
 class HuertaSerializer(serializers.ModelSerializer):
-    propietario_detalle    = PropietarioSerializer(source='propietario', read_only=True)
-    propietario_archivado  = serializers.SerializerMethodField()   # ← NUEVO
+    propietario_detalle   = PropietarioSerializer(source='propietario', read_only=True)
+    propietario_archivado = serializers.SerializerMethodField()
     is_active             = serializers.BooleanField(read_only=True)
     archivado_en          = serializers.DateTimeField(read_only=True)
+
     class Meta:
         model  = Huerta
         fields = [
@@ -90,19 +92,10 @@ class HuertaSerializer(serializers.ModelSerializer):
             'hectareas', 'propietario', 'propietario_detalle',
             'propietario_archivado', 'is_active', 'archivado_en'
         ]
-        validators = [
-            UniqueTogetherValidator(
-                queryset=Huerta.objects.all(),
-                fields=['nombre', 'ubicacion', 'propietario'],
-                message="back Los campos nombre, ubicacion, propietario deben formar un conjunto único."
-            )
-        ]
 
-    # ----- getters -----
     def get_propietario_archivado(self, obj):
-        return not obj.propietario.is_active
+        return not getattr(obj.propietario, 'is_active', True)
 
-    # ----- validaciones -----
     def validate_nombre(self, value):
         txt = value.strip()
         if len(txt) < 3:
@@ -133,43 +126,33 @@ class HuertaSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, data):
-        """
-        Evita registrar / mover una huerta a un propietario archivado.
-        """
-        propietario = data.get('propietario') or getattr(self.instance, 'propietario', None)
-        if propietario and not propietario.is_active:
-            raise serializers.ValidationError(
-                "No puedes asignar huertas a un propietario archivado."
-            )
+        # Solo bloquea si explícitamente se está cambiando el propietario
+        if 'propietario' in data:
+            propietario = data['propietario']
+            if propietario and not getattr(propietario, 'is_active', True):
+                raise serializers.ValidationError("No puedes asignar huertas a un propietario archivado.")
         return data
 
 
-# gestion_huerta/serializers/huerta.py
+# -------------------- Huerta Rentada --------------------
 class HuertaRentadaSerializer(serializers.ModelSerializer):
-    propietario_detalle = PropietarioSerializer(source='propietario', read_only=True)
+    propietario_detalle   = PropietarioSerializer(source='propietario', read_only=True)
     propietario_archivado = serializers.SerializerMethodField()
-    monto_renta_palabras = serializers.SerializerMethodField()
-    is_active = serializers.BooleanField(read_only=True)
-    archivado_en = serializers.DateTimeField(read_only=True)
+    monto_renta_palabras  = serializers.SerializerMethodField()
+    is_active             = serializers.BooleanField(read_only=True)
+    archivado_en          = serializers.DateTimeField(read_only=True)
 
     class Meta:
-        model = HuertaRentada
+        model  = HuertaRentada
         fields = [
             'id', 'nombre', 'ubicacion', 'variedades', 'historial', 'hectareas',
             'propietario', 'propietario_detalle', 'propietario_archivado',
             'monto_renta', 'monto_renta_palabras',
             'is_active', 'archivado_en'
         ]
-        validators = [
-            UniqueTogetherValidator(
-                queryset=HuertaRentada.objects.all(),
-                fields=['nombre', 'ubicacion', 'propietario'],
-                message="Ya existe una huerta rentada con ese nombre, ubicación y propietario."
-            )
-        ]
 
     def get_propietario_archivado(self, obj):
-        return not obj.propietario.is_active
+        return not getattr(obj.propietario, 'is_active', True)
 
     def get_monto_renta_palabras(self, obj):
         return num2words(obj.monto_renta, lang='es').capitalize() + " pesos"
@@ -188,14 +171,14 @@ class HuertaRentadaSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("La ubicación debe tener al menos 5 caracteres.")
         if not re.match(r'^[\w\s\-,.#áéíóúÁÉÍÓÚñÑ]+$', txt):
             raise serializers.ValidationError(
-                "Ubicación inválida. Solo caracteres permitidos (letras, números, espacios, ,- .#)."
+                "Ubicación inválida. Solo caracteres permitidos."
             )
         return txt
 
     def validate_variedades(self, value):
         txt = value.strip()
         if len(txt) < 3:
-            raise serializers.ValidationError("Debes indicar al menos una variedad de mango (mínimo 3 caracteres).")
+            raise serializers.ValidationError("Debes indicar al menos una variedad de mango.")
         return txt
 
     def validate_hectareas(self, value):
@@ -209,56 +192,40 @@ class HuertaRentadaSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, data):
-        propietario = data.get('propietario') or getattr(self.instance, 'propietario', None)
-        if propietario and not propietario.is_active:
-            raise serializers.ValidationError(
-                "No puedes asignar huertas rentadas a un propietario archivado."
-            )
+        if 'propietario' in data:
+            propietario = data['propietario']
+            if propietario and not getattr(propietario, 'is_active', True):
+                raise serializers.ValidationError("No puedes asignar huertas rentadas a un propietario archivado.")
         return data
 
 class TemporadaSerializer(serializers.ModelSerializer):
     is_rentada    = serializers.SerializerMethodField()
     huerta_nombre = serializers.SerializerMethodField()
     huerta_id     = serializers.SerializerMethodField()
-    
-    # ← ESTOS DOS CAMPOS SON OPCIONALES, NUNCA REQUIRED
+
+    # Nunca requeridos (permite una u otra)
     huerta = serializers.PrimaryKeyRelatedField(
-        queryset=Huerta.objects.all(),
-        required=False,
-        allow_null=True,
-        default=None
+        queryset=Huerta.objects.all(), required=False, allow_null=True, default=None
     )
     huerta_rentada = serializers.PrimaryKeyRelatedField(
-        queryset=HuertaRentada.objects.all(),
-        required=False,
-        allow_null=True,
-        default=None
+        queryset=HuertaRentada.objects.all(), required=False, allow_null=True, default=None
     )
+
+    # Protegidos contra escritura directa desde el cliente
+    is_active    = serializers.BooleanField(read_only=True)
+    archivado_en = serializers.DateTimeField(read_only=True)
 
     class Meta:
         model = Temporada
         fields = [
-            'id',
-            'año',
-            'fecha_inicio',
-            'fecha_fin',
-            'finalizada',
-            'is_active',
-            'archivado_en',
-            'huerta',
-            'huerta_rentada',
-            'is_rentada',
-            'huerta_nombre',
-            'huerta_id',
+            'id', 'año', 'fecha_inicio', 'fecha_fin', 'finalizada',
+            'is_active', 'archivado_en',
+            'huerta', 'huerta_rentada',
+            'is_rentada', 'huerta_nombre', 'huerta_id',
         ]
 
-    def get_is_rentada(self, obj):
-        return obj.huerta_rentada is not None
-
-    def get_huerta_nombre(self, obj):
-        origen = obj.huerta or obj.huerta_rentada
-        return str(origen) if origen else None
-
+    def get_is_rentada(self, obj):    return obj.huerta_rentada is not None
+    def get_huerta_nombre(self, obj): return str(obj.huerta or obj.huerta_rentada) if (obj.huerta or obj.huerta_rentada) else None
     def get_huerta_id(self, obj):
         origen = obj.huerta or obj.huerta_rentada
         return origen.id if origen else None
@@ -270,40 +237,39 @@ class TemporadaSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, data):
-        huerta = data.get('huerta')
-        huerta_rentada = data.get('huerta_rentada')
-        año = data.get('año')
+        huerta         = data.get('huerta', getattr(self.instance, 'huerta', None))
+        huerta_rentada = data.get('huerta_rentada', getattr(self.instance, 'huerta_rentada', None))
+        año            = data.get('año', getattr(self.instance, 'año', None))
 
         if not huerta and not huerta_rentada:
             raise serializers.ValidationError("Debe asignar una huerta o una huerta rentada.")
-
         if huerta and huerta_rentada:
             raise serializers.ValidationError("No puede asignar ambas huertas al mismo tiempo.")
 
         if huerta and not huerta.is_active:
-            raise serializers.ValidationError("No se puede crear temporada en una huerta archivada.")
-
+            raise serializers.ValidationError("No se puede crear/editar temporada en una huerta archivada.")
         if huerta_rentada and not huerta_rentada.is_active:
-            raise serializers.ValidationError("No se puede crear temporada en una huerta rentada archivada.")
+            raise serializers.ValidationError("No se puede crear/editar temporada en una huerta rentada archivada.")
 
-        if self.instance is None:
-            if huerta and Temporada.objects.filter(huerta=huerta, año=año).exists():
-                raise serializers.ValidationError("Ya existe una temporada para esta huerta en ese año.")
-            if huerta_rentada and Temporada.objects.filter(huerta_rentada=huerta_rentada, año=año).exists():
-                raise serializers.ValidationError("Ya existe una temporada para esta huerta rentada en ese año.")
+        # Unicidad en create y update
+        qs = Temporada.objects.all()
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+
+        if huerta and qs.filter(huerta=huerta, año=año).exists():
+            raise serializers.ValidationError("Ya existe una temporada para esta huerta en ese año.")
+        if huerta_rentada and qs.filter(huerta_rentada=huerta_rentada, año=año).exists():
+            raise serializers.ValidationError("Ya existe una temporada para esta huerta rentada en ese año.")
 
         return data
 
-# -----------------------------
-# COSECHA
-# -----------------------------
-# src/gestion_huerta/serializers/cosecha_serializers.py
 class CosechaSerializer(serializers.ModelSerializer):
     temporada        = serializers.PrimaryKeyRelatedField(queryset=Temporada.objects.all(), required=True)
     ventas_totales   = serializers.FloatField(source='total_ventas',   read_only=True)
     gastos_totales   = serializers.FloatField(source='total_gastos',   read_only=True)
     margen_ganancia  = serializers.FloatField(source='ganancia_neta',  read_only=True)
     is_rentada       = serializers.SerializerMethodField()
+    # Permitimos nombre vacío, pero lo normalizamos a uno único en validate()
     nombre           = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     class Meta:
@@ -341,15 +307,32 @@ class CosechaSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("El nombre de la cosecha debe tener al menos 3 caracteres.")
         return v
 
+    def _nombre_unico(self, temporada: Temporada, propuesto: str | None) -> str:
+        base = (propuesto or "").strip() or "Cosecha"
+        existentes = set(temporada.cosechas.values_list("nombre", flat=True))
+        if base not in existentes:
+            return base
+        i = 2
+        while True:
+            cand = f"{base} {i}"
+            if cand not in existentes:
+                return cand
+            i += 1
+
     def validate(self, data):
-        instance     = getattr(self, 'instance', None)
-        temporada    = data.get('temporada') or (instance.temporada if instance else None)
-        fi           = data.get('fecha_inicio') or (instance.fecha_inicio if instance else None)
-        ff           = data.get('fecha_fin')    or (instance.fecha_fin    if instance else None)
+        instance   = getattr(self, 'instance', None)
+        temporada  = data.get('temporada') or (instance.temporada if instance else None)
+        fi         = data.get('fecha_inicio') or (instance.fecha_inicio if instance else None)
+        ff         = data.get('fecha_fin')    or (instance.fecha_fin    if instance else None)
+        nombre_in  = data.get('nombre', None)
+
+        if not temporada:
+            raise ValidationError("La cosecha debe pertenecer a una temporada.")
 
         if fi and ff and ff < fi:
             raise ValidationError("La fecha de fin no puede ser anterior a la fecha de inicio.")
 
+        # Reglas de creación
         if instance is None:
             if not temporada.is_active:
                 raise ValidationError("No se pueden crear cosechas en una temporada archivada.")
@@ -357,9 +340,19 @@ class CosechaSerializer(serializers.ModelSerializer):
                 raise ValidationError("No se pueden crear cosechas en una temporada finalizada.")
             if temporada.cosechas.count() >= 6:
                 raise ValidationError("Esta temporada ya tiene el máximo de 6 cosechas permitidas.")
+
+            # ⚙️ Normalizar nombre a uno único ANTES de ejecutar UniqueTogetherValidator
+            data['nombre'] = self._nombre_unico(temporada, nombre_in)
+
+        # Reglas de actualización
         else:
+            # No permitir cambiar de temporada
             if 'temporada' in data and data['temporada'] != instance.temporada:
                 raise ValidationError("No puedes cambiar la temporada de una cosecha existente.")
+
+            # Si mandan nombre vacío en update, lo normalizamos a uno único
+            if nombre_in is not None and not (nombre_in or "").strip():
+                data['nombre'] = self._nombre_unico(instance.temporada, nombre_in)
 
         return data
 # -----------------------------

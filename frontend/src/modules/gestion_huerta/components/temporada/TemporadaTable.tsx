@@ -4,6 +4,25 @@ import { TableLayout, Column } from '../../../../components/common/TableLayout';
 import ActionsMenu from '../common/ActionsMenu';
 import { Temporada } from '../../types/temporadaTypes';
 
+
+const formatFechaLarga = (iso?: string | null) => {
+  if (!iso) return '—';
+  // Parse seguro para "YYYY-MM-DD" evitando desfases de zona horaria
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  const d = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+
+  let s = new Intl.DateTimeFormat('es-MX', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(d);
+
+  // Último toque: "de 2025" → "del 2025"
+  s = s.replace(/ de (\d{4})$/, ' del $1');
+  return s;
+};
+
 interface Props {
   data: Temporada[];
   page: number;
@@ -43,8 +62,9 @@ const columns: Column<Temporada>[] = [
   { 
     label: 'Fecha Inicio', 
     key: 'fecha_inicio',
-    render: (t) => new Date(t.fecha_inicio).toLocaleDateString('es-ES')
+    render: (t) => formatFechaLarga(t.fecha_inicio)
   },
+
   {
     label: 'Estado',
     key: 'finalizada',
@@ -59,8 +79,9 @@ const columns: Column<Temporada>[] = [
   { 
     label: 'Fecha Fin', 
     key: 'fecha_fin',
-    render: (t) => t.fecha_fin ? new Date(t.fecha_fin).toLocaleDateString('es-ES') : '—'
+    render: (t) => formatFechaLarga(t.fecha_fin)
   },
+
   {
     label: 'Archivo',
     key: 'is_active',

@@ -7,8 +7,11 @@ export interface Huerta {
   variedades: string;
   historial?: string | null;
   hectareas: number;
+
   propietario: number;
   propietario_detalle?: Propietario;
+  propietario_archivado?: boolean; // ← reflejo del serializer
+
   is_active: boolean;              // true = activa, false = archivada
   archivado_en?: string | null;
 }
@@ -22,11 +25,4 @@ export interface HuertaCreateData {
   propietario: number;
 }
 
-export interface HuertaUpdateData {
-  nombre?: string;
-  ubicacion?: string;
-  variedades?: string;
-  historial?: string;
-  hectareas?: number;
-  propietario?: number;
-}
+export interface HuertaUpdateData extends Partial<HuertaCreateData> {}

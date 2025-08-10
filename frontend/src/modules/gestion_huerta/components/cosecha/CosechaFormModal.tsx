@@ -57,10 +57,7 @@ const CosechaFormModal: React.FC<Props> = ({ open, onClose, cosecha, onSubmit })
               variant="contained"
               disabled={isSubmitting}
             >
-              {isSubmitting
-                ? <CircularProgress size={22} color="inherit" />
-                : 'Guardar'
-              }
+              {isSubmitting ? <CircularProgress size={22} color="inherit" /> : 'Guardar'}
             </PermissionButton>
           </DialogActions>
         </Form>
