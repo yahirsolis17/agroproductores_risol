@@ -1,4 +1,3 @@
-// src/modules/gestion_huerta/components/finanzas/VentaToolbar.tsx
 import React, { useMemo } from 'react';
 import {
   Box, TextField, Button, InputAdornment,
@@ -10,18 +9,13 @@ import {
 } from '@mui/icons-material';
 
 import { PermissionButton } from '../../../../components/common/PermissionButton';
-
-interface Filters {
-  tipoMango?: string;
-  fechaDesde?: string;
-  fechaHasta?: string;
-}
+import { VentaFilters } from '../../types/ventaTypes';
 
 interface Props {
-  filters: Filters;
-  onFiltersChange: (f: Filters) => void;
+  filters: VentaFilters;
+  onFiltersChange: (f: VentaFilters) => void;
 
-  /* Alta rápida */
+  /** Alta rápida */
   onCreateClick?: () => void;
   canCreate?: boolean;
   createTooltip?: string;
@@ -31,6 +25,11 @@ interface Props {
   onClearFilters: () => void;
 }
 
+/**
+ * Toolbar para la tabla de ventas.  Incluye filtros por tipo de mango y rango de fechas,
+ * el botón de creación, y etiquetas de filtros activos.  Utiliza PermissionButton
+ * para respetar los permisos de creación.
+ */
 const VentaToolbar: React.FC<Props> = ({
   filters, onFiltersChange,
   onCreateClick, canCreate = true, createTooltip,
@@ -42,8 +41,11 @@ const VentaToolbar: React.FC<Props> = ({
     [totalCount]
   );
 
-  /* Helper genérico para fechas ISO (YYYY-MM-DD) */
-  const handleDate = (key: 'fechaDesde' | 'fechaHasta', value: string) =>
+  /**
+   * Maneja la actualización de campos de fecha ISO (YYYY-MM-DD).  Si la fecha está vacía,
+   * establece el campo como undefined para que no se envíe como filtro.
+   */
+  const handleDate = (key: keyof VentaFilters, value: string) =>
     onFiltersChange({ ...filters, [key]: value || undefined });
 
   return (
@@ -126,6 +128,7 @@ const VentaToolbar: React.FC<Props> = ({
         {/* Botón Nueva venta */}
         {onCreateClick && (
           <Tooltip title={createTooltip || ''}>
+            {/* El span evita que Tooltip deshabilite el botón */}
             <span>
               <PermissionButton
                 perm="add_venta"

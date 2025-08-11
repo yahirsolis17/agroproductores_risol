@@ -500,37 +500,41 @@ class InversionesHuertaSerializer(serializers.ModelSerializer):
 # VENTA
 # -----------------------------
 class VentaSerializer(serializers.ModelSerializer):
-    total_venta = serializers.IntegerField(read_only=True)
+    """
+    Serializador de ventas con validaciones cruzadas.
+    - Permite huerta o huerta_rentada (una u otra).
+    - Valida ganancia neta no negativa.
+    - Verifica coherencia con la cosecha (temporada y huerta/origen).
+    """
+    total_venta   = serializers.IntegerField(read_only=True)
     ganancia_neta = serializers.IntegerField(read_only=True)
 
-    cosecha_id = serializers.PrimaryKeyRelatedField(
-        queryset=Cosecha.objects.all(),
-        source='cosecha',
-        write_only=True
-    )
-    temporada_id = serializers.PrimaryKeyRelatedField(
-        queryset=Temporada.objects.all(),
-        source='temporada',
-        write_only=True
-    )
-    huerta_id = serializers.PrimaryKeyRelatedField(
-        queryset=Huerta.objects.all(),
-        source='huerta',
-        write_only=True
-    )
+    cosecha_id   = serializers.PrimaryKeyRelatedField(queryset=Cosecha.objects.all(),
+                                                      source='cosecha', write_only=True)
+    temporada_id = serializers.PrimaryKeyRelatedField(queryset=Temporada.objects.all(),
+                                                      source='temporada', write_only=True)
+    # IDs de huerta y huerta_rentada son opcionales: se definirá uno u otro según la cosecha
+    huerta_id    = serializers.PrimaryKeyRelatedField(queryset=Huerta.objects.all(),
+                                                      source='huerta', write_only=True,
+                                                      required=False, allow_null=True)
+    huerta_rentada_id = serializers.PrimaryKeyRelatedField(queryset=HuertaRentada.objects.all(),
+                                                            source='huerta_rentada', write_only=True,
+                                                            required=False, allow_null=True)
 
     class Meta:
-        model = Venta
+        model  = Venta
         fields = [
             'id', 'fecha_venta', 'num_cajas', 'precio_por_caja',
             'tipo_mango', 'descripcion', 'gasto',
-            'cosecha', 'temporada', 'huerta',
-            'cosecha_id', 'temporada_id', 'huerta_id',
-            'total_venta', 'ganancia_neta'
+            'cosecha', 'temporada', 'huerta', 'huerta_rentada',
+            'cosecha_id', 'temporada_id', 'huerta_id', 'huerta_rentada_id',
+            'total_venta', 'ganancia_neta',
         ]
-        read_only_fields = ['total_venta', 'ganancia_neta', 'cosecha', 'temporada', 'huerta']
+        read_only_fields = ['cosecha', 'temporada', 'huerta', 'huerta_rentada',
+                            'total_venta', 'ganancia_neta']
 
     def validate_fecha_venta(self, value):
+        """La fecha no puede ser futura ni anterior al inicio de la cosecha."""
         if value > date.today():
             raise serializers.ValidationError("La fecha de venta no puede ser futura.")
         cosecha_id = self.initial_data.get('cosecha_id')
@@ -543,19 +547,46 @@ class VentaSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, data):
-        total_venta = data['num_cajas'] * data['precio_por_caja']
-        if (total_venta - data['gasto']) < 0:
-            raise serializers.ValidationError("La ganancia neta no puede ser negativa.")
+        """
+        Validaciones de negocio:
+        - Ganancia neta no negativa.
+        - Temporada = temporada de la cosecha.
+        - Origen (huerta/huerta_rentada) coincide con el de la cosecha.
+        - No registrar ventas en temporadas archivadas o finalizadas.
+        """
+        num_cajas       = data.get('num_cajas')
+        precio_por_caja = data.get('precio_por_caja')
+        gasto           = data.get('gasto')
+        total           = num_cajas * precio_por_caja
+        if total - gasto < 0:
+            raise serializers.ValidationError({"gasto": "La ganancia neta no puede ser negativa."})
 
-        cosecha = data['cosecha']
-        temporada = data['temporada']
-        huerta = data['huerta']
+        cosecha        = data.get('cosecha')
+        temporada      = data.get('temporada')
+        huerta         = data.get('huerta')
+        huerta_rentada = data.get('huerta_rentada')
 
+        # Comprobar temporada coherente con la cosecha
         if temporada != cosecha.temporada:
-            raise serializers.ValidationError("La temporada no coincide con la de la cosecha.")
-        if huerta != cosecha.huerta:
-            raise serializers.ValidationError("La huerta no coincide con la de la cosecha.")
-        if not temporada.is_active or temporada.finalizada:
-            raise serializers.ValidationError("No se pueden registrar ventas en una temporada finalizada o archivada.")
+            raise serializers.ValidationError({"temporada_id": "La temporada no coincide con la de la cosecha."})
+
+        # Comprobar huerta/huerta_rentada coherentes con la cosecha y que no se mezclen
+        if cosecha.huerta_id:
+            if not huerta or huerta.id != cosecha.huerta_id:
+                raise serializers.ValidationError({"huerta_id": "La huerta no coincide con la huerta de la cosecha."})
+            if huerta_rentada is not None:
+                raise serializers.ValidationError({"huerta_rentada_id": "No asignes huerta rentada en una cosecha de huerta propia."})
+        elif cosecha.huerta_rentada_id:
+            if not huerta_rentada or huerta_rentada.id != cosecha.huerta_rentada_id:
+                raise serializers.ValidationError({"huerta_rentada_id": "La huerta rentada no coincide con la de la cosecha."})
+            if huerta is not None:
+                raise serializers.ValidationError({"huerta_id": "No asignes huerta propia en una cosecha de huerta rentada."})
+        else:
+            # Si la cosecha no tiene huerta asociada (caso improbable), reportar error general
+            raise serializers.ValidationError({"cosecha_id": "La cosecha no tiene origen definido."})
+
+        # No permitir ventas en temporadas finalizadas o archivadas
+        if not temporada.is_active or getattr(temporada, 'finalizada', False):
+            raise serializers.ValidationError({"temporada_id": "No se pueden registrar ventas en una temporada finalizada o archivada."})
 
         return data

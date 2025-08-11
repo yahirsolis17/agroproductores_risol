@@ -1,8 +1,9 @@
-from rest_framework import viewsets, filters, status
+from rest_framework import viewsets, filters, status, serializers
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
+from datetime import datetime
 
 from gestion_huerta.models import Venta
 from gestion_huerta.serializers import VentaSerializer
@@ -14,21 +15,57 @@ from gestion_huerta.utils.activity import registrar_actividad
 class VentaViewSet(NotificationMixin, viewsets.ModelViewSet):
     """
     CRUD de ventas por cosecha + archivar/restaurar,
-    con filtros por cosecha, temporada, huerta y tipo_mango.
+    con filtros por cosecha, temporada, huerta, huerta_rentada, tipo_mango,
+    estado (activas|archivadas|todas) y rango de fechas (fecha_desde/fecha_hasta).
     """
-    queryset = (
-        Venta.objects
-        .select_related('cosecha', 'temporada', 'huerta')
-        .order_by('-fecha_venta')
-    )
-    serializer_class  = VentaSerializer
-    pagination_class  = GenericPagination
+    queryset           = Venta.objects.select_related('cosecha', 'temporada', 'huerta', 'huerta_rentada').order_by('-fecha_venta')
+    serializer_class   = VentaSerializer
+    pagination_class   = GenericPagination
     permission_classes = [IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission]
     filter_backends    = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields   = ['cosecha', 'temporada', 'huerta', 'tipo_mango']
+    filterset_fields   = ['cosecha', 'temporada', 'huerta', 'huerta_rentada', 'tipo_mango']
     search_fields      = ['tipo_mango', 'descripcion']
     ordering_fields    = ['fecha_venta']
 
+    def get_queryset(self):
+        """
+        Filtra por estado (activas/archivadas/todas) y por rango de fechas,
+        excepto en acciones de detalle, archivar/restaurar o destroy.
+        """
+        qs = super().get_queryset()
+        params = self.request.query_params
+
+        # Excluir filtros en acciones de detalle
+        if self.action not in ['retrieve', 'update', 'partial_update', 'destroy', 'archivar', 'restaurar']:
+            # Filtro por estado: 'activas', 'archivadas' o 'todas'
+            estado = (params.get('estado') or 'activas').strip().lower()
+            if estado == 'activas':
+                qs = qs.filter(is_active=True)
+            elif estado == 'archivadas':
+                qs = qs.filter(is_active=False)
+            # 'todas' -> sin filtro
+
+            # Filtro por rango de fechas (inclusive). Recibe YYYY-MM-DD
+            def parse_date(val: str):
+                try:
+                    return datetime.strptime(val, '%Y-%m-%d').date()
+                except Exception:
+                    return None
+
+            fd = params.get('fecha_desde')
+            fh = params.get('fecha_hasta')
+            if fd:
+                d = parse_date(fd)
+                if d:
+                    qs = qs.filter(fecha_venta__gte=d)
+            if fh:
+                d = parse_date(fh)
+                if d:
+                    qs = qs.filter(fecha_venta__lte=d)
+
+        return qs
+
+    # ------------------------------ LIST
     def list(self, request, *args, **kwargs):
         page       = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
         serializer = self.get_serializer(page, many=True)
@@ -41,9 +78,11 @@ class VentaViewSet(NotificationMixin, viewsets.ModelViewSet):
                     "next": self.paginator.get_next_link(),
                     "previous": self.paginator.get_previous_link(),
                 }
-            }
+            },
+            status_code=status.HTTP_200_OK
         )
 
+    # ------------------------------ CREATE
     def create(self, request, *args, **kwargs):
         ser = self.get_serializer(data=request.data)
         try:
@@ -55,14 +94,15 @@ class VentaViewSet(NotificationMixin, viewsets.ModelViewSet):
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
         self.perform_create(ser)
-        v = ser.instance
-        registrar_actividad(request.user, f"Creó venta {v.id} en cosecha {v.cosecha.id}")
+        venta = ser.instance
+        registrar_actividad(request.user, f"Creó venta {venta.id} en cosecha {venta.cosecha.id}")
         return self.notify(
             key="venta_create_success",
             data={"venta": ser.data},
             status_code=status.HTTP_201_CREATED,
         )
 
+    # ------------------------------ UPDATE
     def update(self, request, *args, **kwargs):
         partial  = kwargs.pop("partial", False)
         inst     = self.get_object()
@@ -80,35 +120,51 @@ class VentaViewSet(NotificationMixin, viewsets.ModelViewSet):
         return self.notify(
             key="venta_update_success",
             data={"venta": ser.data},
+            status_code=status.HTTP_200_OK,
         )
 
+    # ------------------------------ DELETE (solo si está archivada)
     def destroy(self, request, *args, **kwargs):
-        v = self.get_object()
-        self.perform_destroy(v)
-        registrar_actividad(request.user, f"Eliminó venta {v.id}")
+        venta = self.get_object()
+        if venta.is_active:
+            return self.notify(
+                key="venta_debe_estar_archivada",
+                data={"error": "Debes archivar la venta antes de eliminarla."},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        self.perform_destroy(venta)
+        registrar_actividad(request.user, f"Eliminó venta {venta.id}")
         return self.notify(
             key="venta_delete_success",
-            data={"info": "Venta eliminada."}
+            data={"info": "Venta eliminada."},
+            status_code=status.HTTP_200_OK,
         )
 
-    @action(detail=True, methods=["patch"], url_path="archivar")
+    # ------------------------------ ARCHIVAR/RESTAURAR
+    @action(detail=True, methods=["post", "patch"], url_path="archivar")
     def archivar(self, request, pk=None):
-        v = self.get_object()
-        if not v.is_active:
-            return self.notify(key="venta_ya_archivada", status_code=status.HTTP_400_BAD_REQUEST)
-        v.is_active = False
-        v.archivado_en = timezone.now()
-        v.save(update_fields=["is_active", "archivado_en"])
-        registrar_actividad(request.user, f"Archivó venta {v.id}")
-        return self.notify(key="venta_archivada", data={"venta": self.get_serializer(v).data})
+        venta = self.get_object()
+        if not venta.is_active:
+            return self.notify(key="venta_ya_archivada",
+                               status_code=status.HTTP_400_BAD_REQUEST)
+        venta.archivar()
+        registrar_actividad(request.user, f"Archivó venta {venta.id}")
+        return self.notify(
+            key="venta_archivada",
+            data={"venta": self.get_serializer(venta).data},
+            status_code=status.HTTP_200_OK,
+        )
 
-    @action(detail=True, methods=["patch"], url_path="restaurar")
+    @action(detail=True, methods=["post", "patch"], url_path="restaurar")
     def restaurar(self, request, pk=None):
-        v = self.get_object()
-        if v.is_active:
-            return self.notify(key="venta_no_archivada", status_code=status.HTTP_400_BAD_REQUEST)
-        v.is_active = True
-        v.archivado_en = None
-        v.save(update_fields=["is_active", "archivado_en"])
-        registrar_actividad(request.user, f"Restauró venta {v.id}")
-        return self.notify(key="venta_restaurada", data={"venta": self.get_serializer(v).data})
+        venta = self.get_object()
+        if venta.is_active:
+            return self.notify(key="venta_no_archivada",
+                               status_code=status.HTTP_400_BAD_REQUEST)
+        venta.desarchivar()
+        registrar_actividad(request.user, f"Restauró venta {venta.id}")
+        return self.notify(
+            key="venta_restaurada",
+            data={"venta": self.get_serializer(venta).data},
+            status_code=status.HTTP_200_OK,
+        )

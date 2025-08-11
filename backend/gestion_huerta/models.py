@@ -520,6 +520,10 @@ class InversionesHuerta(models.Model):
 # ────────────── VENTAS ────────────────────────────────────────────────────
 # ────────────── VENTAS ────────────────────────────────────────────────────
 class Venta(models.Model):
+    """
+    Venta asociada a una cosecha. Soporta huerta propia o rentada.
+    Incluye soft-delete mediante is_active/archivado_en y métodos de archivar/restaurar.
+    """
     fecha_venta      = models.DateField()
     num_cajas        = models.PositiveIntegerField(validators=[MinValueValidator(1)])
     precio_por_caja  = models.PositiveIntegerField(validators=[MinValueValidator(1)])
@@ -527,20 +531,41 @@ class Venta(models.Model):
     descripcion      = models.TextField(blank=True, null=True)
     gasto            = models.PositiveIntegerField(validators=[MinValueValidator(0)])
 
-    cosecha          = models.ForeignKey(Cosecha, on_delete=models.CASCADE, related_name="ventas")
-    temporada        = models.ForeignKey(Temporada, on_delete=models.CASCADE, related_name="ventas")
-    huerta           = models.ForeignKey(Huerta, on_delete=models.CASCADE)
+    cosecha          = models.ForeignKey('gestion_huerta.Cosecha',   on_delete=models.CASCADE, related_name="ventas")
+    temporada        = models.ForeignKey('gestion_huerta.Temporada', on_delete=models.CASCADE, related_name="ventas")
+    # Origen (una u otra): igual que en InversionesHuerta
+    huerta           = models.ForeignKey('gestion_huerta.Huerta',         on_delete=models.CASCADE, null=True, blank=True)
+    huerta_rentada   = models.ForeignKey('gestion_huerta.HuertaRentada',  on_delete=models.CASCADE, null=True, blank=True)
 
-    is_active        = models.BooleanField(default=True)
-    archivado_en     = models.DateTimeField(null=True, blank=True)
+    is_active    = models.BooleanField(default=True)
+    archivado_en = models.DateTimeField(null=True, blank=True)
 
     @property
-    def total_venta(self):
+    def total_venta(self) -> int:
         return self.num_cajas * self.precio_por_caja
 
     @property
-    def ganancia_neta(self):
+    def ganancia_neta(self) -> int:
         return self.total_venta - self.gasto
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.num_cajas} cajas - {self.tipo_mango} – {self.fecha_venta}"
+
+    # ---------- Soft delete ----------
+    def archivar(self) -> bool:
+        """Marca la venta como archivada. Devuelve True si cambió de estado."""
+        if not self.is_active:
+            return False
+        self.is_active = False
+        self.archivado_en = timezone.now()
+        self.save(update_fields=["is_active", "archivado_en"])
+        return True
+
+    def desarchivar(self) -> bool:
+        """Restaura la venta. Devuelve True si cambió de estado."""
+        if self.is_active:
+            return False
+        self.is_active = True
+        self.archivado_en = None
+        self.save(update_fields=["is_active", "archivado_en"])
+        return True

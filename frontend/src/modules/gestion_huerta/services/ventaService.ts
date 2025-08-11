@@ -1,18 +1,10 @@
-// src/modules/gestion_huerta/services/ventaService.ts
-
 import apiClient from '../../../global/api/apiClient';
 import {
   VentaHuerta,
-  VentaHuertaCreateData,
-  VentaHuertaUpdateData,
+  VentaCreateData,
+  VentaUpdateData,
+  VentaFilters,
 } from '../types/ventaTypes';
-
-/** Filtros posibles para ventas */
-export interface VentaFilters {
-  tipoMango?: string;
-  fechaDesde?: string;
-  fechaHasta?: string;
-}
 
 interface ListEnvelope {
   success: boolean;
@@ -33,24 +25,32 @@ interface InfoEnvelope {
   data: { info: string };
 }
 
-/** CRUD + archive/restore para Ventas */
+/**
+ * CRUD + archive/restore para Ventas.
+ * Incluye el parámetro `estado` en `list` para filtrar entre activas, archivadas o todas.
+ */
 export const ventaService = {
   async list(
-    huertaId: number,
-    temporadaId: number,
-    cosechaId: number,
+    huertaId: number | null,
+    temporadaId: number | null,
+    cosechaId: number | null,
     page = 1,
     pageSize = 10,
+    estado: 'activas' | 'archivadas' | 'todas' = 'activas',
     filters: VentaFilters = {},
     config: { signal?: AbortSignal } = {}
   ): Promise<ListEnvelope['data']> {
     const params: Record<string, any> = {
-      huerta: huertaId,
-      temporada: temporadaId,
-      cosecha: cosechaId,
       page,
       page_size: pageSize,
     };
+    // Contexto: sólo incluimos los IDs si no son null
+    if (huertaId != null) params.huerta = huertaId;
+    if (temporadaId != null) params.temporada = temporadaId;
+    if (cosechaId != null) params.cosecha = cosechaId;
+    // Estado de activas/archivadas/todas
+    if (estado) params.estado = estado;
+    // Filtros opcionales
     if (filters.tipoMango) params.tipo_mango = filters.tipoMango;
     if (filters.fechaDesde) params.fecha_desde = filters.fechaDesde;
     if (filters.fechaHasta) params.fecha_hasta = filters.fechaHasta;
@@ -66,7 +66,7 @@ export const ventaService = {
     huertaId: number,
     temporadaId: number,
     cosechaId: number,
-    payload: VentaHuertaCreateData
+    payload: VentaCreateData
   ): Promise<VentaHuerta> {
     const body = {
       ...payload,
@@ -83,7 +83,7 @@ export const ventaService = {
 
   async update(
     id: number,
-    payload: VentaHuertaUpdateData
+    payload: VentaUpdateData
   ): Promise<VentaHuerta> {
     const { data } = await apiClient.patch<ItemEnvelope>(
       `/huerta/ventas/${id}/`,

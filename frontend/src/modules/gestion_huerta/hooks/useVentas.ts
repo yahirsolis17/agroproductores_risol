@@ -1,4 +1,3 @@
-// src/modules/gestion_huerta/hooks/useVentas.ts
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../../global/store/store';
@@ -12,13 +11,19 @@ import {
   setPage,
   setContext,
   setFilters,
-  VentaFilters,
+  setEstado,
 } from '../../../global/store/ventasSlice';
+import type { VentaFilters } from '../types/ventaTypes';
 import {
-  VentaHuertaCreateData,
-  VentaHuertaUpdateData,
+  VentaCreateData,
+  VentaUpdateData,
 } from '../types/ventaTypes';
 
+/**
+ * Hook para manejar la lista de ventas en el frontend.
+ * Expone la lista, metadatos de paginación, filtros, contexto y operaciones CRUD.
+ * Se dispara automáticamente fetchVentas cuando cambian el contexto, la página, los filtros o el estado (activas/archivadas/todas).
+ */
 export function useVentas() {
   const dispatch = useAppDispatch();
   const {
@@ -31,12 +36,13 @@ export function useVentas() {
     temporadaId,
     cosechaId,
     filters,
+    estado,
   } = useAppSelector((s) => s.ventas);
 
-  // Fetch on context / page / filters change
+  // Fetch on context / page / filters / estado change
   useEffect(() => {
     dispatch(fetchVentas());
-  }, [dispatch, huertaId, temporadaId, cosechaId, page, filters]);
+  }, [dispatch, huertaId, temporadaId, cosechaId, page, filters, estado]);
 
   const refetch = () => dispatch(fetchVentas());
 
@@ -45,14 +51,18 @@ export function useVentas() {
     dispatch(setContext({ huertaId: h, temporadaId: t, cosechaId: c }));
 
   // Pagination & filters
-  const changePage    = (p: number)         => dispatch(setPage(p));
-  const changeFilters = (f: VentaFilters)   => dispatch(setFilters(f));
+  const changePage    = (p: number)       => dispatch(setPage(p));
+  const changeFilters = (f: VentaFilters) => dispatch(setFilters(f));
+
+  // Estado (activas, archivadas o todas)
+  const changeEstado  = (e: 'activas' | 'archivadas' | 'todas') =>
+    dispatch(setEstado(e));
 
   // CRUD
-  const addVenta = (data: VentaHuertaCreateData) =>
+  const addVenta = (data: VentaCreateData) =>
     dispatch(createVenta(data)).unwrap();
 
-  const editVenta = (id: number, data: VentaHuertaUpdateData) =>
+  const editVenta = (id: number, data: VentaUpdateData) =>
     dispatch(updateVenta({ id, payload: data })).unwrap();
 
   const removeVenta = (id: number) =>
@@ -74,11 +84,13 @@ export function useVentas() {
     temporadaId,
     cosechaId,
     filters,
+    estado,
     // context
     setContext: setContextIds,
     // navigation
     changePage,
     changeFilters,
+    changeEstado,
     refetch,
     // CRUD
     addVenta,

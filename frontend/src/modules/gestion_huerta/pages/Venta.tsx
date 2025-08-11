@@ -8,6 +8,8 @@ import {
   DialogContent,
   DialogActions,
   Button,
+  Tabs,
+  Tab,
 } from '@mui/material';
 
 import { useVentas } from '../hooks/useVentas';
@@ -30,8 +32,10 @@ const Venta: React.FC = () => {
     page,
     meta,
     filters,
+    estado,
     changePage,
     changeFilters,
+    changeEstado,
     addVenta,
     editVenta,
     archive,
@@ -82,8 +86,25 @@ const Venta: React.FC = () => {
     setDelId(null);
   };
 
+  // Mapeo estado a índice de tab
+  const tabIndex = { activas: 0, archivadas: 1, todas: 2 }[estado] ?? 0;
+
   return (
     <Box p={2}>
+      <Tabs
+        value={tabIndex}
+        onChange={(_, i: number) => {
+          const values: ('activas' | 'archivadas' | 'todas')[] = ['activas', 'archivadas', 'todas'];
+          changeEstado(values[i]);
+        }}
+        aria-label="Tabs estado ventas"
+        sx={{ mb: 2 }}
+      >
+        <Tab label="Activas" />
+        <Tab label="Archivadas" />
+        <Tab label="Todas" />
+      </Tabs>
+
       <VentaToolbar
         filters={filters}
         onFiltersChange={changeFilters}

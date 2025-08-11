@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, Button, CircularProgress,
+  TextField, Button, CircularProgress
 } from '@mui/material';
 import { Formik, Form, FormikHelpers, FormikProps } from 'formik';
 import * as Yup from 'yup';
@@ -14,6 +14,7 @@ import {
 } from '../../types/inversionTypes';
 
 import { PermissionButton } from '../../../../components/common/PermissionButton';
+import { handleBackendNotification } from '../../../../global/utils/NotificationEngine';
 import useCategoriasInversion from '../../hooks/useCategoriasInversion';
 import { CategoriaInversion } from '../../types/categoriaInversionTypes';
 import CategoriaInversionFormModal from './CategoriaFormModal';
@@ -21,10 +22,10 @@ import CategoriaAutocomplete from './CategoriaAutocomplete';
 
 /** YYYY-MM-DD local */
 function formatLocalDateYYYYMMDD(d = new Date()) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+  return `${year}-${month}-${day}`;
 }
 
 /** enteros (sin decimales) desde UI con comas */
@@ -58,38 +59,44 @@ type FormValues = {
   descripcion: string;
 };
 
+// Schema with per-field validations and custom numeric checks
 const schema = Yup.object({
-  fecha: Yup.string().required('Debes seleccionar una fecha.'),
-  categoria: Yup.number().min(1, 'Selecciona una categoría.').required('Selecciona una categoría.'),
-  gastos_insumos: Yup.string().required('El gasto en insumos es obligatorio.'),
-  gastos_mano_obra: Yup.string().required('El gasto en mano de obra es obligatorio.'),
+  fecha: Yup.string().required('La fecha es requerida'),
+  categoria: Yup.number().min(1, 'Selecciona una categoría').required('La categoría es requerida'),
+  gastos_insumos: Yup.string()
+    .required('El gasto de insumos es requerido')
+    .test('solo-numeros', 'Ingresa solo números y comas', (value?: string) => {
+      if (!value) return false;
+      // allow digits, spaces and commas only
+      const cleaned = value.replace(/[\s,]/g, '');
+      return /^\d+$/.test(cleaned);
+    })
+    .test('mayor-cero', 'Debe ser mayor que 0', (value?: string) => parseMXNumber(value || '') > 0),
+  gastos_mano_obra: Yup.string()
+    .required('El gasto de mano de obra es requerido')
+    .test('solo-numeros', 'Ingresa solo números y comas', (value?: string) => {
+      if (!value) return false;
+      const cleaned = value.replace(/[\s,]/g, '');
+      return /^\d+$/.test(cleaned);
+    })
+    .test('mayor-cero', 'Debe ser mayor que 0', (value?: string) => parseMXNumber(value || '') > 0),
   descripcion: Yup.string().max(250, 'Máximo 250 caracteres'),
-}).test('total-mayor-cero', 'Los gastos totales deben ser mayores a 0.', (values?: any) => {
-  if (!values) return false;
-  const gi = parseMXNumber(values.gastos_insumos || '');
-  const gm = parseMXNumber(values.gastos_mano_obra || '');
-  return gi + gm > 0;
 });
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  onSubmit: (vals: InversionCreateData | InversionUpdateData) => Promise<void>;
+  onSubmit: (vals: InversionCreateData | InversionUpdateData) => Promise<any>;
   initialValues?: InversionHuerta;
 }
 
 const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValues }) => {
   const formikRef = useRef<FormikProps<FormValues>>(null);
   const [openCatModal, setOpenCatModal] = useState(false);
-  const [liveValidate, setLiveValidate] = useState(false); // ← modo de validación en tiempo real
-
   const { refetch: refetchCategorias } = useCategoriasInversion();
 
   useEffect(() => {
-    if (open) {
-      refetchCategorias();
-      setLiveValidate(false); // reset al abrir
-    }
+    if (open) refetchCategorias();
   }, [open]);
 
   // abrir modal crear desde el Autocomplete (evento global)
@@ -99,31 +106,26 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
     return () => window.removeEventListener('open-create-categoria', onOpen as any);
   }, []);
 
-  const initialFormValues: FormValues = initialValues
-    ? {
-        fecha: initialValues.fecha,
-        categoria: initialValues.categoria,
-        gastos_insumos: initialValues.gastos_insumos ? formatMX(initialValues.gastos_insumos) : '',
-        gastos_mano_obra: initialValues.gastos_mano_obra ? formatMX(initialValues.gastos_mano_obra) : '',
-        descripcion: initialValues.descripcion ?? '',
-      }
-    : {
-        fecha: formatLocalDateYYYYMMDD(new Date()),
-        categoria: 0,
-        gastos_insumos: '',
-        gastos_mano_obra: '',
-        descripcion: '',
-      };
+  const initialFormValues: FormValues = initialValues ? {
+    fecha: initialValues.fecha,
+    categoria: initialValues.categoria,
+    gastos_insumos: initialValues.gastos_insumos ? formatMX(initialValues.gastos_insumos) : '',
+    gastos_mano_obra: initialValues.gastos_mano_obra ? formatMX(initialValues.gastos_mano_obra) : '',
+    descripcion: initialValues.descripcion ?? '',
+  } : {
+    fecha: formatLocalDateYYYYMMDD(new Date()),
+    categoria: 0,
+    gastos_insumos: '',
+    gastos_mano_obra: '',
+    descripcion: '',
+  };
 
   const handleNewCatSuccess = (c: CategoriaInversion) => {
     setOpenCatModal(false);
-    // refrescamos y seteamos valor seleccionado
-    refetchCategorias().then(() => {
-      // setear el formik
-      formikRef.current?.setFieldValue('categoria', c.id);
-      // avisar al Autocomplete para que actualice listado y se cierre
-      window.dispatchEvent(new CustomEvent('categoria-created', { detail: c }));
-    });
+    // notify autocompletes to refresh
+    window.dispatchEvent(new CustomEvent('categoria-inversion/refresh'));
+    // select the new category
+    formikRef.current?.setFieldValue('categoria', c.id);
   };
 
   const handleSubmit = async (vals: FormValues, helpers: FormikHelpers<FormValues>) => {
@@ -136,210 +138,175 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
     };
 
     try {
-      await onSubmit(payload);   // los thunks muestran toast genérico
+      await onSubmit(payload);
       onClose();
     } catch (err: any) {
-      // backend errors → activamos modo “live” y pintamos errores por campo
-      setLiveValidate(true);
       const backend = err?.data || err?.response?.data || {};
       const beErrors = backend.errors || backend.data?.errors || {};
       const fieldErrors: Record<string, string> = {};
-      Object.entries(beErrors).forEach(([f, msgVal]: any) => {
-        const text = Array.isArray(msgVal) ? String(msgVal[0]) : String(msgVal);
-        fieldErrors[f] = text;
+      // replicate general errors across key fields
+      if (Array.isArray(beErrors.non_field_errors)) {
+        const msg = beErrors.non_field_errors[0] || 'Error de validación';
+        ['fecha', 'categoria', 'gastos_insumos', 'gastos_mano_obra'].forEach((f) => {
+          fieldErrors[f] = msg;
+        });
+      }
+      Object.entries(beErrors).forEach(([f, msgVal]: [string, any]) => {
+        if (f !== 'non_field_errors') {
+          const text = Array.isArray(msgVal) ? String(msgVal[0]) : String(msgVal);
+          fieldErrors[f] = text;
+        }
       });
       helpers.setErrors(fieldErrors);
+      handleBackendNotification(backend);
     } finally {
       helpers.setSubmitting(false);
     }
   };
 
-  // Helper: validar “total > 0” en caliente y limpiar/poner errores de los montos
-  const revalidateTotals = (
-    values: FormValues,
-    setFieldError: (f: string, m?: string) => void
-  ) => {
-    if (!liveValidate) return;
-    const gi = parseMXNumber(values.gastos_insumos || '');
-    const gm = parseMXNumber(values.gastos_mano_obra || '');
-    if (gi + gm <= 0) {
-      const msg = 'Los gastos totales deben ser mayores a 0.';
-      setFieldError('gastos_insumos', msg);
-      setFieldError('gastos_mano_obra', msg);
-    } else {
-      setFieldError('gastos_insumos', '');
-      setFieldError('gastos_mano_obra', '');
-    }
-  };
-
+  /**
+   * Maneja el cambio en campos de dinero.
+   * Evalúa el valor crudo para detectar caracteres inválidos, negativos o cero.
+   * Formatea el valor para mostrar con comas (es-MX) y registra mensajes de error específicos.
+   */
   const handleMoneyChange = (
     field: 'gastos_insumos' | 'gastos_mano_obra',
     raw: string,
-    values: FormValues,
-    setFieldValue: (f: string, v: any) => void,
-    setFieldError: (f: string, m?: string) => void,
-    hadError: boolean
+    setFieldValue: (f: string, v: any) => void
   ) => {
-    if (raw.trim() === '') {
-      setFieldValue(field, '');
-      if (liveValidate || hadError) setFieldError(field, 'Este campo es obligatorio.');
-      revalidateTotals({ ...values, [field]: '' }, setFieldError);
+    let errorMsg: string | undefined;
+    // Detect invalid characters: anything other than digits, spaces or commas
+    if (/[^0-9\s,]/.test(raw)) {
+      errorMsg = 'Ingresa solo números y comas';
+      setFieldValue(field, raw);
+      formikRef.current?.setFieldError(field, errorMsg);
       return;
     }
-    const cleaned = raw.replace(/[^\d]/g, '');
+    // Detect negative sign
+    if (/-/.test(raw)) {
+      errorMsg = 'No se permiten números negativos';
+      setFieldValue(field, raw);
+      formikRef.current?.setFieldError(field, errorMsg);
+      return;
+    }
+    // Remove non-digit characters to parse
+    const cleaned = raw.replace(/[\s,]/g, '');
     const n = Number(cleaned);
-    if (!Number.isFinite(n)) {
-      setFieldValue(field, '');
-      if (liveValidate || hadError) setFieldError(field, 'Este campo es obligatorio.');
-      revalidateTotals({ ...values, [field]: '' }, setFieldError);
-      return;
+    // If not a finite number or <= 0, set error
+    if (!Number.isFinite(n) || n <= 0) {
+      errorMsg = 'Debe ser mayor que 0';
     }
-    const display = Math.trunc(n).toLocaleString('es-MX', { maximumFractionDigits: 0 });
-    setFieldValue(field, display);
-
-    // Limpia el error del propio campo al escribir algo válido
-    if (liveValidate || hadError) setFieldError(field, '');
-
-    // Y revalida el total
-    revalidateTotals(
-      {
-        ...values,
-        [field]: display,
-      } as FormValues,
-      setFieldError
-    );
+    // Format display with locale (es-MX) grouping separators
+    const formatted = cleaned ? Math.trunc(n).toLocaleString('es-MX', { maximumFractionDigits: 0 }) : '';
+    setFieldValue(field, formatted);
+    formikRef.current?.setFieldError(field, errorMsg);
   };
 
   return (
     <>
+      {/* Modal para categoría nueva */}
       <CategoriaInversionFormModal
         open={openCatModal}
         onClose={() => setOpenCatModal(false)}
         onSuccess={handleNewCatSuccess}
       />
 
-      <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+      <Dialog open={open} onClose={(_, reason) => { if (reason !== 'backdropClick') onClose(); }} maxWidth="sm" fullWidth>
         <DialogTitle>{initialValues ? 'Editar inversión' : 'Nueva inversión'}</DialogTitle>
-
-        <Formik<FormValues>
+        <Formik
           innerRef={formikRef}
           initialValues={initialFormValues}
           enableReinitialize
           validationSchema={schema}
           validateOnBlur={false}
-          validateOnChange={false}  // ← desactivado; validamos “en vivo” manualmente
+          validateOnChange={false}
           onSubmit={handleSubmit}
         >
-          {({ values, errors, isSubmitting, handleChange, setFieldValue, setFieldError }) => (
+          {({ values, errors, isSubmitting, handleChange, setFieldValue }) => (
             <Form>
-              <DialogContent dividers className="space-y-4">
+              <DialogContent>
                 {/* Fecha */}
                 <TextField
-                  fullWidth
+                  label="Fecha"
                   type="date"
                   name="fecha"
-                  label="Fecha"
-                  InputLabelProps={{ shrink: true }}
                   value={values.fecha}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                    handleChange(e);
-                    if (liveValidate || !!errors.fecha) setFieldError('fecha', '');
-                  }}
+                  onChange={handleChange}
+                  margin="normal"
+                  fullWidth
                   error={Boolean(msg(errors.fecha))}
                   helperText={msg(errors.fecha)}
                 />
 
-                {/* Categoría */}
                 <CategoriaAutocomplete
-                  valueId={values.categoria || null}
-                  onChangeId={(id) => {
+                  valueId={values.categoria}
+                  onChangeId={(id: number | null) => {
+                    // Actualiza el valor en el formulario
                     setFieldValue('categoria', id ?? 0);
-                    if (liveValidate || !!errors.categoria) setFieldError('categoria', '');
+                    // Al seleccionar una categoría válida, limpia el error asociado
+                    if (id) {
+                      formikRef.current?.setFieldError('categoria', undefined);
+                    }
                   }}
                   label="Categoría"
                   error={Boolean(msg(errors.categoria))}
                   helperText={msg(errors.categoria)}
                 />
 
-                {/* Gastos insumos */}
+              
                 <TextField
-                  fullWidth
-                  label="Gastos en insumos"
+                  label="Gasto insumos"
                   name="gastos_insumos"
                   value={values.gastos_insumos}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    handleMoneyChange(
-                      'gastos_insumos',
-                      e.target.value,
-                      values,
-                      setFieldValue,
-                      setFieldError,
-                      Boolean(errors.gastos_insumos)
-                    )
+                  onChange={(e) =>
+                    handleMoneyChange('gastos_insumos', e.target.value, setFieldValue)
                   }
                   inputMode="numeric"
                   placeholder="Ej. 12,500"
+                  margin="normal"
+                  fullWidth
                   error={Boolean(msg(errors.gastos_insumos))}
                   helperText={msg(errors.gastos_insumos)}
                 />
 
                 {/* Gastos mano de obra */}
                 <TextField
-                  fullWidth
-                  label="Gastos mano de obra"
+                  label="Gasto mano de obra"
                   name="gastos_mano_obra"
                   value={values.gastos_mano_obra}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    handleMoneyChange(
-                      'gastos_mano_obra',
-                      e.target.value,
-                      values,
-                      setFieldValue,
-                      setFieldError,
-                      Boolean(errors.gastos_mano_obra)
-                    )
+                  onChange={(e) =>
+                    handleMoneyChange('gastos_mano_obra', e.target.value, setFieldValue)
                   }
                   inputMode="numeric"
                   placeholder="Ej. 8,000"
+                  margin="normal"
+                  fullWidth
                   error={Boolean(msg(errors.gastos_mano_obra))}
                   helperText={msg(errors.gastos_mano_obra)}
                 />
 
                 {/* Descripción */}
                 <TextField
-                  fullWidth
-                  label="Descripción (opcional)"
+                  label="Descripción"
                   name="descripcion"
-                  multiline
-                  minRows={2}
                   value={values.descripcion}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-                    handleChange(e);
-                    // Limpia error de longitud si ya no aplica
-                    if (liveValidate || !!errors.descripcion) {
-                      const v = (e.target as HTMLInputElement).value;
-                      if (!v || v.length <= 250) setFieldError('descripcion', '');
-                    }
-                  }}
+                  onChange={handleChange}
+                  margin="normal"
+                  fullWidth
+                  multiline
+                  rows={2}
                   error={Boolean(msg(errors.descripcion))}
                   helperText={msg(errors.descripcion)}
                 />
               </DialogContent>
-
               <DialogActions>
-                <Button variant="outlined" onClick={onClose} disabled={isSubmitting}>
-                  Cancelar
-                </Button>
+                <Button onClick={onClose}>Cancelar</Button>
+
                 <PermissionButton
-                  perm={initialValues ? 'change_inversion' : 'add_inversion'}
-                  type="button"
+                  type="submit"
                   variant="contained"
                   disabled={isSubmitting}
-                  onClick={() => {
-                    // Primer intento de submit → activa validación en vivo
-                    setLiveValidate(true);
-                    formikRef.current?.submitForm();
-                  }}
+                  perm="gestion_huerta.change_inversion"
                 >
                   {isSubmitting ? <CircularProgress size={22} /> : 'Guardar'}
                 </PermissionButton>

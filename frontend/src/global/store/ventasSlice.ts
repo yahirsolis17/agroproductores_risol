@@ -1,22 +1,16 @@
-// src/global/store/ventasSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { ventaService } from '../../modules/gestion_huerta/services/ventaService';
 import { handleBackendNotification } from '../utils/NotificationEngine';
 import {
   VentaHuerta,
-  VentaHuertaCreateData,
-  VentaHuertaUpdateData,
+  VentaCreateData,
+  VentaUpdateData,
+  VentaFilters,
 } from '../../modules/gestion_huerta/types/ventaTypes';
 import type { RootState } from './store';
 
-export interface VentaFilters {
-  tipoMango?: string;
-  fechaDesde?: string;
-  fechaHasta?: string;
-}
-
-interface PaginationMeta { count: number; next: string | null; previous: string | null; }
-interface VentasState {
+export interface PaginationMeta { count: number; next: string | null; previous: string | null; }
+export interface VentasState {
   list: VentaHuerta[];
   loading: boolean;
   loaded: boolean;
@@ -27,16 +21,27 @@ interface VentasState {
   temporadaId: number | null;
   cosechaId: number | null;
   filters: VentaFilters;
+  estado: 'activas' | 'archivadas' | 'todas';
 }
 
 const initialState: VentasState = {
-  list: [], loading: false, loaded: false, error: null,
+  list: [],
+  loading: false,
+  loaded: false,
+  error: null,
   page: 1,
   meta: { count: 0, next: null, previous: null },
-  huertaId: null, temporadaId: null, cosechaId: null,
-  filters: {}
+  huertaId: null,
+  temporadaId: null,
+  cosechaId: null,
+  filters: {},
+  estado: 'activas',
 };
 
+/**
+ * Thunk para cargar las ventas según contexto, página, estado y filtros.
+ * Si no existe contexto (huerta, temporada, cosecha) devuelve reject.
+ */
 export const fetchVentas = createAsyncThunk<
   { ventas: VentaHuerta[]; meta: PaginationMeta; page: number },
   void,
@@ -45,13 +50,19 @@ export const fetchVentas = createAsyncThunk<
   'ventas/fetch',
   async (_, { getState, rejectWithValue }) => {
     const state = getState().ventas;
-    const { huertaId, temporadaId, cosechaId, page, filters } = state;
+    const { huertaId, temporadaId, cosechaId, page, filters, estado } = state;
     if (!huertaId || !temporadaId || !cosechaId) {
       return rejectWithValue('Faltan huerta, temporada o cosecha seleccionada');
     }
     try {
       const data = await ventaService.list(
-        huertaId, temporadaId, cosechaId, page, 10, filters
+        huertaId,
+        temporadaId,
+        cosechaId,
+        page,
+        10,
+        estado,
+        filters
       );
       return { ventas: data.ventas, meta: data.meta, page };
     } catch (err: any) {
@@ -63,7 +74,7 @@ export const fetchVentas = createAsyncThunk<
 
 export const createVenta = createAsyncThunk<
   VentaHuerta,
-  VentaHuertaCreateData,
+  VentaCreateData,
   { state: RootState; rejectValue: string }
 >(
   'ventas/create',
@@ -85,7 +96,7 @@ export const createVenta = createAsyncThunk<
 
 export const updateVenta = createAsyncThunk<
   VentaHuerta,
-  { id: number; payload: VentaHuertaUpdateData },
+  { id: number; payload: VentaUpdateData },
   { rejectValue: string }
 >(
   'ventas/update',
@@ -159,14 +170,25 @@ const ventasSlice = createSlice({
   name: 'ventas',
   initialState,
   reducers: {
-    setPage:      (s, a: PayloadAction<number>)       => { s.page = a.payload; },
-    setContext:   (s, a: PayloadAction<{ huertaId: number; temporadaId: number; cosechaId: number }>) => {
+    setPage: (s, a: PayloadAction<number>) => {
+      s.page = a.payload;
+    },
+    setContext: (s, a: PayloadAction<{ huertaId: number; temporadaId: number; cosechaId: number }>) => {
       s.huertaId = a.payload.huertaId;
       s.temporadaId = a.payload.temporadaId;
       s.cosechaId = a.payload.cosechaId;
       s.page = 1;
     },
-    setFilters:   (s, a: PayloadAction<VentaFilters>) => { s.filters = a.payload; s.page = 1; },
+    setFilters: (s, a: PayloadAction<VentaFilters>) => {
+      s.filters = a.payload;
+      s.page = 1;
+    },
+    setEstado: (s, a: PayloadAction<'activas' | 'archivadas' | 'todas'>) => {
+      // Cambiar el estado (activas/archivadas/todas) limpia la página y los filtros
+      s.estado = a.payload;
+      s.page = 1;
+      s.filters = {};
+    },
   },
   extraReducers: b => {
     b.addCase(fetchVentas.pending,  s => { s.loading = true; s.error = null; })
@@ -182,7 +204,6 @@ const ventasSlice = createSlice({
         s.error   = payload ?? error.message ?? 'Error';
         s.loaded  = true;
      })
-
      .addCase(createVenta.fulfilled,(s,{payload})=>{
         s.list.unshift(payload);
         s.meta.count += 1;
@@ -192,9 +213,11 @@ const ventasSlice = createSlice({
         if(i!==-1) s.list[i] = payload;
      })
      .addCase(archiveVenta.fulfilled,(s,{payload})=>{
+        // Al archivar, eliminamos la venta de la lista actual
         s.list = s.list.filter(v=>v.id!==payload.id);
      })
      .addCase(restoreVenta.fulfilled,(s,{payload})=>{
+        // Al restaurar, insertamos la venta al inicio
         s.list.unshift(payload);
      })
      .addCase(deleteVenta.fulfilled,(s,{payload:id})=>{
@@ -204,5 +227,5 @@ const ventasSlice = createSlice({
   }
 });
 
-export const { setPage, setContext, setFilters } = ventasSlice.actions;
+export const { setPage, setContext, setFilters, setEstado } = ventasSlice.actions;
 export default ventasSlice.reducer;
