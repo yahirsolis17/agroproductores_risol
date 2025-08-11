@@ -1,8 +1,8 @@
+# gestion_huerta/views/inversion_views.py
 from rest_framework import viewsets, filters, status, serializers
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
-from datetime import datetime
 
 from gestion_huerta.utils.audit   import ViewSetAuditMixin
 from gestion_huerta.views.huerta_views import NotificationMixin
@@ -53,6 +53,7 @@ class InversionHuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
         fd = params.get('fecha_desde')
         fh = params.get('fecha_hasta')
 
+        from datetime import datetime
         def parse_date(val: str):
             try:
                 return datetime.strptime(val, '%Y-%m-%d').date()
@@ -93,6 +94,7 @@ class InversionHuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
         try:
             ser.is_valid(raise_exception=True)
         except serializers.ValidationError:
+            # Notificación genérica (los mensajes detallados van en errors por campo)
             return self.notify(
                 key="validation_error",
                 data={"errors": ser.errors},

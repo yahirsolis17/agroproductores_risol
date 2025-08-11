@@ -11,7 +11,7 @@ import type { RootState } from './store';
 export type EstadoFiltro = 'activas' | 'archivadas' | 'todas';
 export interface InversionFilters extends SvcFilters {}
 
-interface PaginationMeta { count: number; next: string | null; previous: string | null; }
+interface PaginationMeta { count: number; next: string | null; previous: string | null };
 
 interface InversionesState {
   list: InversionHuerta[];
@@ -85,14 +85,14 @@ export const fetchInversiones = createAsyncThunk<
 export const createInversion = createAsyncThunk<
   InversionHuerta,
   InversionHuertaCreateData,
-  { state: RootState; rejectValue: string }
+  { state: RootState; rejectValue: any }
 >(
   'inversiones/create',
   async (payload, { getState, rejectWithValue }) => {
     const s = getState().inversiones;
     const { huertaId, huertaRentadaId, temporadaId, cosechaId } = s;
     if ((!huertaId && !huertaRentadaId) || !temporadaId || !cosechaId) {
-      return rejectWithValue('Contexto incompleto');
+      return rejectWithValue({ message: 'Contexto incompleto' });
     }
     try {
       const res = await inversionService.create(
@@ -108,7 +108,7 @@ export const createInversion = createAsyncThunk<
       return res.data.inversion;
     } catch (err: any) {
       handleBackendNotification(err?.response?.data || err);
-      return rejectWithValue('Error al crear inversión');
+      return rejectWithValue(err?.response?.data || err);
     }
   }
 );
@@ -116,7 +116,7 @@ export const createInversion = createAsyncThunk<
 export const updateInversion = createAsyncThunk<
   InversionHuerta,
   { id: number; payload: InversionHuertaUpdateData },
-  { rejectValue: string }
+  { rejectValue: any }
 >(
   'inversiones/update',
   async ({ id, payload }, { rejectWithValue }) => {
@@ -126,7 +126,7 @@ export const updateInversion = createAsyncThunk<
       return res.data.inversion;
     } catch (err: any) {
       handleBackendNotification(err?.response?.data || err);
-      return rejectWithValue('Error al actualizar inversión');
+      return rejectWithValue(err?.response?.data || err);
     }
   }
 );
@@ -134,7 +134,7 @@ export const updateInversion = createAsyncThunk<
 export const archiveInversion = createAsyncThunk<
   InversionHuerta,
   number,
-  { rejectValue: string }
+  { rejectValue: any }
 >(
   'inversiones/archive',
   async (id, { rejectWithValue }) => {
@@ -144,7 +144,7 @@ export const archiveInversion = createAsyncThunk<
       return res.data.inversion;
     } catch (err: any) {
       handleBackendNotification(err?.response?.data || err);
-      return rejectWithValue('Error al archivar inversión');
+      return rejectWithValue(err?.response?.data || err);
     }
   }
 );
@@ -152,7 +152,7 @@ export const archiveInversion = createAsyncThunk<
 export const restoreInversion = createAsyncThunk<
   InversionHuerta,
   number,
-  { rejectValue: string }
+  { rejectValue: any }
 >(
   'inversiones/restore',
   async (id, { rejectWithValue }) => {
@@ -162,7 +162,7 @@ export const restoreInversion = createAsyncThunk<
       return res.data.inversion;
     } catch (err: any) {
       handleBackendNotification(err?.response?.data || err);
-      return rejectWithValue('Error al restaurar inversión');
+      return rejectWithValue(err?.response?.data || err);
     }
   }
 );
@@ -170,7 +170,7 @@ export const restoreInversion = createAsyncThunk<
 export const deleteInversion = createAsyncThunk<
   number,
   number,
-  { rejectValue: string }
+  { rejectValue: any }
 >(
   'inversiones/delete',
   async (id, { rejectWithValue }) => {
@@ -180,7 +180,7 @@ export const deleteInversion = createAsyncThunk<
       return id;
     } catch (err: any) {
       handleBackendNotification(err?.response?.data || err);
-      return rejectWithValue('Error al eliminar inversión');
+      return rejectWithValue(err?.response?.data || err);
     }
   }
 );
@@ -219,7 +219,7 @@ const inversionesSlice = createSlice({
        s.loaded = true;
      })
 
-     // CREATE → insert inmediata (UX fluida, sin flashes)
+     // CREATE → insert inmediata
      .addCase(createInversion.fulfilled, (s, { payload }) => {
        s.list.unshift(payload);
        s.meta.count += 1;

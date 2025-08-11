@@ -14,7 +14,6 @@ import {
 } from '../../types/inversionTypes';
 
 import { PermissionButton } from '../../../../components/common/PermissionButton';
-import { handleBackendNotification } from '../../../../global/utils/NotificationEngine';
 import useCategoriasInversion from '../../hooks/useCategoriasInversion';
 import { CategoriaInversion } from '../../types/categoriaInversionTypes';
 import CategoriaInversionFormModal from './CategoriaFormModal';
@@ -60,10 +59,10 @@ type FormValues = {
 };
 
 const schema = Yup.object({
-  fecha: Yup.string().required('Requerido'),
-  categoria: Yup.number().min(1, 'Selecciona una categoría').required('Requerido'),
-  gastos_insumos: Yup.string(),
-  gastos_mano_obra: Yup.string(),
+  fecha: Yup.string().required('Debes seleccionar una fecha.'),
+  categoria: Yup.number().min(1, 'Selecciona una categoría.').required('Selecciona una categoría.'),
+  gastos_insumos: Yup.string().required('El gasto en insumos es obligatorio.'),
+  gastos_mano_obra: Yup.string().required('El gasto en mano de obra es obligatorio.'),
   descripcion: Yup.string().max(250, 'Máximo 250 caracteres'),
 }).test('total-mayor-cero', 'Los gastos totales deben ser mayores a 0.', (values?: any) => {
   if (!values) return false;
@@ -82,11 +81,15 @@ interface Props {
 const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValues }) => {
   const formikRef = useRef<FormikProps<FormValues>>(null);
   const [openCatModal, setOpenCatModal] = useState(false);
+  const [liveValidate, setLiveValidate] = useState(false); // ← modo de validación en tiempo real
 
   const { refetch: refetchCategorias } = useCategoriasInversion();
 
   useEffect(() => {
-    if (open) refetchCategorias();
+    if (open) {
+      refetchCategorias();
+      setLiveValidate(false); // reset al abrir
+    }
   }, [open]);
 
   // abrir modal crear desde el Autocomplete (evento global)
@@ -133,9 +136,11 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
     };
 
     try {
-      await onSubmit(payload);
+      await onSubmit(payload);   // los thunks muestran toast genérico
       onClose();
     } catch (err: any) {
+      // backend errors → activamos modo “live” y pintamos errores por campo
+      setLiveValidate(true);
       const backend = err?.data || err?.response?.data || {};
       const beErrors = backend.errors || backend.data?.errors || {};
       const fieldErrors: Record<string, string> = {};
@@ -144,29 +149,65 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
         fieldErrors[f] = text;
       });
       helpers.setErrors(fieldErrors);
-      handleBackendNotification(backend);
     } finally {
       helpers.setSubmitting(false);
+    }
+  };
+
+  // Helper: validar “total > 0” en caliente y limpiar/poner errores de los montos
+  const revalidateTotals = (
+    values: FormValues,
+    setFieldError: (f: string, m?: string) => void
+  ) => {
+    if (!liveValidate) return;
+    const gi = parseMXNumber(values.gastos_insumos || '');
+    const gm = parseMXNumber(values.gastos_mano_obra || '');
+    if (gi + gm <= 0) {
+      const msg = 'Los gastos totales deben ser mayores a 0.';
+      setFieldError('gastos_insumos', msg);
+      setFieldError('gastos_mano_obra', msg);
+    } else {
+      setFieldError('gastos_insumos', '');
+      setFieldError('gastos_mano_obra', '');
     }
   };
 
   const handleMoneyChange = (
     field: 'gastos_insumos' | 'gastos_mano_obra',
     raw: string,
-    setFieldValue: (f: string, v: any) => void
+    values: FormValues,
+    setFieldValue: (f: string, v: any) => void,
+    setFieldError: (f: string, m?: string) => void,
+    hadError: boolean
   ) => {
     if (raw.trim() === '') {
       setFieldValue(field, '');
+      if (liveValidate || hadError) setFieldError(field, 'Este campo es obligatorio.');
+      revalidateTotals({ ...values, [field]: '' }, setFieldError);
       return;
     }
     const cleaned = raw.replace(/[^\d]/g, '');
     const n = Number(cleaned);
     if (!Number.isFinite(n)) {
       setFieldValue(field, '');
+      if (liveValidate || hadError) setFieldError(field, 'Este campo es obligatorio.');
+      revalidateTotals({ ...values, [field]: '' }, setFieldError);
       return;
     }
     const display = Math.trunc(n).toLocaleString('es-MX', { maximumFractionDigits: 0 });
     setFieldValue(field, display);
+
+    // Limpia el error del propio campo al escribir algo válido
+    if (liveValidate || hadError) setFieldError(field, '');
+
+    // Y revalida el total
+    revalidateTotals(
+      {
+        ...values,
+        [field]: display,
+      } as FormValues,
+      setFieldError
+    );
   };
 
   return (
@@ -186,10 +227,10 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
           enableReinitialize
           validationSchema={schema}
           validateOnBlur={false}
-          validateOnChange={false}
+          validateOnChange={false}  // ← desactivado; validamos “en vivo” manualmente
           onSubmit={handleSubmit}
         >
-          {({ values, errors, isSubmitting, handleChange, setFieldValue }) => (
+          {({ values, errors, isSubmitting, handleChange, setFieldValue, setFieldError }) => (
             <Form>
               <DialogContent dividers className="space-y-4">
                 {/* Fecha */}
@@ -200,7 +241,10 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
                   label="Fecha"
                   InputLabelProps={{ shrink: true }}
                   value={values.fecha}
-                  onChange={handleChange as React.ChangeEventHandler<HTMLInputElement>}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                    handleChange(e);
+                    if (liveValidate || !!errors.fecha) setFieldError('fecha', '');
+                  }}
                   error={Boolean(msg(errors.fecha))}
                   helperText={msg(errors.fecha)}
                 />
@@ -208,7 +252,10 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
                 {/* Categoría */}
                 <CategoriaAutocomplete
                   valueId={values.categoria || null}
-                  onChangeId={(id) => setFieldValue('categoria', id ?? 0)}
+                  onChangeId={(id) => {
+                    setFieldValue('categoria', id ?? 0);
+                    if (liveValidate || !!errors.categoria) setFieldError('categoria', '');
+                  }}
                   label="Categoría"
                   error={Boolean(msg(errors.categoria))}
                   helperText={msg(errors.categoria)}
@@ -221,7 +268,14 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
                   name="gastos_insumos"
                   value={values.gastos_insumos}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    handleMoneyChange('gastos_insumos', e.target.value, setFieldValue)
+                    handleMoneyChange(
+                      'gastos_insumos',
+                      e.target.value,
+                      values,
+                      setFieldValue,
+                      setFieldError,
+                      Boolean(errors.gastos_insumos)
+                    )
                   }
                   inputMode="numeric"
                   placeholder="Ej. 12,500"
@@ -236,7 +290,14 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
                   name="gastos_mano_obra"
                   value={values.gastos_mano_obra}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    handleMoneyChange('gastos_mano_obra', e.target.value, setFieldValue)
+                    handleMoneyChange(
+                      'gastos_mano_obra',
+                      e.target.value,
+                      values,
+                      setFieldValue,
+                      setFieldError,
+                      Boolean(errors.gastos_mano_obra)
+                    )
                   }
                   inputMode="numeric"
                   placeholder="Ej. 8,000"
@@ -252,7 +313,14 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
                   multiline
                   minRows={2}
                   value={values.descripcion}
-                  onChange={handleChange as React.ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement>}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+                    handleChange(e);
+                    // Limpia error de longitud si ya no aplica
+                    if (liveValidate || !!errors.descripcion) {
+                      const v = (e.target as HTMLInputElement).value;
+                      if (!v || v.length <= 250) setFieldError('descripcion', '');
+                    }
+                  }}
                   error={Boolean(msg(errors.descripcion))}
                   helperText={msg(errors.descripcion)}
                 />
@@ -267,7 +335,11 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
                   type="button"
                   variant="contained"
                   disabled={isSubmitting}
-                  onClick={() => formikRef.current?.submitForm()}
+                  onClick={() => {
+                    // Primer intento de submit → activa validación en vivo
+                    setLiveValidate(true);
+                    formikRef.current?.submitForm();
+                  }}
                 >
                   {isSubmitting ? <CircularProgress size={22} /> : 'Guardar'}
                 </PermissionButton>
