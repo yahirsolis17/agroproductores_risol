@@ -18,10 +18,19 @@ export interface VentasState {
   page: number;
   meta: PaginationMeta;
   huertaId: number | null;
+  /**
+   * Identificador de la huerta rentada asociada.  Si la venta pertenece a
+   * una huerta propia, este valor será null.  Se utiliza junto con
+   * huertaId para determinar el contexto en el backend.
+   */
+  huertaRentadaId: number | null;
   temporadaId: number | null;
   cosechaId: number | null;
+  /**
+   * Filtros aplicados a la lista de ventas.  Incluye tipo de mango,
+   * rangos de fechas y el estado (`activas`, `archivadas` o `todas`).
+   */
   filters: VentaFilters;
-  estado: 'activas' | 'archivadas' | 'todas';
 }
 
 const initialState: VentasState = {
@@ -32,15 +41,16 @@ const initialState: VentasState = {
   page: 1,
   meta: { count: 0, next: null, previous: null },
   huertaId: null,
+  huertaRentadaId: null,
   temporadaId: null,
   cosechaId: null,
-  filters: {},
-  estado: 'activas',
+  filters: { estado: 'activas' },
 };
 
 /**
  * Thunk para cargar las ventas según contexto, página, estado y filtros.
  * Si no existe contexto (huerta, temporada, cosecha) devuelve reject.
+ * El parámetro `estado` indica si se listan ventas activas, archivadas o todas.
  */
 export const fetchVentas = createAsyncThunk<
   { ventas: VentaHuerta[]; meta: PaginationMeta; page: number },
@@ -50,23 +60,28 @@ export const fetchVentas = createAsyncThunk<
   'ventas/fetch',
   async (_, { getState, rejectWithValue }) => {
     const state = getState().ventas;
-    const { huertaId, temporadaId, cosechaId, page, filters, estado } = state;
-    if (!huertaId || !temporadaId || !cosechaId) {
-      return rejectWithValue('Faltan huerta, temporada o cosecha seleccionada');
+    const { huertaId, huertaRentadaId, temporadaId, cosechaId, page, filters } = state;
+    // Debe existir al menos una huerta (propia o rentada) y las demás claves de contexto
+    if ((!huertaId && !huertaRentadaId) || !temporadaId || !cosechaId) {
+      return rejectWithValue('Faltan IDs de contexto (huerta/huerta_rentada, temporada o cosecha).');
     }
     try {
-      const data = await ventaService.list(
-        huertaId,
-        temporadaId,
-        cosechaId,
+      const res = await ventaService.list(
+        {
+          huertaId: huertaId ?? undefined,
+          huertaRentadaId: huertaRentadaId ?? undefined,
+          temporadaId: temporadaId!,
+          cosechaId: cosechaId!,
+        },
         page,
         10,
-        estado,
         filters
       );
-      return { ventas: data.ventas, meta: data.meta, page };
+      // Mostrar la notificación del backend, si existe
+      handleBackendNotification(res);
+      return { ventas: res.data.ventas, meta: res.data.meta, page };
     } catch (err: any) {
-      handleBackendNotification(err.response?.data);
+      handleBackendNotification(err.response?.data || err);
       return rejectWithValue('Error al cargar ventas');
     }
   }
@@ -79,16 +94,24 @@ export const createVenta = createAsyncThunk<
 >(
   'ventas/create',
   async (payload, { getState, rejectWithValue }) => {
-    const { huertaId, temporadaId, cosechaId } = getState().ventas;
-    if (!huertaId || !temporadaId || !cosechaId) {
+    const { huertaId, huertaRentadaId, temporadaId, cosechaId } = getState().ventas;
+    if ((!huertaId && !huertaRentadaId) || !temporadaId || !cosechaId) {
       return rejectWithValue('Contexto incompleto');
     }
     try {
-      const v = await ventaService.create(huertaId, temporadaId, cosechaId, payload);
-      handleBackendNotification({ success: true, message_key: 'venta_create_success', data: { venta: v } });
-      return v;
+      const res = await ventaService.create(
+        {
+          huertaId: huertaId ?? undefined,
+          huertaRentadaId: huertaRentadaId ?? undefined,
+          temporadaId: temporadaId!,
+          cosechaId: cosechaId!,
+        },
+        payload
+      );
+      handleBackendNotification(res);
+      return res.data.venta;
     } catch (err: any) {
-      handleBackendNotification(err.response?.data);
+      handleBackendNotification(err.response?.data || err);
       return rejectWithValue('Error al crear venta');
     }
   }
@@ -102,11 +125,11 @@ export const updateVenta = createAsyncThunk<
   'ventas/update',
   async ({ id, payload }, { rejectWithValue }) => {
     try {
-      const v = await ventaService.update(id, payload);
-      handleBackendNotification({ success: true, message_key: 'venta_update_success', data: { venta: v } });
-      return v;
+      const res = await ventaService.update(id, payload);
+      handleBackendNotification(res);
+      return res.data.venta;
     } catch (err: any) {
-      handleBackendNotification(err.response?.data);
+      handleBackendNotification(err.response?.data || err);
       return rejectWithValue('Error al actualizar venta');
     }
   }
@@ -120,11 +143,11 @@ export const archiveVenta = createAsyncThunk<
   'ventas/archive',
   async (id, { rejectWithValue }) => {
     try {
-      const v = await ventaService.archive(id);
-      handleBackendNotification({ success: true, message_key: 'venta_archivada', data: { venta: v } });
-      return v;
+      const res = await ventaService.archive(id);
+      handleBackendNotification(res);
+      return res.data.venta;
     } catch (err: any) {
-      handleBackendNotification(err.response?.data);
+      handleBackendNotification(err.response?.data || err);
       return rejectWithValue('Error al archivar venta');
     }
   }
@@ -138,11 +161,11 @@ export const restoreVenta = createAsyncThunk<
   'ventas/restore',
   async (id, { rejectWithValue }) => {
     try {
-      const v = await ventaService.restore(id);
-      handleBackendNotification({ success: true, message_key: 'venta_restaurada', data: { venta: v } });
-      return v;
+      const res = await ventaService.restore(id);
+      handleBackendNotification(res);
+      return res.data.venta;
     } catch (err: any) {
-      handleBackendNotification(err.response?.data);
+      handleBackendNotification(err.response?.data || err);
       return rejectWithValue('Error al restaurar venta');
     }
   }
@@ -156,11 +179,11 @@ export const deleteVenta = createAsyncThunk<
   'ventas/delete',
   async (id, { rejectWithValue }) => {
     try {
-      const info = await ventaService.remove(id);
-      handleBackendNotification({ success: true, message_key: 'venta_delete_success', data: { info } });
+      const res = await ventaService.remove(id);
+      handleBackendNotification(res);
       return id;
     } catch (err: any) {
-      handleBackendNotification(err.response?.data);
+      handleBackendNotification(err.response?.data || err);
       return rejectWithValue('Error al eliminar venta');
     }
   }
@@ -173,8 +196,12 @@ const ventasSlice = createSlice({
     setPage: (s, a: PayloadAction<number>) => {
       s.page = a.payload;
     },
-    setContext: (s, a: PayloadAction<{ huertaId: number; temporadaId: number; cosechaId: number }>) => {
-      s.huertaId = a.payload.huertaId;
+    setContext: (
+      s,
+      a: PayloadAction<{ huertaId?: number; huertaRentadaId?: number; temporadaId: number; cosechaId: number }>
+    ) => {
+      s.huertaId = a.payload.huertaId ?? null;
+      s.huertaRentadaId = a.payload.huertaRentadaId ?? null;
       s.temporadaId = a.payload.temporadaId;
       s.cosechaId = a.payload.cosechaId;
       s.page = 1;
@@ -182,12 +209,6 @@ const ventasSlice = createSlice({
     setFilters: (s, a: PayloadAction<VentaFilters>) => {
       s.filters = a.payload;
       s.page = 1;
-    },
-    setEstado: (s, a: PayloadAction<'activas' | 'archivadas' | 'todas'>) => {
-      // Cambiar el estado (activas/archivadas/todas) limpia la página y los filtros
-      s.estado = a.payload;
-      s.page = 1;
-      s.filters = {};
     },
   },
   extraReducers: b => {
@@ -213,7 +234,7 @@ const ventasSlice = createSlice({
         if(i!==-1) s.list[i] = payload;
      })
      .addCase(archiveVenta.fulfilled,(s,{payload})=>{
-        // Al archivar, eliminamos la venta de la lista actual
+        // Al archivar, eliminamos la venta de la lista actual (activos o estado actual)
         s.list = s.list.filter(v=>v.id!==payload.id);
      })
      .addCase(restoreVenta.fulfilled,(s,{payload})=>{
@@ -227,5 +248,5 @@ const ventasSlice = createSlice({
   }
 });
 
-export const { setPage, setContext, setFilters, setEstado } = ventasSlice.actions;
+export const { setPage, setContext, setFilters } = ventasSlice.actions;
 export default ventasSlice.reducer;

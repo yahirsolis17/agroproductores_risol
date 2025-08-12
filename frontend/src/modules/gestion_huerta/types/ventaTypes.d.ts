@@ -2,8 +2,8 @@
  *
  * These interfaces define the shape of the data returned from and sent to the
  * backend API.  A sale may belong to either a huerta (owned plot) or a huerta
- * rentada (rented plot), so both identifiers are present and optional.
- * The backend computes `total_venta` and `ganancia_neta`.
+ * rentada (rented plot), so both identifiers are present and optional.  The
+ * backend computes `total_venta` and `ganancia_neta`.
  */
 
 export interface VentaHuerta {
@@ -43,7 +43,7 @@ export interface VentaHuerta {
 
 /** Datos permitidos para crear una venta.  El contexto (huertaId, temporadaId y cosechaId)
  * se envía por separado, de modo que aquí solo se indica la cosecha. */
-export interface VentaCreateData {
+export interface VentaHuertaCreateData {
   fecha_venta: string;
   num_cajas: number;
   precio_por_caja: number;
@@ -54,17 +54,38 @@ export interface VentaCreateData {
 }
 
 /** Datos permitidos para actualizar una venta.  Todos los campos son opcionales. */
-export interface VentaUpdateData
-  extends Partial<VentaCreateData> {}
+export interface VentaHuertaUpdateData
+  extends Partial<VentaHuertaCreateData> {}
 
 /* Aliases para los formularios */
-export type VentaCreateData = VentaCreateData;
-export type VentaUpdateData = VentaUpdateData;
+export type VentaCreateData = VentaHuertaCreateData;
+export type VentaUpdateData = VentaHuertaUpdateData;
 
-/** Filtros posibles para ventas en la interfaz.  El filtro `estado` (activas, archivadas,
+/** Filtros posibles para ventas en la interfaz.  El filtro `estado` (activos, archivadas,
  * todas) se maneja de manera independiente en el estado del slice/hook. */
 export interface VentaFilters {
+  /**
+   * Filtro por tipo de mango.  Si se especifica, buscará coincidencia por
+   * nombre.  Corresponde al parámetro `tipo_mango` en el backend.
+   */
   tipoMango?: string;
+  /**
+   * Filtro por fecha de inicio en formato YYYY-MM-DD.  Corresponde al
+   * parámetro `fecha_desde` en el backend.  Si no se especifica, no se
+   * aplicará límite inferior en la fecha de venta.
+   */
   fechaDesde?: string;
+  /**
+   * Filtro por fecha de fin en formato YYYY-MM-DD.  Corresponde al
+   * parámetro `fecha_hasta` en el backend.  Si no se especifica, no se
+   * aplicará límite superior en la fecha de venta.
+   */
   fechaHasta?: string;
+  /**
+   * Estado de la venta: `activas` para las ventas no archivadas,
+   * `archivadas` para las ventas archivadas, o `todas` para ambas.  Este
+   * valor se utiliza para filtrar en el backend mediante el parámetro
+   * `estado`.  Si no se especifica, se asume `activas`.
+   */
+  estado?: 'activas' | 'archivadas' | 'todas';
 }

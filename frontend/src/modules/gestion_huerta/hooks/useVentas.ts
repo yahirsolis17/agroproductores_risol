@@ -11,7 +11,6 @@ import {
   setPage,
   setContext,
   setFilters,
-  setEstado,
 } from '../../../global/store/ventasSlice';
 import type { VentaFilters } from '../types/ventaTypes';
 import {
@@ -22,7 +21,7 @@ import {
 /**
  * Hook para manejar la lista de ventas en el frontend.
  * Expone la lista, metadatos de paginación, filtros, contexto y operaciones CRUD.
- * Se dispara automáticamente fetchVentas cuando cambian el contexto, la página, los filtros o el estado (activas/archivadas/todas).
+ * Se dispara automáticamente fetchVentas cuando cambian el contexto, la página, los filtros o el estado (activos/archivados/todos).
  */
 export function useVentas() {
   const dispatch = useAppDispatch();
@@ -33,30 +32,30 @@ export function useVentas() {
     page,
     meta,
     huertaId,
+    huertaRentadaId,
     temporadaId,
     cosechaId,
     filters,
-    estado,
   } = useAppSelector((s) => s.ventas);
 
   // Fetch on context / page / filters / estado change
   useEffect(() => {
     dispatch(fetchVentas());
-  }, [dispatch, huertaId, temporadaId, cosechaId, page, filters, estado]);
+  }, [dispatch, huertaId, huertaRentadaId, temporadaId, cosechaId, page, filters]);
 
   const refetch = () => dispatch(fetchVentas());
 
   // Context
-  const setContextIds = (h: number, t: number, c: number) =>
-    dispatch(setContext({ huertaId: h, temporadaId: t, cosechaId: c }));
+  const setContextIds = (args: { huertaId?: number; huertaRentadaId?: number; temporadaId: number; cosechaId: number }) =>
+    dispatch(setContext(args));
 
   // Pagination & filters
   const changePage    = (p: number)       => dispatch(setPage(p));
   const changeFilters = (f: VentaFilters) => dispatch(setFilters(f));
-
-  // Estado (activas, archivadas o todas)
-  const changeEstado  = (e: 'activas' | 'archivadas' | 'todas') =>
-    dispatch(setEstado(e));
+  // Cambia el estado de las ventas (activas/archivadas/todas) actualizando el filtro
+  const changeEstado = (e: 'activas' | 'archivadas' | 'todas') => {
+    dispatch(setFilters({ ...filters, estado: e }));
+  };
 
   // CRUD
   const addVenta = (data: VentaCreateData) =>
@@ -81,10 +80,10 @@ export function useVentas() {
     page,
     meta,
     huertaId,
+    huertaRentadaId,
     temporadaId,
     cosechaId,
     filters,
-    estado,
     // context
     setContext: setContextIds,
     // navigation

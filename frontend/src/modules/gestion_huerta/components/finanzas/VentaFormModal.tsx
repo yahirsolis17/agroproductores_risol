@@ -1,4 +1,4 @@
-/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
 import {
   Dialog,
@@ -18,7 +18,7 @@ import {
   VentaHuerta,
 } from '../../types/ventaTypes';
 import { PermissionButton } from '../../../../components/common/PermissionButton';
-import { handleBackendNotification } from '../../../../global/utils/NotificationEngine';
+  import { handleBackendNotification } from '../../../../global/utils/NotificationEngine';
 
 interface Props {
   open: boolean;
@@ -156,7 +156,6 @@ const VentaFormModal: React.FC<Props> = ({
             Object.entries(beErrors).forEach(([f, msgVal]) => {
               if (f !== 'non_field_errors') {
                 const text = Array.isArray(msgVal) ? String(msgVal[0]) : String(msgVal);
-                // Asignar directamente la clave del backend al campo del formulario.
                 fieldErrors[f] = text;
               }
             });
@@ -167,7 +166,7 @@ const VentaFormModal: React.FC<Props> = ({
           }
         }}
       >
-        {({ values, errors, handleChange, isSubmitting }) => (
+        {({ values, errors, handleChange, isSubmitting, setFieldError }) => (
           <Form>
             <DialogContent dividers className="space-y-4">
               <TextField
@@ -187,7 +186,16 @@ const VentaFormModal: React.FC<Props> = ({
                 label="Número de cajas"
                 type="text"
                 value={values.num_cajas}
-                onChange={handleChange}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  // Validar solo dígitos
+                  if (val && !/^\d+$/.test(val)) {
+                    setFieldError('num_cajas', 'Ingresa solo números');
+                  } else {
+                    setFieldError('num_cajas', undefined);
+                  }
+                  handleChange(e);
+                }}
                 error={!!errors.num_cajas}
                 helperText={errors.num_cajas as string}
               />
@@ -197,7 +205,15 @@ const VentaFormModal: React.FC<Props> = ({
                 label="Precio por caja"
                 type="text"
                 value={values.precio_por_caja}
-                onChange={handleChange}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val && !/^\d+$/.test(val)) {
+                    setFieldError('precio_por_caja', 'Ingresa solo números');
+                  } else {
+                    setFieldError('precio_por_caja', undefined);
+                  }
+                  handleChange(e);
+                }}
                 error={!!errors.precio_por_caja}
                 helperText={errors.precio_por_caja as string}
               />
@@ -216,7 +232,15 @@ const VentaFormModal: React.FC<Props> = ({
                 label="Gasto asociado"
                 type="text"
                 value={values.gasto}
-                onChange={handleChange}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val && !/^\d+$/.test(val)) {
+                    setFieldError('gasto', 'Ingresa solo números');
+                  } else {
+                    setFieldError('gasto', undefined);
+                  }
+                  handleChange(e);
+                }}
                 error={!!errors.gasto}
                 helperText={errors.gasto as string}
               />

@@ -25,6 +25,10 @@ import VentaFormModal from '../components/finanzas/VentaFormModal';
 
 const PAGE_SIZE = 10;
 
+type EstadoTab = 'activas' | 'archivadas' | 'todas';
+const estadoToIndex: Record<EstadoTab, number> = { activas: 0, archivadas: 1, todas: 2 };
+const indexToEstado: EstadoTab[] = ['activas', 'archivadas', 'todas'];
+
 const Venta: React.FC = () => {
   const {
     ventas,
@@ -32,7 +36,6 @@ const Venta: React.FC = () => {
     page,
     meta,
     filters,
-    estado,
     changePage,
     changeFilters,
     changeEstado,
@@ -41,9 +44,14 @@ const Venta: React.FC = () => {
     archive,
     restore,
     removeVenta,
+    cosechaId,
   } = useVentas();
 
-  // Conteo de filtros activos
+  // Pestaña activa basada en filters.estado (default: 'activas')
+  const estadoActual: EstadoTab = (filters.estado ?? 'activas') as EstadoTab;
+  const tabIndex = estadoToIndex[estadoActual];
+
+  // Conteo de filtros activos (sin contar 'estado')
   const activeFiltersCount = useMemo(() => {
     let c = 0;
     if (filters.tipoMango) c++;
@@ -52,7 +60,10 @@ const Venta: React.FC = () => {
     return c;
   }, [filters]);
 
-  const handleClearFilters = () => changeFilters({});
+  const handleClearFilters = () => {
+    // Mantener pestaña actual al limpiar filtros
+    changeFilters({ estado: estadoActual });
+  };
 
   // Estado para modal de crear/editar
   const [modalOpen, setModalOpen] = useState(false);
@@ -68,9 +79,7 @@ const Venta: React.FC = () => {
   };
 
   // onSubmit para el formulario
-  const handleSubmit = async (
-    vals: VentaCreateData | VentaUpdateData
-  ) => {
+  const handleSubmit = async (vals: VentaCreateData | VentaUpdateData) => {
     if (editTarget) {
       await editVenta(editTarget.id, vals as VentaUpdateData);
     } else {
@@ -86,17 +95,11 @@ const Venta: React.FC = () => {
     setDelId(null);
   };
 
-  // Mapeo estado a índice de tab
-  const tabIndex = { activas: 0, archivadas: 1, todas: 2 }[estado] ?? 0;
-
   return (
     <Box p={2}>
       <Tabs
         value={tabIndex}
-        onChange={(_, i: number) => {
-          const values: ('activas' | 'archivadas' | 'todas')[] = ['activas', 'archivadas', 'todas'];
-          changeEstado(values[i]);
-        }}
+        onChange={(_, i: number) => changeEstado(indexToEstado[i])}
         aria-label="Tabs estado ventas"
         sx={{ mb: 2 }}
       >
@@ -126,7 +129,6 @@ const Venta: React.FC = () => {
           count={meta.count}
           onPageChange={changePage}
           onEdit={openEdit}
-          // Callbacks reciben sólo el id
           onArchive={(id) => archive(id)}
           onRestore={(id) => restore(id)}
           onDelete={(id) => setDelId(id)}
@@ -138,6 +140,7 @@ const Venta: React.FC = () => {
         onClose={() => setModalOpen(false)}
         onSubmit={handleSubmit}
         initialValues={editTarget ?? undefined}
+        defaultCosechaId={cosechaId ?? undefined}
       />
 
       <Dialog open={delId != null} onClose={() => setDelId(null)}>
