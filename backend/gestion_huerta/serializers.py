@@ -457,44 +457,59 @@ class InversionesHuertaSerializer(serializers.ModelSerializer):
         return v
 
     # ——— Validación de objeto (reglas de negocio) ———
-    def validate(self, data):
-        categoria       = data.get('categoria')
-        cosecha         = data.get('cosecha')
-        temporada       = data.get('temporada')
-        huerta          = data.get('huerta')
-        huerta_rentada  = data.get('huerta_rentada')
-        gi              = data.get('gastos_insumos')
-        gm              = data.get('gastos_mano_obra')
+def validate(self, data):
+    categoria       = data.get('categoria')
+    cosecha         = data.get('cosecha')
+    temporada       = data.get('temporada')
+    huerta          = data.get('huerta')
+    huerta_rentada  = data.get('huerta_rentada')
+    gi              = data.get('gastos_insumos')
+    gm              = data.get('gastos_mano_obra')
 
-        # Si alguno viene ausente, que lo marquen los validadores de campo
-        if gi is not None and gm is not None:
-            if (gi + gm) <= 0:
-                # anclar el error a un campo concreto para que el FE lo muestre debajo
-                raise serializers.ValidationError({"gastos_insumos": "Los gastos totales deben ser mayores a 0."})
+    # Totales > 0
+    if gi is not None and gm is not None:
+        if (gi + gm) <= 0:
+            raise serializers.ValidationError({"gastos_insumos": "Los gastos totales deben ser mayores a 0."})
 
-        if not all([categoria, cosecha, temporada]):
-            return data  # DRF marcará los faltantes por campo
-
-        if temporada != cosecha.temporada:
-            raise serializers.ValidationError({"temporada_id": "La temporada no coincide con la temporada de la cosecha."})
-
-        if temporada.finalizada or not temporada.is_active:
-            raise serializers.ValidationError({"temporada_id": "No se pueden registrar inversiones en una temporada finalizada o archivada."})
-
-        if cosecha.huerta_id:
-            if not huerta or huerta.id != cosecha.huerta_id:
-                raise serializers.ValidationError({"huerta_id": "La huerta no coincide con la huerta de la cosecha."})
-            if huerta_rentada is not None:
-                raise serializers.ValidationError({"huerta_rentada_id": "No asignes huerta rentada en una cosecha de huerta propia."})
-        elif cosecha.huerta_rentada_id:
-            if not huerta_rentada or huerta_rentada.id != cosecha.huerta_rentada_id:
-                raise serializers.ValidationError({"huerta_rentada_id": "La huerta rentada no coincide con la de la cosecha."})
-            if huerta is not None:
-                raise serializers.ValidationError({"huerta_id": "No asignes huerta propia en una cosecha de huerta rentada."})
-        else:
-            raise serializers.ValidationError({"cosecha_id": "La cosecha no tiene origen (huerta/huerta_rentada) definido."})
-
+    # Si faltan, DRF marcará por campo
+    if not all([categoria, cosecha, temporada]):
         return data
+
+    # Temporada debe coincidir con la de la cosecha
+    if temporada != cosecha.temporada:
+        raise serializers.ValidationError({"temporada_id": "La temporada no coincide con la temporada de la cosecha."})
+
+    # 🚫 Bloqueos por estado (pestañas duplicadas, etc.)
+    if getattr(cosecha, 'finalizada', False):
+        raise serializers.ValidationError({"cosecha_id": "No se pueden registrar inversiones en una cosecha finalizada."})
+    if not getattr(cosecha, 'is_active', True):
+        raise serializers.ValidationError({"cosecha_id": "No se pueden registrar inversiones en una cosecha archivada."})
+
+    if getattr(temporada, 'finalizada', False) or not getattr(temporada, 'is_active', True):
+        raise serializers.ValidationError({"temporada_id": "No se pueden registrar inversiones en una temporada finalizada o archivada."})
+
+    # Coherencia de origen con la cosecha
+    if cosecha.huerta_id:
+        if not huerta or huerta.id != cosecha.huerta_id:
+            raise serializers.ValidationError({"huerta_id": "La huerta no coincide con la huerta de la cosecha."})
+        if huerta_rentada is not None:
+            raise serializers.ValidationError({"huerta_rentada_id": "No asignes huerta rentada en una cosecha de huerta propia."})
+    elif cosecha.huerta_rentada_id:
+        if not huerta_rentada or huerta_rentada.id != cosecha.huerta_rentada_id:
+            raise serializers.ValidationError({"huerta_rentada_id": "La huerta rentada no coincide con la de la cosecha."})
+        if huerta is not None:
+            raise serializers.ValidationError({"huerta_id": "No asignes huerta propia en una cosecha de huerta rentada."})
+    else:
+        raise serializers.ValidationError({"cosecha_id": "La cosecha no tiene origen (huerta/huerta_rentada) definido."})
+
+    # 🚫 Origen archivado
+    if huerta and not getattr(huerta, 'is_active', True):
+        raise serializers.ValidationError({"huerta_id": "No se pueden registrar inversiones en una huerta archivada."})
+    if huerta_rentada and not getattr(huerta_rentada, 'is_active', True):
+        raise serializers.ValidationError({"huerta_rentada_id": "No se pueden registrar inversiones en una huerta rentada archivada."})
+
+    return data
+
 
 # -----------------------------
 # VENTA
@@ -585,48 +600,56 @@ class VentaSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(f'La fecha debe ser igual o posterior al inicio de la cosecha ({inicio.isoformat()}).')
         return value
 
-    def validate(self, data):
-        cosecha, temporada, huerta, huerta_rentada = self._resolve_context_fields(data)
+def validate(self, data):
+    cosecha, temporada, huerta, huerta_rentada = self._resolve_context_fields(data)
 
-        # Coherencia temporada/cosecha/origen
-        if temporada != cosecha.temporada:
-            raise serializers.ValidationError({'temporada_id': 'La temporada no coincide con la de la cosecha.'})
-        if not temporada.is_active or getattr(temporada, 'finalizada', False):
-            raise serializers.ValidationError({'temporada_id': 'No se pueden registrar/editar ventas en una temporada finalizada o archivada.'})
-        if huerta and getattr(cosecha, 'huerta', None) != huerta:
-            raise serializers.ValidationError({'huerta_id': 'La huerta no coincide con la de la cosecha.'})
-        if huerta_rentada and getattr(cosecha, 'huerta_rentada', None) != huerta_rentada:
-            raise serializers.ValidationError({'huerta_rentada_id': 'La huerta rentada no coincide con la de la cosecha.'})
+    # Coherencia temporada/cosecha
+    if temporada != cosecha.temporada:
+        raise serializers.ValidationError({'temporada_id': 'La temporada no coincide con la de la cosecha.'})
 
-        # Números
-        num_cajas       = data.get('num_cajas',       getattr(self.instance, 'num_cajas',       None))
-        precio_por_caja = data.get('precio_por_caja', getattr(self.instance, 'precio_por_caja', None))
-        gasto           = data.get('gasto',           getattr(self.instance, 'gasto',           None))
+    # 🚫 Bloqueos por estado
+    if getattr(cosecha, 'finalizada', False):
+        raise serializers.ValidationError({'cosecha_id': 'No se pueden registrar/editar ventas en una cosecha finalizada.'})
+    if not getattr(cosecha, 'is_active', True):
+        raise serializers.ValidationError({'cosecha_id': 'No se pueden registrar/editar ventas en una cosecha archivada.'})
 
-        if num_cajas is None or num_cajas <= 0:
-            raise serializers.ValidationError({'num_cajas': 'Debe ser mayor que 0.'})
-        if precio_por_caja is None or precio_por_caja < 0:
-            raise serializers.ValidationError({'precio_por_caja': 'Debe ser ≥ 0.'})
-        if gasto is None or gasto < 0:
-            raise serializers.ValidationError({'gasto': 'Debe ser ≥ 0.'})
+    if getattr(temporada, 'finalizada', False) or not getattr(temporada, 'is_active', True):
+        raise serializers.ValidationError({'temporada_id': 'No se pueden registrar/editar ventas en una temporada finalizada o archivada.'})
 
-        # (Opcional) Evitar ganancia negativa si esa regla sigue vigente
-        if num_cajas is not None and precio_por_caja is not None and gasto is not None:
-            total = (num_cajas or 0) * (precio_por_caja or 0)
-            if (total - gasto) < 0:
-                raise serializers.ValidationError({'gasto': 'La ganancia neta no puede ser negativa.'})
+    # Coherencia de origen con la cosecha
+    if huerta and getattr(cosecha, 'huerta', None) != huerta:
+        raise serializers.ValidationError({'huerta_id': 'La huerta no coincide con la de la cosecha.'})
+    if huerta_rentada and getattr(cosecha, 'huerta_rentada', None) != huerta_rentada:
+        raise serializers.ValidationError({'huerta_rentada_id': 'La huerta rentada no coincide con la de la cosecha.'})
 
-        # Inyectar contexto resuelto
-        data['cosecha']        = cosecha
-        data['temporada']      = temporada
-        data['huerta']         = huerta
-        data['huerta_rentada'] = huerta_rentada
-        return data
+    # 🚫 Origen archivado
+    if huerta and not getattr(huerta, 'is_active', True):
+        raise serializers.ValidationError({'huerta_id': 'No se pueden registrar/editar ventas en una huerta archivada.'})
+    if huerta_rentada and not getattr(huerta_rentada, 'is_active', True):
+        raise serializers.ValidationError({'huerta_rentada_id': 'No se pueden registrar/editar ventas en una huerta rentada archivada.'})
 
-    def create(self, validated_data):
-        self._resolve_context_fields(validated_data)  # asegura contexto
-        return super().create(validated_data)
+    # Números
+    num_cajas       = data.get('num_cajas',       getattr(self.instance, 'num_cajas',       None))
+    precio_por_caja = data.get('precio_por_caja', getattr(self.instance, 'precio_por_caja', None))
+    gasto           = data.get('gasto',           getattr(self.instance, 'gasto',           None))
 
-    def update(self, instance, validated_data):
-        self._resolve_context_fields(validated_data)  # asegura contexto
-        return super().update(instance, validated_data)
+    if num_cajas is None or num_cajas <= 0:
+        raise serializers.ValidationError({'num_cajas': 'Debe ser mayor que 0.'})
+    # Modelo exige > 0
+    if precio_por_caja is None or precio_por_caja <= 0:
+        raise serializers.ValidationError({'precio_por_caja': 'Debe ser > 0.'})
+    if gasto is None or gasto < 0:
+        raise serializers.ValidationError({'gasto': 'Debe ser ≥ 0.'})
+
+    # (Opcional) evitar ganancia negativa
+    if num_cajas is not None and precio_por_caja is not None and gasto is not None:
+        total = (num_cajas or 0) * (precio_por_caja or 0)
+        if (total - gasto) < 0:
+            raise serializers.ValidationError({'gasto': 'La ganancia neta no puede ser negativa.'})
+
+    # Inyectar contexto resuelto
+    data['cosecha']        = cosecha
+    data['temporada']      = temporada
+    data['huerta']         = huerta
+    data['huerta_rentada'] = huerta_rentada
+    return data

@@ -21,6 +21,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q
 from rest_framework import filters
+from django.db import transaction
 
 # Modelos
 from gestion_huerta.models import Propietario, Huerta, HuertaRentada
