@@ -26,6 +26,10 @@ NOTIFICATION_MESSAGES = {
         "type": "error",
         "code": 404
     },
+    "venta_debe_estar_archivada": {
+    "message": "Debes archivar la venta antes de poder eliminarla.",
+    "type": "error"
+    },
 
     # -------------------------------------------------
     # Propietarios
@@ -201,22 +205,6 @@ NOTIFICATION_MESSAGES = {
     },
     "inversion_delete_success": {
         "message": "Inversión eliminada correctamente.",
-        "type": "success"
-    },
-
-    # -------------------------------------------------
-    # Ventas
-    # -------------------------------------------------
-    "venta_create_success": {
-        "message": "Venta registrada con éxito.",
-        "type": "success"
-    },
-    "venta_update_success": {
-        "message": "Venta actualizada con éxito.",
-        "type": "success"
-    },
-    "venta_delete_success": {
-        "message": "Venta eliminada correctamente.",
         "type": "success"
     },
 

@@ -1,52 +1,29 @@
-// src/modules/gestion_huerta/services/ventaService.ts (actualizado)
-
 import apiClient from '../../../global/api/apiClient';
 import {
   VentaHuerta,
-  VentaCreateData,
-  VentaUpdateData,
-  VentaFilters,
+  VentaHuertaCreateData,
+  VentaHuertaUpdateData,
 } from '../types/ventaTypes';
 
-// Context interface for listing and creating ventas.  A venta pertenece
-// a una temporada y una cosecha, y opcionalmente a una huerta propia o una
-// huerta rentada.  Solo uno de huertaId o huertaRentadaId debe estar
-// definido; el otro debe ser undefined.
-export interface VentaContext {
+export interface VentaFilters {
+  fechaDesde?: string;  // YYYY-MM-DD
+  fechaHasta?: string;  // YYYY-MM-DD
+  estado?: 'activas' | 'archivadas' | 'todas';
+}
+
+type Ctx = {
   huertaId?: number;
   huertaRentadaId?: number;
   temporadaId: number;
   cosechaId: number;
-}
+};
 
-// `VentaFilters` se importa desde los types.  El filtro `estado` se maneja de forma
-// independiente en el slice y el hook; aquí solo se incluyen tipoMango y fechas.
+type PaginationMeta = { count: number; next: string | null; previous: string | null };
 
-interface ListEnvelope {
-  success: boolean;
-  message_key: string;
-  data: {
-    ventas: VentaHuerta[];
-    meta: { count: number; next: string | null; previous: string | null };
-  };
-}
-
-
-/**
- * CRUD + archive/restore para Ventas.
- * Ahora incluye el parámetro `estado` en `list` para filtrar entre activas, archivadas o todas.
- */
 export const ventaService = {
-  /**
-   * Obtiene una lista paginada de ventas.  La lista se filtra por contexto
-   * (huerta propia o rentada, temporada y cosecha), por estado (activas,
-   * archivadas o todas) y por filtros opcionales (tipo de mango y rangos de
-   * fechas).  Devuelve el envelope completo, que incluye notificación y
-   * metadatos, para que el slice pueda despachar notificaciones si
-   * corresponde.
-   */
+  // LIST (con fallback a DRF nativo, igual que inversiones)
   async list(
-    ctx: VentaContext,
+    ctx: Ctx,
     page = 1,
     pageSize = 10,
     filters: VentaFilters = {},
@@ -58,66 +35,66 @@ export const ventaService = {
       temporada: ctx.temporadaId,
       cosecha: ctx.cosechaId,
     };
-    // Contexto: usar huerta o huerta_rentada según esté definido
-    if (ctx.huertaId) params.huerta = ctx.huertaId;
-    if (ctx.huertaRentadaId) params.huerta_rentada = ctx.huertaRentadaId;
-    // Estado: si se especifica, se envía; de lo contrario el backend asume 'activas'
-    if (filters.estado) params.estado = filters.estado;
-    // Filtros opcionales: tipo de mango y rango de fechas
-    if (filters.tipoMango) params.tipo_mango = filters.tipoMango;
-    if (filters.fechaDesde) params.fecha_desde = filters.fechaDesde;
-    if (filters.fechaHasta) params.fecha_hasta = filters.fechaHasta;
+    if (ctx.huertaId)        params['huerta'] = ctx.huertaId;
+    if (ctx.huertaRentadaId) params['huerta_rentada'] = ctx.huertaRentadaId;
+    if (filters.fechaDesde)  params['fecha_desde'] = filters.fechaDesde;
+    if (filters.fechaHasta)  params['fecha_hasta'] = filters.fechaHasta;
+    if (filters.estado)      params['estado'] = filters.estado;
 
-    // El backend retorna un envelope con keys: success, notification y data
+    // Intento 1: DRF nativo (count/results)
+    const probe = await apiClient.get<any>('/huerta/ventas/', { params, signal: config.signal });
+    if (probe?.data && typeof probe.data.count === 'number' && Array.isArray(probe.data.results)) {
+      return {
+        success: true,
+        notification: { key: 'no_notification', message: '', type: 'info' as const },
+        data: {
+          ventas: probe.data.results as VentaHuerta[],
+          meta: { count: probe.data.count, next: probe.data.next, previous: probe.data.previous } as PaginationMeta,
+        },
+      };
+    }
+
+    // Intento 2: envelope del backend
     const { data } = await apiClient.get<{
       success: boolean;
       notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
-      data: ListEnvelope['data'];
+      data: { ventas: VentaHuerta[]; meta: PaginationMeta };
     }>('/huerta/ventas/', { params, signal: config.signal });
+
     return data;
   },
 
-  /**
-   * Crea una nueva venta.  El contexto determina si se asocia a una
-   * huerta propia (huerta_id) o rentada (huerta_rentada_id).  La cosecha y
-   * temporada se infieren del contexto.  Devuelve el envelope completo.
-   */
-  async create(
-    ctx: VentaContext,
-    payload: VentaCreateData
-  ) {
+  // CREATE
+  async create(ctx: Ctx, payload: VentaHuertaCreateData) {
     const body: Record<string, any> = {
-      ...payload,
+      fecha_venta: payload.fecha_venta,
+      tipo_mango: payload.tipo_mango,
+      num_cajas: payload.num_cajas,
+      precio_por_caja: payload.precio_por_caja,
+      gasto: payload.gasto,
+      descripcion: payload.descripcion,
       cosecha_id: ctx.cosechaId,
       temporada_id: ctx.temporadaId,
     };
-    if (ctx.huertaId) body.huerta_id = ctx.huertaId;
-    if (ctx.huertaRentadaId) body.huerta_rentada_id = ctx.huertaRentadaId;
-    const { data } = await apiClient.post<{
-      success: boolean;
-      notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
-      data: { venta: VentaHuerta };
-    }>('/huerta/ventas/', body);
+    if (ctx.huertaId)        body['huerta_id'] = ctx.huertaId;
+    if (ctx.huertaRentadaId) body['huerta_rentada_id'] = ctx.huertaRentadaId;
+
+    const { data } = await apiClient.post('/huerta/ventas/', body);
     return data;
   },
 
-  /**
-   * Actualiza parcialmente una venta.  Devuelve el envelope con la venta
-   * actualizada.
-   */
-  async update(
-    id: number,
-    payload: VentaUpdateData
-  ) {
+  // UPDATE (PATCH parcial)
+  async update(id: number, payload: VentaHuertaUpdateData) {
+    const body: any = { ...payload };
     const { data } = await apiClient.patch<{
       success: boolean;
       notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
       data: { venta: VentaHuerta };
-    }>(`/huerta/ventas/${id}/`, payload);
+    }>(`/huerta/ventas/${id}/`, body);
     return data;
   },
 
-  async archive(id: number) {
+  async archivar(id: number) {
     const { data } = await apiClient.post<{
       success: boolean;
       notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
@@ -126,7 +103,7 @@ export const ventaService = {
     return data;
   },
 
-  async restore(id: number) {
+  async restaurar(id: number) {
     const { data } = await apiClient.post<{
       success: boolean;
       notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };

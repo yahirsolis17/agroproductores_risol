@@ -1,43 +1,53 @@
 // src/modules/gestion_huerta/pages/FinanzasPorCosecha.tsx
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
-import {
-  Paper, Typography, Box, CircularProgress, Divider, Tabs, Tab,
-} from '@mui/material';
+import { Paper, Typography, Box, CircularProgress, Divider, Tabs, Tab } from '@mui/material';
 import { motion } from 'framer-motion';
 
+import { useAppDispatch } from '../../../global/store/store';
 import { temporadaService } from '../services/temporadaService';
 import { setBreadcrumbs, clearBreadcrumbs } from '../../../global/store/breadcrumbsSlice';
 import { breadcrumbRoutes } from '../../../global/constants/breadcrumbRoutes';
 
-import { setContext as setInvContext } from '../../../global/store/inversionesSlice'; // ⬅️ NUEVO
-import { setContext as setVentaContext } from '../../../global/store/ventasSlice';   // ⬅️ NUEVO
+import { setContext as setInvContext } from '../../../global/store/inversionesSlice';
+import { setContext as setVentaContext } from '../../../global/store/ventasSlice';
 
 import Inversion from './Inversion';
 import Venta     from './Venta';
 
+type UrlParams = { temporadaId: string; cosechaId: string };
+
+type TempInfo = {
+  año: number;
+  huertaId: number | null;
+  huertaRentadaId: number | null;
+  huerta_nombre: string;
+  is_active: boolean;
+  finalizada: boolean;
+};
+
+type CtxPayload = {
+  temporadaId: number;
+  cosechaId: number;
+  huertaId?: number;          // opcional (sin null)
+  huertaRentadaId?: number;   // opcional (sin null)
+};
+
 const FinanzasPorCosecha: React.FC = () => {
-  const dispatch = useDispatch();
+  const dispatch = useAppDispatch();
 
-  const {
-    temporadaId: tmp,
-    cosechaId:  ctm,
-  } = useParams<{ temporadaId: string; cosechaId: string }>();
-
+  const { temporadaId: tmp, cosechaId: ctm } = useParams<UrlParams>();
   const temporadaId = Number(tmp) || null;
   const cosechaId   = Number(ctm) || null;
 
-  const [tempInfo, setTempInfo] = useState<{
-    año: number;
-    huertaId: number | null;           // ⬅️ guardamos ambos por separado
-    huertaRentadaId: number | null;    // ⬅️
-    huerta_nombre: string;
-    is_active: boolean;
-    finalizada: boolean;
-  } | null>(null);
-
+  const [tempInfo, setTempInfo] = useState<TempInfo | null>(null);
   const [loadingTemp, setLoadingTemp] = useState(false);
+  const [tab, setTab] = useState<'inversion' | 'venta'>('inversion');
+
+  // Limpieza breadcrumbs al desmontar
+  useEffect(() => {
+    return () => { dispatch(clearBreadcrumbs()); };
+  }, [dispatch]);
 
   // Carga de temporada + breadcrumbs
   useEffect(() => {
@@ -47,25 +57,26 @@ const FinanzasPorCosecha: React.FC = () => {
       return;
     }
     setLoadingTemp(true);
+
     temporadaService.getById(temporadaId)
       .then(res => {
         const t = res.data.temporada;
-        // t.huerta y t.huerta_rentada vienen del backend (uno u otro)
         const huertaId        = t.huerta ?? null;
         const huertaRentadaId = t.huerta_rentada ?? null;
 
-        setTempInfo({
+        const info: TempInfo = {
           año: t.año,
           huertaId,
           huertaRentadaId,
-          huerta_nombre: t.huerta_nombre!,
+          huerta_nombre: t.huerta_nombre || '',
           is_active: t.is_active,
           finalizada: t.finalizada,
-        });
+        };
+        setTempInfo(info);
 
         const origenId = huertaId ?? huertaRentadaId!;
         dispatch(setBreadcrumbs([
-          ...breadcrumbRoutes.cosechasList(origenId, t.huerta_nombre!, t.año, temporadaId!),
+          ...breadcrumbRoutes.cosechasList(origenId, info.huerta_nombre, info.año, temporadaId),
           { label: 'Ventas & Inversiones', path: '' }
         ]));
       })
@@ -76,18 +87,20 @@ const FinanzasPorCosecha: React.FC = () => {
       .finally(() => setLoadingTemp(false));
   }, [temporadaId, dispatch]);
 
-  // ⬅️ Inyectar contexto de inversiones y ventas (requisito para que los thunks create funcionen)
+  // Inyectar contexto de inversiones y ventas
   useEffect(() => {
     if (!temporadaId || !cosechaId || !tempInfo) return;
 
-    const payload: any = {
+    // Construimos payload SOLO con el origen válido; nada de nulls
+    const payload: CtxPayload = {
       temporadaId,
       cosechaId,
-      huertaId: tempInfo.huertaId ?? null,
-      huertaRentadaId: tempInfo.huertaRentadaId ?? null,
+      ...(tempInfo.huertaId != null
+        ? { huertaId: tempInfo.huertaId }
+        : tempInfo.huertaRentadaId != null
+          ? { huertaRentadaId: tempInfo.huertaRentadaId }
+          : {})
     };
-    if (payload.huertaId !== null) payload.huertaRentadaId = null;
-    else                          payload.huertaId        = null;
 
     dispatch(setInvContext(payload));
     dispatch(setVentaContext(payload));
@@ -101,18 +114,10 @@ const FinanzasPorCosecha: React.FC = () => {
     );
   }
 
-  const [tab, setTab] = useState<'inversion' | 'venta'>('inversion');
-
   return (
-    <motion.div
-      className="p-6 max-w-6xl mx-auto"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-    >
+    <motion.div className="p-6 max-w-6xl mx-auto" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
       <Paper elevation={4} className="p-6 bg-white rounded-2xl">
-        <Typography variant="h4" gutterBottom>
-          Finanzas por Cosecha
-        </Typography>
+        <Typography variant="h4" gutterBottom>Finanzas por Cosecha</Typography>
 
         {loadingTemp ? (
           <Box display="flex" justifyContent="center" my={4}>
@@ -120,13 +125,9 @@ const FinanzasPorCosecha: React.FC = () => {
           </Box>
         ) : tempInfo ? (
           <Box mb={2}>
-            <Typography>
-              Temporada {tempInfo.año} – {tempInfo.huerta_nombre}
-            </Typography>
+            <Typography>Temporada {tempInfo.año} – {tempInfo.huerta_nombre}</Typography>
             <Typography variant="body2" color="text.secondary">
-              Estado:{' '}
-              {tempInfo.is_active ? 'Activa' : 'Archivada'} ·{' '}
-              {tempInfo.finalizada ? 'Finalizada' : 'En curso'}
+              Estado: {tempInfo.is_active ? 'Activa' : 'Archivada'} · {tempInfo.finalizada ? 'Finalizada' : 'En curso'}
             </Typography>
             <Divider sx={{ mt: 1 }} />
           </Box>

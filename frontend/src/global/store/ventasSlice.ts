@@ -1,35 +1,32 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { ventaService } from '../../modules/gestion_huerta/services/ventaService';
+import { ventaService, VentaFilters as SvcFilters } from '../../modules/gestion_huerta/services/ventaService';
 import { handleBackendNotification } from '../utils/NotificationEngine';
 import {
   VentaHuerta,
-  VentaCreateData,
-  VentaUpdateData,
-  VentaFilters,
+  VentaHuertaCreateData,
+  VentaHuertaUpdateData,
 } from '../../modules/gestion_huerta/types/ventaTypes';
 import type { RootState } from './store';
 
-export interface PaginationMeta { count: number; next: string | null; previous: string | null; }
-export interface VentasState {
+export type EstadoFiltro = 'activas' | 'archivadas' | 'todas';
+export interface VentaFilters extends SvcFilters {}
+
+interface PaginationMeta { count: number; next: string | null; previous: string | null };
+
+interface VentasState {
   list: VentaHuerta[];
   loading: boolean;
   loaded: boolean;
   error: string | null;
   page: number;
   meta: PaginationMeta;
+
+  // contexto (FKs)
   huertaId: number | null;
-  /**
-   * Identificador de la huerta rentada asociada.  Si la venta pertenece a
-   * una huerta propia, este valor será null.  Se utiliza junto con
-   * huertaId para determinar el contexto en el backend.
-   */
   huertaRentadaId: number | null;
   temporadaId: number | null;
   cosechaId: number | null;
-  /**
-   * Filtros aplicados a la lista de ventas.  Incluye tipo de mango,
-   * rangos de fechas y el estado (`activas`, `archivadas` o `todas`).
-   */
+
   filters: VentaFilters;
 }
 
@@ -47,11 +44,7 @@ const initialState: VentasState = {
   filters: { estado: 'activas' },
 };
 
-/**
- * Thunk para cargar las ventas según contexto, página, estado y filtros.
- * Si no existe contexto (huerta, temporada, cosecha) devuelve reject.
- * El parámetro `estado` indica si se listan ventas activas, archivadas o todas.
- */
+// ───────────────── Thunks ─────────────────
 export const fetchVentas = createAsyncThunk<
   { ventas: VentaHuerta[]; meta: PaginationMeta; page: number },
   void,
@@ -59,9 +52,8 @@ export const fetchVentas = createAsyncThunk<
 >(
   'ventas/fetch',
   async (_, { getState, rejectWithValue }) => {
-    const state = getState().ventas;
-    const { huertaId, huertaRentadaId, temporadaId, cosechaId, page, filters } = state;
-    // Debe existir al menos una huerta (propia o rentada) y las demás claves de contexto
+    const s = getState().ventas;
+    const { huertaId, huertaRentadaId, temporadaId, cosechaId, page, filters } = s;
     if ((!huertaId && !huertaRentadaId) || !temporadaId || !cosechaId) {
       return rejectWithValue('Faltan IDs de contexto (huerta/huerta_rentada, temporada o cosecha).');
     }
@@ -77,11 +69,14 @@ export const fetchVentas = createAsyncThunk<
         10,
         filters
       );
-      // Mostrar la notificación del backend, si existe
       handleBackendNotification(res);
-      return { ventas: res.data.ventas, meta: res.data.meta, page };
+      return {
+        ventas: res.data.ventas,
+        meta: res.data.meta,
+        page,
+      };
     } catch (err: any) {
-      handleBackendNotification(err.response?.data || err);
+      handleBackendNotification(err?.response?.data || err);
       return rejectWithValue('Error al cargar ventas');
     }
   }
@@ -89,14 +84,15 @@ export const fetchVentas = createAsyncThunk<
 
 export const createVenta = createAsyncThunk<
   VentaHuerta,
-  VentaCreateData,
-  { state: RootState; rejectValue: string }
+  VentaHuertaCreateData,
+  { state: RootState; rejectValue: any }
 >(
   'ventas/create',
   async (payload, { getState, rejectWithValue }) => {
-    const { huertaId, huertaRentadaId, temporadaId, cosechaId } = getState().ventas;
+    const s = getState().ventas;
+    const { huertaId, huertaRentadaId, temporadaId, cosechaId } = s;
     if ((!huertaId && !huertaRentadaId) || !temporadaId || !cosechaId) {
-      return rejectWithValue('Contexto incompleto');
+      return rejectWithValue({ message: 'Contexto incompleto' });
     }
     try {
       const res = await ventaService.create(
@@ -111,16 +107,16 @@ export const createVenta = createAsyncThunk<
       handleBackendNotification(res);
       return res.data.venta;
     } catch (err: any) {
-      handleBackendNotification(err.response?.data || err);
-      return rejectWithValue('Error al crear venta');
+      handleBackendNotification(err?.response?.data || err);
+      return rejectWithValue(err?.response?.data || err);
     }
   }
 );
 
 export const updateVenta = createAsyncThunk<
   VentaHuerta,
-  { id: number; payload: VentaUpdateData },
-  { rejectValue: string }
+  { id: number; payload: VentaHuertaUpdateData },
+  { rejectValue: any }
 >(
   'ventas/update',
   async ({ id, payload }, { rejectWithValue }) => {
@@ -129,8 +125,8 @@ export const updateVenta = createAsyncThunk<
       handleBackendNotification(res);
       return res.data.venta;
     } catch (err: any) {
-      handleBackendNotification(err.response?.data || err);
-      return rejectWithValue('Error al actualizar venta');
+      handleBackendNotification(err?.response?.data || err);
+      return rejectWithValue(err?.response?.data || err);
     }
   }
 );
@@ -138,17 +134,17 @@ export const updateVenta = createAsyncThunk<
 export const archiveVenta = createAsyncThunk<
   VentaHuerta,
   number,
-  { rejectValue: string }
+  { state: RootState; rejectValue: any }
 >(
   'ventas/archive',
   async (id, { rejectWithValue }) => {
     try {
-      const res = await ventaService.archive(id);
+      const res = await ventaService.archivar(id);
       handleBackendNotification(res);
       return res.data.venta;
     } catch (err: any) {
-      handleBackendNotification(err.response?.data || err);
-      return rejectWithValue('Error al archivar venta');
+      handleBackendNotification(err?.response?.data || err);
+      return rejectWithValue(err?.response?.data || err);
     }
   }
 );
@@ -156,17 +152,17 @@ export const archiveVenta = createAsyncThunk<
 export const restoreVenta = createAsyncThunk<
   VentaHuerta,
   number,
-  { rejectValue: string }
+  { state: RootState; rejectValue: any }
 >(
   'ventas/restore',
   async (id, { rejectWithValue }) => {
     try {
-      const res = await ventaService.restore(id);
+      const res = await ventaService.restaurar(id);
       handleBackendNotification(res);
       return res.data.venta;
     } catch (err: any) {
-      handleBackendNotification(err.response?.data || err);
-      return rejectWithValue('Error al restaurar venta');
+      handleBackendNotification(err?.response?.data || err);
+      return rejectWithValue(err?.response?.data || err);
     }
   }
 );
@@ -174,7 +170,7 @@ export const restoreVenta = createAsyncThunk<
 export const deleteVenta = createAsyncThunk<
   number,
   number,
-  { rejectValue: string }
+  { rejectValue: any }
 >(
   'ventas/delete',
   async (id, { rejectWithValue }) => {
@@ -183,19 +179,18 @@ export const deleteVenta = createAsyncThunk<
       handleBackendNotification(res);
       return id;
     } catch (err: any) {
-      handleBackendNotification(err.response?.data || err);
-      return rejectWithValue('Error al eliminar venta');
+      handleBackendNotification(err?.response?.data || err);
+      return rejectWithValue(err?.response?.data || err);
     }
   }
 );
 
+// ───────────────── Slice ─────────────────
 const ventasSlice = createSlice({
   name: 'ventas',
   initialState,
   reducers: {
-    setPage: (s, a: PayloadAction<number>) => {
-      s.page = a.payload;
-    },
+    setPage: (s, a: PayloadAction<number>) => { s.page = a.payload; },
     setContext: (
       s,
       a: PayloadAction<{ huertaId?: number; huertaRentadaId?: number; temporadaId: number; cosechaId: number }>
@@ -206,47 +201,72 @@ const ventasSlice = createSlice({
       s.cosechaId = a.payload.cosechaId;
       s.page = 1;
     },
-    setFilters: (s, a: PayloadAction<VentaFilters>) => {
-      s.filters = a.payload;
-      s.page = 1;
-    },
+    setFilters: (s, a: PayloadAction<VentaFilters>) => { s.filters = a.payload; s.page = 1; },
+    clear: () => ({ ...initialState }),
   },
   extraReducers: b => {
-    b.addCase(fetchVentas.pending,  s => { s.loading = true; s.error = null; })
-     .addCase(fetchVentas.fulfilled,(s,{payload})=>{
-        s.list    = payload.ventas;
-        s.meta    = payload.meta;
-        s.page    = payload.page;
-        s.loading = false;
-        s.loaded  = true;
+    b.addCase(fetchVentas.pending, s => { s.loading = true; s.error = null; })
+     .addCase(fetchVentas.fulfilled, (s, { payload }) => {
+       s.list = payload.ventas;
+       s.meta = payload.meta;
+       s.page = payload.page;
+       s.loading = false;
+       s.loaded = true;
      })
-     .addCase(fetchVentas.rejected,(s,{payload, error})=>{
-        s.loading = false;
-        s.error   = payload ?? error.message ?? 'Error';
-        s.loaded  = true;
+     .addCase(fetchVentas.rejected, (s, { payload, error }) => {
+       s.loading = false;
+       s.error = (payload as string) ?? error.message ?? 'Error';
+       s.loaded = true;
      })
-     .addCase(createVenta.fulfilled,(s,{payload})=>{
-        s.list.unshift(payload);
-        s.meta.count += 1;
+
+     // CREATE → insert inmediata
+     .addCase(createVenta.fulfilled, (s, { payload }) => {
+       s.list.unshift(payload);
+       s.meta.count += 1;
      })
-     .addCase(updateVenta.fulfilled,(s,{payload})=>{
-        const i = s.list.findIndex(v=>v.id===payload.id);
-        if(i!==-1) s.list[i] = payload;
+
+     // UPDATE in-place
+     .addCase(updateVenta.fulfilled, (s, { payload }) => {
+       const i = s.list.findIndex(v => v.id === payload.id);
+       if (i !== -1) s.list[i] = payload;
      })
-     .addCase(archiveVenta.fulfilled,(s,{payload})=>{
-        // Al archivar, eliminamos la venta de la lista actual (activos o estado actual)
-        s.list = s.list.filter(v=>v.id!==payload.id);
+
+     // ARCHIVAR: manejo tab-aware
+     .addCase(archiveVenta.fulfilled, (s, { payload }) => {
+       const estado = s.filters.estado ?? 'activas';
+       if (estado === 'activas') {
+         s.list = s.list.filter(v => v.id !== payload.id);
+       } else if (estado === 'todas') {
+         const i = s.list.findIndex(v => v.id === payload.id);
+         if (i !== -1) s.list[i] = payload;
+       }
+       // en 'archivadas' no estaba visible
      })
-     .addCase(restoreVenta.fulfilled,(s,{payload})=>{
-        // Al restaurar, insertamos la venta al inicio
-        s.list.unshift(payload);
+
+     // RESTAURAR: manejo tab-aware
+     .addCase(restoreVenta.fulfilled, (s, { payload }) => {
+       const estado = s.filters.estado ?? 'activas';
+       if (estado === 'archivadas') {
+         s.list = s.list.filter(v => v.id !== payload.id);
+       } else if (estado === 'activas') {
+         // si no existe, unshift; si existe, actualiza
+         const i = s.list.findIndex(v => v.id === payload.id);
+         if (i === -1) s.list.unshift(payload);
+         else s.list[i] = payload;
+       } else {
+         // 'todas'
+         const i = s.list.findIndex(v => v.id === payload.id);
+         if (i !== -1) s.list[i] = payload;
+       }
      })
-     .addCase(deleteVenta.fulfilled,(s,{payload:id})=>{
-        s.list = s.list.filter(v=>v.id!==id);
-        if(s.meta.count>0) s.meta.count -= 1;
+
+     // DELETE
+     .addCase(deleteVenta.fulfilled, (s, { payload: id }) => {
+       s.list = s.list.filter(v => v.id !== id);
+       if (s.meta.count > 0) s.meta.count -= 1;
      });
   }
 });
 
-export const { setPage, setContext, setFilters } = ventasSlice.actions;
+export const { setPage, setContext, setFilters, clear } = ventasSlice.actions;
 export default ventasSlice.reducer;
