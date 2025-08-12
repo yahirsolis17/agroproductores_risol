@@ -12,6 +12,7 @@ import { setBreadcrumbs, clearBreadcrumbs } from '../../../global/store/breadcru
 import { breadcrumbRoutes } from '../../../global/constants/breadcrumbRoutes';
 
 import { setContext as setInvContext } from '../../../global/store/inversionesSlice'; // ⬅️ NUEVO
+import { setContext as setVentaContext } from '../../../global/store/ventasSlice';   // ⬅️ NUEVO
 
 import Inversion from './Inversion';
 import Venta     from './Venta';
@@ -75,15 +76,21 @@ const FinanzasPorCosecha: React.FC = () => {
       .finally(() => setLoadingTemp(false));
   }, [temporadaId, dispatch]);
 
-  // ⬅️ Inyectar contexto de inversiones (requisito para que el thunk create funcione)
+  // ⬅️ Inyectar contexto de inversiones y ventas (requisito para que los thunks create funcionen)
   useEffect(() => {
     if (!temporadaId || !cosechaId || !tempInfo) return;
 
-    const payload: any = { temporadaId, cosechaId };
-    if (tempInfo.huertaId)        payload.huertaId = tempInfo.huertaId;
-    if (tempInfo.huertaRentadaId) payload.huertaRentadaId = tempInfo.huertaRentadaId;
+    const payload: any = {
+      temporadaId,
+      cosechaId,
+      huertaId: tempInfo.huertaId ?? null,
+      huertaRentadaId: tempInfo.huertaRentadaId ?? null,
+    };
+    if (payload.huertaId !== null) payload.huertaRentadaId = null;
+    else                          payload.huertaId        = null;
 
     dispatch(setInvContext(payload));
+    dispatch(setVentaContext(payload));
   }, [temporadaId, cosechaId, tempInfo, dispatch]);
 
   if (!cosechaId) {
