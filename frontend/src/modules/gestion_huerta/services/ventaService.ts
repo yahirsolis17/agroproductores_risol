@@ -73,7 +73,7 @@ export const ventaService = {
       success: boolean;
       notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
       data: ListEnvelope['data'];
-    }>('/gestion_huerta/ventas/', { params, signal: config.signal });
+    }>('/huerta/ventas/', { params, signal: config.signal });
     return data;
   },
 
