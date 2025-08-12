@@ -13,6 +13,7 @@ import {
   DialogContent,
   DialogActions,
   Button,
+  Chip,
 } from '@mui/material';
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import Popper from '@mui/material/Popper';
@@ -141,11 +142,9 @@ const CategoriaAutocomplete: React.FC<Props> = ({
     setMenu({ anchorEl: el, cat });
   };
 
-  // 👇 ahora acepta una bandera para decidir si mantenemos abierto el autocomplete
   const closeMenu = (opts?: { keepAutoOpen?: boolean }) => {
     setMenu({ anchorEl: null, cat: null });
     if (!opts?.keepAutoOpen) {
-      // si no abrimos un modal, liberamos el bloqueo para que pueda cerrarse al click afuera o con la “V”
       keepOpenRef.current = false;
     }
   };
@@ -154,7 +153,6 @@ const CategoriaAutocomplete: React.FC<Props> = ({
     if (!menu.cat) return;
     setEditingCategory(menu.cat);
     setEditModalOpen(true);
-    // cerramos menú pero dejamos keepOpenRef activo mientras el modal esté abierto
     closeMenu({ keepAutoOpen: true });
   };
 
@@ -169,8 +167,7 @@ const CategoriaAutocomplete: React.FC<Props> = ({
     if (!menu.cat) return;
     await archive(menu.cat.id);
     await loadAll();
-    // aquí ya podemos permitir que se cierre si el usuario hace click afuera
-    closeMenu(); // keepAutoOpen = false
+    closeMenu();
   };
 
   const handleRestore = async () => {
@@ -186,7 +183,6 @@ const CategoriaAutocomplete: React.FC<Props> = ({
     if (valueId === deletingCategory.id) onChangeId(null);
     setConfirmOpen(false);
     setDeletingCategory(null);
-    // después de confirmar, ya no bloqueamos: que se pueda cerrar normal
     keepOpenRef.current = false;
     await loadAll();
   };
@@ -194,7 +190,6 @@ const CategoriaAutocomplete: React.FC<Props> = ({
   const handleEditClose = () => {
     setEditModalOpen(false);
     setEditingCategory(null);
-    // si cierra sin guardar, seguimos permitiendo que se cierre el autocomplete
     keepOpenRef.current = false;
   };
 
@@ -214,20 +209,18 @@ const CategoriaAutocomplete: React.FC<Props> = ({
         open={openList}
         onOpen={() => setOpenList(true)}
         onClose={(_e, reason) => {
-          // ✅ siempre permitir cerrar con el icono “V” (toggle)
           if (reason === 'toggleInput') {
             keepOpenRef.current = false;
             setOpenList(false);
             return;
           }
-          // Si hay menú/modal activos, no cerrar por click afuera/escape
           if (keepOpenRef.current) return;
           setOpenList(false);
         }}
         blurOnSelect={false}
         disableCloseOnSelect
         clearOnBlur={false}
-        forcePopupIcon // asegura que la “V” esté visible para poder cerrar manualmente
+        forcePopupIcon
         slotProps={{
           popper: { component: PopperHighZ as any },
         }}
@@ -256,13 +249,13 @@ const CategoriaAutocomplete: React.FC<Props> = ({
           const s: any = sel;
           if (s.id === -1) {
             window.dispatchEvent(new CustomEvent('open-create-categoria'));
-            keepOpenRef.current = true; // mantener abierto mientras se crea
+            keepOpenRef.current = true;
             setOpenList(true);
             return;
           }
           if ('is_active' in s && !s.is_active) return; // no seleccionable si está archivada
           onChangeId(s.id);
-          setOpenList(false); // cerrar al seleccionar
+          setOpenList(false);
           keepOpenRef.current = false;
         }}
         renderInput={(params) => (
@@ -281,7 +274,7 @@ const CategoriaAutocomplete: React.FC<Props> = ({
             return (
               <li
                 {...props}
-                onMouseDown={(e) => e.preventDefault()} // evita seleccionar/cerrar
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -301,30 +294,66 @@ const CategoriaAutocomplete: React.FC<Props> = ({
           const cat = option as CategoriaInversion;
           const isArchived = !cat.is_active;
 
+          // Tomamos handlers internos de MUI
+          const { onMouseDown: muiMouseDown, onClick: muiClick, ...liProps } = props as any;
+
           return (
             <li
-              {...props}
-              onMouseDown={(e) => {
-                if (isArchived) {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }
-              }}
+              {...liProps}
+              // OJO: NO usar aria-disabled para no perder pointer-events en toda la fila
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 gap: 8,
               }}
+              // Para activas, delegamos en MUI; para archivadas, bloqueamos selección a nivel li
+              onMouseDown={(e) => {
+                if (isArchived) {
+                  // bloquea selección por click en zonas “muertas” de la fila
+                  e.preventDefault();
+                  e.stopPropagation();
+                  return;
+                }
+                muiMouseDown?.(e);
+              }}
+              onClick={(e) => {
+                if (isArchived) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  return;
+                }
+                muiClick?.(e);
+              }}
             >
+              {/* Área de texto: si está archivada, también bloquea selección */}
               <Tooltip title={isArchived ? 'Archivada · no seleccionable' : ''}>
-                <span style={{ opacity: isArchived ? 0.55 : 1 }}>{cat.nombre}</span>
+                <span
+                  onMouseDown={(e) => {
+                    if (isArchived) { e.preventDefault(); e.stopPropagation(); }
+                  }}
+                  onClick={(e) => {
+                    if (isArchived) { e.preventDefault(); e.stopPropagation(); }
+                  }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    opacity: isArchived ? 0.65 : 1,
+                    // importante: permitir click en el icono aunque el texto esté “deshabilitado”
+                    pointerEvents: 'auto',
+                  }}
+                >
+                  {cat.nombre}
+                  {isArchived && <Chip label="Archivada" size="small" color="warning" />}
+                </span>
               </Tooltip>
 
+              {/* Botón ⋮ SIEMPRE activo */}
               <IconButton
                 size="small"
                 onMouseDown={(e) => {
-                  // NO dejar que el listbox interprete mousedown como selección/cierre
+                  // evita que el listbox interprete mousedown como selección/cierre
                   e.preventDefault();
                   e.stopPropagation();
                 }}
@@ -400,7 +429,6 @@ const CategoriaAutocomplete: React.FC<Props> = ({
         open={confirmOpen}
         onClose={() => {
           setConfirmOpen(false);
-          // al cerrar el confirm, dejamos que el autocomplete pueda cerrarse si el usuario quiere
           keepOpenRef.current = false;
         }}
       >

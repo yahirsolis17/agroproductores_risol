@@ -285,7 +285,7 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
                 value={values.num_cajas}
                 onChange={(e) => handleMoneyChange('num_cajas', e.target.value, setFieldValue)}
                 inputMode="numeric"
-                placeholder="Ej. 1,000"
+                placeholder="Ej. 320"
                 margin="normal"
                 fullWidth
                 error={Boolean(msg(errors.num_cajas))}
@@ -299,7 +299,7 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
                 value={values.precio_por_caja}
                 onChange={(e) => handleMoneyChange('precio_por_caja', e.target.value, setFieldValue)}
                 inputMode="numeric"
-                placeholder="Ej. 28"
+                placeholder="Ej. 220"
                 margin="normal"
                 fullWidth
                 error={Boolean(msg(errors.precio_por_caja))}
@@ -322,7 +322,7 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
 
               {/* Descripción */}
               <TextField
-                label="Descripción"
+                label="Descripción (Opcional)"
                 name="descripcion"
                 value={values.descripcion}
                 onChange={handleChange}
