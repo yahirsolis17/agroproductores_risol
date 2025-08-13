@@ -461,8 +461,14 @@ class Cosecha(models.Model):
 # ────────────── INVERSIONES ───────────────────────────────────────────────
 class InversionesHuerta(models.Model):
     """
-    Inversión asociada a una Cosecha. Soporta huerta propia o rentada (mutuamente excluyentes).
-    *Validaciones movidas al serializer para no chocar con las del front.*
+    Inversión asociada a una Cosecha. Soporta huerta propia o rentada
+    (mutuamente excluyentes).
+
+    A diferencia de la versión anterior, ahora validamos directamente en el
+    modelo que las entidades relacionadas estén activas y, cuando aplica,
+    que no hayan sido finalizadas. Además se invoca ``full_clean`` antes de
+    guardar para asegurar que estas reglas se ejecuten incluso cuando se
+    crea la instancia directamente con ``objects.create``.
     """
     categoria        = models.ForeignKey(
         CategoriaInversion,
@@ -496,9 +502,23 @@ class InversionesHuerta(models.Model):
     def gastos_totales(self) -> Decimal:
         return (self.gastos_insumos or Decimal('0')) + (self.gastos_mano_obra or Decimal('0'))
 
-    # ❗️Sin clean(); dejamos toda la validación al serializer
+    # ---------- Validaciones ----------
+    def clean(self):
+        """Verifica que la cosecha, temporada y huerta asociadas estén activas."""
+        errors = {}
+        if self.cosecha_id and (not self.cosecha.is_active or self.cosecha.finalizada):
+            errors['cosecha'] = 'La cosecha debe estar activa y no finalizada.'
+        if self.temporada_id and (not self.temporada.is_active or self.temporada.finalizada):
+            errors['temporada'] = 'La temporada debe estar activa y no finalizada.'
+        if self.huerta_id and not self.huerta.is_active:
+            errors['huerta'] = 'La huerta debe estar activa.'
+        if self.huerta_rentada_id and not self.huerta_rentada.is_active:
+            errors['huerta_rentada'] = 'La huerta rentada debe estar activa.'
+        if errors:
+            raise ValidationError(errors)
+
     def save(self, *args, **kwargs):
-        # No llamamos a full_clean() para evitar choques con validaciones del front
+        self.full_clean()
         return super().save(*args, **kwargs)
 
     def archivar(self):
@@ -550,6 +570,25 @@ class Venta(models.Model):
 
     def __str__(self) -> str:
         return f"{self.num_cajas} cajas - {self.tipo_mango} – {self.fecha_venta}"
+
+    # ---------- Validaciones ----------
+    def clean(self):
+        """Verifica que la cosecha, temporada y huerta asociadas estén activas."""
+        errors = {}
+        if self.cosecha_id and (not self.cosecha.is_active or self.cosecha.finalizada):
+            errors['cosecha'] = 'La cosecha debe estar activa y no finalizada.'
+        if self.temporada_id and (not self.temporada.is_active or self.temporada.finalizada):
+            errors['temporada'] = 'La temporada debe estar activa y no finalizada.'
+        if self.huerta_id and not self.huerta.is_active:
+            errors['huerta'] = 'La huerta debe estar activa.'
+        if self.huerta_rentada_id and not self.huerta_rentada.is_active:
+            errors['huerta_rentada'] = 'La huerta rentada debe estar activa.'
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
     # ---------- Soft delete ----------
     def archivar(self) -> bool:
