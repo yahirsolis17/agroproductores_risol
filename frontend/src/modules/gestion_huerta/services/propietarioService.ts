@@ -55,18 +55,25 @@ export const propietarioService = {
   },
 
   /* ------------ SOLO CON HUERTAS (con cancelación) ------------ */
-  getConHuertas(search: string, config: ReqCfg = {}) {
+  getConHuertas(
+    search: string,
+    config: ReqCfg = {},
+    includeArchived = false
+  ) {
     const params: Record<string, any> = {};
     if (search) params.search = search;
+    if (!includeArchived) params.archivado = 'false';
 
-    return apiClient.get<{
-      success: boolean;
-      message_key: string;
-      data: ListResp;
-    }>('/huerta/propietarios/solo-con-huertas/', {
-      params,
-      signal: config.signal,
-    }).then(res => res.data.data);
+    return apiClient
+      .get<{
+        success: boolean;
+        message_key: string;
+        data: ListResp;
+      }>('/huerta/propietarios/solo-con-huertas/', {
+        params,
+        signal: config.signal,
+      })
+      .then(res => res.data.data);
   },
 
   /* ------------ CREATE ------------ */
