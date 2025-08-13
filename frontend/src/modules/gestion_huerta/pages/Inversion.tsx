@@ -9,6 +9,8 @@ import InversionToolbar from '../components/finanzas/InversionToolbar';
 import InversionTable   from '../components/finanzas/InversionTable';
 import InversionFormModal from '../components/finanzas/InversionFormModal';
 import { categoriaInversionService } from '../services/categoriaInversionService';
+import { temporadaService } from '../services/temporadaService';
+import { cosechaService } from '../services/cosechaService';
 
 const PAGE_SIZE = 10;
 
@@ -26,6 +28,8 @@ const Inversion: React.FC = () => {
     archive,
     restore,
     removeInversion,
+    temporadaId,
+    cosechaId,
   } = useInversiones();
 
   /* ---------- Cargar TODAS las categorías (para nombres y filtro) ---------- */
@@ -46,6 +50,56 @@ const Inversion: React.FC = () => {
     })();
     return () => { alive = false; };
   }, []);
+
+  /* ---------- Estado de temporada y cosecha ---------- */
+  const [tempState, setTempState] = useState<{ is_active: boolean; finalizada: boolean } | null>(null);
+  const [cosechaState, setCosechaState] = useState<{ is_active: boolean; finalizada: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!temporadaId || !cosechaId) return;
+    let alive = true;
+    (async () => {
+      try {
+        const [tRes, cRes] = await Promise.all([
+          temporadaService.getById(temporadaId),
+          cosechaService.getById(cosechaId),
+        ]);
+        if (!alive) return;
+        setTempState({
+          is_active: tRes.data.temporada.is_active,
+          finalizada: tRes.data.temporada.finalizada,
+        });
+        setCosechaState({
+          is_active: cRes.data.cosecha.is_active,
+          finalizada: cRes.data.cosecha.finalizada,
+        });
+      } catch {
+        if (!alive) return;
+        setTempState(null);
+        setCosechaState(null);
+      }
+    })();
+    return () => { alive = false; };
+  }, [temporadaId, cosechaId]);
+
+  const { canCreate, createTooltip } = useMemo(() => {
+    if (!tempState || !cosechaState) {
+      return { canCreate: false, createTooltip: '' };
+    }
+    if (!tempState.is_active) {
+      return { canCreate: false, createTooltip: 'No se pueden registrar inversiones en una temporada archivada.' };
+    }
+    if (tempState.finalizada) {
+      return { canCreate: false, createTooltip: 'No se pueden registrar inversiones en una temporada finalizada.' };
+    }
+    if (!cosechaState.is_active) {
+      return { canCreate: false, createTooltip: 'No se pueden registrar inversiones en una cosecha archivada.' };
+    }
+    if (cosechaState.finalizada) {
+      return { canCreate: false, createTooltip: 'No se pueden registrar inversiones en una cosecha finalizada.' };
+    }
+    return { canCreate: true, createTooltip: '' };
+  }, [tempState, cosechaState]);
 
   // 🔔 Escuchar creaciones/ediciones para actualizar el map sin recargar
   useEffect(() => {
@@ -90,7 +144,11 @@ const Inversion: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<InversionHuerta | null>(null);
 
-  const openCreate = () => { setEditTarget(null); setModalOpen(true); };
+  const openCreate = () => {
+    if (!canCreate) return;
+    setEditTarget(null);
+    setModalOpen(true);
+  };
   const openEdit   = (inv: InversionHuerta) => { setEditTarget(inv); setModalOpen(true); };
 
   // onSubmit
@@ -119,6 +177,8 @@ const Inversion: React.FC = () => {
         activeFiltersCount={activeFiltersCount}
         onClearFilters={handleClearFilters}
         onCreateClick={openCreate}
+        canCreate={canCreate}
+        createTooltip={createTooltip}
         totalCount={meta.count}
         // opciones para el filtro de categoría
         categoriesOptions={categorias}
