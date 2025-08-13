@@ -1,15 +1,33 @@
 # backend/gestion_huerta/models.py
 from django.db import models, transaction
-from django.core.validators import RegexValidator, MinValueValidator
+from django.core.validators import MinValueValidator
 from django.utils import timezone
-from django.db.models import Sum, Value
-from django.db.models.functions import Coalesce
 from django.core.exceptions import ValidationError
-from decimal import Decimal
-from django.db.models import F, Value, Sum, DecimalField, ExpressionWrapper
+from django.db.models import F, Sum, Value, DecimalField, ExpressionWrapper
 from django.db.models.functions import Coalesce, Cast
-from datetime import date
+from decimal import Decimal
 from django.db.models import Q
+
+# ───────────────────────────────────────────────────────────────────────────
+# Helpers
+# ───────────────────────────────────────────────────────────────────────────
+
+def _sum_counts(a: dict, b: dict) -> dict:
+    if not b:
+        return a
+    for k, v in b.items():
+        a[k] = a.get(k, 0) + int(v or 0)
+    return a
+
+def _is_only_archival_fields(update_fields):
+    """
+    Devuelve True si update_fields es un subconjunto de los campos de archivado.
+    Se usa para omitir full_clean() en guardados que solo cambian flags de soft-delete.
+    """
+    if not update_fields:
+        return False
+    allowed = {"is_active", "archivado_en", "archivado_por_cascada"}
+    return set(update_fields).issubset(allowed)
 
 # ────────────── PROPIETARIO ────────────────────────────────────────────────
 class Propietario(models.Model):
@@ -48,27 +66,14 @@ class Propietario(models.Model):
             self.save(update_fields=['is_active', 'archivado_en'])
 
 
-# ────────────── HUERTA PROPIA ──────────────────────────────────────────────
-# Sugerencia: si tienes las otras entidades en otras apps, ajusta los related_name.
-# Temporada: related_name='temporadas' (FK a Huerta / HuertaRentada)
-# Cosecha:   related_name='cosechas'   (FK a Temporada)
-# Inversion: related_name='inversiones' (FK a Cosecha)
-# Venta:     related_name='ventas'      (FK a Cosecha)
-
-def _sum_counts(a: dict, b: dict) -> dict:
-    if not b:
-        return a
-    for k, v in b.items():
-        a[k] = a.get(k, 0) + int(v or 0)
-    return a
-
-
+# ────────────── HUERTA (PROPIA) ────────────────────────────────────────────
 class Huerta(models.Model):
     nombre       = models.CharField(max_length=100)
     ubicacion    = models.CharField(max_length=255)
     variedades   = models.CharField(max_length=255)
     historial    = models.TextField(blank=True, null=True)
     hectareas    = models.FloatField(validators=[MinValueValidator(0.1)])
+
     is_active    = models.BooleanField(default=True)
     archivado_en = models.DateTimeField(null=True, blank=True)
 
@@ -91,7 +96,7 @@ class Huerta(models.Model):
     def __str__(self):
         return f"{self.nombre} ({self.propietario})"
 
-    # ---------- Reglas de unicidad activa (nivel app) ----------
+    # Reglas de unicidad activa (nivel app)
     def _has_active_duplicate(self) -> bool:
         return Huerta.objects.filter(
             archivado_en__isnull=True,
@@ -100,7 +105,7 @@ class Huerta(models.Model):
             propietario=self.propietario
         ).exclude(pk=self.pk).exists()
 
-    # ---------- Cascada ----------
+    # Cascada
     @transaction.atomic
     def archivar(self) -> dict:
         if not self.is_active:
@@ -111,18 +116,14 @@ class Huerta(models.Model):
         self.save(update_fields=['is_active', 'archivado_en'])
 
         counts = {'huertas': 1, 'temporadas': 0, 'cosechas': 0, 'inversiones': 0, 'ventas': 0}
-
-        # Cascada: Temporadas -> (Cosechas -> Inversiones/Ventas)
         if hasattr(self, 'temporadas'):
             for temporada in self.temporadas.all():
-                if hasattr(temporada, 'archivar'):
-                    c = temporada.archivar()
-                    counts = _sum_counts(counts, c)
+                c = temporada.archivar(via_cascada=True)
+                counts = _sum_counts(counts, c)
         return counts
 
     @transaction.atomic
     def desarchivar(self) -> dict:
-        # Conflicto por unicidad activa
         if self._has_active_duplicate():
             raise ValueError("conflicto_unicidad_al_restaurar")
 
@@ -134,16 +135,14 @@ class Huerta(models.Model):
         self.save(update_fields=['is_active', 'archivado_en'])
 
         counts = {'huertas': 1, 'temporadas': 0, 'cosechas': 0, 'inversiones': 0, 'ventas': 0}
-
-        # Cascada: Temporadas -> (Cosechas -> Inversiones/Ventas)
         if hasattr(self, 'temporadas'):
             for temporada in self.temporadas.all():
-                if hasattr(temporada, 'desarchivar'):
-                    c = temporada.desarchivar()
-                    counts = _sum_counts(counts, c)
+                c = temporada.desarchivar(via_cascada=True)
+                counts = _sum_counts(counts, c)
         return counts
 
 
+# ────────────── HUERTA RENTADA ─────────────────────────────────────────────
 class HuertaRentada(models.Model):
     nombre       = models.CharField(max_length=100)
     ubicacion    = models.CharField(max_length=255)
@@ -192,12 +191,10 @@ class HuertaRentada(models.Model):
         self.save(update_fields=['is_active', 'archivado_en'])
 
         counts = {'huertas_rentadas': 1, 'temporadas': 0, 'cosechas': 0, 'inversiones': 0, 'ventas': 0}
-
         if hasattr(self, 'temporadas'):
             for temporada in self.temporadas.all():
-                if hasattr(temporada, 'archivar'):
-                    c = temporada.archivar()
-                    counts = _sum_counts(counts, c)
+                c = temporada.archivar(via_cascada=True)
+                counts = _sum_counts(counts, c)
         return counts
 
     @transaction.atomic
@@ -213,13 +210,14 @@ class HuertaRentada(models.Model):
         self.save(update_fields=['is_active', 'archivado_en'])
 
         counts = {'huertas_rentadas': 1, 'temporadas': 0, 'cosechas': 0, 'inversiones': 0, 'ventas': 0}
-
         if hasattr(self, 'temporadas'):
             for temporada in self.temporadas.all():
-                if hasattr(temporada, 'desarchivar'):
-                    c = temporada.desarchivar()
-                    counts = _sum_counts(counts, c)
+                c = temporada.desarchivar(via_cascada=True)
+                counts = _sum_counts(counts, c)
         return counts
+
+
+# ────────────── TEMPORADA ─────────────────────────────────────────────────
 class Temporada(models.Model):
     """
     Una temporada representa un año agrícola de una huerta propia o rentada.
@@ -234,9 +232,9 @@ class Temporada(models.Model):
     fecha_fin    = models.DateField(null=True, blank=True)
     finalizada   = models.BooleanField(default=False)
 
-    # Soft-delete
     is_active    = models.BooleanField(default=True)
     archivado_en = models.DateTimeField(null=True, blank=True)
+    archivado_por_cascada = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['-año']
@@ -274,56 +272,52 @@ class Temporada(models.Model):
             self.fecha_fin  = timezone.now().date()
             self.save(update_fields=['finalizada', 'fecha_fin'])
 
-    def archivar(self):
-        if self.is_active:
-            now = timezone.now()
-            self.is_active = False
-            self.archivado_en = now
-            self.save(update_fields=["is_active", "archivado_en"])
-
-            # Cascada a cosechas
-            from gestion_huerta.models import Cosecha
-            cosechas = list(self.cosechas.all())
-            for c in cosechas:
-                c.is_active = False
-                c.archivado_en = now
-            Cosecha.objects.bulk_update(cosechas, ["is_active", "archivado_en"])
-
-            # Cascada a inversiones/ventas por cosecha
-            for c in cosechas:
-                c.inversiones.update(is_active=False, archivado_en=now)
-                c.ventas.update(is_active=False, archivado_en=now)
-
-    def desarchivar(self):
+    @transaction.atomic
+    def archivar(self, via_cascada: bool = False):
         if not self.is_active:
-            self.is_active = True
-            self.archivado_en = None
-            self.save(update_fields=['is_active', 'archivado_en'])
+            return {"temporadas": 0, "cosechas": 0, "inversiones": 0, "ventas": 0}
 
-            # Cascada a cosechas
-            from gestion_huerta.models import Cosecha
-            cosechas = list(self.cosechas.all())
-            for c in cosechas:
-                c.is_active = True
-                c.archivado_en = None
-            Cosecha.objects.bulk_update(cosechas, ["is_active", "archivado_en"])
+        now = timezone.now()
+        self.is_active = False
+        self.archivado_en = now
+        self.archivado_por_cascada = via_cascada
+        self.save(update_fields=["is_active", "archivado_en", "archivado_por_cascada"])
 
-            # Cascada a inversiones/ventas por cosecha
-            for c in cosechas:
-                c.inversiones.update(is_active=True, archivado_en=None)
-                c.ventas.update(is_active=True, archivado_en=None)
+        counts = {"temporadas": 1, "cosechas": 0, "inversiones": 0, "ventas": 0}
+        for c in self.cosechas.all():
+            rc = c.archivar(via_cascada=True)
+            counts = _sum_counts(counts, rc if isinstance(rc, dict) else {})
+        return counts
+
+    @transaction.atomic
+    def desarchivar(self, via_cascada: bool = False):
+        if via_cascada and not self.archivado_por_cascada:
+            return {"temporadas": 0, "cosechas": 0, "inversiones": 0, "ventas": 0}
+
+        if self.is_active:
+            return {"temporadas": 0, "cosechas": 0, "inversiones": 0, "ventas": 0}
+
+        self.is_active = True
+        self.archivado_en = None
+        self.archivado_por_cascada = False
+        self.save(update_fields=["is_active", "archivado_en", "archivado_por_cascada"])
+
+        counts = {"temporadas": 1, "cosechas": 0, "inversiones": 0, "ventas": 0}
+        for c in self.cosechas.all():
+            rc = c.desarchivar(via_cascada=True)
+            counts = _sum_counts(counts, rc if isinstance(rc, dict) else {})
+        return counts
 
     def __str__(self):
         origen = self.huerta or self.huerta_rentada
         tipo = "Rentada" if self.huerta_rentada else "Propia"
         return f"{origen} – Temporada {self.año} ({tipo})"
-    
-    
+
+
 # ────────────── CATEGORÍA DE INVERSIÓN ────────────────────────────────────
 class CategoriaInversion(models.Model):
     nombre       = models.CharField(max_length=100, unique=True)
 
-    # Soft-delete
     is_active    = models.BooleanField(default=True)
     archivado_en = models.DateTimeField(null=True, blank=True)
 
@@ -331,7 +325,6 @@ class CategoriaInversion(models.Model):
         ordering = ['id']
         indexes  = [models.Index(fields=['nombre'])]
 
-    # ─── helpers ───
     def archivar(self):
         if self.is_active:
             self.is_active    = False
@@ -346,6 +339,9 @@ class CategoriaInversion(models.Model):
 
     def __str__(self):
         return self.nombre
+
+
+# ────────────── COSECHA ───────────────────────────────────────────────────
 class Cosecha(models.Model):
     """
     Cosecha de una Temporada (obligatoria).
@@ -363,13 +359,13 @@ class Cosecha(models.Model):
 
     is_active      = models.BooleanField(default=True)
     archivado_en   = models.DateTimeField(null=True, blank=True)
+    archivado_por_cascada = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["-id"]
         unique_together = (("temporada", "nombre"),)
         indexes = [
             models.Index(fields=["nombre"]),
-            # 🔥 Índices para acelerar listados/filtrado por temporada/estado
             models.Index(fields=["temporada"]),
             models.Index(fields=["is_active"]),
             models.Index(fields=["temporada", "is_active"]),
@@ -380,18 +376,14 @@ class Cosecha(models.Model):
         qty   = Cast(F("num_cajas"), DecimalField(max_digits=14, decimal_places=2))
         price = Cast(F("precio_por_caja"), DecimalField(max_digits=14, decimal_places=2))
         expr  = ExpressionWrapper(qty * price, output_field=DecimalField(max_digits=18, decimal_places=2))
-        return self.ventas.aggregate(
-            total=Coalesce(Sum(expr), Value(Decimal("0.00")))
-        )["total"]
+        return self.ventas.aggregate(total=Coalesce(Sum(expr), Value(Decimal("0.00"))))["total"]
 
     @property
     def total_gastos(self):
         gi   = Coalesce(Cast(F("gastos_insumos"), DecimalField(max_digits=18, decimal_places=2)), Value(Decimal("0.00")))
         gm   = Coalesce(Cast(F("gastos_mano_obra"),  DecimalField(max_digits=18, decimal_places=2)), Value(Decimal("0.00")))
         expr = ExpressionWrapper(gi + gm, output_field=DecimalField(max_digits=18, decimal_places=2))
-        return self.inversiones.aggregate(
-            total=Coalesce(Sum(expr), Value(Decimal("0.00")))
-        )["total"]
+        return self.inversiones.aggregate(total=Coalesce(Sum(expr), Value(Decimal("0.00"))))["total"]
 
     @property
     def ganancia_neta(self):
@@ -419,7 +411,6 @@ class Cosecha(models.Model):
             if not self.fecha_inicio:
                 self.fecha_inicio = timezone.now()
             if not (self.nombre or "").strip():
-                # Fallback defensivo (por si no pasó por serializer)
                 base = "Cosecha"
                 exist = set(self.temporada.cosechas.values_list("nombre", flat=True))
                 cnt = 1
@@ -437,38 +428,68 @@ class Cosecha(models.Model):
             self.fecha_fin = timezone.now()
             self.save(update_fields=["finalizada", "fecha_fin"])
 
-    def archivar(self):
-        if self.is_active:
-            now = timezone.now()
-            self.is_active = False
-            self.archivado_en = now
-            self.save(update_fields=["is_active", "archivado_en"])
-            self.inversiones.update(is_active=False, archivado_en=now)
-            self.ventas.update(is_active=False, archivado_en=now)
-
-    def desarchivar(self):
+    @transaction.atomic
+    def archivar(self, via_cascada: bool = False):
+        """
+        Archiva la cosecha y baja inversiones/ventas con via_cascada=True.
+        Si ya estaba inactiva, no toca nada. Devuelve conteos.
+        """
         if not self.is_active:
-            self.is_active = True
-            self.archivado_en = None
-            self.save(update_fields=["is_active", "archivado_en"])
-            self.inversiones.update(is_active=True, archivado_en=None)
-            self.ventas.update(is_active=True, archivado_en=None)
+            return {"cosechas": 0, "inversiones": 0, "ventas": 0}
+
+        now = timezone.now()
+        self.is_active = False
+        self.archivado_en = now
+        self.archivado_por_cascada = via_cascada
+        self.save(update_fields=["is_active", "archivado_en", "archivado_por_cascada"])
+
+        inv_count = ven_count = 0
+        for inv in self.inversiones.all():
+            if inv.archivar(via_cascada=True):
+                inv_count += 1
+        for v in self.ventas.all():
+            if v.archivar(via_cascada=True):
+                ven_count += 1
+
+        return {"cosechas": 1, "inversiones": inv_count, "ventas": ven_count}
+
+    @transaction.atomic
+    def desarchivar(self, via_cascada: bool = False):
+        """
+        Desarchiva la cosecha.
+        - Si via_cascada=True, SOLO si fue archivada por cascada.
+        - Sube inversiones/ventas solo si ellas también fueron cascada.
+        """
+        if via_cascada and not self.archivado_por_cascada:
+            return {"cosechas": 0, "inversiones": 0, "ventas": 0}
+
+        if self.is_active:
+            return {"cosechas": 0, "inversiones": 0, "ventas": 0}
+
+        self.is_active = True
+        self.archivado_en = None
+        self.archivado_por_cascada = False
+        self.save(update_fields=["is_active", "archivado_en", "archivado_por_cascada"])
+
+        inv_count = ven_count = 0
+        for inv in self.inversiones.all():
+            if inv.desarchivar(via_cascada=True):
+                inv_count += 1
+        for v in self.ventas.all():
+            if v.desarchivar(via_cascada=True):
+                ven_count += 1
+
+        return {"cosechas": 1, "inversiones": inv_count, "ventas": ven_count}
 
     def __str__(self):
         origen = self.huerta or self.huerta_rentada
         return f"{self.nombre} – {origen} – Temp {self.temporada.año}"
-# ────────────── INVERSIONES ───────────────────────────────────────────────
+
+
 # ────────────── INVERSIONES ───────────────────────────────────────────────
 class InversionesHuerta(models.Model):
     """
-    Inversión asociada a una Cosecha. Soporta huerta propia o rentada
-    (mutuamente excluyentes).
-
-    A diferencia de la versión anterior, ahora validamos directamente en el
-    modelo que las entidades relacionadas estén activas y, cuando aplica,
-    que no hayan sido finalizadas. Además se invoca ``full_clean`` antes de
-    guardar para asegurar que estas reglas se ejecuten incluso cuando se
-    crea la instancia directamente con ``objects.create``.
+    Inversión asociada a una Cosecha. Soporta huerta propia o rentada.
     """
     categoria        = models.ForeignKey(
         CategoriaInversion,
@@ -482,12 +503,12 @@ class InversionesHuerta(models.Model):
 
     cosecha          = models.ForeignKey(Cosecha,   on_delete=models.CASCADE, related_name="inversiones")
     temporada        = models.ForeignKey(Temporada, on_delete=models.CASCADE, related_name="inversiones")
-    # Ambos presentes para capturar IDs explícitamente en el front:
     huerta           = models.ForeignKey(Huerta,         on_delete=models.CASCADE, null=True, blank=True)
     huerta_rentada   = models.ForeignKey(HuertaRentada,  on_delete=models.CASCADE, null=True, blank=True)
 
     is_active        = models.BooleanField(default=True)
     archivado_en     = models.DateTimeField(null=True, blank=True)
+    archivado_por_cascada = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['-fecha', '-id']
@@ -502,9 +523,8 @@ class InversionesHuerta(models.Model):
     def gastos_totales(self) -> Decimal:
         return (self.gastos_insumos or Decimal('0')) + (self.gastos_mano_obra or Decimal('0'))
 
-    # ---------- Validaciones ----------
+    # Validaciones de negocio (para creación/edición normal)
     def clean(self):
-        """Verifica que la cosecha, temporada y huerta asociadas estén activas."""
         errors = {}
         if self.cosecha_id and (not self.cosecha.is_active or self.cosecha.finalizada):
             errors['cosecha'] = 'La cosecha debe estar activa y no finalizada.'
@@ -518,31 +538,42 @@ class InversionesHuerta(models.Model):
             raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
-        self.full_clean()
+        update_fields = kwargs.get("update_fields")
+        if not _is_only_archival_fields(update_fields):
+            self.full_clean()
         return super().save(*args, **kwargs)
 
-    def archivar(self):
-        if self.is_active:
-            self.is_active    = False
-            self.archivado_en = timezone.now()
-            self.save(update_fields=["is_active", "archivado_en"])
-
-    def desarchivar(self):
+    @transaction.atomic
+    def archivar(self, via_cascada: bool = False) -> bool:
         if not self.is_active:
-            self.is_active    = True
-            self.archivado_en = None
-            self.save(update_fields=["is_active", "archivado_en"])
+            return False
+        self.is_active = False
+        self.archivado_en = timezone.now()
+        self.archivado_por_cascada = via_cascada
+        self.save(update_fields=["is_active", "archivado_en", "archivado_por_cascada"])
+        return True
+
+    @transaction.atomic
+    def desarchivar(self, via_cascada: bool = False) -> bool:
+        if self.is_active:
+            return False
+        if via_cascada and not self.archivado_por_cascada:
+            return False
+        self.is_active = True
+        self.archivado_en = None
+        self.archivado_por_cascada = False
+        self.save(update_fields=["is_active", "archivado_en", "archivado_por_cascada"])
+        return True
 
     def __str__(self):
         origen = self.huerta or self.huerta_rentada
         return f"{self.categoria.nombre} – {self.fecha} – {origen}"
 
-# ────────────── VENTAS ────────────────────────────────────────────────────
+
 # ────────────── VENTAS ────────────────────────────────────────────────────
 class Venta(models.Model):
     """
     Venta asociada a una cosecha. Soporta huerta propia o rentada.
-    Incluye soft-delete mediante is_active/archivado_en y métodos de archivar/restaurar.
     """
     fecha_venta      = models.DateField()
     num_cajas        = models.PositiveIntegerField(validators=[MinValueValidator(1)])
@@ -553,12 +584,12 @@ class Venta(models.Model):
 
     cosecha          = models.ForeignKey('gestion_huerta.Cosecha',   on_delete=models.CASCADE, related_name="ventas")
     temporada        = models.ForeignKey('gestion_huerta.Temporada', on_delete=models.CASCADE, related_name="ventas")
-    # Origen (una u otra): igual que en InversionesHuerta
     huerta           = models.ForeignKey('gestion_huerta.Huerta',         on_delete=models.CASCADE, null=True, blank=True)
     huerta_rentada   = models.ForeignKey('gestion_huerta.HuertaRentada',  on_delete=models.CASCADE, null=True, blank=True)
 
     is_active    = models.BooleanField(default=True)
     archivado_en = models.DateTimeField(null=True, blank=True)
+    archivado_por_cascada = models.BooleanField(default=False)
 
     @property
     def total_venta(self) -> int:
@@ -571,9 +602,8 @@ class Venta(models.Model):
     def __str__(self) -> str:
         return f"{self.num_cajas} cajas - {self.tipo_mango} – {self.fecha_venta}"
 
-    # ---------- Validaciones ----------
+    # Validaciones de negocio (para creación/edición normal)
     def clean(self):
-        """Verifica que la cosecha, temporada y huerta asociadas estén activas."""
         errors = {}
         if self.cosecha_id and (not self.cosecha.is_active or self.cosecha.finalizada):
             errors['cosecha'] = 'La cosecha debe estar activa y no finalizada.'
@@ -587,24 +617,29 @@ class Venta(models.Model):
             raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
-        self.full_clean()
+        update_fields = kwargs.get("update_fields")
+        if not _is_only_archival_fields(update_fields):
+            self.full_clean()
         return super().save(*args, **kwargs)
 
-    # ---------- Soft delete ----------
-    def archivar(self) -> bool:
-        """Marca la venta como archivada. Devuelve True si cambió de estado."""
+    @transaction.atomic
+    def archivar(self, via_cascada: bool = False) -> bool:
         if not self.is_active:
             return False
         self.is_active = False
         self.archivado_en = timezone.now()
-        self.save(update_fields=["is_active", "archivado_en"])
+        self.archivado_por_cascada = via_cascada
+        self.save(update_fields=["is_active", "archivado_en", "archivado_por_cascada"])
         return True
 
-    def desarchivar(self) -> bool:
-        """Restaura la venta. Devuelve True si cambió de estado."""
+    @transaction.atomic
+    def desarchivar(self, via_cascada: bool = False) -> bool:
         if self.is_active:
+            return False
+        if via_cascada and not self.archivado_por_cascada:
             return False
         self.is_active = True
         self.archivado_en = None
-        self.save(update_fields=["is_active", "archivado_en"])
+        self.archivado_por_cascada = False
+        self.save(update_fields=["is_active", "archivado_en", "archivado_por_cascada"])
         return True
