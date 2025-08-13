@@ -3,6 +3,7 @@ from rest_framework import viewsets, filters, status, serializers
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Count
+from django.db import transaction
 
 from gestion_huerta.models import CategoriaInversion
 from gestion_huerta.serializers import CategoriaInversionSerializer
@@ -13,10 +14,44 @@ from gestion_huerta.utils.activity import registrar_actividad
 from gestion_huerta.utils.audit import ViewSetAuditMixin
 
 
+def _map_categoria_validation_errors(errors: dict) -> tuple[str, dict]:
+    """
+    Mapea mensajes de validación del serializer a claves de notificación específicas.
+    """
+    def _texts(v):
+        if v is None:
+            return []
+        if isinstance(v, (list, tuple)):
+            return [str(x) for x in v]
+        if isinstance(v, dict):
+            out = []
+            for vv in v.values():
+                out += _texts(vv)
+            return out
+        return [str(v)]
+
+    flat = []
+    for k in ("non_field_errors", "__all__", "nombre"):
+        if k in errors:
+            flat += _texts(errors[k])
+
+    for msg in flat:
+        t = msg.strip()
+        if t == "El nombre de la categoría debe tener al menos 3 caracteres.":
+            return "categoria_nombre_corto", {"errors": errors}
+        if t == "Ya existe una categoría con este nombre.":
+            return "categoria_nombre_duplicado", {"errors": errors}
+
+    return "validation_error", {"errors": errors}
+
+
 class CategoriaInversionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
     """
-    CRUD de categorías con soft-delete + filtro por estado (activas|archivadas|todas)
-    y orden alfabético por nombre. Expone uso_count para saber si puede eliminarse.
+    CRUD de categorías con soft-delete + filtro por estado (activas|archivadas|todas),
+    orden alfabético y 'uso_count' (n° de inversiones) para decisiones en UI.
+    Reglas:
+    - No se puede **editar** una categoría archivada.
+    - No se puede **eliminar** si está activa o si tiene inversiones.
     """
     serializer_class   = CategoriaInversionSerializer
     pagination_class   = GenericPagination
@@ -33,7 +68,7 @@ class CategoriaInversionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.M
             .order_by('nombre')
         )
 
-        # ⚠️ Para acciones de detalle NO filtramos por estado, así /restaurar no da 404
+        # En acciones de detalle no filtramos por estado (evita 404 al restaurar/archivar)
         if getattr(self, 'action', None) in ['retrieve', 'update', 'partial_update', 'destroy', 'archivar', 'restaurar']:
             return base
 
@@ -62,7 +97,7 @@ class CategoriaInversionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.M
             status_code=status.HTTP_200_OK
         )
 
-    # GET /huerta/categorias-inversion/all
+    # GET /huerta/categorias-inversion/all  (útil para selects globales)
     @action(detail=False, methods=["get"], url_path="all")
     def list_all(self, request):
         qs         = CategoriaInversion.objects.all().annotate(uso_count=Count('inversiones')).order_by('nombre')
@@ -86,13 +121,13 @@ class CategoriaInversionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.M
         ser = self.get_serializer(data=request.data)
         try:
             ser.is_valid(raise_exception=True)
-        except serializers.ValidationError:
-            return self.notify(
-                key="validation_error",
-                data={"errors": ser.errors},
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
-        self.perform_create(ser)
+        except serializers.ValidationError as ex:
+            key, payload = _map_categoria_validation_errors(getattr(ex, "detail", ser.errors))
+            return self.notify(key=key, data=payload, status_code=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            self.perform_create(ser)
+
         registrar_actividad(request.user, f"Creó categoría {ser.instance.id}")
         return self.notify(
             key="categoria_inversion_create_success",
@@ -100,20 +135,27 @@ class CategoriaInversionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.M
             status_code=status.HTTP_201_CREATED,
         )
 
-    # ------------------------------ UPDATE
+    # ------------------------------ UPDATE (no permitir si está archivada)
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop("partial", False)
         inst    = self.get_object()
-        ser     = self.get_serializer(inst, data=request.data, partial=partial)
-        try:
-            ser.is_valid(raise_exception=True)
-        except serializers.ValidationError:
+        if not inst.is_active:
             return self.notify(
-                key="validation_error",
-                data={"errors": ser.errors},
+                key="categoria_archivada_no_editar",
+                data={"info": "No puedes editar una categoría archivada."},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
-        self.perform_update(ser)
+
+        ser = self.get_serializer(inst, data=request.data, partial=partial)
+        try:
+            ser.is_valid(raise_exception=True)
+        except serializers.ValidationError as ex:
+            key, payload = _map_categoria_validation_errors(getattr(ex, "detail", ser.errors))
+            return self.notify(key=key, data=payload, status_code=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            self.perform_update(ser)
+
         registrar_actividad(request.user, f"Actualizó categoría {inst.id}")
         return self.notify(
             key="categoria_inversion_update_success",
@@ -121,16 +163,25 @@ class CategoriaInversionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.M
             status_code=status.HTTP_200_OK,
         )
 
-    # ------------------------------ DELETE (bloqueada si tiene inversiones)
+    # ------------------------------ DELETE
     def destroy(self, request, *args, **kwargs):
         cat = self.get_object()
+        if cat.is_active:
+            return self.notify(
+                key="categoria_debe_estar_archivada",
+                data={"info": "Debes archivar la categoría antes de eliminarla."},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
         if cat.inversiones.exists():
             return self.notify(
                 key="categoria_con_inversiones",
                 data={"info": "No puedes eliminar la categoría porque tiene inversiones asociadas."},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
-        self.perform_destroy(cat)
+
+        with transaction.atomic():
+            self.perform_destroy(cat)
+
         registrar_actividad(request.user, f"Eliminó categoría {cat.id}")
         return self.notify(
             key="categoria_inversion_delete_success",
@@ -144,7 +195,10 @@ class CategoriaInversionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.M
         cat = self.get_object()
         if not cat.is_active:
             return self.notify(key="categoria_ya_archivada", status_code=status.HTTP_400_BAD_REQUEST)
-        cat.archivar()
+
+        with transaction.atomic():
+            cat.archivar()
+
         registrar_actividad(request.user, f"Archivó categoría {cat.id}")
         return self.notify(
             key="categoria_archivada",
@@ -157,7 +211,10 @@ class CategoriaInversionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.M
         cat = self.get_object()
         if cat.is_active:
             return self.notify(key="categoria_no_archivada", status_code=status.HTTP_400_BAD_REQUEST)
-        cat.desarchivar()
+
+        with transaction.atomic():
+            cat.desarchivar()
+
         registrar_actividad(request.user, f"Restauró categoría {cat.id}")
         return self.notify(
             key="categoria_restaurada",

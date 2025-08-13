@@ -1,22 +1,124 @@
+# src/modules/gestion_huerta/views/ventas_views.py
 from rest_framework import viewsets, filters, status, serializers
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
-from django.utils import timezone
+from django.db import transaction
 from datetime import datetime
 
-from gestion_huerta.models import Venta
+from gestion_huerta.models import Venta, Cosecha
 from gestion_huerta.serializers import VentaSerializer
 from gestion_huerta.views.huerta_views import NotificationMixin
 from gestion_huerta.permissions import HasHuertaModulePermission, HuertaGranularPermission
 from agroproductores_risol.utils.pagination import GenericPagination
 from gestion_huerta.utils.activity import registrar_actividad
 
+
+# ---------- Helpers de mapeo de errores ----------
+def _texts(val):
+    if val is None:
+        return []
+    if isinstance(val, (list, tuple)):
+        return [str(x) for x in val]
+    if isinstance(val, dict):
+        # recolecta recursivamente
+        out = []
+        for v in val.values():
+            out.extend(_texts(v))
+        return out
+    return [str(val)]
+
+
+def _map_venta_validation_errors(errors: dict) -> tuple[str, dict]:
+    """
+    Traduce mensajes comunes del serializer/modelo a claves de notificación.
+    Devuelve (key, data).
+    """
+    flat = []
+    # posibles buckets
+    for k in (
+        "non_field_errors", "__all__",
+        "cosecha_id", "temporada_id",
+        "huerta_id", "huerta_rentada_id",
+        "fecha_venta", "num_cajas", "precio_por_caja", "gasto",
+        "descripcion", "tipo_mango",
+    ):
+        if k in errors:
+            flat += _texts(errors[k])
+
+    for msg in flat:
+        t = msg.strip()
+
+        # Fechas
+        if t == "La fecha solo puede ser HOY o AYER (máx. 24 h).":
+            return "venta_fecha_fuera_de_rango", {"errors": errors}
+        if "La fecha debe ser igual o posterior al inicio de la cosecha" in t:
+            return "venta_fecha_antes_inicio_cosecha", {"errors": errors}
+
+        # Coherencia contexto
+        if t == "Cosecha requerida.":
+            return "venta_cosecha_requerida", {"errors": errors}
+        if t == "La temporada no coincide con la de la cosecha.":
+            return "venta_temporada_incoherente", {"errors": errors}
+        if t == "La huerta no coincide con la de la cosecha.":
+            return "venta_huerta_incoherente", {"errors": errors}
+        if t == "La huerta rentada no coincide con la de la cosecha.":
+            return "venta_huerta_rentada_incoherente", {"errors": errors}
+        if t == "Define solo huerta o huerta_rentada, no ambos.":
+            return "venta_origen_ambiguo", {"errors": errors}
+        if t == "Debe definirse huerta u huerta_rentada (según la cosecha).":
+            return "venta_origen_faltante", {"errors": errors}
+
+        # Estados de temporada (cuando los lance el serializer)
+        if t == "No se pueden registrar/editar ventas en una temporada finalizada o archivada.":
+            return "venta_temporada_no_permitida", {"errors": errors}
+
+        # Números
+        if t == "Debe ser mayor que 0.":
+            return "venta_num_cajas_invalido", {"errors": errors}
+        if t == "Debe ser ≥ 0.":
+            # puede venir para precio o gasto
+            return "venta_valor_no_negativo", {"errors": errors}
+        # Validadores de modelo (por si DRF trae el mensaje por MinValueValidator)
+        if "greater than or equal to 1" in t or "mayor o igual a 1" in t:
+            return "venta_minimo_uno", {"errors": errors}
+        if t == "La ganancia neta no puede ser negativa.":
+            return "venta_ganancia_negativa", {"errors": errors}
+
+    # Fallback
+    return "validation_error", {"errors": errors}
+
+
+def _parse_date(val: str):
+    try:
+        return datetime.strptime(val, "%Y-%m-%d").date()
+    except Exception:
+        return None
+
+
+def _get_cosecha_from_payload(data) -> Cosecha | None:
+    """
+    Intenta obtener la Cosecha desde el payload. Acepta 'cosecha' o 'cosecha_id'.
+    """
+    if not isinstance(data, dict):
+        return None
+    cid = data.get("cosecha") or data.get("cosecha_id")
+    if not cid:
+        return None
+    try:
+        return Cosecha.objects.select_related("temporada").only(
+            "id", "is_active", "finalizada", "temporada_id"
+        ).get(pk=cid)
+    except Cosecha.DoesNotExist:
+        return None
+
+
 class VentaViewSet(NotificationMixin, viewsets.ModelViewSet):
     """
     CRUD de ventas por cosecha + archivar/restaurar,
     con filtros por cosecha, temporada, huerta, huerta_rentada, tipo_mango,
     estado (activas|archivadas|todas) y rango de fechas (fecha_desde/fecha_hasta).
+    Además, prechecks para estados de Cosecha/Temporada y mapeo fino de errores.
     """
     queryset           = Venta.objects.select_related('cosecha', 'temporada', 'huerta', 'huerta_rentada').order_by('-fecha_venta')
     serializer_class   = VentaSerializer
@@ -27,39 +129,27 @@ class VentaViewSet(NotificationMixin, viewsets.ModelViewSet):
     search_fields      = ['tipo_mango', 'descripcion']
     ordering_fields    = ['fecha_venta']
 
+    # ------------------------------ QUERYSET
     def get_queryset(self):
-        """
-        Filtra por estado (activas/archivadas/todas) y por rango de fechas,
-        excepto en acciones de detalle, archivar/restaurar o destroy.
-        """
         qs = super().get_queryset()
         params = self.request.query_params
 
         # Excluir filtros en acciones de detalle
         if self.action not in ['retrieve', 'update', 'partial_update', 'destroy', 'archivar', 'restaurar']:
-            # Filtro por estado: 'activas', 'archivadas' o 'todas'
+            # Filtro por estado
             estado = (params.get('estado') or 'activas').strip().lower()
             if estado == 'activas':
                 qs = qs.filter(is_active=True)
             elif estado == 'archivadas':
                 qs = qs.filter(is_active=False)
-            # 'todas' -> sin filtro
 
-            # Filtro por rango de fechas (inclusive). Recibe YYYY-MM-DD
-            def parse_date(val: str):
-                try:
-                    return datetime.strptime(val, '%Y-%m-%d').date()
-                except Exception:
-                    return None
-
-            fd = params.get('fecha_desde')
-            fh = params.get('fecha_hasta')
-            if fd:
-                d = parse_date(fd)
+            # Rango de fechas (inclusive)
+            if fd := params.get('fecha_desde'):
+                d = _parse_date(fd)
                 if d:
                     qs = qs.filter(fecha_venta__gte=d)
-            if fh:
-                d = parse_date(fh)
+            if fh := params.get('fecha_hasta'):
+                d = _parse_date(fh)
                 if d:
                     qs = qs.filter(fecha_venta__lte=d)
 
@@ -82,19 +172,67 @@ class VentaViewSet(NotificationMixin, viewsets.ModelViewSet):
             status_code=status.HTTP_200_OK
         )
 
+    # ------------------------------ PRECHECKS de estado (cosecha/temporada)
+    def _precheck_estado_contexto_create(self, payload: dict):
+        """
+        Antes de validar/crear: si ya podemos inferir la cosecha, validamos que
+        ni la cosecha ni su temporada estén archivadas/finalizadas.
+        """
+        c = _get_cosecha_from_payload(payload)
+        if not c:
+            return None  # dejar que el serializer marque el error correspondiente
+        t = c.temporada
+
+        if not t.is_active:
+            return ("venta_temporada_archivada", {"info": "No puedes registrar ventas en una temporada archivada."})
+        if t.finalizada:
+            return ("venta_temporada_finalizada", {"info": "No puedes registrar ventas en una temporada finalizada."})
+        if not c.is_active:
+            return ("venta_cosecha_archivada", {"info": "No puedes registrar ventas en una cosecha archivada."})
+        if c.finalizada:
+            return ("venta_cosecha_finalizada", {"info": "No puedes registrar ventas en una cosecha finalizada."})
+        return None
+
+    def _precheck_estado_contexto_edit(self, venta: Venta):
+        """
+        En edición: bloquear si la venta está archivada o si su cosecha/temporada
+        no permiten operaciones.
+        """
+        if not venta.is_active:
+            return ("venta_archivada_no_editar", {"info": "No puedes editar una venta archivada."})
+
+        c = venta.cosecha
+        t = venta.temporada
+
+        if not t.is_active:
+            return ("venta_temporada_archivada_no_editar", {"info": "No puedes editar ventas de una temporada archivada."})
+        if t.finalizada:
+            return ("venta_temporada_finalizada_no_editar", {"info": "No puedes editar ventas de una temporada finalizada."})
+        if not c.is_active:
+            return ("venta_cosecha_archivada_no_editar", {"info": "No puedes editar ventas de una cosecha archivada."})
+        if c.finalizada:
+            return ("venta_cosecha_finalizada_no_editar", {"info": "No puedes editar ventas de una cosecha finalizada."})
+        return None
+
     # ------------------------------ CREATE
     def create(self, request, *args, **kwargs):
+        # Precheck por estados (para evitar que el serializer devuelva mensajes no relacionados)
+        pre = self._precheck_estado_contexto_create(request.data if isinstance(request.data, dict) else {})
+        if pre:
+            key, data = pre
+            return self.notify(key=key, data=data, status_code=status.HTTP_400_BAD_REQUEST)
+
         ser = self.get_serializer(data=request.data)
         try:
             ser.is_valid(raise_exception=True)
-        except serializers.ValidationError:
-            return self.notify(
-                key="validation_error",
-                data={"errors": ser.errors},
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
-        self.perform_create(ser)
-        venta = ser.instance
+        except serializers.ValidationError as ex:
+            key, payload = _map_venta_validation_errors(getattr(ex, "detail", ser.errors))
+            return self.notify(key=key, data=payload, status_code=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            self.perform_create(ser)
+            venta = ser.instance
+
         registrar_actividad(request.user, f"Creó venta {venta.id} en cosecha {venta.cosecha.id}")
         return self.notify(
             key="venta_create_success",
@@ -106,16 +244,23 @@ class VentaViewSet(NotificationMixin, viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         partial  = kwargs.pop("partial", False)
         inst     = self.get_object()
-        ser      = self.get_serializer(inst, data=request.data, partial=partial)
+
+        # Precheck
+        pre = self._precheck_estado_contexto_edit(inst)
+        if pre:
+            key, data = pre
+            return self.notify(key=key, data=data, status_code=status.HTTP_400_BAD_REQUEST)
+
+        ser = self.get_serializer(inst, data=request.data, partial=partial)
         try:
             ser.is_valid(raise_exception=True)
-        except serializers.ValidationError:
-            return self.notify(
-                key="validation_error",
-                data={"errors": ser.errors},
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
-        self.perform_update(ser)
+        except serializers.ValidationError as ex:
+            key, payload = _map_venta_validation_errors(getattr(ex, "detail", ser.errors))
+            return self.notify(key=key, data=payload, status_code=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            self.perform_update(ser)
+
         registrar_actividad(request.user, f"Actualizó venta {inst.id}")
         return self.notify(
             key="venta_update_success",
@@ -145,9 +290,11 @@ class VentaViewSet(NotificationMixin, viewsets.ModelViewSet):
     def archivar(self, request, pk=None):
         venta = self.get_object()
         if not venta.is_active:
-            return self.notify(key="venta_ya_archivada",
-                               status_code=status.HTTP_400_BAD_REQUEST)
-        venta.archivar()
+            return self.notify(key="venta_ya_archivada", status_code=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            venta.archivar()
+
         registrar_actividad(request.user, f"Archivó venta {venta.id}")
         return self.notify(
             key="venta_archivada",
@@ -159,9 +306,39 @@ class VentaViewSet(NotificationMixin, viewsets.ModelViewSet):
     def restaurar(self, request, pk=None):
         venta = self.get_object()
         if venta.is_active:
-            return self.notify(key="venta_no_archivada",
-                               status_code=status.HTTP_400_BAD_REQUEST)
-        venta.desarchivar()
+            return self.notify(key="venta_no_archivada", status_code=status.HTTP_400_BAD_REQUEST)
+
+        c = venta.cosecha
+        t = venta.temporada
+        # No restaurar si el contexto no permite operar
+        if not t.is_active:
+            return self.notify(
+                key="venta_temporada_archivada_no_restaurar",
+                data={"info": "No puedes restaurar ventas de una temporada archivada."},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        if t.finalizada:
+            return self.notify(
+                key="venta_temporada_finalizada_no_restaurar",
+                data={"info": "No puedes restaurar ventas de una temporada finalizada."},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        if not c.is_active:
+            return self.notify(
+                key="venta_cosecha_archivada_no_restaurar",
+                data={"info": "No puedes restaurar ventas de una cosecha archivada."},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        if c.finalizada:
+            return self.notify(
+                key="venta_cosecha_finalizada_no_restaurar",
+                data={"info": "No puedes restaurar ventas de una cosecha finalizada."},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            venta.desarchivar()
+
         registrar_actividad(request.user, f"Restauró venta {venta.id}")
         return self.notify(
             key="venta_restaurada",

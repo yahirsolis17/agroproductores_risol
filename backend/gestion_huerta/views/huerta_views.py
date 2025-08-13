@@ -21,7 +21,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q
 from rest_framework import filters
-from django.db import transaction
+from django.db import transaction, IntegrityError
 
 # Modelos
 from gestion_huerta.models import Propietario, Huerta, HuertaRentada
@@ -62,7 +62,22 @@ class NotificationMixin:
 
 
 # ---------------------------------------------------------------------------
-#  🏠  PROPIETARIOS (corregido)
+#  Helpers de mapeo de errores → keys
+# ---------------------------------------------------------------------------
+def _msg_in(errors_dict, text_substring: str) -> bool:
+    """Busca un substring en cualquier mensaje de error del dict DRF."""
+    for _, msgs in (errors_dict or {}).items():
+        if isinstance(msgs, (list, tuple)):
+            for m in msgs:
+                if text_substring.lower() in str(m).lower():
+                    return True
+        elif isinstance(msgs, str) and text_substring.lower() in msgs.lower():
+            return True
+    return False
+
+
+# ---------------------------------------------------------------------------
+#  🏠  PROPIETARIOS
 # ---------------------------------------------------------------------------
 class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
     queryset = Propietario.objects.all().order_by('-id')
@@ -80,7 +95,6 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
 
     # ---------- LIST ----------
     def list(self, request, *args, **kwargs):
-        # 👉 Usamos SOLO tu get_queryset() (sin SearchFilter) para mantener tu lógica especial intacta
         queryset = self.get_queryset()
 
         # Exact match por nombre (prioridad visual)
@@ -116,12 +130,17 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
         serializer = self.get_serializer(data=request.data)
         try:
             serializer.is_valid(raise_exception=True)
-        except serializers.ValidationError:
-            return self.notify(
-                key="validation_error",
-                data={"errors": serializer.errors},
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
+        except serializers.ValidationError as e:
+            errors = serializer.errors or getattr(e, "detail", {}) or {}
+            # Mapeo más específico
+            if 'telefono' in errors and _msg_in(errors, "registrado"):
+                key = "propietario_telefono_duplicado"
+            elif any(k in errors for k in ("nombre", "apellidos", "direccion")):
+                key = "propietario_campos_invalidos"
+            else:
+                key = "validation_error"
+            return self.notify(key=key, data={"errors": errors}, status_code=status.HTTP_400_BAD_REQUEST)
+
         self.perform_create(serializer)
         return self.notify(
             key="propietario_create_success",
@@ -136,12 +155,16 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         try:
             serializer.is_valid(raise_exception=True)
-        except serializers.ValidationError:
-            return self.notify(
-                key="validation_error",
-                data={"errors": serializer.errors},
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
+        except serializers.ValidationError as e:
+            errors = serializer.errors or getattr(e, "detail", {}) or {}
+            if 'telefono' in errors and _msg_in(errors, "registrado"):
+                key = "propietario_telefono_duplicado"
+            elif any(k in errors for k in ("nombre", "apellidos", "direccion")):
+                key = "propietario_campos_invalidos"
+            else:
+                key = "validation_error"
+            return self.notify(key=key, data={"errors": errors}, status_code=status.HTTP_400_BAD_REQUEST)
+
         self.perform_update(serializer)
         return self.notify(
             key="propietario_update_success",
@@ -151,7 +174,6 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
     # ---------- DELETE ----------
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        # 🔧 COBERTURA COMPLETA: propias + rentadas
         if instance.huertas.exists() or instance.huertas_rentadas.exists():
             return self.notify(
                 key="propietario_con_dependencias",
@@ -211,7 +233,6 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
                 Q(nombre__icontains=search) |
                 Q(apellidos__icontains=search)
             )
-            # ⚠️ opcionalmente usa ?page_size=50 desde el front
             self.pagination_class.page_size = 50
 
             exact_match = self.get_queryset().filter(
@@ -269,7 +290,7 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
         if search := params.get("search"):
             from django.db.models import Value, CharField
             from django.db.models.functions import Concat
-            self.pagination_class.page_size = 10  # o usa ?page_size=
+            self.pagination_class.page_size = 10
             return qs.annotate(
                 nombre_completo=Concat('nombre', Value(' '), 'apellidos', output_field=CharField())
             ).filter(
@@ -339,9 +360,25 @@ class HuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
         ser = self.get_serializer(data=request.data)
         try:
             ser.is_valid(raise_exception=True)
-        except serializers.ValidationError:
-            return self.notify(key="validation_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
-        self.perform_create(ser)
+        except serializers.ValidationError as e:
+            errors = ser.errors or getattr(e, "detail", {}) or {}
+            if _msg_in(errors, "propietario archivado"):
+                key = "huerta_propietario_archivado"
+            elif any(k in errors for k in ("nombre", "ubicacion", "variedades", "hectareas")):
+                key = "huerta_campos_invalidos"
+            else:
+                key = "validation_error"
+            return self.notify(key=key, data={"errors": errors}, status_code=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            self.perform_create(ser)
+        except IntegrityError:
+            # unique_together: (nombre, ubicacion, propietario) activo
+            return self.notify(
+                key="huerta_duplicada",
+                data={"info": "Ya existe una huerta activa con ese nombre y ubicación para el mismo propietario."},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
         return self.notify(key="huerta_create_success", data={"huerta": ser.data}, status_code=status.HTTP_201_CREATED)
 
     # ---------- UPDATE ----------
@@ -351,9 +388,24 @@ class HuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
         ser = self.get_serializer(instance, data=request.data, partial=partial)
         try:
             ser.is_valid(raise_exception=True)
-        except serializers.ValidationError:
-            return self.notify(key="validation_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
-        self.perform_update(ser)
+        except serializers.ValidationError as e:
+            errors = ser.errors or getattr(e, "detail", {}) or {}
+            if _msg_in(errors, "propietario archivado"):
+                key = "huerta_propietario_archivado"
+            elif any(k in errors for k in ("nombre", "ubicacion", "variedades", "hectareas")):
+                key = "huerta_campos_invalidos"
+            else:
+                key = "validation_error"
+            return self.notify(key=key, data={"errors": errors}, status_code=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            self.perform_update(ser)
+        except IntegrityError:
+            return self.notify(
+                key="huerta_duplicada",
+                data={"info": "Ya existe una huerta activa con ese nombre y ubicación para el mismo propietario."},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
         return self.notify(key="huerta_update_success", data={"huerta": ser.data})
 
     # ---------- DELETE ----------
@@ -479,9 +531,26 @@ class HuertaRentadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelV
         ser = self.get_serializer(data=request.data)
         try:
             ser.is_valid(raise_exception=True)
-        except serializers.ValidationError:
-            return self.notify(key="validation_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
-        self.perform_create(ser)
+        except serializers.ValidationError as e:
+            errors = ser.errors or getattr(e, "detail", {}) or {}
+            if _msg_in(errors, "propietario archivado"):
+                key = "huerta_rentada_propietario_archivado"
+            elif 'monto_renta' in errors:
+                key = "huerta_rentada_monto_invalido"
+            elif any(k in errors for k in ("nombre", "ubicacion", "variedades", "hectareas")):
+                key = "huerta_rentada_campos_invalidos"
+            else:
+                key = "validation_error"
+            return self.notify(key=key, data={"errors": errors}, status_code=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            self.perform_create(ser)
+        except IntegrityError:
+            return self.notify(
+                key="huerta_rentada_duplicada",
+                data={"info": "Ya existe una huerta rentada activa con ese nombre y ubicación para el mismo propietario."},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
         return self.notify(key="huerta_rentada_create_success", data={"huerta_rentada": ser.data}, status_code=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
@@ -490,9 +559,26 @@ class HuertaRentadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelV
         ser = self.get_serializer(instance, data=request.data, partial=partial)
         try:
             ser.is_valid(raise_exception=True)
-        except serializers.ValidationError:
-            return self.notify(key="validation_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
-        self.perform_update(ser)
+        except serializers.ValidationError as e:
+            errors = ser.errors or getattr(e, "detail", {}) or {}
+            if _msg_in(errors, "propietario archivado"):
+                key = "huerta_rentada_propietario_archivado"
+            elif 'monto_renta' in errors:
+                key = "huerta_rentada_monto_invalido"
+            elif any(k in errors for k in ("nombre", "ubicacion", "variedades", "hectareas")):
+                key = "huerta_rentada_campos_invalidos"
+            else:
+                key = "validation_error"
+            return self.notify(key=key, data={"errors": errors}, status_code=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            self.perform_update(ser)
+        except IntegrityError:
+            return self.notify(
+                key="huerta_rentada_duplicada",
+                data={"info": "Ya existe una huerta rentada activa con ese nombre y ubicación para el mismo propietario."},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
         return self.notify(key="huerta_rentada_update_success", data={"huerta_rentada": ser.data})
 
     def destroy(self, request, *args, **kwargs):
