@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Box, Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
 
 import { useVentas } from '../hooks/useVentas';
@@ -8,6 +8,8 @@ import { VentaHuerta, VentaHuertaCreateData, VentaHuertaUpdateData } from '../ty
 import VentaToolbar from '../components/finanzas/VentaToolbar';
 import VentaTable   from '../components/finanzas/VentaTable';
 import VentaFormModal from '../components/finanzas/VentaFormModal';
+import { temporadaService } from '../services/temporadaService';
+import { cosechaService } from '../services/cosechaService';
 
 const PAGE_SIZE = 10;
 
@@ -25,6 +27,8 @@ const Venta: React.FC = () => {
     archive,
     restore,
     removeVenta,
+    temporadaId,
+    cosechaId,
   } = useVentas();
 
   // Conteo de filtros activos
@@ -42,7 +46,61 @@ const Venta: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<VentaHuerta | null>(null);
 
-  const openCreate = () => { setEditTarget(null); setModalOpen(true); };
+  /* ---------- Estado de temporada y cosecha ---------- */
+  const [tempState, setTempState] = useState<{ is_active: boolean; finalizada: boolean } | null>(null);
+  const [cosechaState, setCosechaState] = useState<{ is_active: boolean; finalizada: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!temporadaId || !cosechaId) return;
+    let alive = true;
+    (async () => {
+      try {
+        const [tRes, cRes] = await Promise.all([
+          temporadaService.getById(temporadaId),
+          cosechaService.getById(cosechaId),
+        ]);
+        if (!alive) return;
+        setTempState({
+          is_active: tRes.data.temporada.is_active,
+          finalizada: tRes.data.temporada.finalizada,
+        });
+        setCosechaState({
+          is_active: cRes.data.cosecha.is_active,
+          finalizada: cRes.data.cosecha.finalizada,
+        });
+      } catch {
+        if (!alive) return;
+        setTempState(null);
+        setCosechaState(null);
+      }
+    })();
+    return () => { alive = false; };
+  }, [temporadaId, cosechaId]);
+
+  const { canCreate, createTooltip } = useMemo(() => {
+    if (!tempState || !cosechaState) {
+      return { canCreate: false, createTooltip: '' };
+    }
+    if (!tempState.is_active) {
+      return { canCreate: false, createTooltip: 'No se pueden registrar ventas en una temporada archivada.' };
+    }
+    if (tempState.finalizada) {
+      return { canCreate: false, createTooltip: 'No se pueden registrar ventas en una temporada finalizada.' };
+    }
+    if (!cosechaState.is_active) {
+      return { canCreate: false, createTooltip: 'No se pueden registrar ventas en una cosecha archivada.' };
+    }
+    if (cosechaState.finalizada) {
+      return { canCreate: false, createTooltip: 'No se pueden registrar ventas en una cosecha finalizada.' };
+    }
+    return { canCreate: true, createTooltip: '' };
+  }, [tempState, cosechaState]);
+
+  const openCreate = () => {
+    if (!canCreate) return;
+    setEditTarget(null);
+    setModalOpen(true);
+  };
   const openEdit   = (v: VentaHuerta) => { setEditTarget(v); setModalOpen(true); };
 
   // onSubmit
@@ -71,6 +129,8 @@ const Venta: React.FC = () => {
         activeFiltersCount={activeFiltersCount}
         onClearFilters={handleClearFilters}
         onCreateClick={openCreate}
+        canCreate={canCreate}
+        createTooltip={createTooltip}
         totalCount={meta.count}
       />
 
