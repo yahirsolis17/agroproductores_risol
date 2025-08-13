@@ -127,7 +127,8 @@ export const propietarioService = {
   /* ------------ SEARCH Autocomplete (ID o texto) ------------ */
   async searchAutocomplete(
     query: string,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    includeArchived = false
   ): Promise<{ label: string; value: number }[]> {
     if (!query.trim()) return [];
 
@@ -136,12 +137,15 @@ export const propietarioService = {
       return p ? [toOption(p)] : [];
     }
 
+    const params: Record<string, any> = { search: query, page_size: 50 };
+    if (!includeArchived) params.archivado = 'false';
+
     const { data } = await apiClient.get<{
       success: boolean;
       message_key: string;
       data: { propietarios: Propietario[] };
     }>('/huerta/propietarios/', {
-      params: { search: query, page_size: 50 },
+      params,
       signal,
     });
 
@@ -149,14 +153,22 @@ export const propietarioService = {
   },
 
   /* ------------ SEARCH (lista cruda) con cancelación ------------ */
-  async search(query: string, config: ReqCfg = {}): Promise<Propietario[]> {
+  async search(
+    query: string,
+    config: ReqCfg = {},
+    includeArchived = false
+  ): Promise<Propietario[]> {
     if (!query.trim()) return [];
+
+    const params: Record<string, any> = { search: query, page_size: 50 };
+    if (!includeArchived) params.archivado = 'false';
+
     const { data } = await apiClient.get<{
       success: boolean;
       message_key: string;
       data: { propietarios: Propietario[] };
     }>('/huerta/propietarios/', {
-      params: { search: query, page_size: 50 },
+      params,
       signal: config.signal,
     });
     return data.data.propietarios;
