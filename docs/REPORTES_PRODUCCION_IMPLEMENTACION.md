@@ -2470,4 +2470,376 @@ class ReportesAuditMiddleware(MiddlewareMixin):
 ### Fase 3: Frontend Básico (Semana 3-4)
 1. **Crear tipos TypeScript** completos
 2. **Desarrollar servicios API** con manejo de errores
-3. **Implementar hooks personalizados** para cada tipo de re
+3. **Implementar hooks personalizados** para cada tipo de reporte
+4. **Desarrollar componente generador** de reportes
+5. **Crear componentes de visualización** básicos
+
+### Fase 4: Componentes Avanzados (Semana 4-5)
+1. **Implementar gráficas interactivas** con Recharts
+2. **Desarrollar visualizadores** para cada tipo de reporte
+3. **Agregar funcionalidades de filtrado** y búsqueda
+4. **Implementar exportación** desde frontend
+5. **Optimizar rendimiento** de componentes
+
+### Fase 5: Integración y Testing (Semana 5-6)
+1. **Integrar con sistema de permisos** existente
+2. **Implementar tests unitarios** para servicios críticos
+3. **Realizar pruebas de carga** para reportes grandes
+4. **Validar integridad** de datos en todos los escenarios
+5. **Documentar APIs** y componentes
+
+### Fase 6: Optimización y Despliegue (Semana 6-7)
+1. **Optimizar consultas** de base de datos
+2. **Implementar cache Redis** para reportes frecuentes
+3. **Configurar monitoreo** y alertas
+4. **Realizar pruebas de usuario** final
+5. **Desplegar a producción** con rollback plan
+
+## Consideraciones Técnicas Adicionales
+
+### 1. Optimización de Rendimiento
+
+#### Cache Inteligente
+```python
+# backend/gestion_huerta/services/cache_service.py
+
+from django.core.cache import cache
+from django.conf import settings
+import hashlib
+import json
+
+class ReportesCacheService:
+    """Servicio de cache para reportes"""
+    
+    CACHE_TIMEOUT = 3600  # 1 hora
+    
+    @staticmethod
+    def generar_cache_key(tipo_reporte: str, parametros: dict) -> str:
+        """Genera clave única para cache"""
+        cache_data = {
+            'tipo': tipo_reporte,
+            'params': sorted(parametros.items())
+        }
+        cache_string = json.dumps(cache_data, sort_keys=True)
+        return f"reporte_{hashlib.md5(cache_string.encode()).hexdigest()}"
+    
+    @staticmethod
+    def obtener_reporte_cache(cache_key: str):
+        """Obtiene reporte del cache"""
+        return cache.get(cache_key)
+    
+    @staticmethod
+    def guardar_reporte_cache(cache_key: str, reporte_data: dict):
+        """Guarda reporte en cache"""
+        cache.set(cache_key, reporte_data, ReportesCacheService.CACHE_TIMEOUT)
+    
+    @staticmethod
+    def invalidar_cache_huerta(huerta_id: int):
+        """Invalida cache relacionado con una huerta"""
+        # Implementar invalidación selectiva
+        pass
+```
+
+#### Optimización de Consultas
+```python
+# backend/gestion_huerta/services/query_optimization.py
+
+from django.db.models import Prefetch
+
+class QueryOptimizationService:
+    """Servicio para optimizar consultas de reportes"""
+    
+    @staticmethod
+    def optimizar_consulta_cosecha(cosecha_id: int):
+        """Optimiza consulta para reporte de cosecha"""
+        return Cosecha.objects.select_related(
+            'temporada__huerta__propietario',
+            'temporada__huerta_rentada__propietario'
+        ).prefetch_related(
+            Prefetch('inversiones', queryset=InversionesHuerta.objects.select_related('categoria')),
+            'ventas'
+        ).get(id=cosecha_id)
+    
+    @staticmethod
+    def optimizar_consulta_temporada(temporada_id: int):
+        """Optimiza consulta para reporte de temporada"""
+        return Temporada.objects.select_related(
+            'huerta__propietario',
+            'huerta_rentada__propietario'
+        ).prefetch_related(
+            Prefetch('cosechas', queryset=Cosecha.objects.prefetch_related('inversiones', 'ventas'))
+        ).get(id=temporada_id)
+```
+
+### 2. Monitoreo y Alertas
+
+#### Sistema de Monitoreo
+```python
+# backend/gestion_huerta/monitoring/reportes_monitor.py
+
+import logging
+from django.utils import timezone
+from datetime import timedelta
+
+logger = logging.getLogger('reportes_produccion')
+
+class ReportesMonitor:
+    """Monitor para reportes de producción"""
+    
+    @staticmethod
+    def log_reporte_generado(tipo_reporte: str, tiempo_generacion: float, usuario: str):
+        """Registra generación de reporte"""
+        logger.info(f"Reporte {tipo_reporte} generado en {tiempo_generacion:.2f}s por {usuario}")
+        
+        # Alerta si toma más de 30 segundos
+        if tiempo_generacion > 30:
+            logger.warning(f"Reporte {tipo_reporte} tardó {tiempo_generacion:.2f}s - Revisar optimización")
+    
+    @staticmethod
+    def verificar_integridad_datos():
+        """Verifica integridad de datos para reportes"""
+        # Implementar verificaciones automáticas
+        pass
+```
+
+### 3. Configuración de Producción
+
+#### Settings de Producción
+```python
+# backend/agroproductores_risol/settings/production.py
+
+# Cache para reportes
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': 'redis://127.0.0.1:6379/1',
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        }
+    }
+}
+
+# Configuración de reportes
+REPORTES_CONFIG = {
+    'CACHE_TIMEOUT': 3600,  # 1 hora
+    'MAX_EXPORT_SIZE': 10000,  # Máximo registros por exportación
+    'ASYNC_THRESHOLD': 100,  # Umbral para procesamiento asíncrono
+}
+
+# Logging específico para reportes
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'reportes_file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': 'logs/reportes_produccion.log',
+        },
+    },
+    'loggers': {
+        'reportes_produccion': {
+            'handlers': ['reportes_file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
+}
+```
+
+## Conclusiones y Recomendaciones
+
+### Beneficios Esperados
+
+1. **Transparencia Financiera**: Reportes detallados y auditables que proporcionan visibilidad completa de la rentabilidad
+2. **Toma de Decisiones Informada**: Análisis históricos y proyecciones para optimizar inversiones futuras
+3. **Eficiencia Operativa**: Identificación de áreas de mejora y optimización de costos
+4. **Cumplimiento Regulatorio**: Reportes profesionales para auditorías y presentaciones a stakeholders
+5. **Escalabilidad**: Sistema preparado para manejar múltiples huertas y años de datos históricos
+
+### Métricas de Éxito
+
+- **Tiempo de generación**: < 10 segundos para reportes individuales, < 30 segundos para perfiles históricos
+- **Precisión de datos**: 99.99% de exactitud en cálculos financieros
+- **Adopción de usuarios**: 80% de usuarios activos utilizando reportes mensualmente
+- **Satisfacción**: Puntuación > 4.5/5 en encuestas de usabilidad
+- **Rendimiento**: Soporte para 1000+ reportes concurrentes sin degradación
+
+### Consideraciones Futuras
+
+1. **Inteligencia Artificial**: Implementar ML para predicciones más precisas y recomendaciones automáticas
+2. **Integración Externa**: APIs para conectar con sistemas contables y de gestión empresarial
+3. **Reportes Personalizados**: Constructor de reportes drag-and-drop para usuarios avanzados
+4. **Análisis Comparativo**: Benchmarking con datos del sector agrícola
+5. **Alertas Inteligentes**: Notificaciones automáticas basadas en umbrales y tendencias
+
+### Riesgos y Mitigaciones
+
+| Riesgo | Probabilidad | Impacto | Mitigación |
+|--------|-------------|---------|------------|
+| Rendimiento lento con datos grandes | Media | Alto | Cache inteligente, paginación, consultas optimizadas |
+| Errores en cálculos financieros | Baja | Crítico | Tests exhaustivos, validaciones múltiples, auditoría |
+| Problemas de concurrencia | Media | Medio | Queue system, rate limiting, monitoreo |
+| Fallas en exportación | Baja | Medio | Manejo robusto de errores, reintentos automáticos |
+
+---
+
+**Este documento proporciona una guía completa para implementar un sistema de reportes de producción de clase empresarial que mantenga la consistencia y calidad del sistema existente, mientras agrega capacidades avanzadas de análisis y visualización de datos.**
+
+**Fecha de creación**: 13 de enero de 2025  
+**Versión**: 1.0  
+**Autor**: Sistema de Análisis Agroproductores Risol
+
+
+###
+¡Buenísimo! Leí todo tu “paquete” de reportes (modelo, servicios, viewsets, exportadores, cache, seguridad y el frontend). La idea encaja perfecto con tu arquitectura actual, pero hay varios puntos finos a ajustar para que funcione “plug & play” y sin sorpresas.
+
+# Lo que está sólido
+
+* Enfoque por **servicios** (ReportesProduccionService) y **ViewSet** con `NotificationHandler`: consistente con el resto del sistema.
+* Cálculos con `F()` y agregaciones (ROI, totales, por categoría/variedad) están bien planteados.
+* Exportación **PDF/Excel** separada en `ExportacionService`.
+* Planeación de **cache**, **auditoría** y **permisos** granular: alineado con lo que ya usan.
+
+# Ajustes necesarios (críticos)
+
+1. **Rutas / baseUrl (frontend ↔ backend)**
+
+* En el backend registras el router como: `/api/reportes-produccion/...`.
+* En el frontend pusiste `baseUrl = '/gestion-huerta/reportes-produccion'`.
+* ✅ Corrige a: **`'/reportes-produccion'`** (si tu `apiClient` ya tiene base `/api`) o **`'/api/reportes-produccion'`** si no, el router corresto es huertas/
+
+2. **Import del apiClient en frontend**
+
+* En tus servicios existentes lo usas como **default import** (`import apiClient from ...`).
+* En `reportes.service.ts` usas `{ apiClient }`.
+* ✅ Cambia a **`import apiClient from '../../../global/api/apiClient'`**.
+
+3. **PermissionButton (prop)**
+
+* En tu app usas **`perm`** (no `permission`).
+* En `GeneradorReportes.tsx` pusiste `permission="..."`.
+* ✅ Cambia a `perm="gestion_huerta.view_reportes"` / `perm="gestion_huerta.export_reportes"`.
+
+4. **Nombres de modelos/relaciones**
+
+* En varios lugares usas **`InversionesHuerta`** (plural) y en otros el tipo es **`InversionHuerta`**.
+* En Django, en consultas “totales de temporada” usas `InversionesHuerta.objects.filter(...)`.
+* ✅ Unifica al **nombre real del modelo** (probable `InversionHuerta`) y revisa **related\_name** reales:
+
+  * `cosecha.inversiones` / `cosecha.ventas` (confirma cómo se llaman en tus modelos).
+  * En `prefetch_related(select_related('categoria'))` usa el related correcto de categoría.
+
+5. **Validación de fechas (Security)**
+
+* En `ReportesSecurityService` usas `timezone.datetime.fromisoformat`. `timezone` de Django **no** expone `datetime`.
+* ✅ Usa `from datetime import datetime; datetime.fromisoformat(...)` (y maneja `Z` → `+00:00`).
+
+6. **ReportLab TableStyle**
+
+* `ALTERNATEROWCOLORS` no es clave válida.
+* ✅ Usa `('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.lightgrey])`.
+* Además, `colors.darkorange` no existe por defecto.
+* ✅ Usa `colors.orange` o un **HEX** con `HexColor('#...')`.
+
+7. **Tipos numéricos/Decimal**
+
+* Cuando haces `Sum(F('num_cajas') * F('precio_por_caja'))` asegúrate que ambos campos son compatibles (Decimal/Integer).
+* ✅ Mantén todo en **Decimal** en DB y castea a `Decimal('0')` en defaults. Ya lo haces, pero revisa que el serializer/cálculos **no mezclen float** (en el JSON final conviertes a `float`, está bien para la respuesta).
+
+8. **Campos de Venta**
+
+* Usas `venta.gasto` y `venta.ganancia_neta` en detalle.
+* ✅ Confirma que **existan** en tu modelo/serializer (si no, calcula `ganancia_neta` al vuelo o elimínalo del JSON).
+
+9. **Cache y seguridad: definidos pero no integrados**
+
+* Definiste `ReporteProduccion` y `ReportesCacheService`, y `ReportesSecurityService`, pero **no los llamas**.
+* ✅ En cada endpoint:
+
+  * Genera **hash** con parámetros (y quizá “version” del algoritmo).
+  * Busca en cache/bd por `hash_datos`.
+  * Si existe y no está vencido → retorna.
+  * Si no existe → generar, **validar integridad** (`ReportesSecurityService.validar_integridad_datos`), guardar cache y retornar.
+  * Log de acceso (`log_acceso_reporte`) y permisos avanzados cuando exportas.
+
+10. **Query optimization (nombres)**
+
+* En `QueryOptimizationService` usas nombres tentativos de relateds.
+* ✅ Aterrízalos a tus **related\_name reales** (ej. `'cosechas'`, `'inversiones'`, `'ventas'`, `'categoria'`).
+
+# Ajustes recomendados (mejora)
+
+* **Throttling/ratelimit** en `ReportesProduccionViewSet` (reportes pesados).
+* **Paginación en detalle** al exportar (Excel especialmente) si superan `MAX_EXPORT_SIZE`.
+* **Exportación PDF temporada/perfil**: dejaste placeholders; completar para producción.
+* **Colores/UX** en viewers (Recharts): respeta tema y usa tooltips con formateadores centralizados.
+* **Formateadores**: confirmá que existen `formatCurrency` y `formatPercentage` (o crea utilidades).
+* **Permisos**:
+
+  * Ver JSON: `gestion_huerta.view_reportes`
+  * Exportar: `gestion_huerta.export_reportes`
+  * Ver datos financieros sensibles: `gestion_huerta.view_financial_data` (si quieres granularidad).
+* **Tests**: unitarios de servicio (totales, ROI, divisiones por cero, sin datos).
+
+# Integración mínima para que “prenda”
+
+1. Backend
+
+   * Ajustar nombres de modelos/relateds en los `querysets`.
+   * Integrar **cache + hash + validación** en los métodos del ViewSet.
+   * Corregir **ReportLab** claves/colores.
+   * Confirmar campos de `Venta` usados en detalle.
+
+2. Frontend
+
+   * Corregir **baseUrl** + **apiClient default import**.
+   * Cambiar `permission` → **`perm`** en `PermissionButton`.
+   * Confirmar existencia de hooks (`useCosechas`, `useTemporadas`, `useHuertas`) y formateadores.
+   * Opcional: mostrar un **skeleton**/progress más sutil durante generación.
+
+# Snippets cortos (solo los cambios clave)
+
+**Frontend – servicio (rutas + apiClient):**
+
+```ts
+// services/reportes.service.ts
+import apiClient from '../../../global/api/apiClient';
+
+const baseUrl = '/reportes-produccion'; // si apiClient ya tiene /api
+
+// ... el resto igual
+```
+
+**Frontend – PermissionButton:**
+
+```tsx
+<PermissionButton
+  variant="outlined"
+  startIcon={<Visibility />}
+  onClick={() => handleGenerarReporte(values, 'json')}
+  disabled={loading}
+  perm="gestion_huerta.view_reportes"
+/>
+```
+
+**Backend – ReportLab alternancia de filas:**
+
+```python
+TableStyle([
+   # ...
+   ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.lightgrey]),
+])
+```
+
+**Backend – fromisoformat:**
+
+```python
+from datetime import datetime
+fecha_reporte = datetime.fromisoformat(reporte_data['metadata']['fecha_generacion'].replace('Z', '+00:00'))
+```
+
+---
+
+Si quieres, te preparo el parche concreto (mínimo y seguro) con estos cambios puntuales para que puedas pegarlo directo en tu codebase. Y cuando valides las `related_name` reales, ajustamos los prefetch/select para exprimir rendimiento.
+###
