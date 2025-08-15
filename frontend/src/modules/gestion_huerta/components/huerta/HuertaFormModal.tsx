@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { DialogContent, DialogActions, Button, TextField, CircularProgress } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
-import { Formik, Form, FormikProps } from 'formik';
+import { Formik, Form, FormikProps, FormikHelpers } from 'formik';
 import * as Yup from 'yup';
 
 import { HuertaCreateData } from '../../types/huertaTypes';
@@ -55,11 +55,11 @@ const HuertaFormModal: React.FC<Props> = ({
     if (!open && formikRef.current) formikRef.current.resetForm();
   }, [open]);
 
-  const submit = async (vals: HuertaCreateData, actions: any) => {
+  const submit = async (vals: HuertaCreateData, actions: FormikHelpers<HuertaCreateData>) => {
     try {
       await onSubmit(vals);
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       const backend  = err?.data || err?.response?.data || {};
       const beErrors = backend.errors || backend.data?.errors || {};
       const fErrors: Record<string, string> = {};
@@ -68,7 +68,7 @@ const HuertaFormModal: React.FC<Props> = ({
         const msg = beErrors.non_field_errors[0];
         ['nombre', 'ubicacion', 'propietario'].forEach(f => (fErrors[f] = msg));
       }
-      Object.entries(beErrors).forEach(([field, msgs]: any) => {
+      Object.entries(beErrors).forEach(([field, msgs]: [string, unknown]) => {
         if (field !== 'non_field_errors') fErrors[field] = Array.isArray(msgs) ? msgs[0] : String(msgs);
       });
 
@@ -107,8 +107,8 @@ const HuertaFormModal: React.FC<Props> = ({
 
       const lista = await propietarioService.search(input, { signal: abortRef.current.signal });
       return lista.map((p) => ({ id: p.id, label: `${p.nombre} ${p.apellidos} – ${p.telefono}`, value: p.id }));
-    } catch (error: any) {
-      if (error?.name === 'CanceledError') return [];
+    } catch (error: unknown) {
+      if ((error as { name?: string })?.name === 'CanceledError') return [];
       return [];
     } finally {
       setAsyncLoading(false);
@@ -139,7 +139,9 @@ const HuertaFormModal: React.FC<Props> = ({
           if (p) {
             setAsyncOptions([{ id: p.id, label: `${p.nombre} ${p.apellidos} – ${p.telefono}`, value: p.id }]);
           }
-        } catch {}
+        } catch {
+          /* empty */
+        }
       }
     };
     precargar();
@@ -154,7 +156,9 @@ const HuertaFormModal: React.FC<Props> = ({
           if (p) {
             setAsyncOptions([{ id: p.id, label: `${p.nombre} ${p.apellidos} – ${p.telefono}`, value: p.id }]);
           }
-        } catch {}
+        } catch {
+          /* empty */
+        }
       }
     };
     precargarNuevo();
@@ -165,33 +169,59 @@ const HuertaFormModal: React.FC<Props> = ({
       innerRef={formikRef}
       initialValues={initialValues || defaults}
       validationSchema={yupSchema}
-      validateOnChange={false}
-      validateOnBlur={false}
       enableReinitialize
       onSubmit={submit}
     >
-      {({ values, errors, handleChange, setFieldValue, isSubmitting }) => (
+      {({ values, errors, touched, handleChange, handleBlur, setFieldValue, setFieldTouched, isSubmitting }) => (
         <Form>
           <DialogContent dividers className="space-y-4">
-            <TextField fullWidth label="Nombre" name="nombre"
-              value={values.nombre} onChange={handleChange}
-              error={!!errors.nombre} helperText={errors.nombre || ''} />
-            <TextField fullWidth label="Ubicación" name="ubicacion"
-              value={values.ubicacion} onChange={handleChange}
-              error={!!errors.ubicacion} helperText={errors.ubicacion || ''} />
-            <TextField fullWidth label="Variedades (ej. Kent, Ataulfo)" name="variedades"
-              value={values.variedades} onChange={handleChange}
-              error={!!errors.variedades} helperText={errors.variedades || ''} />
-            <TextField fullWidth label="Hectáreas" name="hectareas" type="number"
-              value={values.hectareas} onChange={handleChange}
-              error={!!errors.hectareas} helperText={errors.hectareas || ''} />
+            <TextField
+              fullWidth
+              label="Nombre"
+              name="nombre"
+              value={values.nombre}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              error={touched.nombre && Boolean(errors.nombre)}
+              helperText={touched.nombre && errors.nombre}
+            />
+            <TextField
+              fullWidth
+              label="Ubicación"
+              name="ubicacion"
+              value={values.ubicacion}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              error={touched.ubicacion && Boolean(errors.ubicacion)}
+              helperText={touched.ubicacion && errors.ubicacion}
+            />
+            <TextField
+              fullWidth
+              label="Variedades (ej. Kent, Ataulfo)"
+              name="variedades"
+              value={values.variedades}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              error={touched.variedades && Boolean(errors.variedades)}
+              helperText={touched.variedades && errors.variedades}
+            />
+            <TextField
+              fullWidth
+              label="Hectáreas"
+              name="hectareas"
+              type="number"
+              value={values.hectareas}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              error={touched.hectareas && Boolean(errors.hectareas)}
+              helperText={touched.hectareas && errors.hectareas}
+            />
 
             <Autocomplete
               options={opcionesCombinadas}
               loading={asyncLoading}
               getOptionLabel={(option: OptionType) => option.label}
               isOptionEqualToValue={(option: OptionType, value: OptionType) => option.value === value.value}
-              // sin filtrado local; servidor manda
               filterOptions={(options, state) => state.inputValue.trim() === '' ? [registroNuevo] : options}
               openOnFocus
               value={values.propietario
@@ -207,6 +237,7 @@ const HuertaFormModal: React.FC<Props> = ({
                 } else {
                   setFieldValue('propietario', 0);
                 }
+                setFieldTouched('propietario', true, false);
               }}
               noOptionsText={
                 asyncLoading
@@ -219,10 +250,12 @@ const HuertaFormModal: React.FC<Props> = ({
               renderInput={(params) => (
                 <TextField
                   {...params}
+                  name="propietario"
                   label="Propietario"
                   placeholder="Buscar por nombre, apellido o teléfono..."
-                  error={!!errors.propietario}
-                  helperText={errors.propietario || ''}
+                  onBlur={handleBlur}
+                  error={touched.propietario && Boolean(errors.propietario)}
+                  helperText={touched.propietario && errors.propietario}
                   InputProps={{
                     ...params.InputProps,
                     endAdornment: (
