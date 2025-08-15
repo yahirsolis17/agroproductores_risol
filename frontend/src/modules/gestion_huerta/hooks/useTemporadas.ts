@@ -21,7 +21,7 @@ import {
   TemporadaCreateData,
 } from '../types/temporadaTypes';
 
-export function useTemporadas() {
+export function useTemporadas({ enabled = true }: { enabled?: boolean } = {}) {
   const dispatch = useAppDispatch();
   const {
     list: temporadas,
@@ -38,16 +38,31 @@ export function useTemporadas() {
   } = useAppSelector((state) => state.temporada);
 
   useEffect(() => {
-    dispatch(fetchTemporadas({ 
-      page, 
-      año: yearFilter || undefined, 
-      huertaId: huertaId || undefined, 
-      huertaRentadaId: huertaRentadaId || undefined,
-      estado: estadoFilter,
-      finalizada: finalizadaFilter ?? undefined,   // <- antes: finalizadaFilter || undefined
-      search: searchFilter || undefined,
-    }));
-  }, [dispatch, page, yearFilter, huertaId, huertaRentadaId, estadoFilter, finalizadaFilter, searchFilter]);
+    if (!enabled) return;
+    if (!huertaId && !huertaRentadaId) return;
+
+    dispatch(
+      fetchTemporadas({
+        page,
+        año: yearFilter || undefined,
+        huertaId: huertaId || undefined,
+        huertaRentadaId: huertaRentadaId || undefined,
+        estado: estadoFilter,
+        finalizada: finalizadaFilter ?? undefined, // <- antes: finalizadaFilter || undefined
+        search: searchFilter || undefined,
+      })
+    );
+  }, [
+    enabled,
+    dispatch,
+    page,
+    yearFilter,
+    huertaId,
+    huertaRentadaId,
+    estadoFilter,
+    finalizadaFilter,
+    searchFilter,
+  ]);
 
 
   const setPageNumber = (n: number) => dispatch(setPage(n));
