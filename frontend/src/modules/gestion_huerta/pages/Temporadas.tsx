@@ -57,6 +57,19 @@ const Temporadas: React.FC = () => {
   const [search] = useSearchParams();
   const huertaId = Number(search.get('huerta_id') || 0) || null;
 
+  const { huertas } = useHuertas();
+  const { huertas: rentadas } = useHuertasRentadas();
+
+  // Detectar huerta seleccionada y sincronizar filtro global
+  const huertaSel = useMemo(() => {
+    if (!huertaId) return null;
+    return (
+      huertas.find((h) => h.id === huertaId) ||
+      rentadas.find((h) => h.id === huertaId) ||
+      null
+    );
+  }, [huertaId, huertas, rentadas]);
+
   const {
     temporadas,
     loading,
@@ -78,20 +91,7 @@ const Temporadas: React.FC = () => {
     finalizeTemporada,
     archiveTemporada,
     restoreTemporada,
-  } = useTemporadas();
-
-  const { huertas } = useHuertas();
-  const { huertas: rentadas } = useHuertasRentadas();
-
-  // Detectar huerta seleccionada y sincronizar filtro global
-  const huertaSel = useMemo(() => {
-    if (!huertaId) return null;
-    return (
-      huertas.find((h) => h.id === huertaId) ||
-      rentadas.find((h) => h.id === huertaId) ||
-      null
-    );
-  }, [huertaId, huertas, rentadas]);
+  } = useTemporadas({ enabled: !!huertaSel });
 
   useEffect(() => {
     if (huertaSel) {
