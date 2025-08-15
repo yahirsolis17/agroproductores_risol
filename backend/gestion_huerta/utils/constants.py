@@ -309,6 +309,10 @@ NOTIFICATION_MESSAGES = {
         "message": "Ya existe una cosecha con ese nombre en esta temporada.",
         "type": "error"
     },
+    "cosecha_activa_existente": {
+        "message": "Ya existe una cosecha activa en esta temporada.",
+        "type": "error"
+    },
     "toggle_cosecha_success": {
         "message": "Estado de la cosecha cambiado con éxito.",
         "type": "success"
