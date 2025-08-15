@@ -56,6 +56,7 @@ const Temporadas: React.FC = () => {
   const navigate = useNavigate(); // 👈 NUEVO
   const [search] = useSearchParams();
   const huertaId = Number(search.get('huerta_id') || 0) || null;
+  const tipo = search.get('tipo') === 'rentada' ? 'rentada' : 'propia';
 
   const {
     temporadas,
@@ -86,16 +87,15 @@ const Temporadas: React.FC = () => {
   // Detectar huerta seleccionada y sincronizar filtro global
   const huertaSel = useMemo(() => {
     if (!huertaId) return null;
-    return (
-      huertas.find((h) => h.id === huertaId) ||
-      rentadas.find((h) => h.id === huertaId) ||
-      null
-    );
-  }, [huertaId, huertas, rentadas]);
+    if (tipo === 'rentada') {
+      return rentadas.find(h => h.id === huertaId) || null;
+    }
+    return huertas.find(h => h.id === huertaId) || null;
+  }, [huertaId, tipo, huertas, rentadas]);
 
   useEffect(() => {
     if (huertaSel) {
-      if ('monto_renta' in huertaSel) {
+      if (tipo === 'rentada') {
         setHuerta(null);
         setHuertaRentada(huertaSel.id);
       } else {
@@ -106,13 +106,13 @@ const Temporadas: React.FC = () => {
       setHuerta(null);
       setHuertaRentada(null);
     }
-  }, [huertaSel, setHuerta, setHuertaRentada]);
+  }, [huertaSel, tipo, setHuerta, setHuertaRentada]);
 
   /* ──────────────────── Breadcrumbs ──────────────────── */
   useEffect(() => {
     if (huertaSel) {
       dispatch(setBreadcrumbs(
-        breadcrumbRoutes.temporadasList(huertaSel.id, huertaSel.nombre)
+        breadcrumbRoutes.temporadasList(huertaSel.id, huertaSel.nombre, tipo)
       ));
     } else {
       dispatch(clearBreadcrumbs());
@@ -121,7 +121,7 @@ const Temporadas: React.FC = () => {
     return () => {
       dispatch(clearBreadcrumbs());
     };
-  }, [dispatch, huertaSel]);
+  }, [dispatch, huertaSel, tipo]);
 
   /* ──────────────────── Estados locales ──────────────────── */
   const [spin, setSpin] = useState(false);

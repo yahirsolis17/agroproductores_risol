@@ -76,7 +76,13 @@ const FinanzasPorCosecha: React.FC = () => {
 
         const origenId = huertaId ?? huertaRentadaId!;
         dispatch(setBreadcrumbs([
-          ...breadcrumbRoutes.cosechasList(origenId, info.huerta_nombre, info.año, temporadaId),
+          ...breadcrumbRoutes.cosechasList(
+            origenId,
+            info.huerta_nombre,
+            info.año,
+            temporadaId,
+            huertaRentadaId ? 'rentada' : 'propia'
+          ),
           { label: 'Ventas & Inversiones', path: '' }
         ]));
       })

@@ -270,7 +270,7 @@ const Huertas: React.FC = () => {
             onDelete={askDelete}
             onArchive={h => handleArchiveOrRestore(h, false)}
             onRestore={h => handleArchiveOrRestore(h, true)}
-            onTemporadas={h => navigate(`/temporadas?huerta_id=${h.id}`)}
+            onTemporadas={h => navigate(`/temporadas?huerta_id=${h.id}&tipo=${isRentada(h) ? 'rentada' : 'propia'}`)}
           />
         </Box>
 
