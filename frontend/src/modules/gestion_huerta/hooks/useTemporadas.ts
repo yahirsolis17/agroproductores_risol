@@ -1,6 +1,6 @@
 // src/modules/gestion_huerta/hooks/useTemporadas.ts
 
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useAppDispatch, useAppSelector } from '../../../global/store/store';
 import {
   fetchTemporadas,
@@ -21,7 +21,7 @@ import {
   TemporadaCreateData,
 } from '../types/temporadaTypes';
 
-export function useTemporadas() {
+export function useTemporadas({ enabled = true }: { enabled?: boolean } = {}) {
   const dispatch = useAppDispatch();
   const {
     list: temporadas,
@@ -38,25 +38,62 @@ export function useTemporadas() {
   } = useAppSelector((state) => state.temporada);
 
   useEffect(() => {
-    dispatch(fetchTemporadas({ 
-      page, 
-      año: yearFilter || undefined, 
-      huertaId: huertaId || undefined, 
-      huertaRentadaId: huertaRentadaId || undefined,
-      estado: estadoFilter,
-      finalizada: finalizadaFilter ?? undefined,   // <- antes: finalizadaFilter || undefined
-      search: searchFilter || undefined,
-    }));
-  }, [dispatch, page, yearFilter, huertaId, huertaRentadaId, estadoFilter, finalizadaFilter, searchFilter]);
+    if (!enabled) return;
+    if (!huertaId && !huertaRentadaId) return;
+
+    dispatch(
+      fetchTemporadas({
+        page,
+        año: yearFilter || undefined,
+        huertaId: huertaId || undefined,
+        huertaRentadaId: huertaRentadaId || undefined,
+        estado: estadoFilter,
+        finalizada: finalizadaFilter ?? undefined, // <- antes: finalizadaFilter || undefined
+        search: searchFilter || undefined,
+      })
+    );
+  }, [
+    enabled,
+    dispatch,
+    page,
+    yearFilter,
+    huertaId,
+    huertaRentadaId,
+    estadoFilter,
+    finalizadaFilter,
+    searchFilter,
+  ]);
 
 
-  const setPageNumber = (n: number) => dispatch(setPage(n));
-  const setYear = (y: number | null) => dispatch(setYearFilter(y));
-  const setHuerta = (id: number | null) => dispatch(setHuertaId(id));
-  const setHuertaRentada = (id: number | null) => dispatch(setHuertaRentadaId(id));
-  const setEstado = (estado: 'activas' | 'archivadas' | 'todas') => dispatch(setEstadoFilter(estado));
-  const setFinalizada = (finalizada: boolean | null) => dispatch(setFinalizadaFilter(finalizada));
-  const setSearch = (search: string) => dispatch(setSearchFilter(search));
+  const setPageNumber = useCallback(
+    (n: number) => dispatch(setPage(n)),
+    [dispatch]
+  );
+  const setYear = useCallback(
+    (y: number | null) => dispatch(setYearFilter(y)),
+    [dispatch]
+  );
+  const setHuerta = useCallback(
+    (id: number | null) => dispatch(setHuertaId(id)),
+    [dispatch]
+  );
+  const setHuertaRentada = useCallback(
+    (id: number | null) => dispatch(setHuertaRentadaId(id)),
+    [dispatch]
+  );
+  const setEstado = useCallback(
+    (estado: 'activas' | 'archivadas' | 'todas') =>
+      dispatch(setEstadoFilter(estado)),
+    [dispatch]
+  );
+  const setFinalizada = useCallback(
+    (finalizada: boolean | null) => dispatch(setFinalizadaFilter(finalizada)),
+    [dispatch]
+  );
+  const setSearch = useCallback(
+    (search: string) => dispatch(setSearchFilter(search)),
+    [dispatch]
+  );
 
   // Helper para refrescar con filtros actuales
   const refreshWithCurrentFilters = () => {

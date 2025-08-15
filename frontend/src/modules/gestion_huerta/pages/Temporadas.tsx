@@ -57,6 +57,19 @@ const Temporadas: React.FC = () => {
   const [search] = useSearchParams();
   const huertaId = Number(search.get('huerta_id') || 0) || null;
 
+  const { huertas } = useHuertas();
+  const { huertas: rentadas } = useHuertasRentadas();
+
+  // Detectar huerta seleccionada y sincronizar filtro global
+  const huertaSel = useMemo(() => {
+    if (!huertaId) return null;
+    return (
+      huertas.find((h) => h.id === huertaId) ||
+      rentadas.find((h) => h.id === huertaId) ||
+      null
+    );
+  }, [huertaId, huertas, rentadas]);
+
   const {
     temporadas,
     loading,
@@ -71,42 +84,37 @@ const Temporadas: React.FC = () => {
     setEstado,
     setFinalizada,
     setSearch,
+    huertaId: selHuertaId,
     setHuerta,
+    huertaRentadaId: selHuertaRentadaId,
     setHuertaRentada,
     addTemporada,
     removeTemporada,
     finalizeTemporada,
     archiveTemporada,
     restoreTemporada,
-  } = useTemporadas();
-
-  const { huertas } = useHuertas();
-  const { huertas: rentadas } = useHuertasRentadas();
-
-  // Detectar huerta seleccionada y sincronizar filtro global
-  const huertaSel = useMemo(() => {
-    if (!huertaId) return null;
-    return (
-      huertas.find((h) => h.id === huertaId) ||
-      rentadas.find((h) => h.id === huertaId) ||
-      null
-    );
-  }, [huertaId, huertas, rentadas]);
+  } = useTemporadas({ enabled: !!huertaSel });
 
   useEffect(() => {
     if (huertaSel) {
       if ('monto_renta' in huertaSel) {
-        setHuerta(null);
-        setHuertaRentada(huertaSel.id);
+        if (selHuertaRentadaId !== huertaSel.id) setHuertaRentada(huertaSel.id);
+        if (selHuertaId !== null) setHuerta(null);
       } else {
-        setHuerta(huertaSel.id);
-        setHuertaRentada(null);
+        if (selHuertaId !== huertaSel.id) setHuerta(huertaSel.id);
+        if (selHuertaRentadaId !== null) setHuertaRentada(null);
       }
     } else {
-      setHuerta(null);
-      setHuertaRentada(null);
+      if (selHuertaId !== null) setHuerta(null);
+      if (selHuertaRentadaId !== null) setHuertaRentada(null);
     }
-  }, [huertaSel, setHuerta, setHuertaRentada]);
+  }, [
+    huertaSel,
+    selHuertaId,
+    selHuertaRentadaId,
+    setHuerta,
+    setHuertaRentada,
+  ]);
 
   /* ──────────────────── Breadcrumbs ──────────────────── */
   useEffect(() => {
