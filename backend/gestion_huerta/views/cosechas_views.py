@@ -48,6 +48,8 @@ def _map_cosecha_validation_errors(errors: dict) -> tuple[str, dict]:
             return "cosecha_limite_temporada", {"errors": errors}
         if txt == "Ya existe una cosecha con ese nombre en esta temporada.":
             return "cosecha_duplicada", {"errors": errors}
+        if txt == "Ya existe una cosecha activa en esta temporada.":
+            return "cosecha_activa_existente", {"errors": errors}
         if txt == "No puedes cambiar la temporada de una cosecha existente.":
             return "cosecha_cambiar_temporada_prohibido", {"errors": errors}
         if txt == "El nombre de la cosecha debe tener al menos 3 caracteres.":
