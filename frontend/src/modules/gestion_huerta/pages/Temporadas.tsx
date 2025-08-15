@@ -84,7 +84,9 @@ const Temporadas: React.FC = () => {
     setEstado,
     setFinalizada,
     setSearch,
+    huertaId: selHuertaId,
     setHuerta,
+    huertaRentadaId: selHuertaRentadaId,
     setHuertaRentada,
     addTemporada,
     removeTemporada,
@@ -96,17 +98,23 @@ const Temporadas: React.FC = () => {
   useEffect(() => {
     if (huertaSel) {
       if ('monto_renta' in huertaSel) {
-        setHuerta(null);
-        setHuertaRentada(huertaSel.id);
+        if (selHuertaRentadaId !== huertaSel.id) setHuertaRentada(huertaSel.id);
+        if (selHuertaId !== null) setHuerta(null);
       } else {
-        setHuerta(huertaSel.id);
-        setHuertaRentada(null);
+        if (selHuertaId !== huertaSel.id) setHuerta(huertaSel.id);
+        if (selHuertaRentadaId !== null) setHuertaRentada(null);
       }
     } else {
-      setHuerta(null);
-      setHuertaRentada(null);
+      if (selHuertaId !== null) setHuerta(null);
+      if (selHuertaRentadaId !== null) setHuertaRentada(null);
     }
-  }, [huertaSel, setHuerta, setHuertaRentada]);
+  }, [
+    huertaSel,
+    selHuertaId,
+    selHuertaRentadaId,
+    setHuerta,
+    setHuertaRentada,
+  ]);
 
   /* ──────────────────── Breadcrumbs ──────────────────── */
   useEffect(() => {
