@@ -1,14 +1,16 @@
 // src/global/routes/AppRouter.tsx
 import { Routes, Route } from 'react-router-dom';
+import { lazy } from 'react';
 
 import PrivateRoute from '../../components/common/PrivateRoute';
 import RoleGuard    from '../../components/common/RoleGuard';
 import MainLayout   from '../../components/layout/MainLayout';
 import ErrorBoundary from '../../components/common/ErrorBoundary';
+import LazyRoot from '../../LazyRoot';
 
-import Login        from '../../modules/gestion_usuarios/pages/Login';
-import Dashboard    from '../../modules/gestion_usuarios/pages/Dashboard';
-import Unauthorized from '../../components/common/Unauthorized';
+const Login        = lazy(() => import('../../modules/gestion_usuarios/pages/Login'));
+const Dashboard    = lazy(() => import('../../modules/gestion_usuarios/pages/Dashboard'));
+const Unauthorized = lazy(() => import('../../components/common/Unauthorized'));
 
 import { moduleRoutes } from './moduleRoutes';
 
@@ -21,14 +23,14 @@ function AppRouter() {
     }>
       <Routes>
         {/* ---------- PÚBLICAS ---------- */}
-        <Route path="/"         element={<Login />} />
-        <Route path="/login"    element={<Login />} />
-        <Route path="/unauthorized" element={<Unauthorized />} />
+        <Route path="/"         element={<LazyRoot><Login /></LazyRoot>} />
+        <Route path="/login"    element={<LazyRoot><Login /></LazyRoot>} />
+        <Route path="/unauthorized" element={<LazyRoot><Unauthorized /></LazyRoot>} />
 
         {/* -------- PRIVADAS CON LAYOUT -------- */}
         <Route element={<PrivateRoute />}>
           <Route element={<MainLayout />}>
-            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/dashboard" element={<LazyRoot><Dashboard /></LazyRoot>} />
 
             {moduleRoutes.map(({ path, allowedRoles, element }, idx) => (
               <Route
