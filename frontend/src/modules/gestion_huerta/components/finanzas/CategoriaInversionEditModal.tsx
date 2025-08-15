@@ -1,4 +1,3 @@
-// src/modules/gestion_huerta/components/finanzas/CategoriaInversionEditModal.tsx
 import React from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
@@ -34,8 +33,6 @@ const CategoriaInversionEditModal: React.FC<Props> = ({ open, categoria, onClose
         enableReinitialize
         initialValues={{ nombre: initialNombre }}
         validationSchema={schema}
-        validateOnChange={false}
-        validateOnBlur={false}
         onSubmit={async (vals, helpers) => {
           if (!categoria) {
             onClose();
@@ -49,23 +46,29 @@ const CategoriaInversionEditModal: React.FC<Props> = ({ open, categoria, onClose
             }
             const updated = await editCategoria(categoria.id, { nombre });
 
-            // 🔔 Notificar globalmente para refrescar mapas/listas
             window.dispatchEvent(new CustomEvent('categoria-updated', { detail: updated }));
 
-            onSuccess(updated); // devuelve la categoría actualizada al caller
-          } catch (err: any) {
-            const be = err?.response?.data || err?.data || {};
+            onSuccess(updated);
+          } catch (err: unknown) {
+            let be: any = err;
+            if (typeof err === 'object' && err !== null) {
+              const maybe = err as { response?: { data?: any }; data?: any };
+              be = maybe.response?.data ?? maybe.data ?? err;
+            }
             const fieldErrors = be?.errors || be?.data?.errors || {};
             Object.entries(fieldErrors).forEach(([k, v]: any) => {
               helpers.setFieldError(k, Array.isArray(v) ? v[0] : String(v));
             });
+            if (fieldErrors?.nombre) {
+              helpers.setTouched({ nombre: true }, false);
+            }
             handleBackendNotification(be);
           } finally {
             helpers.setSubmitting(false);
           }
         }}
       >
-        {({ values, errors, handleChange, isSubmitting, submitForm }) => (
+        {({ values, errors, touched, handleChange, handleBlur, isSubmitting, submitForm }) => (
           <Form>
             <DialogContent dividers>
               <TextField
@@ -75,17 +78,14 @@ const CategoriaInversionEditModal: React.FC<Props> = ({ open, categoria, onClose
                 name="nombre"
                 value={values.nombre}
                 onChange={handleChange}
-                error={!!errors.nombre}
-                helperText={errors.nombre}
+                onBlur={handleBlur}
+                error={Boolean(touched.nombre && errors.nombre)}
+                helperText={touched.nombre && errors.nombre}
               />
             </DialogContent>
             <DialogActions>
               <Button onClick={onClose} disabled={isSubmitting}>Cancelar</Button>
-              <Button
-                variant="contained"
-                disabled={isSubmitting}
-                onClick={submitForm}
-              >
+              <Button variant="contained" disabled={isSubmitting} onClick={submitForm}>
                 {isSubmitting ? <CircularProgress size={20} /> : 'Guardar'}
               </Button>
             </DialogActions>

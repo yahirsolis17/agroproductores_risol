@@ -33,7 +33,7 @@ def _is_only_archival_fields(update_fields):
 class Propietario(models.Model):
     nombre     = models.CharField(max_length=100)
     apellidos  = models.CharField(max_length=100)
-    telefono   = models.CharField(max_length=15, unique=True)
+    telefono   = models.CharField(max_length=15)
     direccion  = models.CharField(max_length=255)
 
     is_active    = models.BooleanField(default=True)
@@ -316,7 +316,7 @@ class Temporada(models.Model):
 
 # ────────────── CATEGORÍA DE INVERSIÓN ────────────────────────────────────
 class CategoriaInversion(models.Model):
-    nombre       = models.CharField(max_length=100, unique=True)
+    nombre       = models.CharField(max_length=100)
 
     is_active    = models.BooleanField(default=True)
     archivado_en = models.DateTimeField(null=True, blank=True)

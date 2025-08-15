@@ -13,7 +13,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onSuccess: (cat: CategoriaInversion) => void;
-  initial?: CategoriaInversion;  // ← NUEVO: si viene, editamos
+  initial?: CategoriaInversion;
 }
 
 const schema = Yup.object({
@@ -38,7 +38,6 @@ const CategoriaFormModal: React.FC<Props> = ({ open, onClose, onSuccess, initial
               ? await editCategoria(initial!.id, { nombre })
               : await addCategoria({ nombre });
 
-            // 🔔 Notificar globalmente para refrescar mapas/listas sin recargar página
             window.dispatchEvent(
               new CustomEvent(isEdit ? 'categoria-updated' : 'categoria-created', { detail: cat })
             );
@@ -46,11 +45,26 @@ const CategoriaFormModal: React.FC<Props> = ({ open, onClose, onSuccess, initial
             onSuccess(cat);
             onClose();
           } catch (err: unknown) {
-            const be = err?.response?.data || err?.data || {};
-            const fieldErrors = be?.errors || be?.data?.errors || {};
-            Object.entries(fieldErrors).forEach(([k, v]: [string, unknown]) => {
-              helpers.setFieldError(k, Array.isArray(v) ? v[0] : String(v));
+            // err puede ser: envelope (por rejectWithValue), AxiosError, string, etc.
+            let be: any = err;
+            if (typeof err === 'object' && err !== null) {
+              const maybe = err as { response?: { data?: any }; data?: any };
+              be = maybe.response?.data ?? maybe.data ?? err;
+            }
+
+            const fieldErrors: Record<string, any> =
+              be?.errors || be?.data?.errors || {};
+
+            Object.entries(fieldErrors).forEach(([k, v]) => {
+              const msg = Array.isArray(v) ? v[0] : String(v);
+              helpers.setFieldError(k, msg);
             });
+
+            // Fuerza "touched" para que MUI pinte en rojo
+            if (fieldErrors?.nombre) {
+              helpers.setTouched({ nombre: true }, false);
+            }
+
             handleBackendNotification(be);
           } finally {
             helpers.setSubmitting(false);
@@ -63,19 +77,22 @@ const CategoriaFormModal: React.FC<Props> = ({ open, onClose, onSuccess, initial
               <TextField
                 autoFocus
                 fullWidth
-                label="Nombre de la categoría"
+                id="nombre"
                 name="nombre"
+                label="Nombre de la categoría"
                 value={values.nombre}
                 onChange={handleChange}
                 onBlur={handleBlur}
-                error={touched.nombre && Boolean(errors.nombre)}
+                error={Boolean(touched.nombre && errors.nombre)}
                 helperText={touched.nombre && errors.nombre}
               />
             </DialogContent>
             <DialogActions>
               <Button onClick={onClose} disabled={isSubmitting}>Cancelar</Button>
               <Button type="submit" variant="contained" disabled={isSubmitting}>
-                {isEdit ? (isSubmitting ? <CircularProgress size={20} /> : 'Guardar') : (isSubmitting ? <CircularProgress size={20} /> : 'Crear')}
+                {isSubmitting ? (
+                  <CircularProgress size={20} />
+                ) : isEdit ? 'Guardar' : 'Crear'}
               </Button>
             </DialogActions>
           </Form>

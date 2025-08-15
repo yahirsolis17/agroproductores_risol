@@ -31,7 +31,7 @@ const initialState: CategoriaState = {
 export const fetchCategorias = createAsyncThunk<
   { categorias: CategoriaInversion[]; meta: PaginationMeta; page: number },
   number,
-  { rejectValue: string }
+  { rejectValue: any }
 >(
   'categoriasInversion/fetch',
   async (page = 1, { rejectWithValue }) => {
@@ -39,17 +39,18 @@ export const fetchCategorias = createAsyncThunk<
       const { categorias, meta } = await categoriaInversionService.listActive(page);
       return { categorias, meta, page };
     } catch (err: any) {
-      handleBackendNotification(err?.response?.data || err);
-      return rejectWithValue('Error al cargar categorías');
+      const be = err?.response?.data || err?.data || err;
+      handleBackendNotification(be);
+      return rejectWithValue(be);
     }
   }
 );
 
-/* ───── CRUD Thunks (usando ENVELOPE para notificación del backend) ───── */
+/* ───── CRUD Thunks (propagando ENVELOPE del backend) ───── */
 export const createCategoria = createAsyncThunk<
   CategoriaInversion,
   CategoriaInversionCreateData,
-  { rejectValue: string }
+  { rejectValue: any }
 >(
   'categoriasInversion/create',
   async (payload, { rejectWithValue }) => {
@@ -59,8 +60,9 @@ export const createCategoria = createAsyncThunk<
       const cat = (res.data as any).categoria ?? (res.data as any).categoria_inversion;
       return cat as CategoriaInversion;
     } catch (err: any) {
-      handleBackendNotification(err?.response?.data || err);
-      return rejectWithValue('Error al crear categoría');
+      const be = err?.response?.data || err?.data || err;
+      handleBackendNotification(be);
+      return rejectWithValue(be); // ← propagamos errores de campo
     }
   }
 );
@@ -68,7 +70,7 @@ export const createCategoria = createAsyncThunk<
 export const updateCategoria = createAsyncThunk<
   CategoriaInversion,
   { id: number; payload: CategoriaInversionUpdateData },
-  { rejectValue: string }
+  { rejectValue: any }
 >(
   'categoriasInversion/update',
   async ({ id, payload }, { rejectWithValue }) => {
@@ -78,8 +80,9 @@ export const updateCategoria = createAsyncThunk<
       const cat = (res.data as any).categoria ?? (res.data as any).categoria_inversion;
       return cat as CategoriaInversion;
     } catch (err: any) {
-      handleBackendNotification(err?.response?.data || err);
-      return rejectWithValue('Error al actualizar categoría');
+      const be = err?.response?.data || err?.data || err;
+      handleBackendNotification(be);
+      return rejectWithValue(be);
     }
   }
 );
@@ -87,7 +90,7 @@ export const updateCategoria = createAsyncThunk<
 export const archiveCategoria = createAsyncThunk<
   CategoriaInversion,
   number,
-  { rejectValue: string }
+  { rejectValue: any }
 >(
   'categoriasInversion/archive',
   async (id, { rejectWithValue }) => {
@@ -97,8 +100,9 @@ export const archiveCategoria = createAsyncThunk<
       const cat = (res.data as any).categoria ?? (res.data as any).categoria_inversion;
       return cat as CategoriaInversion;
     } catch (err: any) {
-      handleBackendNotification(err?.response?.data || err);
-      return rejectWithValue('Error al archivar categoría');
+      const be = err?.response?.data || err?.data || err;
+      handleBackendNotification(be);
+      return rejectWithValue(be);
     }
   }
 );
@@ -106,7 +110,7 @@ export const archiveCategoria = createAsyncThunk<
 export const restoreCategoria = createAsyncThunk<
   CategoriaInversion,
   number,
-  { rejectValue: string }
+  { rejectValue: any }
 >(
   'categoriasInversion/restore',
   async (id, { rejectWithValue }) => {
@@ -116,8 +120,9 @@ export const restoreCategoria = createAsyncThunk<
       const cat = (res.data as any).categoria ?? (res.data as any).categoria_inversion;
       return cat as CategoriaInversion;
     } catch (err: any) {
-      handleBackendNotification(err?.response?.data || err);
-      return rejectWithValue('Error al restaurar categoría');
+      const be = err?.response?.data || err?.data || err;
+      handleBackendNotification(be);
+      return rejectWithValue(be);
     }
   }
 );
@@ -125,7 +130,7 @@ export const restoreCategoria = createAsyncThunk<
 export const deleteCategoria = createAsyncThunk<
   number,
   number,
-  { rejectValue: string }
+  { rejectValue: any }
 >(
   'categoriasInversion/delete',
   async (id, { rejectWithValue }) => {
@@ -134,8 +139,9 @@ export const deleteCategoria = createAsyncThunk<
       handleBackendNotification(res);
       return id;
     } catch (err: any) {
-      handleBackendNotification(err?.response?.data || err);
-      return rejectWithValue('Error al eliminar categoría');
+      const be = err?.response?.data || err?.data || err;
+      handleBackendNotification(be);
+      return rejectWithValue(be);
     }
   }
 );
@@ -160,7 +166,7 @@ const categoriaSlice = createSlice({
     b.addCase(fetchCategorias.rejected,  (s, { payload, error }) => {
       s.loading = false;
       s.loaded  = true;
-      s.error   = (payload as string) ?? error.message ?? 'Error';
+      s.error   = (payload as any)?.message ?? error.message ?? 'Error';
     });
 
     /* create */
@@ -177,11 +183,9 @@ const categoriaSlice = createSlice({
 
     /* archive / restore / delete */
     b.addCase(archiveCategoria.fulfilled, (s, { payload }) => {
-      // si estamos listando activas, la sacamos del listado
       s.list = s.list.filter(c => c.id !== payload.id);
     });
     b.addCase(restoreCategoria.fulfilled, (s, { payload }) => {
-      // si estamos listando activas, reingresa al inicio
       s.list.unshift(payload);
     });
     b.addCase(deleteCategoria.fulfilled, (s, { payload: id }) => {
