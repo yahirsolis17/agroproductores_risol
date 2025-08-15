@@ -16,8 +16,8 @@ import { PermissionButton } from '../../../../components/common/PermissionButton
 interface Props {
   open: boolean;
   onClose: () => void;
-  onSubmit: (v: PropietarioCreateData) => Promise<any>;
-  onSuccess?: (nuevo: any) => void;
+  onSubmit: (v: PropietarioCreateData) => Promise<unknown>;
+  onSuccess?: (nuevo: unknown) => void;
   initialValues?: PropietarioCreateData;
   isEdit?: boolean;
 }
@@ -68,14 +68,12 @@ export default function PropietarioFormModal({
       <Formik
         initialValues={initialValues || defaults}
         validationSchema={yupSchema}
-        validateOnChange={false}
-        validateOnBlur={false}
         onSubmit={async (vals, { setSubmitting, setErrors }) => {
           try {
             const nuevo = await onSubmit(vals); // ← el thunk ya mostró el toast
             onSuccess?.(nuevo);
             onClose();
-          } catch (error: any) {
+          } catch (error: unknown) {
             const backend = error?.data || error?.response?.data || {};
             const beErrors = backend.errors || backend.data?.errors || {};
             const formikErrors: Record<string, string> = {};
@@ -92,6 +90,7 @@ export default function PropietarioFormModal({
         {({
           values,
           errors,
+          touched,
           handleChange,
           handleBlur,
           isSubmitting,
@@ -100,6 +99,7 @@ export default function PropietarioFormModal({
             <DialogContent dividers className="space-y-4">
               {['nombre', 'apellidos', 'telefono', 'direccion'].map((field) => {
                 const error = errors[field as keyof typeof errors];
+                const isTouched = touched[field as keyof typeof touched];
                 return (
                   <TextField
                     key={field}
@@ -109,8 +109,8 @@ export default function PropietarioFormModal({
                     value={values[field as keyof typeof values]}
                     onChange={handleChange}
                     onBlur={handleBlur}
-                    error={Boolean(error)}
-                    helperText={error || ''}
+                    error={Boolean(isTouched && error)}
+                    helperText={isTouched && error}
                   />
                 );
               })}

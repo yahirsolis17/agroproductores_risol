@@ -1,5 +1,4 @@
 // src/modules/gestion_huerta/components/finanzas/VentaFormModal.tsx
-/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useRef } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
@@ -41,7 +40,7 @@ function formatMX(input: string | number): string {
   return Math.trunc(n).toLocaleString('es-MX', { maximumFractionDigits: 0 });
 }
 
-function msg(e: any): string {
+function msg(e: unknown): string {
   if (!e) return '';
   if (typeof e === 'string') return e;
   if (Array.isArray(e)) return e.map(x => (typeof x === 'string' ? x : '')).filter(Boolean)[0] || '';
@@ -100,7 +99,7 @@ const schema = Yup.object({
 interface Props {
   open: boolean;
   onClose: () => void;
-  onSubmit: (vals: VentaCreateData | VentaUpdateData) => Promise<any>;
+  onSubmit: (vals: VentaCreateData | VentaUpdateData) => Promise<unknown>;
   initialValues?: VentaHuerta;
 }
 
@@ -146,7 +145,7 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
     try {
       await onSubmit(payload);
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       const backend = err?.data || err?.response?.data || {};
       const beErrors = backend.errors || backend.data?.errors || {};
       const fieldErrors: Record<string, string> = {};
@@ -160,7 +159,7 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
       }
 
       // Mapear nombres de backend → nombres del form
-      Object.entries(beErrors).forEach(([f, val]: [string, any]) => {
+      Object.entries(beErrors).forEach(([f, val]: [string, unknown]) => {
         const text = Array.isArray(val) ? String(val[0]) : String(val);
         switch (f) {
           case 'fecha':
@@ -193,7 +192,7 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
   const handleMoneyChange = (
     field: 'num_cajas' | 'precio_por_caja' | 'gasto',
     raw: string,
-    setFieldValue: (f: string, v: any) => void
+    setFieldValue: (f: string, v: unknown) => void
   ) => {
     let errorMsg: string | undefined;
 
@@ -237,11 +236,9 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
         initialValues={initialFormValues}
         enableReinitialize
         validationSchema={schema}
-        validateOnBlur={false}
-        validateOnChange={false}
         onSubmit={handleSubmit}
       >
-        {({ values, errors, isSubmitting, handleChange, setFieldValue }) => (
+        {({ values, errors, touched, isSubmitting, handleChange, handleBlur, setFieldValue }) => (
           <Form>
             <DialogContent>
 
@@ -255,10 +252,11 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
                   setFieldValue('fecha_venta', e.target.value);
                   formikRef.current?.setFieldError('fecha_venta', undefined);
                 }}
+                onBlur={handleBlur}
                 margin="normal"
                 fullWidth
-                error={Boolean(msg(errors.fecha_venta))}
-                helperText={msg(errors.fecha_venta)}
+                error={touched.fecha_venta && Boolean(msg(errors.fecha_venta))}
+                helperText={touched.fecha_venta && msg(errors.fecha_venta)}
                 InputLabelProps={{ shrink: true }}
               />
 
@@ -271,11 +269,12 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
                   setFieldValue('tipo_mango', e.target.value);
                   formikRef.current?.setFieldError('tipo_mango', undefined);
                 }}
+                onBlur={handleBlur}
                 margin="normal"
                 fullWidth
                 placeholder="Ej. Ataulfo, Kent, Tommy Atkins…"
-                error={Boolean(msg(errors.tipo_mango))}
-                helperText={msg(errors.tipo_mango)}
+                error={touched.tipo_mango && Boolean(msg(errors.tipo_mango))}
+                helperText={touched.tipo_mango && msg(errors.tipo_mango)}
               />
 
               {/* Número de cajas */}
@@ -284,12 +283,13 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
                 name="num_cajas"
                 value={values.num_cajas}
                 onChange={(e) => handleMoneyChange('num_cajas', e.target.value, setFieldValue)}
+                onBlur={handleBlur}
                 inputMode="numeric"
                 placeholder="Ej. 320"
                 margin="normal"
                 fullWidth
-                error={Boolean(msg(errors.num_cajas))}
-                helperText={msg(errors.num_cajas)}
+                error={touched.num_cajas && Boolean(msg(errors.num_cajas))}
+                helperText={touched.num_cajas && msg(errors.num_cajas)}
               />
 
               {/* Precio por caja */}
@@ -298,12 +298,13 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
                 name="precio_por_caja"
                 value={values.precio_por_caja}
                 onChange={(e) => handleMoneyChange('precio_por_caja', e.target.value, setFieldValue)}
+                onBlur={handleBlur}
                 inputMode="numeric"
                 placeholder="Ej. 220"
                 margin="normal"
                 fullWidth
-                error={Boolean(msg(errors.precio_por_caja))}
-                helperText={msg(errors.precio_por_caja)}
+                error={touched.precio_por_caja && Boolean(msg(errors.precio_por_caja))}
+                helperText={touched.precio_por_caja && msg(errors.precio_por_caja)}
               />
 
               {/* Gasto (OBLIGATORIO, puede ser 0, sin decimales) */}
@@ -312,12 +313,13 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
                 name="gasto"
                 value={values.gasto}
                 onChange={(e) => handleMoneyChange('gasto', e.target.value, setFieldValue)}
+                onBlur={handleBlur}
                 inputMode="numeric"
                 placeholder="Ej. 3,500"
                 margin="normal"
                 fullWidth
-                error={Boolean(msg(errors.gasto))}
-                helperText={msg(errors.gasto)}
+                error={touched.gasto && Boolean(msg(errors.gasto))}
+                helperText={touched.gasto && msg(errors.gasto)}
               />
 
               {/* Descripción */}
@@ -326,12 +328,13 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
                 name="descripcion"
                 value={values.descripcion}
                 onChange={handleChange}
+                onBlur={handleBlur}
                 margin="normal"
                 fullWidth
                 multiline
                 rows={2}
-                error={Boolean(msg(errors.descripcion))}
-                helperText={msg(errors.descripcion)}
+                error={touched.descripcion && Boolean(msg(errors.descripcion))}
+                helperText={touched.descripcion && msg(errors.descripcion)}
               />
             </DialogContent>
 

@@ -31,8 +31,6 @@ const CategoriaFormModal: React.FC<Props> = ({ open, onClose, onSuccess, initial
         initialValues={{ nombre: initial?.nombre ?? '' }}
         validationSchema={schema}
         enableReinitialize
-        validateOnChange={false}
-        validateOnBlur={false}
         onSubmit={async (vals, helpers) => {
           try {
             const nombre = vals.nombre.trim();
@@ -47,10 +45,10 @@ const CategoriaFormModal: React.FC<Props> = ({ open, onClose, onSuccess, initial
 
             onSuccess(cat);
             onClose();
-          } catch (err: any) {
+          } catch (err: unknown) {
             const be = err?.response?.data || err?.data || {};
             const fieldErrors = be?.errors || be?.data?.errors || {};
-            Object.entries(fieldErrors).forEach(([k, v]: any) => {
+            Object.entries(fieldErrors).forEach(([k, v]: [string, unknown]) => {
               helpers.setFieldError(k, Array.isArray(v) ? v[0] : String(v));
             });
             handleBackendNotification(be);
@@ -59,7 +57,7 @@ const CategoriaFormModal: React.FC<Props> = ({ open, onClose, onSuccess, initial
           }
         }}
       >
-        {({ values, errors, handleChange, isSubmitting }) => (
+        {({ values, errors, touched, handleChange, handleBlur, isSubmitting }) => (
           <Form>
             <DialogContent dividers>
               <TextField
@@ -69,8 +67,9 @@ const CategoriaFormModal: React.FC<Props> = ({ open, onClose, onSuccess, initial
                 name="nombre"
                 value={values.nombre}
                 onChange={handleChange}
-                error={!!errors.nombre}
-                helperText={errors.nombre}
+                onBlur={handleBlur}
+                error={touched.nombre && Boolean(errors.nombre)}
+                helperText={touched.nombre && errors.nombre}
               />
             </DialogContent>
             <DialogActions>

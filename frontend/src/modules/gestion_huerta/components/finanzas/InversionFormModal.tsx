@@ -44,7 +44,7 @@ function formatMX(input: string | number): string {
   return Math.trunc(n).toLocaleString('es-MX', { maximumFractionDigits: 0 });
 }
 
-function msg(e: any): string {
+function msg(e: unknown): string {
   if (!e) return '';
   if (typeof e === 'string') return e;
   if (Array.isArray(e)) return e.map(x => (typeof x === 'string' ? x : '')).filter(Boolean)[0] || '';
@@ -86,7 +86,7 @@ const schema = Yup.object({
 interface Props {
   open: boolean;
   onClose: () => void;
-  onSubmit: (vals: InversionCreateData | InversionUpdateData) => Promise<any>;
+  onSubmit: (vals: InversionCreateData | InversionUpdateData) => Promise<unknown>;
   initialValues?: InversionHuerta;
 }
 
@@ -102,8 +102,8 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
   // abrir modal crear desde el Autocomplete (evento global)
   useEffect(() => {
     const onOpen = () => setOpenCatModal(true);
-    window.addEventListener('open-create-categoria', onOpen as any);
-    return () => window.removeEventListener('open-create-categoria', onOpen as any);
+    window.addEventListener('open-create-categoria', onOpen as EventListener);
+    return () => window.removeEventListener('open-create-categoria', onOpen as EventListener);
   }, []);
 
   const initialFormValues: FormValues = initialValues ? {
@@ -140,7 +140,7 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
     try {
       await onSubmit(payload);
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       const backend = err?.data || err?.response?.data || {};
       const beErrors = backend.errors || backend.data?.errors || {};
       const fieldErrors: Record<string, string> = {};
@@ -151,7 +151,7 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
           fieldErrors[f] = msg;
         });
       }
-      Object.entries(beErrors).forEach(([f, msgVal]: [string, any]) => {
+      Object.entries(beErrors).forEach(([f, msgVal]: [string, unknown]) => {
         if (f !== 'non_field_errors') {
           const text = Array.isArray(msgVal) ? String(msgVal[0]) : String(msgVal);
           fieldErrors[f] = text;
@@ -172,7 +172,7 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
   const handleMoneyChange = (
     field: 'gastos_insumos' | 'gastos_mano_obra',
     raw: string,
-    setFieldValue: (f: string, v: any) => void
+    setFieldValue: (f: string, v: unknown) => void
   ) => {
     let errorMsg: string | undefined;
     // Detect invalid characters: anything other than digits, spaces or commas
@@ -218,11 +218,9 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
           initialValues={initialFormValues}
           enableReinitialize
           validationSchema={schema}
-          validateOnBlur={false}
-          validateOnChange={false}
           onSubmit={handleSubmit}
         >
-          {({ values, errors, isSubmitting, handleChange, setFieldValue }) => (
+          {({ values, errors, touched, isSubmitting, handleChange, handleBlur, setFieldValue }) => (
             <Form>
               <DialogContent>
                 {/* Fecha */}
@@ -232,10 +230,11 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
                   name="fecha"
                   value={values.fecha}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   margin="normal"
                   fullWidth
-                  error={Boolean(msg(errors.fecha))}
-                  helperText={msg(errors.fecha)}
+                  error={touched.fecha && Boolean(msg(errors.fecha))}
+                  helperText={touched.fecha && msg(errors.fecha)}
                 />
 
                 <CategoriaAutocomplete
@@ -247,10 +246,11 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
                     if (id) {
                       formikRef.current?.setFieldError('categoria', undefined);
                     }
+                    formikRef.current?.setFieldTouched('categoria', true, false);
                   }}
                   label="Categoría"
-                  error={Boolean(msg(errors.categoria))}
-                  helperText={msg(errors.categoria)}
+                  error={touched.categoria && Boolean(msg(errors.categoria))}
+                  helperText={touched.categoria && msg(errors.categoria)}
                 />
 
               
@@ -261,12 +261,13 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
                   onChange={(e) =>
                     handleMoneyChange('gastos_insumos', e.target.value, setFieldValue)
                   }
+                  onBlur={handleBlur}
                   inputMode="numeric"
                   placeholder="Ej. 12,500"
                   margin="normal"
                   fullWidth
-                  error={Boolean(msg(errors.gastos_insumos))}
-                  helperText={msg(errors.gastos_insumos)}
+                  error={touched.gastos_insumos && Boolean(msg(errors.gastos_insumos))}
+                  helperText={touched.gastos_insumos && msg(errors.gastos_insumos)}
                 />
 
                 {/* Gastos mano de obra */}
@@ -277,12 +278,13 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
                   onChange={(e) =>
                     handleMoneyChange('gastos_mano_obra', e.target.value, setFieldValue)
                   }
+                  onBlur={handleBlur}
                   inputMode="numeric"
                   placeholder="Ej. 8,000"
                   margin="normal"
                   fullWidth
-                  error={Boolean(msg(errors.gastos_mano_obra))}
-                  helperText={msg(errors.gastos_mano_obra)}
+                  error={touched.gastos_mano_obra && Boolean(msg(errors.gastos_mano_obra))}
+                  helperText={touched.gastos_mano_obra && msg(errors.gastos_mano_obra)}
                 />
 
                 {/* Descripción */}
@@ -291,12 +293,13 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
                   name="descripcion"
                   value={values.descripcion}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   margin="normal"
                   fullWidth
                   multiline
                   rows={2}
-                  error={Boolean(msg(errors.descripcion))}
-                  helperText={msg(errors.descripcion)}
+                  error={touched.descripcion && Boolean(msg(errors.descripcion))}
+                  helperText={touched.descripcion && msg(errors.descripcion)}
                 />
               </DialogContent>
               <DialogActions>
