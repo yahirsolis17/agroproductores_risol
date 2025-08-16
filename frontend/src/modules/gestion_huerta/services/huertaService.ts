@@ -41,6 +41,15 @@ export const huertaService = {
     return { huertas: list, meta: raw.meta };
   },
 
+  async retrieve(id: number, config: { signal?: AbortSignal } = {}): Promise<Huerta> {
+    const { data } = await apiClient.get<{
+      success: boolean;
+      message_key: string;
+      data: ItemWrapper;
+    }>(`/huerta/huertas/${id}/`, { signal: config.signal });
+    return data.data.huerta;
+  },
+
   async create(payload: HuertaCreateData) {
     const { data } = await apiClient.post<{
       success: boolean;

@@ -25,6 +25,10 @@ import { useTemporadas } from '../hooks/useTemporadas';
 import { useHuertas } from '../hooks/useHuertas';
 import { useHuertasRentadas } from '../hooks/useHuertaRentada';
 import { TemporadaCreateData, Temporada } from '../types/temporadaTypes';
+import { Huerta } from '../types/huertaTypes';
+import { HuertaRentada } from '../types/huertaRentadaTypes';
+import { huertaService } from '../services/huertaService';
+import { huertaRentadaService } from '../services/huertaRentadaService';
 import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
 
 import { setBreadcrumbs, clearBreadcrumbs } from '../../../global/store/breadcrumbsSlice';
@@ -60,15 +64,37 @@ const Temporadas: React.FC = () => {
   const { huertas } = useHuertas();
   const { huertas: rentadas } = useHuertasRentadas();
 
-  // Detectar huerta seleccionada y sincronizar filtro global
-  const huertaSel = useMemo(() => {
-    if (!huertaId) return null;
-    return (
-      huertas.find((h) => h.id === huertaId) ||
-      rentadas.find((h) => h.id === huertaId) ||
-      null
-    );
-  }, [huertaId, huertas, rentadas]);
+  const [huertaSel, setHuertaSel] = useState<Huerta | HuertaRentada | null>(null);
+  const [huertaLoading, setHuertaLoading] = useState(false);
+  const [huertaError, setHuertaError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const fetchHuerta = async () => {
+      if (!huertaId) {
+        setHuertaSel(null);
+        return;
+      }
+      setHuertaLoading(true);
+      setHuertaError(null);
+      try {
+        const h = await huertaService.retrieve(huertaId, { signal: controller.signal });
+        setHuertaSel(h);
+      } catch {
+        try {
+          const hr = await huertaRentadaService.retrieve(huertaId, { signal: controller.signal });
+          setHuertaSel(hr);
+        } catch {
+          setHuertaSel(null);
+          setHuertaError('Huerta no encontrada.');
+        }
+      } finally {
+        setHuertaLoading(false);
+      }
+    };
+    fetchHuerta();
+    return () => controller.abort();
+  }, [huertaId]);
 
   const {
     temporadas,
@@ -281,19 +307,29 @@ const Temporadas: React.FC = () => {
           Gestión de Temporadas
         </Typography>
 
-        {huertaSel && (
-          <Box mb={2}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
-              Huerta seleccionada: {huertaSel.nombre}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Propietario:{' '}
-              {huertaSel.propietario_detalle
-                ? `${huertaSel.propietario_detalle.nombre} ${huertaSel.propietario_detalle.apellidos}`
-                : '—'}
-            </Typography>
-            <Divider sx={{ mt: 1 }} />
+        {huertaLoading ? (
+          <Box mb={2} display="flex" justifyContent="center">
+            <CircularProgress />
           </Box>
+        ) : huertaError ? (
+          <Typography color="error" sx={{ mb: 2 }}>
+            {huertaError}
+          </Typography>
+        ) : (
+          huertaSel && (
+            <Box mb={2}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
+                Huerta seleccionada: {huertaSel.nombre}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Propietario:{' '}
+                {huertaSel.propietario_detalle
+                  ? `${huertaSel.propietario_detalle.nombre} ${huertaSel.propietario_detalle.apellidos}`
+                  : '—'}
+              </Typography>
+              <Divider sx={{ mt: 1 }} />
+            </Box>
+          )
         )}
 
         {/* Toolbar con filtros */}
