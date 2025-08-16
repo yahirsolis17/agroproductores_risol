@@ -355,6 +355,13 @@ class HuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
         }
         return self.notify(key="data_processed_success", data=payload, status_code=status.HTTP_200_OK)
 
+    # ---------- RETRIEVE ----------
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        ser = self.get_serializer(instance)
+        payload = {"huerta": ser.data}
+        return self.notify(key="data_processed_success", data=payload, status_code=status.HTTP_200_OK)
+
     # ---------- CREATE ----------
     def create(self, request, *args, **kwargs):
         ser = self.get_serializer(data=request.data)
@@ -525,6 +532,12 @@ class HuertaRentadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelV
             "results": ser.data,
             "huertas_rentadas": ser.data,  # alias compat
         }
+        return self.notify(key="data_processed_success", data=payload, status_code=status.HTTP_200_OK)
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        ser = self.get_serializer(instance)
+        payload = {"huerta_rentada": ser.data}
         return self.notify(key="data_processed_success", data=payload, status_code=status.HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
