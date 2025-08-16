@@ -6,9 +6,11 @@ export interface InversionHuerta {
   id:               number;
   fecha:            string;        // YYYY-MM-DD (local)
   descripcion?:     string | null;
-  gastos_insumos:   number;
-  gastos_mano_obra: number;
-  gastos_totales:   number;        // calculado
+
+  // DRF DecimalField puede llegar como string → permitimos ambas
+  gastos_insumos:   number | string;
+  gastos_mano_obra: number | string;
+  gastos_totales:   number | string;        // calculado
 
   categoria: number;               // FK
   cosecha:   number;               // FK

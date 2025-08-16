@@ -22,8 +22,6 @@ import TemporadaTable from '../components/temporada/TemporadaTable';
 import TemporadaToolbar from '../components/temporada/TemporadaToolbar';
 import TemporadaFormModal from '../components/temporada/TemporadaFormModal';
 import { useTemporadas } from '../hooks/useTemporadas';
-import { useHuertas } from '../hooks/useHuertas';
-import { useHuertasRentadas } from '../hooks/useHuertaRentada';
 import { TemporadaCreateData, Temporada } from '../types/temporadaTypes';
 import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
 
@@ -35,41 +33,27 @@ const pageSize = 10;
 
 const formatFechaLarga = (iso?: string | null) => {
   if (!iso) return '—';
-  // Parse seguro para "YYYY-MM-DD" evitando desfases de zona horaria
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
   const d = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(iso);
   if (isNaN(d.getTime())) return '—';
-
   let s = new Intl.DateTimeFormat('es-MX', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
   }).format(d);
-
-  // Último toque: "de 2025" → "del 2025"
   s = s.replace(/ de (\d{4})$/, ' del $1');
   return s;
 };
 
 const Temporadas: React.FC = () => {
   const dispatch = useDispatch();
-  const navigate = useNavigate(); // 👈 NUEVO
+  const navigate = useNavigate();
+
   const [search] = useSearchParams();
   const huertaId = Number(search.get('huerta_id') || 0) || null;
+  const tipo = (search.get('tipo') as 'propia' | 'rentada' | null) || null;
 
-  const { huertas } = useHuertas();
-  const { huertas: rentadas } = useHuertasRentadas();
-
-  // Detectar huerta seleccionada y sincronizar filtro global
-  const huertaSel = useMemo(() => {
-    if (!huertaId) return null;
-    return (
-      huertas.find((h) => h.id === huertaId) ||
-      rentadas.find((h) => h.id === huertaId) ||
-      null
-    );
-  }, [huertaId, huertas, rentadas]);
-
+  // usamos el hook sin depender de catálogos de huertas
   const {
     temporadas,
     loading,
@@ -93,43 +77,35 @@ const Temporadas: React.FC = () => {
     finalizeTemporada,
     archiveTemporada,
     restoreTemporada,
-  } = useTemporadas({ enabled: !!huertaSel });
+  } = useTemporadas({ enabled: !!huertaId });
 
+  // al montar/cambiar URL, fija el filtro correcto según `tipo`
   useEffect(() => {
-    if (huertaSel) {
-      if ('monto_renta' in huertaSel) {
-        if (selHuertaRentadaId !== huertaSel.id) setHuertaRentada(huertaSel.id);
-        if (selHuertaId !== null) setHuerta(null);
-      } else {
-        if (selHuertaId !== huertaSel.id) setHuerta(huertaSel.id);
-        if (selHuertaRentadaId !== null) setHuertaRentada(null);
-      }
-    } else {
+    if (!huertaId || !tipo) {
       if (selHuertaId !== null) setHuerta(null);
       if (selHuertaRentadaId !== null) setHuertaRentada(null);
+      return;
     }
-  }, [
-    huertaSel,
-    selHuertaId,
-    selHuertaRentadaId,
-    setHuerta,
-    setHuertaRentada,
-  ]);
+    if (tipo === 'propia') {
+      if (selHuertaId !== huertaId) setHuerta(huertaId);
+      if (selHuertaRentadaId !== null) setHuertaRentada(null);
+    } else if (tipo === 'rentada') {
+      if (selHuertaRentadaId !== huertaId) setHuertaRentada(huertaId);
+      if (selHuertaId !== null) setHuerta(null);
+    }
+  }, [huertaId, tipo, selHuertaId, selHuertaRentadaId, setHuerta, setHuertaRentada]);
 
   /* ──────────────────── Breadcrumbs ──────────────────── */
+  // Deriva nombre de huerta desde la primera fila (el backend ya lo da en cada temporada)
+  const derivedHuertaNombre = temporadas[0]?.huerta_nombre || '';
   useEffect(() => {
-    if (huertaSel) {
-      dispatch(setBreadcrumbs(
-        breadcrumbRoutes.temporadasList(huertaSel.id, huertaSel.nombre)
-      ));
+    if (huertaId && derivedHuertaNombre) {
+      dispatch(setBreadcrumbs(breadcrumbRoutes.temporadasList(huertaId, derivedHuertaNombre)));
     } else {
       dispatch(clearBreadcrumbs());
     }
-
-    return () => {
-      dispatch(clearBreadcrumbs());
-    };
-  }, [dispatch, huertaSel]);
+    return () => { dispatch(clearBreadcrumbs()); };
+  }, [dispatch, huertaId, derivedHuertaNombre]);
 
   /* ──────────────────── Estados locales ──────────────────── */
   const [spin, setSpin] = useState(false);
@@ -157,18 +133,15 @@ const Temporadas: React.FC = () => {
 
   const emptyMsg = useMemo(() => {
     switch (estadoFilter) {
-      case 'activas':
-        return 'No hay temporadas activas.';
-      case 'archivadas':
-        return 'No hay temporadas archivadas.';
-      default:
-        return 'No hay temporadas.';
+      case 'activas': return 'No hay temporadas activas.';
+      case 'archivadas': return 'No hay temporadas archivadas.';
+      default: return 'No hay temporadas.';
     }
   }, [estadoFilter]);
 
   /* ──────────────────── Acciones CRUD / toggle ──────────────────── */
   const handleCreate = async () => {
-    if (!huertaSel) {
+    if (!huertaId || !tipo) {
       handleBackendNotification({
         key: 'validation_error',
         message: 'Debes seleccionar una huerta primero.',
@@ -180,8 +153,8 @@ const Temporadas: React.FC = () => {
     const payload: TemporadaCreateData = {
       año: currentYear,
       fecha_inicio: new Date().toISOString().slice(0, 10),
-      huerta: 'monto_renta' in huertaSel ? undefined : huertaSel.id,
-      huerta_rentada: 'monto_renta' in huertaSel ? huertaSel.id : undefined,
+      huerta: tipo === 'propia' ? huertaId : undefined,
+      huerta_rentada: tipo === 'rentada' ? huertaId : undefined,
     };
 
     Object.keys(payload).forEach((k) => {
@@ -196,17 +169,6 @@ const Temporadas: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    if (!confirmOpen || !huertaSel) return;
-    const yaExiste = temporadas.some(
-      (t) =>
-        t.año === currentYear &&
-        t.is_active &&
-        (t.huerta_id === huertaSel.id || t.huerta_rentada === huertaSel.id)
-    );
-    if (yaExiste) setConfirmOpen(false);
-  }, [temporadas, confirmOpen, huertaSel]);
-
   const confirmDelete = async () => {
     if (delDialogId == null) return;
     try {
@@ -219,36 +181,26 @@ const Temporadas: React.FC = () => {
     }
   };
 
-  const handleArchive = async (t: Temporada) => { 
-    try { 
-      await archiveTemporada(t.id); 
-    } catch (e: any) { 
-      handleBackendNotification(e?.response?.data?.notification || e);
-    } 
-  };
-  
-  const handleRestore = async (t: Temporada) => { 
-    try { 
-      await restoreTemporada(t.id); 
-    } catch (e: any) { 
-      handleBackendNotification(e?.response?.data?.notification || e);
-    } 
-  };
-  
-  const handleFinalize = async (t: Temporada) => { 
-    try { 
-      await finalizeTemporada(t.id); 
-    } catch (e: any) { 
-      handleBackendNotification(e?.response?.data?.notification || e);
-    } 
+  const handleArchive = async (t: Temporada) => {
+    try { await archiveTemporada(t.id); }
+    catch (e: any) { handleBackendNotification(e?.response?.data?.notification || e); }
   };
 
-  // 👇 NUEVO: navegar a la lista de cosechas de la temporada
+  const handleRestore = async (t: Temporada) => {
+    try { await restoreTemporada(t.id); }
+    catch (e: any) { handleBackendNotification(e?.response?.data?.notification || e); }
+  };
+
+  const handleFinalize = async (t: Temporada) => {
+    try { await finalizeTemporada(t.id); }
+    catch (e: any) { handleBackendNotification(e?.response?.data?.notification || e); }
+  };
+
   const handleCosechas = (t: Temporada) => {
     navigate(`/cosechas?temporada_id=${t.id}`);
   };
 
-  // Limpiar todos los filtros
+  // Limpiar todos los filtros (excepto estado)
   const handleClearFilters = () => {
     setSearch('');
     setYear(null);
@@ -256,20 +208,21 @@ const Temporadas: React.FC = () => {
   };
 
   /* ──────────────────── Flags auxiliares ──────────────────── */
-  const huertaEstaArchivada = huertaSel ? !huertaSel.is_active : false;
+  // Sin catálogos, no conocemos el estado de la huerta; lo decide el backend al crear.
+  const huertaEstaArchivada = false;
   const temporadaYaExiste = temporadas.some(
     (t) =>
       t.año === currentYear &&
       t.is_active &&
-      (t.huerta_id === huertaSel?.id || t.huerta_rentada === huertaSel?.id)
+      (t.huerta_id === huertaId || t.huerta_rentada === huertaId)
   );
 
-  const canCreateTemporada = !!(huertaSel && !huertaEstaArchivada && !temporadaYaExiste);
+  const canCreateTemporada = !!(huertaId && !huertaEstaArchivada && !temporadaYaExiste);
   const createTooltip = huertaEstaArchivada
     ? 'No se puede iniciar una temporada en una huerta archivada.'
     : temporadaYaExiste
     ? `Ya existe una temporada activa en el año ${currentYear} para esta huerta.`
-    : !huertaSel
+    : !huertaId
     ? 'Selecciona una huerta para crear una temporada.'
     : '';
 
@@ -281,16 +234,14 @@ const Temporadas: React.FC = () => {
           Gestión de Temporadas
         </Typography>
 
-        {huertaSel && (
+        {/* Encabezado con nombre derivado de la data */}
+        {huertaId && (
           <Box mb={2}>
             <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
-              Huerta seleccionada: {huertaSel.nombre}
+              Huerta seleccionada: {derivedHuertaNombre || `#${huertaId} (${tipo || '—'})`}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Propietario:{' '}
-              {huertaSel.propietario_detalle
-                ? `${huertaSel.propietario_detalle.nombre} ${huertaSel.propietario_detalle.apellidos}`
-                : '—'}
+              Propietario: {/* sin catálogos: desconocido aquí */} —
             </Typography>
             <Divider sx={{ mt: 1 }} />
           </Box>
@@ -304,7 +255,7 @@ const Temporadas: React.FC = () => {
           onYearChange={setYear}
           finalizadaFilter={finalizadaFilter}
           onFinalizadaChange={setFinalizada}
-          onCreateClick={huertaSel ? () => setConfirmOpen(true) : undefined}
+          onCreateClick={huertaId ? () => setConfirmOpen(true) : undefined}
           canCreate={canCreateTemporada}
           createTooltip={createTooltip}
           totalCount={meta.count}
@@ -312,12 +263,12 @@ const Temporadas: React.FC = () => {
           onClearFilters={handleClearFilters}
         />
 
-        {/* Tabs para filtrar por estado */}
-        <Tabs 
-          value={estadoFilter} 
-          onChange={(_, v) => setEstado(v)} 
-          textColor="primary" 
-          indicatorColor="primary" 
+        {/* Tabs por estado */}
+        <Tabs
+          value={estadoFilter}
+          onChange={(_, v) => setEstado(v)}
+          textColor="primary"
+          indicatorColor="primary"
           sx={{ mb: 3 }}
         >
           <Tab value="activas" label="Activas" />
@@ -346,7 +297,6 @@ const Temporadas: React.FC = () => {
             onFinalize={handleFinalize}
             emptyMessage={emptyMsg}
             loading={loading}
-            // 👇 NUEVO: pasamos el handler
             onCosechas={handleCosechas}
           />
         )}
@@ -358,8 +308,8 @@ const Temporadas: React.FC = () => {
             setConsultOpen(false);
           }}
           initialValues={consultTarget || undefined}
-          huertas={huertas}
-          huertasRentadas={rentadas}
+          huertas={[]}             // no usamos catálogos aquí
+          huertasRentadas={[]}     // (modal de solo lectura)
           readOnly
         />
 
@@ -368,16 +318,12 @@ const Temporadas: React.FC = () => {
           <DialogTitle>Confirmar nueva temporada</DialogTitle>
           <DialogContent dividers>
             <Typography>Año: {currentYear}</Typography>
-            <Typography>Huerta: {huertaSel?.nombre}</Typography>
-            <Typography>
-              Fecha inicio: {formatFechaLarga(new Date().toISOString())}
-            </Typography>
+            <Typography>Huerta: {derivedHuertaNombre || `#${huertaId}`}</Typography>
+            <Typography>Fecha inicio: {formatFechaLarga(new Date().toISOString())}</Typography>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setConfirmOpen(false)}>Cancelar</Button>
-            <Button variant="contained" onClick={handleCreate}>
-              Iniciar
-            </Button>
+            <Button variant="contained" onClick={handleCreate}>Iniciar</Button>
           </DialogActions>
         </Dialog>
 
@@ -387,9 +333,7 @@ const Temporadas: React.FC = () => {
           <DialogContent>¿Eliminar esta temporada permanentemente?</DialogContent>
           <DialogActions>
             <Button onClick={() => setDelDialogId(null)}>Cancelar</Button>
-            <Button color="error" onClick={confirmDelete}>
-              Eliminar
-            </Button>
+            <Button color="error" onClick={confirmDelete}>Eliminar</Button>
           </DialogActions>
         </Dialog>
       </Paper>

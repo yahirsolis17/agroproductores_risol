@@ -238,6 +238,11 @@ NOTIFICATION_MESSAGES = {
         "type": "error"
     },
 
+    "temporada_origen_archivado_no_restaurar": {
+        "message": "No se puede restaurar una temporada en una huerta  archivada.",
+        "type": "error"
+    },
+
     # -------------------------------------------------
     # Cosechas
     # -------------------------------------------------

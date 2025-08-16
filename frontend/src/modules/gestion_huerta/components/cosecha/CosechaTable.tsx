@@ -5,13 +5,20 @@ import { Cosecha } from '../../types/cosechaTypes';
 import ActionsMenu from '../common/ActionsMenu';
 import { PermissionButton } from '../../../../components/common/PermissionButton';
 
+// Formato de fecha seguro (evita desfases por zona horaria)
 const formatPretty = (iso: string | null) => {
   if (!iso) return '—';
-  const d = new Date(iso);
-  const dia = d.getDate();
-  const mes = d.toLocaleString('es-MX', { month: 'long' });
-  const anio = d.getFullYear();
-  return `${dia} de ${mes} del ${anio}`;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  const d = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+
+  let s = new Intl.DateTimeFormat('es-MX', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(d);
+
+  return s.replace(/ de (\d{4})$/, ' del $1');
 };
 
 interface Props {

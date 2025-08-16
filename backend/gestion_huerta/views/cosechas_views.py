@@ -311,32 +311,76 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
 
         try:
             with transaction.atomic():
-                # Toggle
-                c.finalizada = not c.finalizada
-                c.save(update_fields=["finalizada"])
+                # Estado objetivo: si estaba finalizada, vamos a reactivar; si no, a finalizar.
+                target_finalizada = not c.finalizada
 
-                # Mensaje y clave coherentes con el estado final
-                if c.finalizada:
-                    msg = "Finalizó"
-                    key = "cosecha_finalizada"
+                # ⛔ Nunca permitir operar si la temporada está archivada
+                if not c.temporada.is_active:
+                    return self.notify(
+                        key="cosecha_temporada_archivada_no_finalizar",
+                        data={"info": "No puedes finalizar/reactivar una cosecha cuya temporada está archivada."},
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                if target_finalizada:
+                    # 👉 Finalizar
+                    c.finalizada = True
+                    c.fecha_fin = timezone.now()
+                    c.save(update_fields=["finalizada", "fecha_fin"])
+                    try:
+                        registrar_actividad(request.user, f"Finalizó la cosecha: {c.nombre}")
+                    except Exception as audit_exc:
+                        import logging
+                        logging.getLogger(__name__).warning(
+                            "Fallo registrar_actividad en toggle_finalizada(finalizar): %s", audit_exc
+                        )
+                    return self.notify(
+                        key="cosecha_finalizada",
+                        data={"cosecha": self.get_serializer(c).data},
+                        status_code=status.HTTP_200_OK,
+                    )
+
                 else:
-                    msg = "Reactivó"
-                    key = "cosecha_reactivada"
+                    # 👉 Reactivar (quitar finalizada)
+                    # La temporada NO debe estar finalizada para reactivar una cosecha
+                    if c.temporada.finalizada:
+                        return self.notify(
+                            key="cosecha_temporada_finalizada_no_restaurar",
+                            data={"info": "No puedes reactivar una cosecha cuya temporada está finalizada."},
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                        )
 
-                # Auditoría
-                try:
-                    registrar_actividad(request.user, f"{msg} la cosecha: {c.nombre}")
-                except Exception as audit_exc:
-                    # No queremos romper la UX si falla la auditoría; sólo logueamos
-                    import logging
-                    logging.getLogger(__name__).warning("Fallo registrar_actividad en toggle_finalizada: %s", audit_exc)
+                    # Regla de negocio: solo una cosecha activa/no finalizada por temporada
+                    existe_activa = Cosecha.objects.filter(
+                        temporada=c.temporada,
+                        is_active=True,
+                        finalizada=False
+                    ).exclude(pk=c.pk).exists()
+                    if existe_activa:
+                        # Reutilizamos la misma semántica de error que en el serializer
+                        return self.notify(
+                            key="cosecha_activa_existente",
+                            data={"errors": {"non_field_errors": ["Ya existe una cosecha activa en esta temporada."]}},
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                        )
 
-                # Respuesta uniforme
-                return self.notify(
-                    key=key,
-                    data={"cosecha": self.get_serializer(c).data},
-                    status_code=status.HTTP_200_OK,
-                )
+                    # Reactivar adecuadamente (limpiar fecha_fin)
+                    c.finalizada = False
+                    c.fecha_fin = None
+                    c.save(update_fields=["finalizada", "fecha_fin"])
+                    try:
+                        registrar_actividad(request.user, f"Reactivó la cosecha: {c.nombre}")
+                    except Exception as audit_exc:
+                        import logging
+                        logging.getLogger(__name__).warning(
+                            "Fallo registrar_actividad en toggle_finalizada(reactivar): %s", audit_exc
+                        )
+
+                    return self.notify(
+                        key="cosecha_reactivada",
+                        data={"cosecha": self.get_serializer(c).data},
+                        status_code=status.HTTP_200_OK,
+                    )
 
         except Exception:
             # Cualquier error: respuesta uniforme de error (sin 500)

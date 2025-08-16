@@ -3,7 +3,7 @@ import apiClient from '../../../global/api/apiClient';
 import { Cosecha, CosechaCreateData, CosechaUpdateData } from '../types/cosechaTypes';
 
 export const cosechaService = {
-  // LIST (con fallback a DRF nativo)
+  // LIST (una sola llamada, con fallback a DRF nativo o envelope)
   async list(
     page: number = 1,
     temporadaId: number,
@@ -14,8 +14,9 @@ export const cosechaService = {
     if (search) params['search'] = search;
     if (estado) params['estado'] = estado;
 
-    // Intento 1: DRF nativo (count/results)
     const { data } = await apiClient.get<any>('/huerta/cosechas/', { params });
+
+    // Fallback DRF nativo (count/results)
     if (data && typeof data.count === 'number' && Array.isArray(data.results)) {
       return {
         success: true,
@@ -27,17 +28,12 @@ export const cosechaService = {
       };
     }
 
-    // Intento 2: envelope del backend
-    const response = await apiClient.get<{
+    // Envelope de tu backend
+    return data as {
       success: boolean;
       notification: { key: string; message: string; type: 'success' | 'error' | 'warning' | 'info' };
-      data: {
-        cosechas: Cosecha[];
-        meta: { count: number; next: string | null; previous: string | null };
-      };
-    }>('/huerta/cosechas/', { params });
-
-    return response.data;
+      data: { cosechas: Cosecha[]; meta: { count: number; next: string | null; previous: string | null } };
+    };
   },
 
   // CREATE

@@ -141,19 +141,19 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
       await onSubmit(payload);
       onClose();
     } catch (err: unknown) {
-      const backend = err?.data || err?.response?.data || {};
+      const backend = (err as any)?.data || (err as any)?.response?.data || {};
       const beErrors = backend.errors || backend.data?.errors || {};
       const fieldErrors: Record<string, string> = {};
       // replicate general errors across key fields
       if (Array.isArray(beErrors.non_field_errors)) {
-        const msg = beErrors.non_field_errors[0] || 'Error de validación';
+        const m = beErrors.non_field_errors[0] || 'Error de validación';
         ['fecha', 'categoria', 'gastos_insumos', 'gastos_mano_obra'].forEach((f) => {
-          fieldErrors[f] = msg;
+          fieldErrors[f] = m;
         });
       }
       Object.entries(beErrors).forEach(([f, msgVal]: [string, unknown]) => {
         if (f !== 'non_field_errors') {
-          const text = Array.isArray(msgVal) ? String(msgVal[0]) : String(msgVal);
+          const text = Array.isArray(msgVal) ? String((msgVal as any)[0]) : String(msgVal);
           fieldErrors[f] = text;
         }
       });
@@ -249,11 +249,11 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
                     formikRef.current?.setFieldTouched('categoria', true, false);
                   }}
                   label="Categoría"
-                  error={touched.categoria && Boolean(msg(errors.categoria))}
-                  helperText={touched.categoria && msg(errors.categoria)}
+                  error={Boolean(touched.categoria && msg(errors.categoria))}
+                  helperText={touched.categoria ? (msg(errors.categoria) || undefined) : undefined}
                 />
 
-              
+                {/* Gasto insumos */}
                 <TextField
                   label="Gasto insumos"
                   name="gastos_insumos"
@@ -305,11 +305,12 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
               <DialogActions>
                 <Button onClick={onClose}>Cancelar</Button>
 
+                {/* 👇 Permiso correcto según modo (crear vs editar) */}
                 <PermissionButton
                   type="submit"
                   variant="contained"
                   disabled={isSubmitting}
-                  perm="gestion_huerta.change_inversion"
+                  perm={initialValues ? 'change_inversion' : 'add_inversion'}
                 >
                   {isSubmitting ? <CircularProgress size={22} /> : 'Guardar'}
                 </PermissionButton>

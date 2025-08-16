@@ -11,10 +11,16 @@ import InversionFormModal from '../components/finanzas/InversionFormModal';
 import { categoriaInversionService } from '../services/categoriaInversionService';
 import { temporadaService } from '../services/temporadaService';
 import { cosechaService } from '../services/cosechaService';
+import { useParams } from 'react-router-dom';
 
 const PAGE_SIZE = 10;
 
 const Inversion: React.FC = () => {
+  // 🔗 Obtenemos los IDs desde la URL: /finanzas/:temporadaId/:cosechaId
+  const { temporadaId: tParam, cosechaId: cParam } = useParams<{ temporadaId: string; cosechaId: string }>();
+  const routeTemporadaId = Number(tParam) || null;
+  const routeCosechaId   = Number(cParam) || null;
+
   const {
     inversiones,
     loading,
@@ -28,8 +34,8 @@ const Inversion: React.FC = () => {
     archive,
     restore,
     removeInversion,
-    temporadaId,
-    cosechaId,
+    // quitamos temporadaId y cosechaId del destructuring (no se usan aquí)
+    setContext,
   } = useInversiones();
 
   /* ---------- Cargar TODAS las categorías (para nombres y filtro) ---------- */
@@ -51,27 +57,35 @@ const Inversion: React.FC = () => {
     return () => { alive = false; };
   }, []);
 
-  /* ---------- Estado de temporada y cosecha ---------- */
+  /* ---------- Estado de temporada y cosecha + establecer CONTEXTO ---------- */
   const [tempState, setTempState] = useState<{ is_active: boolean; finalizada: boolean } | null>(null);
   const [cosechaState, setCosechaState] = useState<{ is_active: boolean; finalizada: boolean } | null>(null);
 
   useEffect(() => {
-    if (!temporadaId || !cosechaId) return;
+    // Si faltan params de la ruta, no hay contexto que fijar
+    if (!routeTemporadaId || !routeCosechaId) return;
+
     let alive = true;
     (async () => {
       try {
         const [tRes, cRes] = await Promise.all([
-          temporadaService.getById(temporadaId),
-          cosechaService.getById(cosechaId),
+          temporadaService.getById(routeTemporadaId),
+          cosechaService.getById(routeCosechaId),
         ]);
         if (!alive) return;
-        setTempState({
-          is_active: tRes.data.temporada.is_active,
-          finalizada: tRes.data.temporada.finalizada,
-        });
-        setCosechaState({
-          is_active: cRes.data.cosecha.is_active,
-          finalizada: cRes.data.cosecha.finalizada,
+
+        const t = tRes.data.temporada;
+        const c = cRes.data.cosecha;
+
+        setTempState({ is_active: t.is_active, finalizada: t.finalizada });
+        setCosechaState({ is_active: c.is_active, finalizada: c.finalizada });
+
+        // 🔐 Contexto para el slice de inversiones
+        setContext({
+          huertaId:        c.huerta ?? undefined,
+          huertaRentadaId: c.huerta_rentada ?? undefined,
+          temporadaId:     t.id,
+          cosechaId:       c.id,
         });
       } catch {
         if (!alive) return;
@@ -79,8 +93,9 @@ const Inversion: React.FC = () => {
         setCosechaState(null);
       }
     })();
+
     return () => { alive = false; };
-  }, [temporadaId, cosechaId]);
+  }, [routeTemporadaId, routeCosechaId, setContext]);
 
   const { canCreate, createTooltip } = useMemo(() => {
     if (!tempState || !cosechaState) {
@@ -158,7 +173,7 @@ const Inversion: React.FC = () => {
     } else {
       await addInversion(vals as InversionCreateData);
     }
-    // no cerramos/abrimos nada extra; el modal se cierra desde el propio form
+    // el modal se cierra desde el propio form
   };
 
   // Confirm delete
@@ -184,7 +199,7 @@ const Inversion: React.FC = () => {
         categoriesOptions={categorias}
         categoriesLoading={catsLoading}
         onCategoryCreated={(cat) =>
-          setCategorias(prev => [cat, ...prev].sort((a,b)=>a.nombre.localeCompare(b.nombre)))
+          setCategorias(prev => [cat, ...prev].sort((a,b)=>a.nombre.localeCompare(b.nombre, 'es')))
         }
       />
 
