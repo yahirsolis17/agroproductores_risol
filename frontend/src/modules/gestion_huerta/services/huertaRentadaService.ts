@@ -39,6 +39,15 @@ export const huertaRentadaService = {
     return { huertas_rentadas: list, meta: raw.meta };
   },
 
+  async retrieve(id: number, config: { signal?: AbortSignal } = {}): Promise<HuertaRentada> {
+    const { data } = await apiClient.get<{
+      success: boolean;
+      message_key: string;
+      data: ItemWrapper;
+    }>(`/huerta/huertas-rentadas/${id}/`, { signal: config.signal });
+    return data.data.huerta_rentada;
+  },
+
   async create(payload: HuertaRentadaCreateData) {
     const { data } = await apiClient.post<{
       success: boolean;
