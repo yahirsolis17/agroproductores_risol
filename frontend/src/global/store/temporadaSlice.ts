@@ -68,7 +68,7 @@ export const fetchTemporadas = createAsyncThunk<
       };
     } catch (err: any) {
       const errorPayload = err.response?.data || { message: 'Error al cargar temporadas' };
-      handleBackendNotification(errorPayload.notification || errorPayload);
+      handleBackendNotification(errorPayload);
       return rejectWithValue(errorPayload);
     }
   }
@@ -87,7 +87,7 @@ export const createTemporada = createAsyncThunk<
       return res.data.temporada;
     } catch (err: any) {
       const errorPayload = err.response?.data || { message: 'Error al crear temporada' };
-      handleBackendNotification(errorPayload.notification || errorPayload);
+      handleBackendNotification(errorPayload);
       return rejectWithValue(errorPayload);
     }
   }
@@ -106,7 +106,7 @@ export const deleteTemporada = createAsyncThunk<
       return id;
     } catch (err: any) {
       const errorPayload = err.response?.data || { message: 'Error al eliminar temporada' };
-      handleBackendNotification(errorPayload.notification || errorPayload);
+      handleBackendNotification(errorPayload);
       return rejectWithValue(errorPayload);
     }
   }
@@ -125,7 +125,7 @@ export const finalizarTemporada = createAsyncThunk<
       return res.data.temporada;
     } catch (err: any) {
       const errorPayload = err.response?.data || { message: 'Error al finalizar temporada' };
-      handleBackendNotification(errorPayload.notification || errorPayload);
+      handleBackendNotification(errorPayload);
       return rejectWithValue(errorPayload);
     }
   }
@@ -144,7 +144,7 @@ export const archivarTemporada = createAsyncThunk<
       return res.data.temporada;
     } catch (err: any) {
       const errorPayload = err.response?.data || { message: 'Error al archivar temporada' };
-      handleBackendNotification(errorPayload.notification || errorPayload);
+      handleBackendNotification(errorPayload);
       return rejectWithValue(errorPayload);
     }
   }
@@ -163,7 +163,7 @@ export const restaurarTemporada = createAsyncThunk<
       return res.data.temporada;
     } catch (err: any) {
       const errorPayload = err.response?.data || { message: 'Error al restaurar temporada' };
-      handleBackendNotification(errorPayload.notification || errorPayload);
+      handleBackendNotification(errorPayload);
       return rejectWithValue(errorPayload);
     }
   }

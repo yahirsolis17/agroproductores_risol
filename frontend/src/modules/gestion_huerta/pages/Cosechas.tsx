@@ -74,7 +74,13 @@ const Cosechas: React.FC = () => {
         });
         if (t.huerta_id && t.huerta_nombre) {
           dispatch(setBreadcrumbs(
-            breadcrumbRoutes.cosechasList(t.huerta_id, t.huerta_nombre, t.año, t.id)
+            breadcrumbRoutes.cosechasList(
+              t.huerta_id,
+              t.huerta_nombre,
+              t.año,
+              t.id,
+              t.is_rentada ? 'rentada' : 'propia'
+            )
           ));
         } else {
           dispatch(clearBreadcrumbs());
@@ -92,6 +98,10 @@ const Cosechas: React.FC = () => {
   useEffect(() => {
     setTemporadaId(temporadaId);
   }, [temporadaId]);
+
+  useEffect(() => {
+    return () => { setTemporadaId(null); };
+  }, [setTemporadaId]);
 
   // Lógica de creación
   const totalCosechas = meta.count;
@@ -141,7 +151,7 @@ const Cosechas: React.FC = () => {
     try {
       await addCosecha({ temporada: temporadaId, nombre });
     } catch (e: any) {
-      handleBackendNotification(e?.response?.data?.notification || e);
+      handleBackendNotification(e?.response?.data || e);
     }
   };
 
@@ -156,7 +166,7 @@ const Cosechas: React.FC = () => {
       setEditOpen(false);
       setEditTarget(null);
     } catch (e: any) {
-      handleBackendNotification(e?.response?.data?.notification || e);
+      handleBackendNotification(e?.response?.data || e);
     }
   };
 
@@ -167,7 +177,7 @@ const Cosechas: React.FC = () => {
     try {
       await removeCosecha(delId);
     } catch (e: any) {
-      handleBackendNotification(e?.response?.data?.notification || e);
+      handleBackendNotification(e?.response?.data || e);
     } finally {
       setDelId(null);
     }
@@ -176,15 +186,15 @@ const Cosechas: React.FC = () => {
   // Acciones fila
   const handleArchive = async (c: Cosecha) => {
     try { await archiveCosecha(c.id); }
-    catch (e: any) { handleBackendNotification(e?.response?.data?.notification || e); }
+    catch (e: any) { handleBackendNotification(e?.response?.data || e); }
   };
   const handleRestore = async (c: Cosecha) => {
     try { await restoreCosecha(c.id); }
-    catch (e: any) { handleBackendNotification(e?.response?.data?.notification || e); }
+    catch (e: any) { handleBackendNotification(e?.response?.data || e); }
   };
   const handleToggleFinal = async (c: Cosecha) => {
     try { await toggleFinalizada(c.id); }
-    catch (e: any) { handleBackendNotification(e?.response?.data?.notification || e); }
+    catch (e: any) { handleBackendNotification(e?.response?.data || e); }
   };
 
   // Navegar a Finanzas por Cosecha

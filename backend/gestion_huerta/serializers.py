@@ -1,5 +1,4 @@
 from rest_framework import serializers
-from rest_framework.validators import UniqueTogetherValidator
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from num2words import num2words   
@@ -225,7 +224,9 @@ class TemporadaSerializer(serializers.ModelSerializer):
         ]
 
     def get_is_rentada(self, obj):    return obj.huerta_rentada is not None
-    def get_huerta_nombre(self, obj): return str(obj.huerta or obj.huerta_rentada) if (obj.huerta or obj.huerta_rentada) else None
+    def get_huerta_nombre(self, obj):
+        origen = obj.huerta or obj.huerta_rentada
+        return origen.nombre if origen else None
     def get_huerta_id(self, obj):
         origen = obj.huerta or obj.huerta_rentada
         return origen.id if origen else None
@@ -288,13 +289,6 @@ class CosechaSerializer(serializers.ModelSerializer):
             'is_active', 'archivado_en',
             'ventas_totales', 'gastos_totales', 'margen_ganancia', 'is_rentada'
         )
-        validators = [
-            UniqueTogetherValidator(
-                queryset=Cosecha.objects.all(),
-                fields=['temporada', 'nombre'],
-                message="Ya existe una cosecha con ese nombre en esta temporada."
-            )
-        ]
 
     def get_is_rentada(self, obj):
         return obj.huerta_rentada_id is not None
@@ -356,8 +350,10 @@ class CosechaSerializer(serializers.ModelSerializer):
                 raise ValidationError("No se pueden crear cosechas en una temporada finalizada.")
             if temporada.cosechas.count() >= 6:
                 raise ValidationError("Esta temporada ya tiene el máximo de 6 cosechas permitidas.")
+            if nombre_in and temporada.cosechas.filter(nombre=nombre_in).exists():
+                raise ValidationError("Ya existe una cosecha con ese nombre en esta temporada.")
 
-            # ⚙️ Normalizar nombre a uno único ANTES de ejecutar UniqueTogetherValidator
+            # ⚙️ Normalizar nombre a uno único
             data['nombre'] = self._nombre_unico(temporada, nombre_in)
 
         # Reglas de actualización
@@ -366,6 +362,8 @@ class CosechaSerializer(serializers.ModelSerializer):
             if 'temporada' in data and data['temporada'] != instance.temporada:
                 raise ValidationError("No puedes cambiar la temporada de una cosecha existente.")
 
+            if nombre_in and Cosecha.objects.filter(temporada=temporada, nombre=nombre_in).exclude(pk=instance.pk).exists():
+                raise ValidationError("Ya existe una cosecha con ese nombre en esta temporada.")
             # Si mandan nombre vacío en update, lo normalizamos a uno único
             if nombre_in is not None and not (nombre_in or "").strip():
                 data['nombre'] = self._nombre_unico(instance.temporada, nombre_in)

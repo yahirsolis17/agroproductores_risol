@@ -40,7 +40,7 @@ export const fetchCosechas = createAsyncThunk<
       return { cosechas: res.data.cosechas, meta: res.data.meta, page };
     } catch (err: any) {
       const payload = err?.response?.data || { message: 'Error al cargar cosechas' };
-      handleBackendNotification(payload.notification || payload);
+      handleBackendNotification(payload);
       return rejectWithValue(payload);
     }
   }
@@ -56,7 +56,7 @@ export const createCosecha = createAsyncThunk<Cosecha, CosechaCreateData, { reje
       return res.data.cosecha;
     } catch (err: any) {
       const payload = err?.response?.data || { message: 'Error al crear cosecha' };
-      handleBackendNotification(payload.notification || payload);
+      handleBackendNotification(payload);
       return rejectWithValue(payload);
     }
   }
@@ -76,7 +76,7 @@ export const updateCosecha = createAsyncThunk<
       return res.data.cosecha;
     } catch (err: any) {
       const payload = err?.response?.data || { message: 'Error al actualizar cosecha' };
-      handleBackendNotification(payload.notification || payload);
+      handleBackendNotification(payload);
       return rejectWithValue(payload);
     }
   }
@@ -92,7 +92,7 @@ export const deleteCosecha = createAsyncThunk<number, number, { rejectValue: Rec
       return id;
     } catch (err: any) {
       const payload = err?.response?.data || { message: 'Error al eliminar cosecha' };
-      handleBackendNotification(payload.notification || payload);
+      handleBackendNotification(payload);
       return rejectWithValue(payload);
     }
   }
@@ -108,7 +108,7 @@ export const archivarCosecha = createAsyncThunk<Cosecha, number, { rejectValue: 
       return res.data.cosecha;
     } catch (err: any) {
       const payload = err?.response?.data || { message: 'Error al archivar cosecha' };
-      handleBackendNotification(payload.notification || payload);
+      handleBackendNotification(payload);
       return rejectWithValue(payload);
     }
   }
@@ -124,7 +124,7 @@ export const restaurarCosecha = createAsyncThunk<Cosecha, number, { rejectValue:
       return res.data.cosecha;
     } catch (err: any) {
       const payload = err?.response?.data || { message: 'Error al restaurar cosecha' };
-      handleBackendNotification(payload.notification || payload);
+      handleBackendNotification(payload);
       return rejectWithValue(payload);
     }
   }
@@ -140,7 +140,7 @@ export const toggleFinalizadaCosecha = createAsyncThunk<Cosecha, number, { rejec
       return res.data.cosecha;
     } catch (err: any) {
       const payload = err?.response?.data || { message: 'Error al cambiar estado de cosecha' };
-      handleBackendNotification(payload.notification || payload);
+      handleBackendNotification(payload);
       return rejectWithValue(payload);
     }
   }

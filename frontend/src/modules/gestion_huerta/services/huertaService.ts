@@ -84,4 +84,10 @@ export const huertaService = {
     }>(`/huerta/huertas/${id}/restaurar/`);
     return data;
   },
+
+  getById(id: number): Promise<{ data: { huerta: Huerta } }> {
+    return apiClient
+      .get<Huerta>(`/huerta/huertas/${id}/`)
+      .then(res => ({ data: { huerta: res.data } }));
+  },
 };

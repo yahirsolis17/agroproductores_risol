@@ -27,6 +27,8 @@ import { handleBackendNotification } from '../../../global/utils/NotificationEng
 
 import { setBreadcrumbs, clearBreadcrumbs } from '../../../global/store/breadcrumbsSlice';
 import { breadcrumbRoutes } from '../../../global/constants/breadcrumbRoutes';
+import { huertaService } from '../services/huertaService';
+import { huertaRentadaService } from '../services/huertaRentadaService';
 
 const currentYear = new Date().getFullYear();
 const pageSize = 10;
@@ -96,16 +98,40 @@ const Temporadas: React.FC = () => {
   }, [huertaId, tipo, selHuertaId, selHuertaRentadaId, setHuerta, setHuertaRentada]);
 
   /* ──────────────────── Breadcrumbs ──────────────────── */
-  // Deriva nombre de huerta desde la primera fila (el backend ya lo da en cada temporada)
-  const derivedHuertaNombre = temporadas[0]?.huerta_nombre || '';
+  const [huertaInfo, setHuertaInfo] = useState<{ nombre: string; propietario: string } | null>(null);
+
   useEffect(() => {
-    if (huertaId && derivedHuertaNombre) {
-      dispatch(setBreadcrumbs(breadcrumbRoutes.temporadasList(huertaId, derivedHuertaNombre)));
-    } else {
+    if (!huertaId || !tipo) { setHuertaInfo(null); return; }
+    (async () => {
+      try {
+        if (tipo === 'propia') {
+          const res = await huertaService.getById(huertaId);
+          const h = res.data.huerta;
+          const prop = h.propietario_detalle ? `${h.propietario_detalle.nombre} ${h.propietario_detalle.apellidos}`.trim() : '—';
+          setHuertaInfo({ nombre: h.nombre, propietario: prop });
+        } else {
+          const res = await huertaRentadaService.getById(huertaId);
+          const h = res.data.huerta_rentada;
+          const prop = h.propietario_detalle ? `${h.propietario_detalle.nombre} ${h.propietario_detalle.apellidos}`.trim() : '—';
+          setHuertaInfo({ nombre: h.nombre, propietario: prop });
+        }
+      } catch {
+        setHuertaInfo(null);
+      }
+    })();
+  }, [huertaId, tipo]);
+
+  const huertaNombre = huertaInfo?.nombre || temporadas[0]?.huerta_nombre || '';
+  const propietarioNombre = huertaInfo?.propietario || '—';
+
+  useEffect(() => {
+    if (huertaId && huertaNombre && tipo) {
+      dispatch(setBreadcrumbs(breadcrumbRoutes.temporadasList(huertaId, huertaNombre, tipo)));
+    } else if (!huertaId) {
       dispatch(clearBreadcrumbs());
     }
     return () => { dispatch(clearBreadcrumbs()); };
-  }, [dispatch, huertaId, derivedHuertaNombre]);
+  }, [dispatch, huertaId, huertaNombre, tipo]);
 
   /* ──────────────────── Estados locales ──────────────────── */
   const [spin, setSpin] = useState(false);
@@ -165,7 +191,7 @@ const Temporadas: React.FC = () => {
       await addTemporada(payload);
       handleBackendNotification({ key: 'temporada_create_success', message: 'Temporada creada.', type: 'success' });
     } catch (err: any) {
-      handleBackendNotification(err?.response?.data?.notification || err);
+      handleBackendNotification(err?.response?.data || err);
     }
   };
 
@@ -175,7 +201,7 @@ const Temporadas: React.FC = () => {
       await removeTemporada(delDialogId);
       handleBackendNotification({ key: 'temporada_delete_success', message: 'Temporada eliminada.', type: 'success' });
     } catch (err: any) {
-      handleBackendNotification(err?.response?.data?.notification || err);
+      handleBackendNotification(err?.response?.data || err);
     } finally {
       setDelDialogId(null);
     }
@@ -183,17 +209,17 @@ const Temporadas: React.FC = () => {
 
   const handleArchive = async (t: Temporada) => {
     try { await archiveTemporada(t.id); }
-    catch (e: any) { handleBackendNotification(e?.response?.data?.notification || e); }
+    catch (e: any) { handleBackendNotification(e?.response?.data || e); }
   };
 
   const handleRestore = async (t: Temporada) => {
     try { await restoreTemporada(t.id); }
-    catch (e: any) { handleBackendNotification(e?.response?.data?.notification || e); }
+    catch (e: any) { handleBackendNotification(e?.response?.data || e); }
   };
 
   const handleFinalize = async (t: Temporada) => {
     try { await finalizeTemporada(t.id); }
-    catch (e: any) { handleBackendNotification(e?.response?.data?.notification || e); }
+    catch (e: any) { handleBackendNotification(e?.response?.data || e); }
   };
 
   const handleCosechas = (t: Temporada) => {
@@ -234,14 +260,13 @@ const Temporadas: React.FC = () => {
           Gestión de Temporadas
         </Typography>
 
-        {/* Encabezado con nombre derivado de la data */}
         {huertaId && (
           <Box mb={2}>
             <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
-              Huerta seleccionada: {derivedHuertaNombre || `#${huertaId} (${tipo || '—'})`}
+              Huerta seleccionada: {huertaNombre || `#${huertaId} (${tipo || '—'})`}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Propietario: {/* sin catálogos: desconocido aquí */} —
+              Propietario: {propietarioNombre}
             </Typography>
             <Divider sx={{ mt: 1 }} />
           </Box>
@@ -318,7 +343,7 @@ const Temporadas: React.FC = () => {
           <DialogTitle>Confirmar nueva temporada</DialogTitle>
           <DialogContent dividers>
             <Typography>Año: {currentYear}</Typography>
-            <Typography>Huerta: {derivedHuertaNombre || `#${huertaId}`}</Typography>
+            <Typography>Huerta: {huertaNombre || `#${huertaId}`}</Typography>
             <Typography>Fecha inicio: {formatFechaLarga(new Date().toISOString())}</Typography>
           </DialogContent>
           <DialogActions>

@@ -75,8 +75,9 @@ const FinanzasPorCosecha: React.FC = () => {
         setTempInfo(info);
 
         const origenId = huertaId ?? huertaRentadaId!;
+        const tipo = huertaId ? 'propia' : 'rentada';
         dispatch(setBreadcrumbs([
-          ...breadcrumbRoutes.cosechasList(origenId, info.huerta_nombre, info.año, temporadaId),
+          ...breadcrumbRoutes.cosechasList(origenId, info.huerta_nombre, info.año, temporadaId, tipo),
           { label: 'Ventas & Inversiones', path: '' }
         ]));
       })
