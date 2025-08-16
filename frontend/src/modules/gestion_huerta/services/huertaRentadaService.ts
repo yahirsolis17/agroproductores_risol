@@ -22,8 +22,8 @@ export const huertaRentadaService = {
     filters: HRFilters = {},
     config: { signal?: AbortSignal; pageSize?: number } = {}
   ): Promise<{ huertas_rentadas: HuertaRentada[]; meta: PaginationMeta }> {
-    const params: Record<string, any> = { page, estado };
-    if (config.pageSize) params.page_size = config.pageSize;
+    const pageSize = config.pageSize ?? 10; // por consistencia
+    const params: Record<string, any> = { page, estado, page_size: pageSize };
     if (filters.search) params.search = filters.search;
     if (filters.nombre) params.nombre = filters.nombre;
     if (filters.propietario) params.propietario = filters.propietario;

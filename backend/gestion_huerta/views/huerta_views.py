@@ -233,7 +233,7 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
                 Q(nombre__icontains=search) |
                 Q(apellidos__icontains=search)
             )
-            self.pagination_class.page_size = 50
+            self.pagination_class.page_size = 10
 
             exact_match = self.get_queryset().filter(
                 Q(huertas__isnull=False) |
@@ -348,6 +348,9 @@ class HuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
                 "count": self.paginator.page.paginator.count,
                 "next": self.paginator.get_next_link(),
                 "previous": self.paginator.get_previous_link(),
+                "page": self.paginator.page.number,
+                "page_size": self.paginator.get_page_size(self.request),
+                "total_pages": self.paginator.page.paginator.num_pages,
             },
             "results": ser.data,
             # Alias temporal de compatibilidad con UI existente:
@@ -521,6 +524,9 @@ class HuertaRentadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelV
                 "count": self.paginator.page.paginator.count,
                 "next": self.paginator.get_next_link(),
                 "previous": self.paginator.get_previous_link(),
+                "page": self.paginator.page.number,
+                "page_size": self.paginator.get_page_size(self.request),
+                "total_pages": self.paginator.page.paginator.num_pages,
             },
             "results": ser.data,
             "huertas_rentadas": ser.data,  # alias compat

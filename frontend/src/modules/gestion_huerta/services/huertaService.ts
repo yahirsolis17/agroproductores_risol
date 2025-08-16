@@ -9,7 +9,6 @@ export interface HuertaFilters {
 }
 
 interface ListRespRaw {
-  // el backend puede devolver results o huertas (alias de compat)
   results?: Huerta[];
   huertas?: Huerta[];
   meta: PaginationMeta;
@@ -24,8 +23,8 @@ export const huertaService = {
     filters: HuertaFilters = {},
     config: { signal?: AbortSignal; pageSize?: number } = {}
   ): Promise<{ huertas: Huerta[]; meta: PaginationMeta }> {
-    const params: Record<string, any> = { page, estado };
-    if (config.pageSize) params.page_size = config.pageSize;
+    const pageSize = config.pageSize ?? 10; // fuerza 10 para que coincida con la UI
+    const params: Record<string, any> = { page, estado, page_size: pageSize };
     if (filters.search) params.search = filters.search;
     if (filters.nombre) params.nombre = filters.nombre;
     if (filters.propietario) params.propietario = filters.propietario;

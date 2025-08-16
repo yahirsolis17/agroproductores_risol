@@ -85,7 +85,7 @@ class Huerta(models.Model):
 
     class Meta:
         unique_together = ('nombre', 'ubicacion', 'propietario')
-        ordering = ['id']
+        ordering = ['-id']
         indexes = [
             models.Index(fields=['nombre'], name='idx_huerta_nombre'),
             models.Index(fields=['archivado_en'], name='idx_huerta_archivado'),
@@ -161,7 +161,7 @@ class HuertaRentada(models.Model):
 
     class Meta:
         unique_together = ('nombre', 'ubicacion', 'propietario')
-        ordering = ['id']
+        ordering = ['-id']
         indexes = [
             models.Index(fields=['nombre'], name='idx_hr_nombre'),
             models.Index(fields=['ubicacion'], name='idx_hr_ubicacion'),

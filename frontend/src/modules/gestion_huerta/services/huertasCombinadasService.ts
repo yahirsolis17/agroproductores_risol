@@ -42,8 +42,8 @@ export const huertasCombinadasService = {
     filters: HCFilters = {},
     config: { signal?: AbortSignal; pageSize?: number } = {}
   ): Promise<{ huertas: RegistroCombinado[]; meta: PaginationMeta }> {
-    const params: Record<string, any> = { page, estado };
-    if (config.pageSize) params.page_size = config.pageSize;
+    const pageSize = config.pageSize ?? 10; // fuerza alineación con la tabla
+    const params: Record<string, any> = { page, estado, page_size: pageSize };
 
     if (filters.tipo) params.tipo = filters.tipo;
     if (filters.nombre) params.nombre = filters.nombre;

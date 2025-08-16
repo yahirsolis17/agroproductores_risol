@@ -48,12 +48,23 @@ const Huertas: React.FC = () => {
   const [nombreFiltro, setNombreFiltro] = useState<string | null>(null);
   const [propietarioFiltro, setPropietarioFiltro] = useState<number | null>(null);
 
-  const [tab, setTab] = useState<VistaTab>('activos');
+  // Tab local sincronizado con el store SOLO cuando cambia realmente
+  const [tab, setTab] = useState<VistaTab>(hComb.estado as VistaTab);
   useEffect(() => {
-    hComb.setEstado(tab);
+    // si el store cambia (p.ej. por navegación), reflejarlo en el tab local
+    if (tab !== (hComb.estado as VistaTab)) {
+      setTab(hComb.estado as VistaTab);
+    }
+  }, [hComb.estado]);
+
+  useEffect(() => {
+    // evita resetear page=1 en cada montaje si ya coincide
+    if (tab !== hComb.estado) {
+      hComb.setEstado(tab);
+    }
   }, [tab]);
 
-  // 🔧 Mueve los estados que usas en handlers por ENCIMA de las funciones:
+  // 🔧 Estados de UI
   const [modalOpen, setModalOpen] = useState(false);
   const [propModal, setPropModal] = useState(false);
   const [defaultPropietarioId, setDefaultPropietarioId] = useState<number>();
@@ -97,7 +108,7 @@ const Huertas: React.FC = () => {
         1,
         'todos',
         { nombre: q },
-        { signal: abortNombre.signal }
+        { signal: abortNombre.signal, pageSize }
       );
       return Array.from(new Set(huertas.map(h => h.nombre))).map(n => ({ label: n, value: n }));
     } catch {
@@ -137,11 +148,9 @@ const Huertas: React.FC = () => {
   const dataForTable = useMemo<Registro[]>(() =>
     hComb.huertas.map(h => {
       if (h.tipo === 'rentada') {
-        // garantizamos number
         const mr = typeof (h as any).monto_renta === 'number' ? (h as any).monto_renta : 0;
         return { ...(h as any), monto_renta: mr } as Registro;
       }
-      // propia: no requiere monto_renta
       return h as unknown as Registro;
     }),
   [hComb.huertas]);
@@ -247,12 +256,12 @@ const Huertas: React.FC = () => {
           )}
 
           <HuertaTable
-            data={dataForTable}              
+            data={dataForTable}
             page={hComb.page}
             pageSize={pageSize}
             count={hComb.meta.count}
             onPageChange={hComb.setPage}
-            loading={false}
+            loading={hComb.loading} 
             emptyMessage={
               dataForTable.length
                 ? ''
@@ -270,7 +279,7 @@ const Huertas: React.FC = () => {
             onDelete={askDelete}
             onArchive={h => handleArchiveOrRestore(h, false)}
             onRestore={h => handleArchiveOrRestore(h, true)}
-            onTemporadas={h => navigate(`/temporadas?huerta_id=${h.id}`)}
+            onTemporadas={h => navigate(`/temporadas?huerta_id=${h.id}&tipo=${isRentada(h) ? 'rentada' : 'propia'}`)}
           />
         </Box>
 
