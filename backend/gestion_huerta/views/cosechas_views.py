@@ -48,6 +48,8 @@ def _map_cosecha_validation_errors(errors: dict) -> tuple[str, dict]:
             return "cosecha_limite_temporada", {"errors": errors}
         if txt == "Ya existe una cosecha con ese nombre en esta temporada.":
             return "cosecha_duplicada", {"errors": errors}
+        if txt == "Ya existe una cosecha activa en esta temporada.":
+            return "cosecha_activa_existente", {"errors": errors}
         if txt == "No puedes cambiar la temporada de una cosecha existente.":
             return "cosecha_cambiar_temporada_prohibido", {"errors": errors}
         if txt == "El nombre de la cosecha debe tener al menos 3 caracteres.":
@@ -307,33 +309,42 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
     def toggle_finalizada(self, request, pk=None):
         c = self.get_object()
 
-        # No togglear si la temporada está archivada
-        if not c.temporada.is_active:
-            return self.notify(
-                key="cosecha_temporada_archivada_no_finalizar",
-                data={"info": "No puedes finalizar/reactivar una cosecha cuya temporada está archivada."},
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
-
         try:
             with transaction.atomic():
-                if not c.finalizada:
-                    c.finalizar()
-                    key, msg = "cosecha_finalizada", "Finalizó"
+                # Toggle
+                c.finalizada = not c.finalizada
+                c.save(update_fields=["finalizada"])
+
+                # Mensaje y clave coherentes con el estado final
+                if c.finalizada:
+                    msg = "Finalizó"
+                    key = "cosecha_finalizada"
                 else:
-                    c.finalizada = False
-                    c.fecha_fin = None
-                    c.save(update_fields=["finalizada", "fecha_fin"])
-                    key, msg = "cosecha_reactivada", "Reactivó"
+                    msg = "Reactivó"
+                    key = "cosecha_reactivada"
+
+                # Auditoría
+                try:
+                    registrar_actividad(request.user, f"{msg} la cosecha: {c.nombre}")
+                except Exception as audit_exc:
+                    # No queremos romper la UX si falla la auditoría; sólo logueamos
+                    import logging
+                    logging.getLogger(__name__).warning("Fallo registrar_actividad en toggle_finalizada: %s", audit_exc)
+
+                # Respuesta uniforme
+                return self.notify(
+                    key=key,
+                    data={"cosecha": self.get_serializer(c).data},
+                    status_code=status.HTTP_200_OK,
+                )
+
         except Exception:
+            # Cualquier error: respuesta uniforme de error (sin 500)
             return self.notify(
                 key="operacion_atomica_fallida",
                 data={"info": "No se pudo completar la operación."},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
-
-        registrar_actividad(request.user, f"{msg} la cosecha: {c.nombre}")
-        return self.notify(key=key, data={"cosecha": self.get_serializer(c).data})
 
     @action(detail=True, methods=["post"], url_path="reactivar")
     def reactivar(self, request, pk=None):

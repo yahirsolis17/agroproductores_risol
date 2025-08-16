@@ -325,12 +325,28 @@ class CosechaSerializer(serializers.ModelSerializer):
         fi         = data.get('fecha_inicio') or (instance.fecha_inicio if instance else None)
         ff         = data.get('fecha_fin')    or (instance.fecha_fin    if instance else None)
         nombre_in  = data.get('nombre', None)
+        finalizada = data.get('finalizada') if 'finalizada' in data else (
+            instance.finalizada if instance else False
+        )
 
         if not temporada:
             raise ValidationError("La cosecha debe pertenecer a una temporada.")
 
         if fi and ff and ff < fi:
             raise ValidationError("La fecha de fin no puede ser anterior a la fecha de inicio.")
+
+        # Impedir múltiples cosechas activas en la misma temporada
+        if not finalizada and temporada:
+            qs = Cosecha.objects.filter(
+                temporada=temporada,
+                finalizada=False,
+                is_active=True,
+            )
+            if instance:
+                qs = qs.exclude(pk=instance.pk)
+            if qs.exists():
+                raise ValidationError("Ya existe una cosecha activa en esta temporada.")
+
 
         # Reglas de creación
         if instance is None:

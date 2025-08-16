@@ -261,6 +261,15 @@ NOTIFICATION_MESSAGES = {
         "message": "Cosecha restaurada correctamente.",
         "type": "success"
     },
+    
+    "cosecha_reactivada": {
+        "message": "Cosecha reactivada correctamente.",
+        "type": "success"
+    },
+    "cosecha_duplicada": {
+        "message": "Ya existe una cosecha con ese nombre en esta temporada.",
+        "type": "warning"
+    },
     "cosecha_ya_archivada": {
         "message": "Esta cosecha ya está archivada.",
         "type": "warning"
@@ -307,6 +316,10 @@ NOTIFICATION_MESSAGES = {
     },
     "cosecha_nombre_duplicado": {
         "message": "Ya existe una cosecha con ese nombre en esta temporada.",
+        "type": "error"
+    },
+    "cosecha_activa_existente": {
+        "message": "Ya existe una cosecha activa en esta temporada.",
         "type": "error"
     },
     "toggle_cosecha_success": {
