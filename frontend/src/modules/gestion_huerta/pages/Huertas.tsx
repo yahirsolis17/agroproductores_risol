@@ -50,8 +50,10 @@ const Huertas: React.FC = () => {
 
   const [tab, setTab] = useState<VistaTab>('activos');
   useEffect(() => {
-    hComb.setEstado(tab);
-  }, [tab]);
+    if (hComb.estado !== tab) {
+      hComb.setEstado(tab);
+    }
+  }, [tab, hComb.estado]);
 
   // 🔧 Mueve los estados que usas en handlers por ENCIMA de las funciones:
   const [modalOpen, setModalOpen] = useState(false);
