@@ -16,7 +16,7 @@ import { useParams } from 'react-router-dom';
 const PAGE_SIZE = 10;
 
 const Inversion: React.FC = () => {
-  // 🔗 Obtenemos los IDs desde la URL: /finanzas/:temporadaId/:cosechaId
+  // 🔗 IDs desde la URL: /finanzas/:temporadaId/:cosechaId
   const { temporadaId: tParam, cosechaId: cParam } = useParams<{ temporadaId: string; cosechaId: string }>();
   const routeTemporadaId = Number(tParam) || null;
   const routeCosechaId   = Number(cParam) || null;
@@ -34,8 +34,7 @@ const Inversion: React.FC = () => {
     archive,
     restore,
     removeInversion,
-    // quitamos temporadaId y cosechaId del destructuring (no se usan aquí)
-    setContext,
+    setContext, // ⚠️ lo usaremos, pero NO lo pondremos en deps del efecto
   } = useInversiones();
 
   /* ---------- Cargar TODAS las categorías (para nombres y filtro) ---------- */
@@ -80,7 +79,7 @@ const Inversion: React.FC = () => {
         setTempState({ is_active: t.is_active, finalizada: t.finalizada });
         setCosechaState({ is_active: c.is_active, finalizada: c.finalizada });
 
-        // 🔐 Contexto para el slice de inversiones
+        // 🔐 Fijar contexto en el slice (no incluir setContext en deps para evitar bucles)
         setContext({
           huertaId:        c.huerta ?? undefined,
           huertaRentadaId: c.huerta_rentada ?? undefined,
@@ -95,11 +94,12 @@ const Inversion: React.FC = () => {
     })();
 
     return () => { alive = false; };
-  }, [routeTemporadaId, routeCosechaId, setContext]);
+  // ⛔️ Importante: NO incluir setContext en deps; provoca re-ejecuciones infinitas
+  }, [routeTemporadaId, routeCosechaId]);
 
   const { canCreate, createTooltip } = useMemo(() => {
     if (!tempState || !cosechaState) {
-      return { canCreate: false, createTooltip: '' };
+      return { canCreate: false, createTooltip: 'Cargando estado de temporada y cosecha…' };
     }
     if (!tempState.is_active) {
       return { canCreate: false, createTooltip: 'No se pueden registrar inversiones en una temporada archivada.' };

@@ -1,4 +1,3 @@
-// src/modules/gestion_huerta/components/finanzas/CategoriaAutocomplete.tsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   TextField,
@@ -58,7 +57,7 @@ type Props = {
   onChangeId: (id: number | null) => void;
   label?: string;
   error?: boolean;
-  helperText?: string;
+  helperText?: React.ReactNode; // ← acepta boolean|string|nodo, compatible con MUI y evita TS2322 en consumidores
 };
 
 const CategoriaAutocomplete: React.FC<Props> = ({
@@ -300,17 +299,14 @@ const CategoriaAutocomplete: React.FC<Props> = ({
           return (
             <li
               {...liProps}
-              // OJO: NO usar aria-disabled para no perder pointer-events en toda la fila
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 gap: 8,
               }}
-              // Para activas, delegamos en MUI; para archivadas, bloqueamos selección a nivel li
               onMouseDown={(e) => {
                 if (isArchived) {
-                  // bloquea selección por click en zonas “muertas” de la fila
                   e.preventDefault();
                   e.stopPropagation();
                   return;
@@ -326,7 +322,7 @@ const CategoriaAutocomplete: React.FC<Props> = ({
                 muiClick?.(e);
               }}
             >
-              {/* Área de texto: si está archivada, también bloquea selección */}
+              {/* Área de texto */}
               <Tooltip title={isArchived ? 'Archivada · no seleccionable' : ''}>
                 <span
                   onMouseDown={(e) => {
@@ -340,7 +336,6 @@ const CategoriaAutocomplete: React.FC<Props> = ({
                     alignItems: 'center',
                     gap: 8,
                     opacity: isArchived ? 0.65 : 1,
-                    // importante: permitir click en el icono aunque el texto esté “deshabilitado”
                     pointerEvents: 'auto',
                   }}
                 >
@@ -353,7 +348,6 @@ const CategoriaAutocomplete: React.FC<Props> = ({
               <IconButton
                 size="small"
                 onMouseDown={(e) => {
-                  // evita que el listbox interprete mousedown como selección/cierre
                   e.preventDefault();
                   e.stopPropagation();
                 }}
@@ -393,7 +387,7 @@ const CategoriaAutocomplete: React.FC<Props> = ({
           },
         }}
       >
-        <MenuItem onClick={handleEdit}>
+        <MenuItem onClick={handleEdit} disabled={!menu.cat?.is_active}>
           <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
           <ListItemText>Editar</ListItemText>
         </MenuItem>
@@ -410,7 +404,7 @@ const CategoriaAutocomplete: React.FC<Props> = ({
           </MenuItem>
         )}
 
-        <MenuItem onClick={handleDelete}>
+        <MenuItem onClick={handleDelete} disabled={menu.cat?.is_active}>
           <ListItemIcon><DeleteIcon fontSize="small" /></ListItemIcon>
           <ListItemText>Eliminar</ListItemText>
         </MenuItem>

@@ -21,7 +21,6 @@ type Ctx = {
 type PaginationMeta = { count: number; next: string | null; previous: string | null };
 
 export const ventaService = {
-  // LIST (con fallback a DRF nativo, igual que inversiones)
   async list(
     ctx: Ctx,
     page = 1,
@@ -41,20 +40,6 @@ export const ventaService = {
     if (filters.fechaHasta)  params['fecha_hasta'] = filters.fechaHasta;
     if (filters.estado)      params['estado'] = filters.estado;
 
-    // Intento 1: DRF nativo (count/results)
-    const probe = await apiClient.get<any>('/huerta/ventas/', { params, signal: config.signal });
-    if (probe?.data && typeof probe.data.count === 'number' && Array.isArray(probe.data.results)) {
-      return {
-        success: true,
-        notification: { key: 'no_notification', message: '', type: 'info' as const },
-        data: {
-          ventas: probe.data.results as VentaHuerta[],
-          meta: { count: probe.data.count, next: probe.data.next, previous: probe.data.previous } as PaginationMeta,
-        },
-      };
-    }
-
-    // Intento 2: envelope del backend
     const { data } = await apiClient.get<{
       success: boolean;
       notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
@@ -64,7 +49,6 @@ export const ventaService = {
     return data;
   },
 
-  // CREATE
   async create(ctx: Ctx, payload: VentaHuertaCreateData) {
     const body: Record<string, any> = {
       fecha_venta: payload.fecha_venta,
@@ -83,7 +67,6 @@ export const ventaService = {
     return data;
   },
 
-  // UPDATE (PATCH parcial)
   async update(id: number, payload: VentaHuertaUpdateData) {
     const body: any = { ...payload };
     const { data } = await apiClient.patch<{

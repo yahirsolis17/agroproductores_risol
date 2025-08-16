@@ -1,4 +1,3 @@
-// src/modules/gestion_huerta/components/finanzas/InversionToolbar.tsx
 import React, { useMemo, useState } from 'react';
 import {
   Box, TextField, Button, InputAdornment,
@@ -143,7 +142,7 @@ const InversionToolbar: React.FC<Props> = ({
           <Tooltip title={createTooltip || ''}>
             <span>
               <PermissionButton
-                perm="add_inversion"
+                perm="gestion_huerta.add_inversion"  // ← codename con app-label
                 variant="contained"
                 startIcon={<AddIcon />}
                 onClick={onCreateClick}
@@ -250,7 +249,7 @@ const InversionToolbar: React.FC<Props> = ({
           )}
         />
 
-        {/* Acciones de filtros: solo mostrar “Limpiar filtros” si hay filtros activos */}
+        {/* Acciones de filtros */}
         <Box
           display="flex"
           alignItems="center"

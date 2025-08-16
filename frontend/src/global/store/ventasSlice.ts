@@ -30,6 +30,8 @@ interface VentasState {
   filters: VentaFilters;
 }
 
+const PAGE_SIZE = 10;
+
 const initialState: VentasState = {
   list: [],
   loading: false,
@@ -44,37 +46,54 @@ const initialState: VentasState = {
   filters: { estado: 'activas' },
 };
 
-// ───────────────── Thunks ─────────────────
+// Helpers
+function ctxFromState(s: VentasState) {
+  return {
+    huertaId: s.huertaId ?? undefined,
+    huertaRentadaId: s.huertaRentadaId ?? undefined,
+    temporadaId: s.temporadaId!,
+    cosechaId: s.cosechaId!,
+  };
+}
+
+type PagePayload = { ventas: VentaHuerta[]; meta: PaginationMeta; page: number };
+
+async function fetchSameOrPrevPageSilently(s: VentasState): Promise<PagePayload> {
+  // 1) intento con la página actual
+  const res1 = await ventaService.list(ctxFromState(s), s.page, PAGE_SIZE, s.filters);
+  const items1 = res1?.data?.ventas ?? [];
+  const meta1  = res1?.data?.meta ?? { count: 0, next: null, previous: null };
+
+  if (items1.length > 0 || s.page === 1) {
+    return { ventas: items1, meta: meta1, page: s.page };
+  }
+
+  // 2) si quedó vacía y no es la primera, pedir la anterior
+  const newPage = Math.max(1, s.page - 1);
+  const res2 = await ventaService.list(ctxFromState(s), newPage, PAGE_SIZE, s.filters);
+  const items2 = res2?.data?.ventas ?? [];
+  const meta2  = res2?.data?.meta ?? { count: 0, next: null, previous: null };
+
+  return { ventas: items2, meta: meta2, page: newPage };
+}
+
+/* ───────────────── Thunks ───────────────── */
 export const fetchVentas = createAsyncThunk<
-  { ventas: VentaHuerta[]; meta: PaginationMeta; page: number },
+  PagePayload,
   void,
   { state: RootState; rejectValue: string }
 >(
   'ventas/fetch',
   async (_, { getState, rejectWithValue }) => {
     const s = getState().ventas;
-    const { huertaId, huertaRentadaId, temporadaId, cosechaId, page, filters } = s;
+    const { huertaId, huertaRentadaId, temporadaId, cosechaId } = s;
     if ((!huertaId && !huertaRentadaId) || !temporadaId || !cosechaId) {
       return rejectWithValue('Faltan IDs de contexto (huerta/huerta_rentada, temporada o cosecha).');
     }
     try {
-      const res = await ventaService.list(
-        {
-          huertaId: huertaId ?? undefined,
-          huertaRentadaId: huertaRentadaId ?? undefined,
-          temporadaId: temporadaId!,
-          cosechaId: cosechaId!,
-        },
-        page,
-        10,
-        filters
-      );
+      const res = await ventaService.list(ctxFromState(s), s.page, PAGE_SIZE, s.filters);
       handleBackendNotification(res);
-      return {
-        ventas: res.data.ventas,
-        meta: res.data.meta,
-        page,
-      };
+      return { ventas: res.data.ventas, meta: res.data.meta, page: s.page };
     } catch (err: any) {
       handleBackendNotification(err?.response?.data || err);
       return rejectWithValue('Error al cargar ventas');
@@ -95,15 +114,7 @@ export const createVenta = createAsyncThunk<
       return rejectWithValue({ message: 'Contexto incompleto' });
     }
     try {
-      const res = await ventaService.create(
-        {
-          huertaId: huertaId ?? undefined,
-          huertaRentadaId: huertaRentadaId ?? undefined,
-          temporadaId: temporadaId!,
-          cosechaId: cosechaId!,
-        },
-        payload
-      );
+      const res = await ventaService.create(ctxFromState(s), payload);
       handleBackendNotification(res);
       return res.data.venta;
     } catch (err: any) {
@@ -131,17 +142,28 @@ export const updateVenta = createAsyncThunk<
   }
 );
 
+// ARCHIVAR: repaginar si corresponde (como inversiones)
 export const archiveVenta = createAsyncThunk<
-  VentaHuerta,
+  { venta: VentaHuerta; pageData: PagePayload | null },
   number,
   { state: RootState; rejectValue: any }
 >(
   'ventas/archive',
-  async (id, { rejectWithValue }) => {
+  async (id, { getState, rejectWithValue }) => {
     try {
       const res = await ventaService.archivar(id);
       handleBackendNotification(res);
-      return res.data.venta;
+
+      const s = getState().ventas;
+      const estado = s.filters.estado ?? 'activas';
+
+      if (estado === 'todas') {
+        // en "todas" basta refrescar la fila
+        return { venta: res.data.venta, pageData: null };
+      }
+      // en "activas" (desaparece) y en "archivadas" no estaba: repaginar
+      const pageData = await fetchSameOrPrevPageSilently(s);
+      return { venta: res.data.venta, pageData };
     } catch (err: any) {
       handleBackendNotification(err?.response?.data || err);
       return rejectWithValue(err?.response?.data || err);
@@ -149,17 +171,30 @@ export const archiveVenta = createAsyncThunk<
   }
 );
 
+// RESTAURAR: repaginar en "archivadas"; en "todas" actualizar fila
 export const restoreVenta = createAsyncThunk<
-  VentaHuerta,
+  { venta: VentaHuerta; pageData: PagePayload | null },
   number,
   { state: RootState; rejectValue: any }
 >(
   'ventas/restore',
-  async (id, { rejectWithValue }) => {
+  async (id, { getState, rejectWithValue }) => {
     try {
       const res = await ventaService.restaurar(id);
       handleBackendNotification(res);
-      return res.data.venta;
+
+      const s = getState().ventas;
+      const estado = s.filters.estado ?? 'activas';
+
+      if (estado === 'todas') {
+        return { venta: res.data.venta, pageData: null };
+      }
+      if (estado === 'archivadas') {
+        const pageData = await fetchSameOrPrevPageSilently(s);
+        return { venta: res.data.venta, pageData };
+      }
+      // en "activas" normalmente no hay restaurar
+      return { venta: res.data.venta, pageData: null };
     } catch (err: any) {
       handleBackendNotification(err?.response?.data || err);
       return rejectWithValue(err?.response?.data || err);
@@ -167,17 +202,21 @@ export const restoreVenta = createAsyncThunk<
   }
 );
 
+// ELIMINAR: repaginar siempre
 export const deleteVenta = createAsyncThunk<
+  { id: number; pageData: PagePayload },
   number,
-  number,
-  { rejectValue: any }
+  { state: RootState; rejectValue: any }
 >(
   'ventas/delete',
-  async (id, { rejectWithValue }) => {
+  async (id, { getState, rejectWithValue }) => {
     try {
       const res = await ventaService.remove(id);
       handleBackendNotification(res);
-      return id;
+
+      const s = getState().ventas;
+      const pageData = await fetchSameOrPrevPageSilently(s);
+      return { id, pageData };
     } catch (err: any) {
       handleBackendNotification(err?.response?.data || err);
       return rejectWithValue(err?.response?.data || err);
@@ -185,7 +224,7 @@ export const deleteVenta = createAsyncThunk<
   }
 );
 
-// ───────────────── Slice ─────────────────
+/* ───────────────── Slice ───────────────── */
 const ventasSlice = createSlice({
   name: 'ventas',
   initialState,
@@ -231,39 +270,41 @@ const ventasSlice = createSlice({
        if (i !== -1) s.list[i] = payload;
      })
 
-     // ARCHIVAR: manejo tab-aware
+     // ARCHIVAR
      .addCase(archiveVenta.fulfilled, (s, { payload }) => {
        const estado = s.filters.estado ?? 'activas';
-       if (estado === 'activas') {
-         s.list = s.list.filter(v => v.id !== payload.id);
-       } else if (estado === 'todas') {
-         const i = s.list.findIndex(v => v.id === payload.id);
-         if (i !== -1) s.list[i] = payload;
+       if (estado === 'todas') {
+         const i = s.list.findIndex(v => v.id === payload.venta.id);
+         if (i !== -1) s.list[i] = payload.venta;
+       } else if (payload.pageData) {
+         s.list = payload.pageData.ventas;
+         s.meta = payload.pageData.meta;
+         s.page = payload.pageData.page;
        }
-       // en 'archivadas' no estaba visible
      })
 
-     // RESTAURAR: manejo tab-aware
+     // RESTAURAR
      .addCase(restoreVenta.fulfilled, (s, { payload }) => {
        const estado = s.filters.estado ?? 'activas';
-       if (estado === 'archivadas') {
-         s.list = s.list.filter(v => v.id !== payload.id);
+       if (estado === 'todas') {
+         const i = s.list.findIndex(v => v.id === payload.venta.id);
+         if (i !== -1) s.list[i] = payload.venta;
+       } else if (estado === 'archivadas' && payload.pageData) {
+         s.list = payload.pageData.ventas;
+         s.meta = payload.pageData.meta;
+         s.page = payload.pageData.page;
        } else if (estado === 'activas') {
-         // si no existe, unshift; si existe, actualiza
-         const i = s.list.findIndex(v => v.id === payload.id);
-         if (i === -1) s.list.unshift(payload);
-         else s.list[i] = payload;
-       } else {
-         // 'todas'
-         const i = s.list.findIndex(v => v.id === payload.id);
-         if (i !== -1) s.list[i] = payload;
+         const i = s.list.findIndex(v => v.id === payload.venta.id);
+         if (i !== -1) s.list.splice(i, 1);
+         s.list.unshift(payload.venta);
        }
      })
 
      // DELETE
-     .addCase(deleteVenta.fulfilled, (s, { payload: id }) => {
-       s.list = s.list.filter(v => v.id !== id);
-       if (s.meta.count > 0) s.meta.count -= 1;
+     .addCase(deleteVenta.fulfilled, (s, { payload }) => {
+       s.list = payload.pageData.ventas;
+       s.meta = payload.pageData.meta;
+       s.page = payload.pageData.page;
      });
   }
 });

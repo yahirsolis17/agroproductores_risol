@@ -3,7 +3,7 @@ NOTIFICATION_MESSAGES = {
     # Genéricos
     # -------------------------------------------------
     "validation_error": {
-        "message": "Por favor, corrige los errores en los campos.",
+        "message": "Por favor, corrige los errores en los campos back.",
         "type": "error"
     },
     "permission_denied": {
@@ -242,6 +242,8 @@ NOTIFICATION_MESSAGES = {
         "message": "No se puede restaurar una temporada en una huerta  archivada.",
         "type": "error"
     },
+    
+    
 
     # -------------------------------------------------
     # Cosechas

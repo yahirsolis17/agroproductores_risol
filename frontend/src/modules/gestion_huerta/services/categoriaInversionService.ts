@@ -9,7 +9,7 @@ type PaginationMeta = { count: number; next: string | null; previous: string | n
 
 interface ListEnvelope {
   success: boolean;
-  message_key: string;
+  notification?: { key: string; message: string; type: 'success' | 'error' | 'warning' | 'info' };
   data: {
     categorias: CategoriaInversion[];
     meta: PaginationMeta;
@@ -18,13 +18,13 @@ interface ListEnvelope {
 
 interface ItemEnvelope {
   success: boolean;
-  message_key: string;
+  notification?: { key: string; message: string; type: 'success' | 'error' | 'warning' | 'info' };
   data: { categoria: CategoriaInversion } | { categoria_inversion: CategoriaInversion };
 }
 
 interface InfoEnvelope {
   success: boolean;
-  message_key: string;
+  notification?: { key: string; message: string; type: 'success' | 'error' | 'warning' | 'info' };
   data: { info: string };
 }
 

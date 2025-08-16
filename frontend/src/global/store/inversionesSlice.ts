@@ -21,7 +21,6 @@ interface InversionesState {
   page: number;
   meta: PaginationMeta;
 
-  // contexto (FKs)
   huertaId: number | null;
   huertaRentadaId: number | null;
   temporadaId: number | null;
@@ -46,7 +45,6 @@ const initialState: InversionesState = {
   filters: { estado: 'activas' },
 };
 
-// Helpers
 function ctxFromState(s: InversionesState) {
   return {
     huertaId: s.huertaId ?? undefined,
@@ -59,7 +57,6 @@ function ctxFromState(s: InversionesState) {
 type PagePayload = { inversiones: InversionHuerta[]; meta: PaginationMeta; page: number };
 
 async function fetchSameOrPrevPageSilently(s: InversionesState): Promise<PagePayload> {
-  // 1) intento con la página actual
   const res1 = await inversionService.list(ctxFromState(s), s.page, PAGE_SIZE, s.filters);
   const items1 = res1?.data?.inversiones ?? [];
   const meta1  = res1?.data?.meta ?? { count: 0, next: null, previous: null };
@@ -68,7 +65,6 @@ async function fetchSameOrPrevPageSilently(s: InversionesState): Promise<PagePay
     return { inversiones: items1, meta: meta1, page: s.page };
   }
 
-  // 2) si quedó vacía y no es la primera, pido la anterior
   const newPage = Math.max(1, s.page - 1);
   const res2 = await inversionService.list(ctxFromState(s), newPage, PAGE_SIZE, s.filters);
   const items2 = res2?.data?.inversiones ?? [];
@@ -77,21 +73,20 @@ async function fetchSameOrPrevPageSilently(s: InversionesState): Promise<PagePay
   return { inversiones: items2, meta: meta2, page: newPage };
 }
 
-// ───────────────── Thunks ─────────────────
 export const fetchInversiones = createAsyncThunk<
   { inversiones: InversionHuerta[]; meta: PaginationMeta; page: number },
   void,
   { state: RootState; rejectValue: string }
 >(
   'inversiones/fetch',
-  async (_, { getState, rejectWithValue }) => {
+  async (_, { getState, rejectWithValue, signal }) => {
     const s = getState().inversiones;
     const { huertaId, huertaRentadaId, temporadaId, cosechaId } = s;
     if ((!huertaId && !huertaRentadaId) || !temporadaId || !cosechaId) {
       return rejectWithValue('Faltan IDs de contexto (huerta/huerta_rentada, temporada o cosecha).');
     }
     try {
-      const res = await inversionService.list(ctxFromState(s), s.page, PAGE_SIZE, s.filters);
+      const res = await inversionService.list(ctxFromState(s), s.page, PAGE_SIZE, s.filters, { signal });
       handleBackendNotification(res);
       return {
         inversiones: res.data.inversiones,
@@ -99,6 +94,7 @@ export const fetchInversiones = createAsyncThunk<
         page: s.page,
       };
     } catch (err: any) {
+      if (signal.aborted) return rejectWithValue('Abortado');
       handleBackendNotification(err?.response?.data || err);
       return rejectWithValue('Error al cargar inversiones');
     }
@@ -146,7 +142,6 @@ export const updateInversion = createAsyncThunk<
   }
 );
 
-// ARCHIVAR: commit-once → actualizo la página completa silenciosamente (sin loading)
 export const archiveInversion = createAsyncThunk<
   { inversion: InversionHuerta; pageData: PagePayload | null },
   number,
@@ -162,11 +157,9 @@ export const archiveInversion = createAsyncThunk<
       const estado = s.filters.estado ?? 'activas';
 
       if (estado === 'todas') {
-        // En "todas" basta con refrescar la fila in-place.
         return { inversion: res.data.inversion, pageData: null };
       }
 
-      // En "activas" (vista donde desaparece): repaginar página actual (o anterior) sin flicker.
       const pageData = await fetchSameOrPrevPageSilently(s);
       return { inversion: res.data.inversion, pageData };
     } catch (err: any) {
@@ -176,7 +169,6 @@ export const archiveInversion = createAsyncThunk<
   }
 );
 
-// RESTAURAR: commit-once → en "archivadas" repagino; en "todas" actualizo fila.
 export const restoreInversion = createAsyncThunk<
   { inversion: InversionHuerta; pageData: PagePayload | null },
   number,
@@ -198,8 +190,6 @@ export const restoreInversion = createAsyncThunk<
         const pageData = await fetchSameOrPrevPageSilently(s);
         return { inversion: res.data.inversion, pageData };
       }
-
-      // En "activas" normalmente no existe acción de restaurar.
       return { inversion: res.data.inversion, pageData: null };
     } catch (err: any) {
       handleBackendNotification(err?.response?.data || err);
@@ -208,7 +198,6 @@ export const restoreInversion = createAsyncThunk<
   }
 );
 
-// ELIMINAR: siempre repagino la página actual (o anterior) sin flicker
 export const deleteInversion = createAsyncThunk<
   { id: number; pageData: PagePayload },
   number,
@@ -230,7 +219,6 @@ export const deleteInversion = createAsyncThunk<
   }
 );
 
-// ───────────────── Slice ─────────────────
 const inversionesSlice = createSlice({
   name: 'inversiones',
   initialState,
@@ -263,24 +251,17 @@ const inversionesSlice = createSlice({
        s.error = (payload as string) ?? error.message ?? 'Error';
        s.loaded = true;
      })
-
-     // CREATE → insert inmediata (mantenemos)
      .addCase(createInversion.fulfilled, (s, { payload }) => {
        s.list.unshift(payload);
        s.meta.count += 1;
      })
-
-     // UPDATE in-place
      .addCase(updateInversion.fulfilled, (s, { payload }) => {
        const i = s.list.findIndex(inv => inv.id === payload.id);
        if (i !== -1) s.list[i] = payload;
      })
-
-     // ARCHIVAR
      .addCase(archiveInversion.fulfilled, (s, { payload }) => {
        const estado = s.filters.estado ?? 'activas';
        if (estado === 'todas') {
-         // Sólo actualizo la fila en sitio
          const i = s.list.findIndex(inv => inv.id === payload.inversion.id);
          if (i !== -1) s.list[i] = payload.inversion;
        } else if (payload.pageData) {
@@ -289,8 +270,6 @@ const inversionesSlice = createSlice({
          s.page = payload.pageData.page;
        }
      })
-
-     // RESTAURAR
      .addCase(restoreInversion.fulfilled, (s, { payload }) => {
        const estado = s.filters.estado ?? 'activas';
        if (estado === 'todas') {
@@ -301,14 +280,11 @@ const inversionesSlice = createSlice({
          s.meta = payload.pageData.meta;
          s.page = payload.pageData.page;
        } else if (estado === 'activas') {
-         // Por si existiera restaurar en activas (poco probable), insertamos arriba
          const i = s.list.findIndex(inv => inv.id === payload.inversion.id);
          if (i !== -1) s.list.splice(i, 1);
          s.list.unshift(payload.inversion);
        }
      })
-
-     // DELETE
      .addCase(deleteInversion.fulfilled, (s, { payload }) => {
        s.list = payload.pageData.inversiones;
        s.meta = payload.pageData.meta;

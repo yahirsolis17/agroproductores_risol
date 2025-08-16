@@ -22,7 +22,6 @@ type Ctx = {
 type PaginationMeta = { count: number; next: string | null; previous: string | null };
 
 export const inversionService = {
-  // LIST (con fallback a DRF nativo, igual que temporadas/cosechas)
   async list(
     ctx: Ctx,
     page = 1,
@@ -43,20 +42,7 @@ export const inversionService = {
     if (filters.fechaHasta)  params['fecha_hasta'] = filters.fechaHasta;
     if (filters.estado)      params['estado'] = filters.estado;
 
-    // Intento 1: DRF nativo (count/results)
-    const probe = await apiClient.get<any>('/huerta/inversiones/', { params, signal: config.signal });
-    if (probe?.data && typeof probe.data.count === 'number' && Array.isArray(probe.data.results)) {
-      return {
-        success: true,
-        notification: { key: 'no_notification', message: '', type: 'info' as const },
-        data: {
-          inversiones: probe.data.results as InversionHuerta[],
-          meta: { count: probe.data.count, next: probe.data.next, previous: probe.data.previous } as PaginationMeta,
-        },
-      };
-    }
-
-    // Intento 2: envelope del backend
+    // Un solo GET (envelope del backend)
     const { data } = await apiClient.get<{
       success: boolean;
       notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
@@ -66,14 +52,13 @@ export const inversionService = {
     return data;
   },
 
-  // CREATE (envuelve como temporadas/cosechas: retorna envelope completo)
   async create(ctx: Ctx, payload: InversionHuertaCreateData) {
     const body: Record<string, any> = {
       fecha: payload.fecha,
       descripcion: payload.descripcion,
       gastos_insumos: payload.gastos_insumos,
       gastos_mano_obra: payload.gastos_mano_obra,
-      categoria_id: payload.categoria,   // ← mapping requerido por backend
+      categoria_id: payload.categoria,
       cosecha_id: ctx.cosechaId,
       temporada_id: ctx.temporadaId,
     };
@@ -88,7 +73,6 @@ export const inversionService = {
     return data;
   },
 
-  // UPDATE (PATCH parcial; mapeo de categoria -> categoria_id si viene)
   async update(id: number, payload: InversionHuertaUpdateData) {
     const body: any = { ...payload };
     if (typeof payload.categoria === 'number') {

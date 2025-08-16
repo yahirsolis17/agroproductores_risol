@@ -121,12 +121,12 @@ REST_FRAMEWORK = {
         "gestion_usuarios.utils.throttles.BaseUserThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
-        "default_user": "10000/day",
-        "login": "5/min",
-        "sensitive_action": "10/hour",
-        "admin_only": "20/day",
-        "refresh_token": "5/hour",
-        "permissions": "6/min",# <- esto lo agregas
+        "default_user": "50000/day",  # Aumenta el límite aquí
+        "login": "20/min",            # Aumenta el límite aquí
+        "sensitive_action": "50/hour",# Aumenta el límite aquí
+        "admin_only": "100/day",      # Aumenta el límite aquí
+        "refresh_token": "20/hour",   # Aumenta el límite aquí
+        "permissions": "30/min",      # Aumenta el límite aquí
     },
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -167,26 +167,6 @@ MESSAGE_STORAGE = 'django.contrib.messages.storage.session.SessionStorage'
 # Custom user model: usamos el definido en la app gestion_usuarios
 AUTH_USER_MODEL = 'gestion_usuarios.Users'
 
-# Logging configuration
-# Logging configuration
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'file': {
-            'level': 'DEBUG',
-            'class': 'logging.FileHandler',
-            'filename': os.path.join(BASE_DIR, 'huerta_registration.log'),
-        },
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['file'],
-            'level': 'DEBUG',
-            'propagate': True,
-        },
-    },
-}
 
 # URL redirection settings after login/logout
 LOGOUT_REDIRECT_URL = 'gestion_usuarios:login'

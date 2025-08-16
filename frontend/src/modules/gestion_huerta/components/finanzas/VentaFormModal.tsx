@@ -1,4 +1,3 @@
-// src/modules/gestion_huerta/components/finanzas/VentaFormModal.tsx
 import React, { useEffect, useRef } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
@@ -26,7 +25,7 @@ function formatLocalDateYYYYMMDD(d = new Date()) {
 
 /** enteros (sin decimales) desde UI con comas */
 function parseMXNumber(input: string): number {
-  if (!input) return NaN; // ← importante: vacío NO es 0 (para que sea “obligatorio”)
+  if (!input) return NaN; // vacío NO es 0
   const cleaned = input.replace(/\s+/g, '').replace(/,/g, '');
   const n = Math.trunc(Number(cleaned));
   return Number.isFinite(n) ? n : NaN;
@@ -50,13 +49,13 @@ function msg(e: unknown): string {
 type FormValues = {
   fecha_venta: string;
   tipo_mango: string;
-  num_cajas: string;        // UI: con comas
-  precio_por_caja: string;  // UI: con comas
-  gasto: string;            // UI: con comas (obligatorio >= 0)
+  num_cajas: string;        // UI
+  precio_por_caja: string;  // UI
+  gasto: string;            // UI
   descripcion: string;
 };
 
-/** Validaciones (idéntica filosofía de Inversiones) */
+/** Validaciones (alineadas al backend) */
 const schema = Yup.object({
   fecha_venta: Yup.string().required('La fecha es requerida'),
   tipo_mango: Yup.string().trim().required('El tipo de mango es requerido'),
@@ -71,6 +70,7 @@ const schema = Yup.object({
       const n = parseMXNumber(value || '');
       return Number.isFinite(n) && n > 0;
     }),
+  // 👇 aquí el backend exige > 0 (no 0)
   precio_por_caja: Yup.string()
     .required('El precio por caja es requerido')
     .test('solo-numeros', 'Ingresa solo números y comas', (value?: string) => {
@@ -78,11 +78,11 @@ const schema = Yup.object({
       const cleaned = value.replace(/[\s,]/g, '');
       return /^\d+$/.test(cleaned);
     })
-    .test('no-negativo', 'No puede ser negativo', (value?: string) => {
+    .test('mayor-cero', 'Debe ser mayor que 0', (value?: string) => {
       const n = parseMXNumber(value || '');
-      return Number.isFinite(n) && n >= 0;
+      return Number.isFinite(n) && n > 0;
     }),
-  gasto: Yup.string() // ← OBLIGATORIO
+  gasto: Yup.string() // obligatorio y ≥ 0
     .required('El gasto es obligatorio')
     .test('solo-numeros', 'Ingresa solo números y comas', (value?: string) => {
       if (!value) return false;
@@ -107,7 +107,6 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
   const formikRef = useRef<FormikProps<FormValues>>(null);
 
   useEffect(() => {
-    // cada que se abre, limpia errores residuales
     if (open) {
       setTimeout(() => {
         formikRef.current?.setErrors({});
@@ -124,11 +123,11 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
     gasto: initialValues.gasto != null ? formatMX(initialValues.gasto) : '',
     descripcion: initialValues.descripcion ?? '',
   } : {
-    fecha_venta: formatLocalDateYYYYMMDD(new Date()), // ← preseleccionado HOY
+    fecha_venta: formatLocalDateYYYYMMDD(new Date()),
     tipo_mango: '',
     num_cajas: '',
     precio_por_caja: '',
-    gasto: '', // ← vacío por defecto (obligatorio)
+    gasto: '',
     descripcion: '',
   };
 
@@ -146,11 +145,10 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
       await onSubmit(payload);
       onClose();
     } catch (err: unknown) {
-      const backend = err?.data || err?.response?.data || {};
+      const backend = (err as any)?.data || (err as any)?.response?.data || {};
       const beErrors = backend.errors || backend.data?.errors || {};
       const fieldErrors: Record<string, string> = {};
 
-      // Errores de objeto → reflejar en campos claves
       if (Array.isArray(beErrors.non_field_errors) && beErrors.non_field_errors.length) {
         const m = String(beErrors.non_field_errors[0]);
         ['fecha_venta', 'tipo_mango', 'num_cajas', 'precio_por_caja', 'gasto'].forEach((f) => {
@@ -158,7 +156,6 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
         });
       }
 
-      // Mapear nombres de backend → nombres del form
       Object.entries(beErrors).forEach(([f, val]: [string, unknown]) => {
         const text = Array.isArray(val) ? String(val[0]) : String(val);
         switch (f) {
@@ -176,7 +173,6 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
           case 'descripcion':
             fieldErrors['descripcion'] = text; break;
           default:
-            // ignorar otros; los muestra el toast
             break;
         }
       });
@@ -188,7 +184,7 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
     }
   };
 
-  /** Cambio en campos numéricos con validación reactiva y formateo con comas */
+  /** Cambio en campos numéricos con validación reactiva + formateo */
   const handleMoneyChange = (
     field: 'num_cajas' | 'precio_por_caja' | 'gasto',
     raw: string,
@@ -214,12 +210,13 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
     const cleaned = raw.replace(/[\s,]/g, '');
     const n = cleaned ? Number(cleaned) : NaN;
 
-    // Reglas por campo
     if (field === 'num_cajas') {
       if (!Number.isFinite(n) || n <= 0) errorMsg = 'Debe ser mayor que 0';
-    } else {
-      // precio_por_caja y gasto: >= 0, y "gasto" es obligatorio (se valida arriba), aquí solo no-negativo
+    } else if (field === 'gasto') {
       if (!Number.isFinite(n) || n < 0) errorMsg = 'No puede ser negativo';
+    } else {
+      // precio_por_caja
+      if (!Number.isFinite(n) || n <= 0) errorMsg = 'Debe ser mayor que 0';
     }
 
     const formatted = cleaned ? Math.trunc(n).toLocaleString('es-MX', { maximumFractionDigits: 0 }) : '';
@@ -242,7 +239,6 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
           <Form>
             <DialogContent>
 
-              {/* Fecha (debajo del título; por defecto HOY) */}
               <TextField
                 label="Fecha"
                 type="date"
@@ -260,7 +256,6 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
                 InputLabelProps={{ shrink: true }}
               />
 
-              {/* Tipo de mango — TextField NORMAL (SIN Autocomplete) */}
               <TextField
                 label="Tipo de mango"
                 name="tipo_mango"
@@ -277,7 +272,6 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
                 helperText={touched.tipo_mango && msg(errors.tipo_mango)}
               />
 
-              {/* Número de cajas */}
               <TextField
                 label="Número de cajas"
                 name="num_cajas"
@@ -292,7 +286,6 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
                 helperText={touched.num_cajas && msg(errors.num_cajas)}
               />
 
-              {/* Precio por caja */}
               <TextField
                 label="Precio por caja"
                 name="precio_por_caja"
@@ -307,7 +300,6 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
                 helperText={touched.precio_por_caja && msg(errors.precio_por_caja)}
               />
 
-              {/* Gasto (OBLIGATORIO, puede ser 0, sin decimales) */}
               <TextField
                 label="Gasto"
                 name="gasto"
@@ -322,7 +314,6 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
                 helperText={touched.gasto && msg(errors.gasto)}
               />
 
-              {/* Descripción */}
               <TextField
                 label="Descripción (Opcional)"
                 name="descripcion"
@@ -344,7 +335,7 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
                 type="submit"
                 variant="contained"
                 disabled={isSubmitting}
-                perm="gestion_huerta.change_venta"
+                perm={initialValues ? 'gestion_huerta.change_venta' : 'gestion_huerta.add_venta'}
               >
                 {isSubmitting ? <CircularProgress size={22} /> : 'Guardar'}
               </PermissionButton>
