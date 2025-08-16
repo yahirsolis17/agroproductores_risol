@@ -90,12 +90,12 @@ async list(
     return response.data;
   },
 
-  // 👇 TIPADO EXPLÍCITO DEL RETORNO
-  getById(id: number): Promise<{ data: { temporada: Temporada } }> {
-    return apiClient
-      .get<Temporada>(`/huerta/temporadas/${id}/`)
-      .then((res) => ({
-        data: { temporada: res.data },
-      }));
+  async getById(id: number) {
+    const response = await apiClient.get<{
+      success: boolean;
+      notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
+      data: { temporada: Temporada };
+    }>(`/huerta/temporadas/${id}/`);
+    return response.data;
   },
 };

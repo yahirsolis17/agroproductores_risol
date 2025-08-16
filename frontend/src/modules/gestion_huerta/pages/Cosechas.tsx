@@ -61,8 +61,7 @@ const Cosechas: React.FC = () => {
     (async () => {
       try {
         setTempLoading(true);
-        const resp = await temporadaService.getById(temporadaId);
-        const t = resp.data.temporada;
+        const { data: { temporada: t } } = await temporadaService.getById(temporadaId);
         setTempInfo({
           id: t.id,
           año: t.año,

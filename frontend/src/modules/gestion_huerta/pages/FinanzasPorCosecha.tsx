@@ -59,8 +59,8 @@ const FinanzasPorCosecha: React.FC = () => {
     setLoadingTemp(true);
 
     temporadaService.getById(temporadaId)
-      .then(res => {
-        const t = res.data.temporada;
+      .then(({ data }) => {
+        const t = data.temporada;
         const huertaId        = t.huerta ?? null;
         const huertaRentadaId = t.huerta_rentada ?? null;
 

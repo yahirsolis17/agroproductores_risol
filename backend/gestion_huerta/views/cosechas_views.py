@@ -12,6 +12,7 @@ from gestion_huerta.utils.audit import ViewSetAuditMixin
 from agroproductores_risol.utils.pagination import GenericPagination
 from gestion_huerta.views.huerta_views import NotificationMixin
 from gestion_huerta.permissions import HasHuertaModulePermission, HuertaGranularPermission
+from gestion_huerta.utils.notification_handler import NotificationHandler
 
 
 def _map_cosecha_validation_errors(errors: dict) -> tuple[str, dict]:
@@ -127,6 +128,16 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
                 "cosechas": serializer.data,
                 "meta": {"count": len(serializer.data), "next": None, "previous": None}
             }
+        )
+
+    # ------------------------------ RETRIEVE ------------------------------
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return NotificationHandler.generate_response(
+            message_key="data_processed_success",
+            data={"cosecha": serializer.data},
+            status_code=status.HTTP_200_OK,
         )
 
     # ------------------------------ CREATE ------------------------------

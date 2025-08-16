@@ -120,10 +120,12 @@ export const cosechaService = {
     return response.data;
   },
 
-  // GET BY ID (normalizado)
-  getById(id: number): Promise<{ data: { cosecha: Cosecha } }> {
-    return apiClient
-      .get<Cosecha>(`/huerta/cosechas/${id}/`)
-      .then((res) => ({ data: { cosecha: res.data } }));
+  async getById(id: number) {
+    const response = await apiClient.get<{
+      success: boolean;
+      notification: { key: string; message: string; type: 'success' | 'error' | 'warning' | 'info' };
+      data: { cosecha: Cosecha };
+    }>(`/huerta/cosechas/${id}/`);
+    return response.data;
   },
 };
