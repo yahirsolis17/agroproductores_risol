@@ -11,6 +11,7 @@ import InversionFormModal from '../components/finanzas/InversionFormModal';
 import { categoriaInversionService } from '../services/categoriaInversionService';
 import { temporadaService } from '../services/temporadaService';
 import { cosechaService } from '../services/cosechaService';
+import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
 
 const PAGE_SIZE = 10;
 
@@ -165,8 +166,13 @@ const Inversion: React.FC = () => {
   const [delId, setDelId] = useState<number | null>(null);
   const confirmDelete = async () => {
     if (delId == null) return;
-    await removeInversion(delId);
-    setDelId(null);
+    try {
+      await removeInversion(delId);
+    } catch (e: any) {
+      handleBackendNotification(e?.response?.data?.notification || e);
+    } finally {
+      setDelId(null);
+    }
   };
 
   return (

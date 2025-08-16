@@ -10,6 +10,7 @@ import VentaTable   from '../components/finanzas/VentaTable';
 import VentaFormModal from '../components/finanzas/VentaFormModal';
 import { temporadaService } from '../services/temporadaService';
 import { cosechaService } from '../services/cosechaService';
+import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
 
 const PAGE_SIZE = 10;
 
@@ -117,8 +118,13 @@ const Venta: React.FC = () => {
   const [delId, setDelId] = useState<number | null>(null);
   const confirmDelete = async () => {
     if (delId == null) return;
-    await removeVenta(delId);
-    setDelId(null);
+    try {
+      await removeVenta(delId);
+    } catch (e: any) {
+      handleBackendNotification(e?.response?.data?.notification || e);
+    } finally {
+      setDelId(null);
+    }
   };
 
   return (
