@@ -10,8 +10,6 @@ import {
 } from '@mui/material';
 import { Formik, Form, FormikHelpers } from 'formik';
 import * as Yup from 'yup';
-import { Huerta } from '../../types/huertaTypes';
-import { HuertaRentada } from '../../types/huertaRentadaTypes';
 import { Temporada, TemporadaCreateData } from '../../types/temporadaTypes';
 import { PermissionButton } from '../../../../components/common/PermissionButton';
 
@@ -36,8 +34,6 @@ interface TemporadaFormModalProps {
   open: boolean;
   onClose: () => void;
   onSubmit?: (values: TemporadaCreateData) => Promise<void>;
-  huertas: Huerta[];
-  huertasRentadas: HuertaRentada[];
   initialValues?: Temporada;
   readOnly?: boolean; // ← NUEVO
 }
@@ -48,8 +44,6 @@ const TemporadaFormModal: React.FC<TemporadaFormModalProps> = ({
   open,
   onClose,
   onSubmit,
-  huertas,
-  huertasRentadas,
   initialValues,
   readOnly = false,
 }) => {
@@ -85,11 +79,7 @@ const TemporadaFormModal: React.FC<TemporadaFormModalProps> = ({
     return errors;
   };
 
-  const huertaNombre =
-    initialValues?.huerta_nombre ||
-    huertas.find((h) => h.id === initialValues?.huerta)?.nombre ||
-    huertasRentadas.find((h) => h.id === initialValues?.huerta_rentada)?.nombre ||
-    '';
+  const huertaNombre = initialValues?.huerta_nombre || '';
 
   const handleSubmit = async (
     values: TemporadaCreateData,

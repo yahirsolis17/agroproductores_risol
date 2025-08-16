@@ -22,8 +22,6 @@ import TemporadaTable from '../components/temporada/TemporadaTable';
 import TemporadaToolbar from '../components/temporada/TemporadaToolbar';
 import TemporadaFormModal from '../components/temporada/TemporadaFormModal';
 import { useTemporadas } from '../hooks/useTemporadas';
-import { useHuertas } from '../hooks/useHuertas';
-import { useHuertasRentadas } from '../hooks/useHuertaRentada';
 import { TemporadaCreateData, Temporada } from '../types/temporadaTypes';
 import { Huerta } from '../types/huertaTypes';
 import { HuertaRentada } from '../types/huertaRentadaTypes';
@@ -61,8 +59,6 @@ const Temporadas: React.FC = () => {
   const [search] = useSearchParams();
   const huertaId = Number(search.get('huerta_id') || 0) || null;
 
-  const { huertas } = useHuertas();
-  const { huertas: rentadas } = useHuertasRentadas();
 
   const [huertaSel, setHuertaSel] = useState<Huerta | HuertaRentada | null>(null);
   const [huertaLoading, setHuertaLoading] = useState(false);
@@ -394,8 +390,6 @@ const Temporadas: React.FC = () => {
             setConsultOpen(false);
           }}
           initialValues={consultTarget || undefined}
-          huertas={huertas}
-          huertasRentadas={rentadas}
           readOnly
         />
 
