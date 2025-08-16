@@ -7,6 +7,7 @@ import {
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useDispatch } from 'react-redux';
+import { useAppSelector } from '../../../global/store/store';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 
 import CosechaToolbar from '../components/cosecha/CosechaToolbar';
@@ -28,6 +29,7 @@ const Cosechas: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const temporadaId = Number(searchParams.get('temporada_id')) || null;
+  const currentTemporadaId = useAppSelector(s => s.cosechas.temporadaId);
 
   // Info de la temporada
   const [tempLoading, setTempLoading] = useState(false);
@@ -90,8 +92,10 @@ const Cosechas: React.FC = () => {
 
   // Comunicar temporada al slice
   useEffect(() => {
-    setTemporadaId(temporadaId);
-  }, [temporadaId]);
+    if (currentTemporadaId !== temporadaId) {
+      setTemporadaId(temporadaId);
+    }
+  }, [temporadaId, currentTemporadaId, setTemporadaId]);
 
   // Lógica de creación
   const totalCosechas = meta.count;
