@@ -4,7 +4,7 @@ import { useParams } from 'react-router-dom';
 import { Paper, Typography, Box, CircularProgress, Divider, Tabs, Tab } from '@mui/material';
 import { motion } from 'framer-motion';
 
-import { useAppDispatch } from '../../../global/store/store';
+import { useAppDispatch, useAppSelector } from '../../../global/store/store';
 import { temporadaService } from '../services/temporadaService';
 import { setBreadcrumbs, clearBreadcrumbs } from '../../../global/store/breadcrumbsSlice';
 import { breadcrumbRoutes } from '../../../global/constants/breadcrumbRoutes';
@@ -35,6 +35,18 @@ type CtxPayload = {
 
 const FinanzasPorCosecha: React.FC = () => {
   const dispatch = useAppDispatch();
+  const invIds = useAppSelector(s => ({
+    huertaId: s.inversiones.huertaId,
+    huertaRentadaId: s.inversiones.huertaRentadaId,
+    temporadaId: s.inversiones.temporadaId,
+    cosechaId: s.inversiones.cosechaId,
+  }));
+  const ventaIds = useAppSelector(s => ({
+    huertaId: s.ventas.huertaId,
+    huertaRentadaId: s.ventas.huertaRentadaId,
+    temporadaId: s.ventas.temporadaId,
+    cosechaId: s.ventas.cosechaId,
+  }));
 
   const { temporadaId: tmp, cosechaId: ctm } = useParams<UrlParams>();
   const temporadaId = Number(tmp) || null;
@@ -102,9 +114,20 @@ const FinanzasPorCosecha: React.FC = () => {
           : {})
     };
 
-    dispatch(setInvContext(payload));
-    dispatch(setVentaContext(payload));
-  }, [temporadaId, cosechaId, tempInfo, dispatch]);
+    const needsInv =
+      invIds.temporadaId !== payload.temporadaId ||
+      invIds.cosechaId !== payload.cosechaId ||
+      (invIds.huertaId ?? null) !== (payload.huertaId ?? null) ||
+      (invIds.huertaRentadaId ?? null) !== (payload.huertaRentadaId ?? null);
+    if (needsInv) dispatch(setInvContext(payload));
+
+    const needsVenta =
+      ventaIds.temporadaId !== payload.temporadaId ||
+      ventaIds.cosechaId !== payload.cosechaId ||
+      (ventaIds.huertaId ?? null) !== (payload.huertaId ?? null) ||
+      (ventaIds.huertaRentadaId ?? null) !== (payload.huertaRentadaId ?? null);
+    if (needsVenta) dispatch(setVentaContext(payload));
+  }, [temporadaId, cosechaId, tempInfo, invIds, ventaIds, dispatch]);
 
   if (!cosechaId) {
     return (
