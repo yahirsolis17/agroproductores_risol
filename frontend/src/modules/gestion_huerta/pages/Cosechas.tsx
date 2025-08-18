@@ -91,7 +91,8 @@ const Cosechas: React.FC = () => {
   // Comunicar temporada al slice
   useEffect(() => {
     setTemporadaId(temporadaId);
-  }, [temporadaId]);
+    return () => { setTemporadaId(null); };
+  }, [temporadaId, setTemporadaId]);
 
   // Lógica de creación
   const totalCosechas = meta.count;
@@ -141,7 +142,7 @@ const Cosechas: React.FC = () => {
     try {
       await addCosecha({ temporada: temporadaId, nombre });
     } catch (e: any) {
-      handleBackendNotification(e?.response?.data?.notification || e);
+      handleBackendNotification(e?.notification || e?.response?.data?.notification || e);
     }
   };
 
@@ -156,7 +157,7 @@ const Cosechas: React.FC = () => {
       setEditOpen(false);
       setEditTarget(null);
     } catch (e: any) {
-      handleBackendNotification(e?.response?.data?.notification || e);
+      handleBackendNotification(e?.notification || e?.response?.data?.notification || e);
     }
   };
 
@@ -167,7 +168,7 @@ const Cosechas: React.FC = () => {
     try {
       await removeCosecha(delId);
     } catch (e: any) {
-      handleBackendNotification(e?.response?.data?.notification || e);
+      handleBackendNotification(e?.notification || e?.response?.data?.notification || e);
     } finally {
       setDelId(null);
     }
@@ -176,15 +177,15 @@ const Cosechas: React.FC = () => {
   // Acciones fila
   const handleArchive = async (c: Cosecha) => {
     try { await archiveCosecha(c.id); }
-    catch (e: any) { handleBackendNotification(e?.response?.data?.notification || e); }
+    catch (e: any) { handleBackendNotification(e?.notification || e?.response?.data?.notification || e); }
   };
   const handleRestore = async (c: Cosecha) => {
     try { await restoreCosecha(c.id); }
-    catch (e: any) { handleBackendNotification(e?.response?.data?.notification || e); }
+    catch (e: any) { handleBackendNotification(e?.notification || e?.response?.data?.notification || e); }
   };
   const handleToggleFinal = async (c: Cosecha) => {
     try { await toggleFinalizada(c.id); }
-    catch (e: any) { handleBackendNotification(e?.response?.data?.notification || e); }
+    catch (e: any) { handleBackendNotification(e?.notification || e?.response?.data?.notification || e); }
   };
 
   // Navegar a Finanzas por Cosecha

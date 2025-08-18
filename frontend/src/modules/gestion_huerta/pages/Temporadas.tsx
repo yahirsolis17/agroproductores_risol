@@ -104,8 +104,12 @@ const Temporadas: React.FC = () => {
     } else {
       dispatch(clearBreadcrumbs());
     }
-    return () => { dispatch(clearBreadcrumbs()); };
-  }, [dispatch, huertaId, derivedHuertaNombre]);
+    return () => {
+      dispatch(clearBreadcrumbs());
+      setHuerta(null);
+      setHuertaRentada(null);
+    };
+  }, [dispatch, huertaId, derivedHuertaNombre, setHuerta, setHuertaRentada]);
 
   /* ──────────────────── Estados locales ──────────────────── */
   const [spin, setSpin] = useState(false);
@@ -165,7 +169,7 @@ const Temporadas: React.FC = () => {
       await addTemporada(payload);
       handleBackendNotification({ key: 'temporada_create_success', message: 'Temporada creada.', type: 'success' });
     } catch (err: any) {
-      handleBackendNotification(err?.response?.data?.notification || err);
+      handleBackendNotification(err?.notification || err?.response?.data?.notification || err);
     }
   };
 
