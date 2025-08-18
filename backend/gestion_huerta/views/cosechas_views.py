@@ -32,27 +32,28 @@ def _map_cosecha_validation_errors(errors: dict) -> tuple[str, dict]:
         if k in errors:
             buckets += _texts(errors[k])
 
-    for msg in buckets:
-        txt = msg.strip()
+    msgs = [m.strip() for m in buckets]
 
+    if "Esta temporada ya tiene el máximo de 6 cosechas permitidas." in msgs:
+        return "cosecha_limite_temporada", {"errors": errors}
+
+    for msg in msgs:
         # Mensajes exactos del CosechaSerializer / modelo
-        if txt == "La cosecha debe pertenecer a una temporada.":
+        if msg == "La cosecha debe pertenecer a una temporada.":
             return "cosecha_temporada_requerida", {"errors": errors}
-        if txt == "La fecha de fin no puede ser anterior a la fecha de inicio.":
+        if msg == "La fecha de fin no puede ser anterior a la fecha de inicio.":
             return "cosecha_fechas_incoherentes", {"errors": errors}
-        if txt == "No se pueden crear cosechas en una temporada archivada.":
+        if msg == "No se pueden crear cosechas en una temporada archivada.":
             return "cosecha_temporada_archivada", {"errors": errors}
-        if txt == "No se pueden crear cosechas en una temporada finalizada.":
+        if msg == "No se pueden crear cosechas en una temporada finalizada.":
             return "cosecha_temporada_finalizada", {"errors": errors}
-        if txt == "Esta temporada ya tiene el máximo de 6 cosechas permitidas.":
-            return "cosecha_limite_temporada", {"errors": errors}
-        if txt == "Ya existe una cosecha con ese nombre en esta temporada.":
+        if msg == "Ya existe una cosecha con ese nombre en esta temporada.":
             return "cosecha_duplicada", {"errors": errors}
-        if txt == "Ya existe una cosecha activa en esta temporada.":
+        if msg == "Ya existe una cosecha activa en esta temporada.":
             return "cosecha_activa_existente", {"errors": errors}
-        if txt == "No puedes cambiar la temporada de una cosecha existente.":
+        if msg == "No puedes cambiar la temporada de una cosecha existente.":
             return "cosecha_cambiar_temporada_prohibido", {"errors": errors}
-        if txt == "El nombre de la cosecha debe tener al menos 3 caracteres.":
+        if msg == "El nombre de la cosecha debe tener al menos 3 caracteres.":
             return "cosecha_nombre_corto", {"errors": errors}
 
     # Fallback genérico
