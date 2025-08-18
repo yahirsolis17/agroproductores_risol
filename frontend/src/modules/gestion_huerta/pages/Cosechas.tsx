@@ -91,9 +91,7 @@ const Cosechas: React.FC = () => {
   // Comunicar temporada al slice
   useEffect(() => {
     setTemporadaId(temporadaId);
-    return () => {
-      setTemporadaId(null);
-    };
+    return () => { setTemporadaId(null); };
   }, [temporadaId]);
 
   // Lógica de creación
