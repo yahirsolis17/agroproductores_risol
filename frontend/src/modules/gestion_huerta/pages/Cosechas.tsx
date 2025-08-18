@@ -92,7 +92,7 @@ const Cosechas: React.FC = () => {
   useEffect(() => {
     setTemporadaId(temporadaId);
     return () => { setTemporadaId(null); };
-  }, [temporadaId]);
+  }, [temporadaId, setTemporadaId]);
 
   // Lógica de creación
   const totalCosechas = meta.count;

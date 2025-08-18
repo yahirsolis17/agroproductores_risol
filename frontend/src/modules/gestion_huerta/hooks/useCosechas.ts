@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../../global/store/store';
 import {
   fetchCosechas,
@@ -36,10 +36,15 @@ export function useCosechas() {
     if (temporadaId !== null) await dispatch(fetchCosechas()).unwrap();
   };
 
+  const setTemporadaIdCb = useCallback(
+    (id: number | null) => dispatch(setTemporadaId(id)),
+    [dispatch]
+  );
+
   return {
     cosechas, loading, error, page, meta, temporadaId, search, estado,
     setPage: (p: number) => dispatch(setPage(p)),
-    setTemporadaId: (id: number | null) => dispatch(setTemporadaId(id)),
+    setTemporadaId: setTemporadaIdCb,
     setSearch: (q: string) => dispatch(setSearch(q)),
     setEstado: (v: 'activas' | 'archivadas' | 'todas') => dispatch(setEstado(v)),
 
