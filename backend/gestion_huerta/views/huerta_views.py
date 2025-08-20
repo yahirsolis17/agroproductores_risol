@@ -34,10 +34,7 @@ from gestion_huerta.serializers import (
 )
 
 # Permisos
-from gestion_huerta.permissions import (
-    HasHuertaModulePermission,
-    HuertaGranularPermission,
-)
+from gestion_usuarios.permissions import HasModulePermission
 
 # Utilidades
 from gestion_huerta.utils.activity import registrar_actividad
@@ -86,8 +83,7 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
 
     permission_classes = [
         IsAuthenticated,
-        HasHuertaModulePermission,   # lee self.required_permissions
-        HuertaGranularPermission,    # si la usas, se mantiene
+        HasModulePermission,
     ]
 
     # 👇 mapa de permisos por acción
@@ -351,8 +347,7 @@ class HuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
 
     permission_classes = [
         IsAuthenticated,
-        HasHuertaModulePermission,
-        HuertaGranularPermission,
+        HasModulePermission,
     ]
 
     _perm_map = {
@@ -544,8 +539,7 @@ class HuertaRentadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelV
 
     permission_classes = [
         IsAuthenticated,
-        HasHuertaModulePermission,
-        HuertaGranularPermission,
+        HasModulePermission,
     ]
 
     _perm_map = {
@@ -724,7 +718,7 @@ class HuertasCombinadasViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Ge
 
     permission_classes = [
         IsAuthenticated,
-        HasHuertaModulePermission,
+        HasModulePermission,
     ]
     # Para listar combinadas basta con tener permiso de ver cualquiera de las dos
     _perm_map = {

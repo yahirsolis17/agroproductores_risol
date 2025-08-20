@@ -9,7 +9,7 @@ from datetime import datetime
 from gestion_huerta.models import Venta, Cosecha
 from gestion_huerta.serializers import VentaSerializer
 from gestion_huerta.views.huerta_views import NotificationMixin
-from gestion_huerta.permissions import HasHuertaModulePermission, HuertaGranularPermission
+from gestion_usuarios.permissions import HasModulePermission
 from agroproductores_risol.utils.pagination import GenericPagination
 from gestion_huerta.utils.activity import registrar_actividad
 from gestion_huerta.utils.audit import ViewSetAuditMixin
@@ -142,7 +142,7 @@ class VentaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
     queryset           = Venta.objects.select_related('cosecha', 'temporada', 'huerta', 'huerta_rentada').order_by('-fecha_venta')
     serializer_class   = VentaSerializer
     pagination_class   = GenericPagination
-    permission_classes = [IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission]
+    permission_classes = [IsAuthenticated, HasModulePermission]
     filter_backends    = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields   = ['cosecha', 'temporada', 'huerta', 'huerta_rentada', 'tipo_mango']
     search_fields      = ['tipo_mango', 'descripcion']
