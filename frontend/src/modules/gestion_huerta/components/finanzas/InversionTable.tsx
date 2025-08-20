@@ -120,9 +120,9 @@ const InversionTable: React.FC<Props> = ({
           onEdit={!isArchived ? () => onEdit(inv) : undefined}
           onArchiveOrRestore={() => isArchived ? onRestore(inv.id) : onArchive(inv.id)}
           onDelete={isArchived ? () => onDelete(inv.id) : undefined}
-          permEdit="change_inversion"
-          permArchiveOrRestore="archive_inversion"
-          permDelete="delete_inversion"
+          permEdit="change_inversioneshuerta"
+          permArchiveOrRestore={['archive_inversioneshuerta', 'restore_inversioneshuerta']}
+          permDelete="delete_inversioneshuerta"
         />
       );
     }}
