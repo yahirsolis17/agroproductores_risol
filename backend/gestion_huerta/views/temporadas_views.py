@@ -303,23 +303,14 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
     def finalizar(self, request, pk=None):
         temp = self.get_object()
 
-        # 🔐 Chequeo FORTALECIDO: permiso específico según el estado actual
-        if not temp.finalizada:
-            # Va a FINALIZAR → exige 'finalize_temporada'
-            if not _has_perm(request.user, "finalize_temporada"):
-                return self.notify(
-                    key="permission_denied",
-                    data={"info": "No tienes permiso para finalizar temporadas."},
-                    status_code=status.HTTP_403_FORBIDDEN,
-                )
-        else:
-            # Va a REACTIVAR → exige 'reactivate_temporada'
-            if not _has_perm(request.user, "reactivate_temporada"):
-                return self.notify(
-                    key="permission_denied",
-                    data={"info": "No tienes permiso para reactivar temporadas."},
-                    status_code=status.HTTP_403_FORBIDDEN,
-                )
+        required = "finalize_temporada" if not temp.finalizada else "reactivate_temporada"
+        if not _has_perm(request.user, required):
+            info = "finalizar" if required == "finalize_temporada" else "reactivar"
+            return self.notify(
+                key="permission_denied",
+                data={"info": f"No tienes permiso para {info} temporadas."},
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
 
         if not temp.is_active:
             return self.notify(
@@ -344,6 +335,12 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
     # ------------------------------ ARCHIVAR --------------------------------
     @action(detail=True, methods=["post"], url_path="archivar")
     def archivar(self, request, pk=None):
+        if not _has_perm(request.user, "archive_temporada"):
+            return self.notify(
+                key="permission_denied",
+                data={"info": "No tienes permiso para archivar temporadas."},
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
         temp = self.get_object()
         if not temp.is_active:
             return self.notify(
@@ -370,6 +367,12 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
     # ----------------------------- RESTAURAR --------------------------------
     @action(detail=True, methods=["post"], url_path="restaurar")
     def restaurar(self, request, pk=None):
+        if not _has_perm(request.user, "restore_temporada"):
+            return self.notify(
+                key="permission_denied",
+                data={"info": "No tienes permiso para restaurar temporadas."},
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
         temp = self.get_object()
         if temp.is_active:
             return self.notify(
