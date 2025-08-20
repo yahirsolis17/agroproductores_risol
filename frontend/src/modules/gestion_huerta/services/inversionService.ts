@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/services/inversionService.ts
 import apiClient from '../../../global/api/apiClient';
 import {
   InversionHuerta,

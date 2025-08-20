@@ -1,5 +1,6 @@
+// src/modules/gestion_huerta/services/temporadaService.ts
 import apiClient from '../../../global/api/apiClient';
-import { Temporada, TemporadaCreateData } from '../types/temporadaTypes';
+import { Temporada, TemporadaCreateData, EstadoTemporada } from '../types/temporadaTypes';
 
 type Notif = { key: string; message: string; type: 'success' | 'error' | 'warning' | 'info' };
 type Meta = { count: number; next: string | null; previous: string | null };
@@ -10,11 +11,11 @@ export const temporadaService = {
     año?: number,
     huertaId?: number,
     huertaRentadaId?: number,
-    estado?: 'activas' | 'archivadas' | 'todas',
+    estado?: EstadoTemporada,                // 👈 clave: usar EstadoTemporada aquí
     finalizada?: boolean,
     search?: string
   ) {
-    const params: Record<string, any> = { page, page_size: 10 }; // <- fijo y consistente
+    const params: Record<string, any> = { page, page_size: 10 };
     if (año) params['año'] = año;
     if (huertaId) params['huerta'] = huertaId;
     if (huertaRentadaId) params['huerta_rentada'] = huertaRentadaId;
@@ -22,15 +23,12 @@ export const temporadaService = {
     if (finalizada !== undefined) params['finalizada'] = finalizada;
     if (search) params['search'] = search;
 
-    // un solo request; normalizamos la forma de respuesta
     const { data } = await apiClient.get<any>('/huerta/temporadas/', { params });
 
-    // Caso formato NotificationHandler (tu backend actual)
     if (data && data.success === true && data.data && Array.isArray(data.data.temporadas)) {
       return data as { success: boolean; notification: Notif; data: { temporadas: Temporada[]; meta: Meta } };
     }
 
-    // Caso DRF "nativo": { count, next, previous, results }
     if (data && typeof data.count === 'number' && Array.isArray(data.results)) {
       return {
         success: true,
@@ -42,7 +40,6 @@ export const temporadaService = {
       };
     }
 
-    // Fallback defensivo
     return {
       success: true,
       notification: { key: 'no_notification', message: '', type: 'info' } as Notif,
@@ -98,7 +95,6 @@ export const temporadaService = {
     return response.data;
   },
 
-  // <- la dejas, como pediste
   getById(id: number): Promise<{ data: { temporada: Temporada } }> {
     return apiClient
       .get<Temporada>(`/huerta/temporadas/${id}/`)

@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/services/huertaService.ts
 import apiClient from '../../../global/api/apiClient';
 import { Huerta, HuertaCreateData, HuertaUpdateData } from '../types/huertaTypes';
 import { Estado, PaginationMeta, AffectedCounts } from '../types/shared';
@@ -82,6 +83,12 @@ export const huertaService = {
       message_key: string;
       data: { huerta_id: number; affected?: AffectedCounts };
     }>(`/huerta/huertas/${id}/restaurar/`);
+    return data;
+  },
+
+  // 👇 NUEVO: obtener 1 huerta por ID para pintar encabezados/breadcrumbs
+  async getById(id: number): Promise<Huerta> {
+    const { data } = await apiClient.get<Huerta>(`/huerta/huertas/${id}/`);
     return data;
   },
 };

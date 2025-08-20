@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/components/finanzas/CategoriaInversionEditModal.tsx
 import React from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,

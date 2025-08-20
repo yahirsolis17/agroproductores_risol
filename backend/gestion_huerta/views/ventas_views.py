@@ -31,11 +31,10 @@ def _texts(val):
 
 def _map_venta_validation_errors(errors: dict) -> tuple[str, dict]:
     """
-    Traduce mensajes comunes del serializer/modelo a claves de notificación.
-    Devuelve (key, data).
+    Traduce mensajes del serializer/modelo a claves de notificación declaradas
+    en NOTIFICATION_MESSAGES. Devuelve (key, data).
     """
     flat = []
-    # posibles buckets
     for k in (
         "non_field_errors", "__all__",
         "cosecha_id", "temporada_id",
@@ -46,6 +45,7 @@ def _map_venta_validation_errors(errors: dict) -> tuple[str, dict]:
         if k in errors:
             flat += _texts(errors[k])
 
+    # --- Mensajes textuales directos
     for msg in flat:
         t = msg.strip()
 
@@ -55,7 +55,7 @@ def _map_venta_validation_errors(errors: dict) -> tuple[str, dict]:
         if "La fecha debe ser igual o posterior al inicio de la cosecha" in t:
             return "venta_fecha_antes_inicio_cosecha", {"errors": errors}
 
-        # Coherencia contexto
+        # Coherencias
         if t == "Cosecha requerida.":
             return "venta_cosecha_requerida", {"errors": errors}
         if t == "La temporada no coincide con la de la cosecha.":
@@ -65,28 +65,36 @@ def _map_venta_validation_errors(errors: dict) -> tuple[str, dict]:
         if t == "La huerta rentada no coincide con la de la cosecha.":
             return "venta_huerta_rentada_incoherente", {"errors": errors}
         if t == "Define solo huerta o huerta_rentada, no ambos.":
-            return "venta_origen_ambiguo", {"errors": errors}
+            return "venta_origen_ambos_definidos", {"errors": errors}
         if t == "Debe definirse huerta u huerta_rentada (según la cosecha).":
-            return "venta_origen_faltante", {"errors": errors}
+            return "venta_origen_indefinido", {"errors": errors}
 
-        # Estados de temporada (cuando los lance el serializer)
+        # Estados de temporada
         if t == "No se pueden registrar/editar ventas en una temporada finalizada o archivada.":
             return "venta_temporada_no_permitida", {"errors": errors}
 
-        # Números
-        if t == "Debe ser mayor que 0.":
-            return "venta_num_cajas_invalido", {"errors": errors}
-        if t == "Debe ser ≥ 0.":
-            # puede venir para precio o gasto
-            return "venta_valor_no_negativo", {"errors": errors}
-        # Validadores de modelo (por si DRF trae el mensaje por MinValueValidator)
-        if "greater than or equal to 1" in t or "mayor o igual a 1" in t:
-            return "venta_minimo_uno", {"errors": errors}
+        # Ganancia
         if t == "La ganancia neta no puede ser negativa.":
             return "venta_ganancia_negativa", {"errors": errors}
 
+    # --- Numéricos por campo (diferenciamos por key del error)
+    if "num_cajas" in errors:
+        # p.ej. "Debe ser mayor que 0.", "greater than or equal to 1", etc.
+        if any((">" in s or "mayor" in s or "greater" in s) for s in _texts(errors["num_cajas"])):
+            return "venta_num_cajas_invalido", {"errors": errors}
+
+    if "precio_por_caja" in errors:
+        if any((">" in s or "mayor" in s or "greater" in s) for s in _texts(errors["precio_por_caja"])):
+            return "venta_precio_invalido", {"errors": errors}
+
+    if "gasto" in errors:
+        if any(("≥" in s or "mayor o igual a 0" in s or ">=" in s or "no puede ser negativo" in s)
+               for s in _texts(errors["gasto"])):
+            return "venta_gasto_invalido", {"errors": errors}
+
     # Fallback
     return "validation_error", {"errors": errors}
+
 
 
 def _parse_date(val: str):
@@ -174,24 +182,25 @@ class VentaViewSet(NotificationMixin, viewsets.ModelViewSet):
 
     # ------------------------------ PRECHECKS de estado (cosecha/temporada)
     def _precheck_estado_contexto_create(self, payload: dict):
-        """
-        Antes de validar/crear: si ya podemos inferir la cosecha, validamos que
-        ni la cosecha ni su temporada estén archivadas/finalizadas.
-        """
         c = _get_cosecha_from_payload(payload)
         if not c:
-            return None  # dejar que el serializer marque el error correspondiente
+            return None
         t = c.temporada
 
         if not t.is_active:
-            return ("venta_temporada_archivada", {"info": "No puedes registrar ventas en una temporada archivada."})
+            return ("venta_contexto_temporada_archivada",
+                    {"info": "No puedes registrar ventas: la temporada está archivada."})
         if t.finalizada:
-            return ("venta_temporada_finalizada", {"info": "No puedes registrar ventas en una temporada finalizada."})
+            return ("venta_contexto_temporada_finalizada",
+                    {"info": "No puedes registrar ventas: la temporada está finalizada."})
         if not c.is_active:
-            return ("venta_cosecha_archivada", {"info": "No puedes registrar ventas en una cosecha archivada."})
+            return ("venta_contexto_cosecha_archivada",
+                    {"info": "No puedes registrar ventas: la cosecha está archivada."})
         if c.finalizada:
-            return ("venta_cosecha_finalizada", {"info": "No puedes registrar ventas en una cosecha finalizada."})
+            return ("venta_contexto_cosecha_finalizada",
+                    {"info": "No puedes registrar ventas: la cosecha está finalizada."})
         return None
+
 
     def _precheck_estado_contexto_edit(self, venta: Venta):
         """

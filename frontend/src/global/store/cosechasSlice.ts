@@ -4,7 +4,12 @@ import { cosechaService } from '../../modules/gestion_huerta/services/cosechaSer
 import { handleBackendNotification } from '../utils/NotificationEngine';
 import type { RootState } from './store';
 
-interface PaginationMeta { count: number; next: string | null; previous: string | null; }
+interface PaginationMeta {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  total_registradas?: number; // 👈 NUEVO
+}
 
 interface CosechasState {
   list: Cosecha[];
@@ -16,26 +21,28 @@ interface CosechasState {
   temporadaId: number | null;
   search: string;
   estado: 'activas' | 'archivadas' | 'todas';
+  finalizada: boolean | null;                             // 👈 NUEVO
 }
 
 const initialState: CosechasState = {
   list: [], loading: false, error: null, loaded: false,
   page: 1, meta: { count: 0, next: null, previous: null },
   temporadaId: null, search: '', estado: 'activas',
+  finalizada: null,                                        // 👈 NUEVO
 };
 
 // FETCH
 export const fetchCosechas = createAsyncThunk<
-  { cosechas: Cosecha[]; meta: PaginationMeta; page: number },
+  { cosechas: Cosecha[]; meta: PaginationMeta; page: number },   // 👈 usa el meta nuevo
   void,
   { state: RootState; rejectValue: Record<string, any> }
 >(
   'cosechas/fetch',
   async (_, { getState, rejectWithValue }) => {
-    const { page, temporadaId, search, estado } = getState().cosechas;
+    const { page, temporadaId, search, estado, finalizada } = getState().cosechas;
     if (!temporadaId) return rejectWithValue({ message: 'Falta temporada seleccionada.' });
     try {
-      const res = await cosechaService.list(page, temporadaId, search, estado);
+      const res = await cosechaService.list(page, temporadaId, search, estado, finalizada ?? undefined);
       handleBackendNotification(res);
       return { cosechas: res.data.cosechas, meta: res.data.meta, page };
     } catch (err: any) {
@@ -155,6 +162,7 @@ const cosechasSlice = createSlice({
     setTemporadaId: (s, a: PayloadAction<number | null>) => { s.temporadaId = a.payload; s.page = 1; },
     setSearch: (s, a: PayloadAction<string>) => { s.search = a.payload; s.page = 1; },
     setEstado: (s, a: PayloadAction<'activas' | 'archivadas' | 'todas'>) => { s.estado = a.payload; s.page = 1; },
+    setFinalizada: (s, a: PayloadAction<boolean | null>) => { s.finalizada = a.payload; s.page = 1; }, // 👈 NUEVO
     clear: () => ({ ...initialState }),
   },
   extraReducers: (b) => {
@@ -206,5 +214,5 @@ const cosechasSlice = createSlice({
   },
 });
 
-export const { setPage, setTemporadaId, setSearch, setEstado, clear } = cosechasSlice.actions;
+export const { setPage, setTemporadaId, setSearch, setEstado, setFinalizada, clear } = cosechasSlice.actions;
 export default cosechasSlice.reducer;

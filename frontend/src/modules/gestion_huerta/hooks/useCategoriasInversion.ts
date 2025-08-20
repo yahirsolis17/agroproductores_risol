@@ -1,6 +1,4 @@
-// ============================================================================
 // src/modules/gestion_huerta/hooks/useCategoriasInversion.ts
-// ============================================================================
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../../global/store/store';

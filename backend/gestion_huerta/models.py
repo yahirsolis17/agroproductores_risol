@@ -247,18 +247,7 @@ class Temporada(models.Model):
             models.Index(fields=['año', 'huerta']),
             models.Index(fields=['año', 'huerta_rentada']),
         ]
-        constraints = [
-            models.UniqueConstraint(
-                fields=['año', 'huerta'],
-                condition=Q(huerta__isnull=False),
-                name='uniq_temporada_anio_huerta'
-            ),
-            models.UniqueConstraint(
-                fields=['año', 'huerta_rentada'],
-                condition=Q(huerta_rentada__isnull=False),
-                name='uniq_temporada_anio_huerta_rentada'
-            ),
-        ]
+
 
     def clean(self):
         if not self.huerta and not self.huerta_rentada:
@@ -393,8 +382,13 @@ class Cosecha(models.Model):
         if not self.temporada_id:
             raise ValidationError("La cosecha debe pertenecer a una temporada.")
         t = self.temporada
-        if (t.finalizada or not t.is_active) and self._state.adding:
-            raise ValidationError("No se pueden registrar cosechas en una temporada finalizada o archivada.")
+
+        # 🔧 Mensajes separados (coinciden con el mapeo del ViewSet)
+        if self._state.adding:
+            if not t.is_active:
+                raise ValidationError("No se pueden crear cosechas en una temporada archivada.")
+            if t.finalizada:
+                raise ValidationError("No se pueden crear cosechas en una temporada finalizada.")
 
         # Consistencia de origen
         if bool(t.huerta_id):
@@ -430,10 +424,6 @@ class Cosecha(models.Model):
 
     @transaction.atomic
     def archivar(self, via_cascada: bool = False):
-        """
-        Archiva la cosecha y baja inversiones/ventas con via_cascada=True.
-        Si ya estaba inactiva, no toca nada. Devuelve conteos.
-        """
         if not self.is_active:
             return {"cosechas": 0, "inversiones": 0, "ventas": 0}
 
@@ -455,11 +445,6 @@ class Cosecha(models.Model):
 
     @transaction.atomic
     def desarchivar(self, via_cascada: bool = False):
-        """
-        Desarchiva la cosecha.
-        - Si via_cascada=True, SOLO si fue archivada por cascada.
-        - Sube inversiones/ventas solo si ellas también fueron cascada.
-        """
         if via_cascada and not self.archivado_por_cascada:
             return {"cosechas": 0, "inversiones": 0, "ventas": 0}
 
@@ -485,14 +470,20 @@ class Cosecha(models.Model):
         origen = self.huerta or self.huerta_rentada
         return f"{self.nombre} – {origen} – Temp {self.temporada.año}"
 
-
 # ────────────── INVERSIONES ───────────────────────────────────────────────
+def _is_only_archival_fields(update_fields):
+    if not update_fields:
+        return False
+    archival = {"is_active", "archivado_en", "archivado_por_cascada"}
+    return set(update_fields).issubset(archival)
+
+
 class InversionesHuerta(models.Model):
     """
     Inversión asociada a una Cosecha. Soporta huerta propia o rentada.
     """
     categoria        = models.ForeignKey(
-        CategoriaInversion,
+        'CategoriaInversion',
         on_delete=models.PROTECT,
         related_name="inversiones",
     )
@@ -501,10 +492,10 @@ class InversionesHuerta(models.Model):
     gastos_insumos   = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
     gastos_mano_obra = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
 
-    cosecha          = models.ForeignKey(Cosecha,   on_delete=models.CASCADE, related_name="inversiones")
-    temporada        = models.ForeignKey(Temporada, on_delete=models.CASCADE, related_name="inversiones")
-    huerta           = models.ForeignKey(Huerta,         on_delete=models.CASCADE, null=True, blank=True)
-    huerta_rentada   = models.ForeignKey(HuertaRentada,  on_delete=models.CASCADE, null=True, blank=True)
+    cosecha          = models.ForeignKey('Cosecha',   on_delete=models.CASCADE, related_name="inversiones")
+    temporada        = models.ForeignKey('Temporada', on_delete=models.CASCADE, related_name="inversiones")
+    huerta           = models.ForeignKey('Huerta',         on_delete=models.CASCADE, null=True, blank=True)
+    huerta_rentada   = models.ForeignKey('HuertaRentada',  on_delete=models.CASCADE, null=True, blank=True)
 
     is_active        = models.BooleanField(default=True)
     archivado_en     = models.DateTimeField(null=True, blank=True)
@@ -531,9 +522,9 @@ class InversionesHuerta(models.Model):
         if self.temporada_id and (not self.temporada.is_active or self.temporada.finalizada):
             errors['temporada'] = 'La temporada debe estar activa y no finalizada.'
         if self.huerta_id and not self.huerta.is_active:
-            errors['huerta'] = 'La huerta debe estar activa.'
+            errors['huerta'] = 'No se pueden registrar inversiones en una huerta archivada.'
         if self.huerta_rentada_id and not self.huerta_rentada.is_active:
-            errors['huerta_rentada'] = 'La huerta rentada debe estar activa.'
+            errors['huerta_rentada'] = 'No se pueden registrar inversiones en una huerta rentada archivada.'
         if errors:
             raise ValidationError(errors)
 
@@ -568,7 +559,6 @@ class InversionesHuerta(models.Model):
     def __str__(self):
         origen = self.huerta or self.huerta_rentada
         return f"{self.categoria.nombre} – {self.fecha} – {origen}"
-
 
 # ────────────── VENTAS ────────────────────────────────────────────────────
 class Venta(models.Model):

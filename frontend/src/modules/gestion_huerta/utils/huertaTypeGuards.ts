@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/utils/huertaTypeGuards.ts
 import { HuertaRentada } from '../types/huertaRentadaTypes';
 
 /** Devuelve true si el registro es una huerta rentada */

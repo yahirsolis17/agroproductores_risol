@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { huertasCombinadasService, HCFilters, RegistroCombinado } from '../../modules/gestion_huerta/services/huertasCombinadasService';
-import { PaginationMeta } from '../../modules/gestion_huerta/types/shared';
-import { Estado } from '../../modules/gestion_huerta/types/shared';
+import { PaginationMeta, Estado } from '../../modules/gestion_huerta/types/shared';
+import { handleBackendNotification } from '../utils/NotificationEngine'; // ← para estandarizar errores
 
 interface HCState {
   list:    RegistroCombinado[];
@@ -15,7 +15,7 @@ interface HCState {
 
 const initialState: HCState = {
   list: [], loading: false, error: null, page: 1, estado: 'activos', filters: {},
-  meta: { count: 0, next: null, previous: null },
+  meta: { count: 0, next: null, previous: null, page: 1, page_size: 10, total_pages: 1 }, // ← actualizado
 };
 
 export const fetchHuertasCombinadas = createAsyncThunk<
@@ -30,6 +30,7 @@ export const fetchHuertasCombinadas = createAsyncThunk<
       const { huertas, meta } = await huertasCombinadasService.list(page, estado, filters, { signal });
       return { huertas, meta, page };
     } catch (err: any) {
+      handleBackendNotification(err?.response?.data); // ← homogéneo
       return thunkAPI.rejectWithValue(err?.response?.data?.message ?? 'Error al cargar huertas combinadas');
     }
   }
@@ -49,7 +50,7 @@ const hcSlice = createSlice({
       s.list = payload.huertas; s.meta = payload.meta; s.page = payload.page; s.loading = false;
     });
     b.addCase(fetchHuertasCombinadas.rejected,  (s, { payload, error }) => {
-      s.loading = false; s.error = payload ?? error.message ?? 'Error desconocido';
+      s.loading = false; s.error = (payload as string) ?? error.message ?? 'Error desconocido';
     });
   },
 });

@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/pages/Venta.tsx
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useMemo, useState, useEffect } from 'react';
 import { Box, Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';

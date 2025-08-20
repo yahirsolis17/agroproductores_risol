@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/services/huertasCombinadasService.ts
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import apiClient from '../../../global/api/apiClient';
 import { Estado, PaginationMeta } from '../types/shared';
@@ -35,6 +36,17 @@ export interface RegistroCombinado {
   monto_renta_palabras?: string;
 }
 
+function normalizeMeta(meta?: Partial<PaginationMeta>): PaginationMeta {
+  return {
+    count: meta?.count ?? 0,
+    next: meta?.next ?? null,
+    previous: meta?.previous ?? null,
+    page: meta?.page ?? 1,
+    page_size: meta?.page_size ?? 10,
+    total_pages: meta?.total_pages ?? (meta?.count ? Math.max(1, Math.ceil((meta.count) / (meta.page_size ?? 10))) : 1),
+  };
+}
+
 export const huertasCombinadasService = {
   async list(
     page = 1,
@@ -42,7 +54,7 @@ export const huertasCombinadasService = {
     filters: HCFilters = {},
     config: { signal?: AbortSignal; pageSize?: number } = {}
   ): Promise<{ huertas: RegistroCombinado[]; meta: PaginationMeta }> {
-    const pageSize = config.pageSize ?? 10; // fuerza alineación con la tabla
+    const pageSize = config.pageSize ?? 10;
     const params: Record<string, any> = { page, estado, page_size: pageSize };
 
     if (filters.tipo) params.tipo = filters.tipo;
@@ -52,11 +64,11 @@ export const huertasCombinadasService = {
     const { data } = await apiClient.get<{
       success: boolean;
       notification: any;
-      data: { huertas?: RegistroCombinado[]; results?: RegistroCombinado[]; meta: PaginationMeta };
+      data: { huertas?: RegistroCombinado[]; results?: RegistroCombinado[]; meta: Partial<PaginationMeta> };
     }>('/huerta/huertas-combinadas/combinadas/', { params, signal: config.signal });
 
     const raw = data.data;
     const list = raw.results ?? raw.huertas ?? [];
-    return { huertas: list, meta: raw.meta };
+    return { huertas: list, meta: normalizeMeta(raw.meta) };
   },
 };

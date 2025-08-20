@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/pages/Propietarios.tsx
 /* eslint-disable react-hooks/exhaustive-deps */
 /* ──────────────────────────────────────────────────────────────
  *  src/modules/gestion_huerta/pages/Propietarios.tsx

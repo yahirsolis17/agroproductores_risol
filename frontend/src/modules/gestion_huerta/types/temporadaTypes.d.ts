@@ -1,4 +1,8 @@
 // src/modules/gestion_huerta/types/temporadaTypes.d.ts
+/**
+ * Estado de filtro para Temporadas (NO confundir con Estado de Huertas).
+ */
+export type EstadoTemporada = 'activas' | 'archivadas' | 'todas';
 
 /**
  * Representa una temporada agrícola de una huerta propia o rentada.

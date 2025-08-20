@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/components/finanzas/CategoriaAutocomplete.tsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   TextField,

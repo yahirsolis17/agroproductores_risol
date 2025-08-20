@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 from num2words import num2words   
 import re
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from decimal import Decimal
 
 from gestion_huerta.models import (
@@ -22,6 +22,11 @@ def validate_nombre_persona(value):
     if not re.match(r'^[a-zA-Z0-9ñÑáéíóúÁÉÍÓÚ\s]', value.strip()):
         raise serializers.ValidationError("Nombre inválido. Solo letras, números y mínimo 3 caracteres.")
     return value
+
+def _as_local_date(dt_or_date):
+    if isinstance(dt_or_date, datetime):
+        return timezone.localtime(dt_or_date).date()
+    return dt_or_date 
 
 def validate_direccion(value):
     """
@@ -225,7 +230,12 @@ class TemporadaSerializer(serializers.ModelSerializer):
         ]
 
     def get_is_rentada(self, obj):    return obj.huerta_rentada is not None
-    def get_huerta_nombre(self, obj): return str(obj.huerta or obj.huerta_rentada) if (obj.huerta or obj.huerta_rentada) else None
+    def get_huerta_nombre(self, obj):
+        if obj.huerta:
+            return obj.huerta.nombre
+        if obj.huerta_rentada:
+            return obj.huerta_rentada.nombre
+        return None
     def get_huerta_id(self, obj):
         origen = obj.huerta or obj.huerta_rentada
         return origen.id if origen else None
@@ -330,10 +340,10 @@ class CosechaSerializer(serializers.ModelSerializer):
         )
 
         if not temporada:
-            raise ValidationError("La cosecha debe pertenecer a una temporada.")
+            raise serializers.ValidationError("La cosecha debe pertenecer a una temporada.")
 
         if fi and ff and ff < fi:
-            raise ValidationError("La fecha de fin no puede ser anterior a la fecha de inicio.")
+            raise serializers.ValidationError("La fecha de fin no puede ser anterior a la fecha de inicio.")
 
         # Impedir múltiples cosechas activas en la misma temporada
         if not finalizada and temporada:
@@ -345,17 +355,16 @@ class CosechaSerializer(serializers.ModelSerializer):
             if instance:
                 qs = qs.exclude(pk=instance.pk)
             if qs.exists():
-                raise ValidationError("Ya existe una cosecha activa en esta temporada.")
-
+                raise serializers.ValidationError("Ya existe una cosecha activa en esta temporada.")
 
         # Reglas de creación
         if instance is None:
             if not temporada.is_active:
-                raise ValidationError("No se pueden crear cosechas en una temporada archivada.")
+                raise serializers.ValidationError("No se pueden crear cosechas en una temporada archivada.")
             if temporada.finalizada:
-                raise ValidationError("No se pueden crear cosechas en una temporada finalizada.")
+                raise serializers.ValidationError("No se pueden crear cosechas en una temporada finalizada.")
             if temporada.cosechas.count() >= 6:
-                raise ValidationError("Esta temporada ya tiene el máximo de 6 cosechas permitidas.")
+                raise serializers.ValidationError("Esta temporada ya tiene el máximo de 6 cosechas permitidas.")
 
             # ⚙️ Normalizar nombre a uno único ANTES de ejecutar UniqueTogetherValidator
             data['nombre'] = self._nombre_unico(temporada, nombre_in)
@@ -364,7 +373,7 @@ class CosechaSerializer(serializers.ModelSerializer):
         else:
             # No permitir cambiar de temporada
             if 'temporada' in data and data['temporada'] != instance.temporada:
-                raise ValidationError("No puedes cambiar la temporada de una cosecha existente.")
+                raise serializers.ValidationError("No puedes cambiar la temporada de una cosecha existente.")
 
             # Si mandan nombre vacío en update, lo normalizamos a uno único
             if nombre_in is not None and not (nombre_in or "").strip():
@@ -447,10 +456,10 @@ class InversionesHuertaSerializer(serializers.ModelSerializer):
             cosecha = self.instance.cosecha
 
         if cosecha and getattr(cosecha, 'fecha_inicio', None):
-            inicio = cosecha.fecha_inicio.date()
+            inicio = _as_local_date(cosecha.fecha_inicio)
             if value < inicio:
                 raise serializers.ValidationError(
-                    f"La fecha debe ser igual o posterior al inicio de la cosecha ({inicio.isoformat()})."
+                    f'La fecha debe ser igual o posterior al inicio de la cosecha ({inicio.isoformat()}).'
                 )
 
         if self.instance and getattr(self.instance, 'fecha', None):
@@ -495,7 +504,7 @@ class InversionesHuertaSerializer(serializers.ModelSerializer):
         if temporada != cosecha.temporada:
             raise serializers.ValidationError({"temporada_id": "La temporada no coincide con la temporada de la cosecha."})
 
-        # 🚫 Bloqueos por estado (pestañas duplicadas, etc.)
+        # 🚫 Bloqueos por estado
         if getattr(cosecha, 'finalizada', False):
             raise serializers.ValidationError({"cosecha_id": "No se pueden registrar inversiones en una cosecha finalizada."})
         if not getattr(cosecha, 'is_active', True):
@@ -525,7 +534,6 @@ class InversionesHuertaSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"huerta_rentada_id": "No se pueden registrar inversiones en una huerta rentada archivada."})
 
         return data
-
 
 # -----------------------------
 # VENTA
@@ -611,9 +619,12 @@ class VentaSerializer(serializers.ModelSerializer):
         if not cosecha and self.instance:
             cosecha = getattr(self.instance, 'cosecha', None)
         if cosecha and getattr(cosecha, 'fecha_inicio', None):
-            inicio = cosecha.fecha_inicio.date()
+            inicio = _as_local_date(cosecha.fecha_inicio)
             if value < inicio:
-                raise serializers.ValidationError(f'La fecha debe ser igual o posterior al inicio de la cosecha ({inicio.isoformat()}).')
+                raise serializers.ValidationError(
+                    f'La fecha debe ser igual o posterior al inicio de la cosecha ({inicio.isoformat()}).'
+                )
+
         return value
     def validate(self, data):
         cosecha, temporada, huerta, huerta_rentada = self._resolve_context_fields(data)

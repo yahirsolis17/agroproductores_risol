@@ -14,6 +14,10 @@ from gestion_huerta.views.huerta_views import NotificationMixin
 from gestion_huerta.permissions import HasHuertaModulePermission, HuertaGranularPermission
 
 
+# 👉 Límite global por temporada (usado en create)
+MAX_COSECHAS_POR_TEMPORADA = 6
+
+
 def _map_cosecha_validation_errors(errors: dict) -> tuple[str, dict]:
     """
     Traduce los mensajes del serializer/modelo a claves específicas de notificación.
@@ -44,6 +48,9 @@ def _map_cosecha_validation_errors(errors: dict) -> tuple[str, dict]:
             return "cosecha_temporada_archivada", {"errors": errors}
         if txt == "No se pueden crear cosechas en una temporada finalizada.":
             return "cosecha_temporada_finalizada", {"errors": errors}
+        # 👇 Alineado con el clean() del modelo (cuando llegase como una sola frase)
+        if txt == "No se pueden registrar cosechas en una temporada finalizada o archivada.":
+            return "cosecha_temporada_no_permitida", {"errors": errors}
         if txt == "Esta temporada ya tiene el máximo de 6 cosechas permitidas.":
             return "cosecha_limite_temporada", {"errors": errors}
         if txt == "Ya existe una cosecha con ese nombre en esta temporada.":
@@ -57,6 +64,13 @@ def _map_cosecha_validation_errors(errors: dict) -> tuple[str, dict]:
 
     # Fallback genérico
     return "validation_error", {"errors": errors}
+
+
+def _get_temporada_id_from_payload(data):
+    """Acepta 'temporada' o 'temporada_id' en el payload."""
+    if isinstance(data, dict):
+        return data.get("temporada") or data.get("temporada_id")
+    return None
 
 
 class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
@@ -89,8 +103,9 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
         ]:
             return qs
 
-        # Filtro por temporada
-        if temp_id := params.get("temporada"):
+        # Filtro por temporada (acepta 'temporada' y alias 'temporada_id')
+        temp_id = params.get("temporada") or params.get("temporada_id")
+        if temp_id:
             qs = qs.filter(temporada_id=temp_id)
 
         # Filtro por estado activo/archivado
@@ -100,12 +115,31 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
         elif estado == "archivadas":
             qs = qs.filter(is_active=False)
 
+        # Filtro por finalización (opcional, consistente con Temporadas)
+        finalizada = params.get("finalizada")
+        if finalizada is not None:
+            low = str(finalizada).lower()
+            if low in ('true', '1'):
+                qs = qs.filter(finalizada=True)
+            elif low in ('false', '0'):
+                qs = qs.filter(finalizada=False)
+
         return qs.order_by("-id")
 
     # ------------------------------ LIST ------------------------------
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
-        page     = self.paginate_queryset(queryset)
+
+        # ➕ total_registradas (todas las cosechas de la temporada, sin filtrar por estado)
+        temp_id_param = request.query_params.get("temporada") or request.query_params.get("temporada_id")
+        total_registradas = 0
+        if temp_id_param:
+            try:
+                total_registradas = Cosecha.objects.filter(temporada_id=int(temp_id_param)).count()
+            except (TypeError, ValueError):
+                total_registradas = 0
+
+        page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
             return self.notify(
@@ -116,6 +150,7 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
                         "count": self.paginator.page.paginator.count,
                         "next": self.paginator.get_next_link(),
                         "previous": self.paginator.get_previous_link(),
+                        "total_registradas": total_registradas,  # 👈 NUEVO
                     }
                 }
             )
@@ -125,7 +160,12 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
             key="data_processed_success",
             data={
                 "cosechas": serializer.data,
-                "meta": {"count": len(serializer.data), "next": None, "previous": None}
+                "meta": {
+                    "count": len(serializer.data),
+                    "next": None,
+                    "previous": None,
+                    "total_registradas": total_registradas,  # 👈 NUEVO
+                }
             }
         )
 
@@ -136,6 +176,20 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
         for f in ("fecha_inicio", "fecha_fin"):
             if f in data and data[f] in [None, "", "null", "None"]:
                 data[f] = None
+
+        # ✅ PRECHECK: límite por temporada (incluye activas + archivadas)
+        temporada_id = _get_temporada_id_from_payload(data)
+        if temporada_id:
+            try:
+                temp_id_int = int(temporada_id)
+                total = Cosecha.objects.filter(temporada_id=temp_id_int).count()
+                if total >= MAX_COSECHAS_POR_TEMPORADA:
+                    return self.notify(
+                        key="cosecha_limite_temporada",
+                        status_code=status.HTTP_400_BAD_REQUEST
+                    )
+            except (TypeError, ValueError):
+                pass  # dejar que el serializer valide temporada
 
         serializer = self.get_serializer(data=data)
         try:
@@ -193,6 +247,7 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
             return self.notify(key=key, data=payload, status_code=status.HTTP_400_BAD_REQUEST)
 
         self.perform_update(serializer)
+        registrar_actividad(request.user, f"Actualizó la cosecha: {instance.nombre}")
         return self.notify(
             key="cosecha_update_success",
             data={"cosecha": serializer.data},
@@ -210,7 +265,7 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Dependencias duras (ya no deberían existir si se archivó en cascada, pero reforzamos)
+        # Dependencias duras
         if instance.inversiones.exists() or instance.ventas.exists():
             return self.notify(
                 key="cosecha_con_dependencias",
@@ -218,7 +273,9 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
+        nombre = instance.nombre
         self.perform_destroy(instance)
+        registrar_actividad(request.user, f"Eliminó la cosecha: {nombre}")
         return self.notify(
             key="cosecha_delete_success",
             data={"info": "Cosecha eliminada."},
@@ -281,11 +338,17 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
     def finalizar(self, request, pk=None):
         c = self.get_object()
 
-        # No finalizar si la temporada está archivada
+        # No finalizar si la temporada está archivada o finalizada (consistente con reglas)
         if not c.temporada.is_active:
             return self.notify(
                 key="cosecha_temporada_archivada_no_finalizar",
                 data={"info": "No puedes finalizar/reactivar una cosecha cuya temporada está archivada."},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        if c.temporada.finalizada:
+            return self.notify(
+                key="cosecha_temporada_finalizada_no_restaurar",
+                data={"info": "No puedes finalizar una cosecha cuya temporada está finalizada."},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -324,16 +387,20 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
 
                 if target_finalizada:
                     # 👉 Finalizar
+                    # La temporada NO debe estar finalizada para finalizar la cosecha (consistencia)
+                    if c.temporada.finalizada:
+                        return self.notify(
+                            key="cosecha_temporada_finalizada_no_restaurar",
+                            data={"info": "No puedes finalizar una cosecha cuya temporada está finalizada."},
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                        )
                     c.finalizada = True
                     c.fecha_fin = timezone.now()
                     c.save(update_fields=["finalizada", "fecha_fin"])
                     try:
                         registrar_actividad(request.user, f"Finalizó la cosecha: {c.nombre}")
-                    except Exception as audit_exc:
-                        import logging
-                        logging.getLogger(__name__).warning(
-                            "Fallo registrar_actividad en toggle_finalizada(finalizar): %s", audit_exc
-                        )
+                    except Exception:
+                        pass
                     return self.notify(
                         key="cosecha_finalizada",
                         data={"cosecha": self.get_serializer(c).data},
@@ -357,24 +424,19 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
                         finalizada=False
                     ).exclude(pk=c.pk).exists()
                     if existe_activa:
-                        # Reutilizamos la misma semántica de error que en el serializer
                         return self.notify(
                             key="cosecha_activa_existente",
                             data={"errors": {"non_field_errors": ["Ya existe una cosecha activa en esta temporada."]}},
                             status_code=status.HTTP_400_BAD_REQUEST,
                         )
 
-                    # Reactivar adecuadamente (limpiar fecha_fin)
                     c.finalizada = False
                     c.fecha_fin = None
                     c.save(update_fields=["finalizada", "fecha_fin"])
                     try:
                         registrar_actividad(request.user, f"Reactivó la cosecha: {c.nombre}")
-                    except Exception as audit_exc:
-                        import logging
-                        logging.getLogger(__name__).warning(
-                            "Fallo registrar_actividad en toggle_finalizada(reactivar): %s", audit_exc
-                        )
+                    except Exception:
+                        pass
 
                     return self.notify(
                         key="cosecha_reactivada",

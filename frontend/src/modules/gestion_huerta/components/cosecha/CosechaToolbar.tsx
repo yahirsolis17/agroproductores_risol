@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/components/cosecha/CosechaToolbar.tsx
 import React from 'react';
 import { Box, TextField, Button, InputAdornment, Chip, Tooltip } from '@mui/material';
 import { Search as SearchIcon, Clear as ClearIcon, Add as AddIcon } from '@mui/icons-material';

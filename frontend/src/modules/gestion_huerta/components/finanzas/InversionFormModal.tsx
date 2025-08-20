@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/components/finanzas/InversionFormModal.tsx
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -58,6 +59,8 @@ type FormValues = {
   gastos_mano_obra: string;
   descripcion: string;
 };
+const today = formatLocalDateYYYYMMDD(new Date());
+const yesterday = formatLocalDateYYYYMMDD(new Date(Date.now() - 86400000));
 
 // Schema with per-field validations and custom numeric checks
 const schema = Yup.object({
@@ -224,18 +227,19 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
             <Form>
               <DialogContent>
                 {/* Fecha */}
-                <TextField
-                  label="Fecha"
-                  type="date"
-                  name="fecha"
-                  value={values.fecha}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  margin="normal"
-                  fullWidth
-                  error={touched.fecha && Boolean(msg(errors.fecha))}
-                  helperText={touched.fecha && msg(errors.fecha)}
-                />
+            <TextField
+              label="Fecha"
+              type="date"
+              name="fecha"
+              value={values.fecha}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              margin="normal"
+              fullWidth
+              inputProps={{ min: yesterday, max: today }}   // <-- límites UI
+              error={touched.fecha && Boolean(msg(errors.fecha))}
+              helperText={touched.fecha && msg(errors.fecha)}
+            />
 
                 <CategoriaAutocomplete
                   valueId={values.categoria}

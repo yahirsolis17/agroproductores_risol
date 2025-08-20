@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/types/cosechaTypes.d.ts
 export interface Cosecha {
   id: number;
   nombre: string;

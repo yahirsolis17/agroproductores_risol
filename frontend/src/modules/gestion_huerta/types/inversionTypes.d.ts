@@ -1,7 +1,4 @@
-/* ══════════════════════════════════════════════════════════════
-   TYPES · Inversiones
-   ══════════════════════════════════════════════════════════════ */
-
+// src/modules/gestion_huerta/types/inversionTypes.d.ts
 export interface InversionHuerta {
   id:               number;
   fecha:            string;        // YYYY-MM-DD (local)

@@ -29,9 +29,8 @@ const initialState: HuertaState = {
   page:    1,
   estado:  'activos',
   filters: {},
-  meta:    { count: 0, next: null, previous: null },
+  meta:    { count: 0, next: null, previous: null, page: 1, page_size: 10, total_pages: 1 }, // ← actualizado
 };
-
 export const fetchHuertas = createAsyncThunk<
   { huertas: Huerta[]; meta: PaginationMeta; page: number },
   { page: number; estado: Estado; filters: HuertaFilters },

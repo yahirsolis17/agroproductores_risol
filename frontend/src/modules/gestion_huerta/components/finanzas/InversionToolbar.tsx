@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/components/finanzas/InversionToolbar.tsx
 import React, { useMemo, useState } from 'react';
 import {
   Box, TextField, Button, InputAdornment,
@@ -142,7 +143,7 @@ const InversionToolbar: React.FC<Props> = ({
           <Tooltip title={createTooltip || ''}>
             <span>
               <PermissionButton
-                perm="gestion_huerta.add_inversion"  // ← codename con app-label
+                perm="add_inversion"  // ← codename con app-label
                 variant="contained"
                 startIcon={<AddIcon />}
                 onClick={onCreateClick}

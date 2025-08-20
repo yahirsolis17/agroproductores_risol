@@ -1,9 +1,7 @@
-// src/global/store/temporadaSlice.ts
-
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { temporadaService } from '../../modules/gestion_huerta/services/temporadaService';
 import { handleBackendNotification } from '../utils/NotificationEngine';
-import { Temporada, TemporadaCreateData } from '../../modules/gestion_huerta/types/temporadaTypes';
+import { Temporada, TemporadaCreateData, EstadoTemporada } from '../../modules/gestion_huerta/types/temporadaTypes';
 
 interface PaginationMeta {
   count: number;
@@ -21,7 +19,7 @@ interface TemporadaState {
   yearFilter: number | null;
   huertaId: number | null;
   huertaRentadaId: number | null;
-  estadoFilter: 'activas' | 'archivadas' | 'todas';
+  estadoFilter: EstadoTemporada;              // 👈
   finalizadaFilter: boolean | null;
   searchFilter: string;
 }
@@ -43,17 +41,19 @@ const initialState: TemporadaState = {
 
 // ——— Thunks ———
 
+type FetchArgs = {
+  page: number;
+  año?: number;
+  huertaId?: number;
+  huertaRentadaId?: number;
+  estado?: EstadoTemporada;                  // 👈
+  finalizada?: boolean;
+  search?: string;
+};
+
 export const fetchTemporadas = createAsyncThunk<
   { temporadas: Temporada[]; meta: PaginationMeta; page: number },
-  { 
-    page: number; 
-    año?: number; 
-    huertaId?: number; 
-    huertaRentadaId?: number;
-    estado?: 'activas' | 'archivadas' | 'todas';
-    finalizada?: boolean;
-    search?: string;
-  },
+  FetchArgs,
   { rejectValue: Record<string, any> }
 >(
   'temporada/fetchAll',
@@ -169,7 +169,6 @@ export const restaurarTemporada = createAsyncThunk<
   }
 );
 
-
 // ——— Slice ———
 const temporadaSlice = createSlice({
   name: 'temporada',
@@ -180,32 +179,31 @@ const temporadaSlice = createSlice({
     },
     setYearFilter(state, action: PayloadAction<number | null>) {
       state.yearFilter = action.payload;
-      state.page = 1; // reset page on filter change
+      state.page = 1;
     },
     setHuertaId(state, action: PayloadAction<number | null>) {
       state.huertaId = action.payload;
-      state.page = 1; // reset page on filter change
+      state.page = 1;
     },
     setHuertaRentadaId(state, action: PayloadAction<number | null>) {
       state.huertaRentadaId = action.payload;
-      state.page = 1; // reset page on filter change
+      state.page = 1;
     },
-    setEstadoFilter(state, action: PayloadAction<'activas' | 'archivadas' | 'todas'>) {
+    setEstadoFilter(state, action: PayloadAction<EstadoTemporada>) {   // 👈
       state.estadoFilter = action.payload;
-      state.page = 1; // reset page on filter change
+      state.page = 1;
     },
     setFinalizadaFilter(state, action: PayloadAction<boolean | null>) {
       state.finalizadaFilter = action.payload;
-      state.page = 1; // reset page on filter change
+      state.page = 1;
     },
     setSearchFilter(state, action: PayloadAction<string>) {
       state.searchFilter = action.payload;
-      state.page = 1; // reset page on filter change
+      state.page = 1;
     },
   },
   extraReducers: (builder) => {
     builder
-      // Fetch todas
       .addCase(fetchTemporadas.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -222,24 +220,18 @@ const temporadaSlice = createSlice({
         state.loaded = true;
         state.error = payload || null;
       })
-
-      // Create
       .addCase(createTemporada.fulfilled, (state, { payload }) => {
         state.list.unshift(payload);
       })
       .addCase(createTemporada.rejected, (state, { payload }) => {
         state.error = payload || null;
       })
-
-      // Delete
       .addCase(deleteTemporada.fulfilled, (state, { payload }) => {
         state.list = state.list.filter((t) => t.id !== payload);
       })
       .addCase(deleteTemporada.rejected, (state, { payload }) => {
         state.error = payload || null;
       })
-
-      // Finalizar
       .addCase(finalizarTemporada.fulfilled, (state, { payload }) => {
         const idx = state.list.findIndex((t) => t.id === payload.id);
         if (idx !== -1) state.list[idx] = payload;
@@ -247,8 +239,6 @@ const temporadaSlice = createSlice({
       .addCase(finalizarTemporada.rejected, (state, { payload }) => {
         state.error = payload || null;
       })
-
-      // Archivar
       .addCase(archivarTemporada.fulfilled, (state, { payload }) => {
         const idx = state.list.findIndex((t) => t.id === payload.id);
         if (idx !== -1) state.list[idx] = payload;
@@ -256,26 +246,24 @@ const temporadaSlice = createSlice({
       .addCase(archivarTemporada.rejected, (state, { payload }) => {
         state.error = payload || null;
       })
-
-      // Restaurar
       .addCase(restaurarTemporada.fulfilled, (state, { payload }) => {
         const idx = state.list.findIndex((t) => t.id === payload.id);
         if (idx !== -1) state.list[idx] = payload;
       })
       .addCase(restaurarTemporada.rejected, (state, { payload }) => {
         state.error = payload || null;
-      })
-
+      });
   },
 });
 
-export const { 
-  setPage, 
-  setYearFilter, 
-  setHuertaId, 
-  setHuertaRentadaId, 
-  setEstadoFilter, 
-  setFinalizadaFilter, 
-  setSearchFilter 
+export const {
+  setPage,
+  setYearFilter,
+  setHuertaId,
+  setHuertaRentadaId,
+  setEstadoFilter,
+  setFinalizadaFilter,
+  setSearchFilter,
 } = temporadaSlice.actions;
+
 export default temporadaSlice.reducer;

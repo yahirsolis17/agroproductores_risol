@@ -1,3 +1,5 @@
+// src/modules/gestion_huerta/services/huertaRentadaService.ts
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import apiClient from '../../../global/api/apiClient';
 import { HuertaRentada, HuertaRentadaCreateData, HuertaRentadaUpdateData } from '../types/huertaRentadaTypes';
 import { Estado, PaginationMeta, AffectedCounts } from '../types/shared';
@@ -13,6 +15,7 @@ interface ListRespRaw {
   huertas_rentadas?: HuertaRentada[];
   meta: PaginationMeta;
 }
+
 interface ItemWrapper { huerta_rentada: HuertaRentada; }
 
 export const huertaRentadaService = {
@@ -22,7 +25,7 @@ export const huertaRentadaService = {
     filters: HRFilters = {},
     config: { signal?: AbortSignal; pageSize?: number } = {}
   ): Promise<{ huertas_rentadas: HuertaRentada[]; meta: PaginationMeta }> {
-    const pageSize = config.pageSize ?? 10; // por consistencia
+    const pageSize = config.pageSize ?? 10;
     const params: Record<string, any> = { page, estado, page_size: pageSize };
     if (filters.search) params.search = filters.search;
     if (filters.nombre) params.nombre = filters.nombre;
@@ -81,6 +84,12 @@ export const huertaRentadaService = {
       message_key: string;
       data: { huerta_rentada_id: number; affected?: AffectedCounts };
     }>(`/huerta/huertas-rentadas/${id}/restaurar/`);
+    return data;
+  },
+
+  // 👇 NUEVO: obtener 1 huerta rentada por ID
+  async getById(id: number): Promise<HuertaRentada> {
+    const { data } = await apiClient.get<HuertaRentada>(`/huerta/huertas-rentadas/${id}/`);
     return data;
   },
 };

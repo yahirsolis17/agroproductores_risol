@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/services/propietarioService.ts
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import apiClient from '../../../global/api/apiClient';
 import {

@@ -1,7 +1,4 @@
-/* ══════════════════════════════════════════════════════════════
-   TYPES · Ventas
-   ══════════════════════════════════════════════════════════════ */
-
+// src/modules/gestion_huerta/types/ventaTypes.d.ts
 export interface VentaHuerta {
   id:              number;
   fecha_venta:     string;        // YYYY-MM-DD (local)

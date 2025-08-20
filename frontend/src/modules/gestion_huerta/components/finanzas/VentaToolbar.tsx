@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/components/finanzas/VentaToolbar.tsx
 import React, { useMemo } from 'react';
 import {
   Box, TextField, Button, InputAdornment,

@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/types/huertaRentadaTypes.d.ts
 import { Propietario } from './propietarioTypes';
 
 export interface HuertaRentada {

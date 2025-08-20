@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/components/cosecha/CosechaTable.tsx
 import React from 'react';
 import { Chip, Box } from '@mui/material';
 import { TableLayout, Column } from '../../../../components/common/TableLayout';

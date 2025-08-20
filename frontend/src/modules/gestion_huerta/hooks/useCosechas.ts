@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/hooks/useCosechas.ts
 import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../../global/store/store';
 import {
@@ -6,6 +7,7 @@ import {
   setTemporadaId,
   setSearch,
   setEstado,
+  setFinalizada,              // 👈 NUEVO
   createCosecha,
   updateCosecha,
   deleteCosecha,
@@ -26,22 +28,24 @@ export function useCosechas() {
     temporadaId,
     search,
     estado,
+    finalizada,                // 👈 NUEVO
   } = useAppSelector((s) => s.cosechas);
 
   useEffect(() => {
     if (temporadaId !== null) dispatch(fetchCosechas());
-  }, [dispatch, page, temporadaId, search, estado]);
+  }, [dispatch, page, temporadaId, search, estado, finalizada]); // 👈 NUEVO dep
 
   const refresh = async () => {
     if (temporadaId !== null) await dispatch(fetchCosechas()).unwrap();
   };
 
   return {
-    cosechas, loading, error, page, meta, temporadaId, search, estado,
+    cosechas, loading, error, page, meta, temporadaId, search, estado, finalizada,
     setPage: (p: number) => dispatch(setPage(p)),
     setTemporadaId: (id: number | null) => dispatch(setTemporadaId(id)),
     setSearch: (q: string) => dispatch(setSearch(q)),
     setEstado: (v: 'activas' | 'archivadas' | 'todas') => dispatch(setEstado(v)),
+    setFinalizada: (v: boolean | null) => dispatch(setFinalizada(v)),   // 👈 NUEVO
 
     addCosecha: async (data: CosechaCreateData) => { await dispatch(createCosecha(data)).unwrap(); await refresh(); },
     renameCosecha: async (id: number, data: CosechaUpdateData) => { await dispatch(updateCosecha({ id, data })).unwrap(); await refresh(); },

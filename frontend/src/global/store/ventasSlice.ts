@@ -86,10 +86,10 @@ export const fetchVentas = createAsyncThunk<
   'ventas/fetch',
   async (_, { getState, rejectWithValue }) => {
     const s = getState().ventas;
-    const { huertaId, huertaRentadaId, temporadaId, cosechaId } = s;
-    if ((!huertaId && !huertaRentadaId) || !temporadaId || !cosechaId) {
-      return rejectWithValue('Faltan IDs de contexto (huerta/huerta_rentada, temporada o cosecha).');
-    }
+    const {temporadaId, cosechaId } = s;
+      if (!temporadaId || !cosechaId) {
+        return rejectWithValue('Faltan IDs de contexto (temporada o cosecha).');
+      }
     try {
       const res = await ventaService.list(ctxFromState(s), s.page, PAGE_SIZE, s.filters);
       handleBackendNotification(res);
@@ -109,8 +109,8 @@ export const createVenta = createAsyncThunk<
   'ventas/create',
   async (payload, { getState, rejectWithValue }) => {
     const s = getState().ventas;
-    const { huertaId, huertaRentadaId, temporadaId, cosechaId } = s;
-    if ((!huertaId && !huertaRentadaId) || !temporadaId || !cosechaId) {
+    const {temporadaId, cosechaId } = s;
+    if (!temporadaId || !cosechaId) {
       return rejectWithValue({ message: 'Contexto incompleto' });
     }
     try {
@@ -259,10 +259,13 @@ const ventasSlice = createSlice({
      })
 
      // CREATE → insert inmediata
-     .addCase(createVenta.fulfilled, (s, { payload }) => {
-       s.list.unshift(payload);
-       s.meta.count += 1;
-     })
+    .addCase(createVenta.fulfilled, (s, { payload }) => {
+      const estado = s.filters.estado ?? 'activas';
+      if (estado === 'activas' || estado === 'todas') {
+        s.list.unshift(payload);
+        s.meta.count += 1;
+      }
+    })
 
      // UPDATE in-place
      .addCase(updateVenta.fulfilled, (s, { payload }) => {

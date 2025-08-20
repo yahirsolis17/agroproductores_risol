@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/services/categoriaInversionService.ts
 import apiClient from '../../../global/api/apiClient';
 import {
   CategoriaInversion,

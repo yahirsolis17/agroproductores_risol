@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/components/temporada/TemporadaTable.tsx
 import React from 'react';
 import { Chip } from '@mui/material';
 import { TableLayout, Column } from '../../../../components/common/TableLayout';

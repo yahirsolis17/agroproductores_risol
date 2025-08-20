@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/components/finanzas/VentaFormModal.tsx
 import React, { useEffect, useRef } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
@@ -17,12 +18,13 @@ import { handleBackendNotification } from '../../../../global/utils/Notification
 
 /** YYYY-MM-DD local (evita desfase de zona) */
 function formatLocalDateYYYYMMDD(d = new Date()) {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return `${y}-${m}-${day}`;
 }
-
+const TODAY_YMD     = formatLocalDateYYYYMMDD(new Date());
+const YESTERDAY_YMD = formatLocalDateYYYYMMDD(new Date(Date.now() - 24 * 60 * 60 * 1000));
 /** enteros (sin decimales) desde UI con comas */
 function parseMXNumber(input: string): number {
   if (!input) return NaN; // vacío NO es 0
@@ -57,7 +59,9 @@ type FormValues = {
 
 /** Validaciones (alineadas al backend) */
 const schema = Yup.object({
-  fecha_venta: Yup.string().required('La fecha es requerida'),
+    fecha_venta: Yup.string()
+    .required('La fecha es requerida')
+    .test('hoy-o-ayer', 'Solo se permite HOY o AYER', (v) => v === TODAY_YMD || v === YESTERDAY_YMD),
   tipo_mango: Yup.string().trim().required('El tipo de mango es requerido'),
   num_cajas: Yup.string()
     .required('El número de cajas es requerido')
@@ -159,6 +163,14 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
       Object.entries(beErrors).forEach(([f, val]: [string, unknown]) => {
         const text = Array.isArray(val) ? String(val[0]) : String(val);
         switch (f) {
+         case 'cosecha':
+         case 'cosecha_id':
+           // caen mensajes de “cosecha archivada/finalizada”
+           fieldErrors['fecha_venta'] = text; break;
+         case 'temporada':
+         case 'temporada_id':
+           // temporada archivada/finalizada
+           fieldErrors['fecha_venta'] = text; break;
           case 'fecha':
           case 'fecha_venta':
             fieldErrors['fecha_venta'] = text; break;
@@ -210,15 +222,19 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
     const cleaned = raw.replace(/[\s,]/g, '');
     const n = cleaned ? Number(cleaned) : NaN;
 
-    if (field === 'num_cajas') {
-      if (!Number.isFinite(n) || n <= 0) errorMsg = 'Debe ser mayor que 0';
-    } else if (field === 'gasto') {
-      if (!Number.isFinite(n) || n < 0) errorMsg = 'No puede ser negativo';
+    if (cleaned) {
+      if (field === 'num_cajas') {
+        if (!Number.isFinite(n) || n <= 0) errorMsg = 'Debe ser mayor que 0';
+      } else if (field === 'gasto') {
+        if (!Number.isFinite(n) || n < 0) errorMsg = 'No puede ser negativo';
+      } else {
+        // precio_por_caja
+        if (!Number.isFinite(n) || n <= 0) errorMsg = 'Debe ser mayor que 0';
+      }
     } else {
-      // precio_por_caja
-      if (!Number.isFinite(n) || n <= 0) errorMsg = 'Debe ser mayor que 0';
+      // vacío: deja que Yup marque "Requerido" en submit/blur
+      errorMsg = undefined;
     }
-
     const formatted = cleaned ? Math.trunc(n).toLocaleString('es-MX', { maximumFractionDigits: 0 }) : '';
     setFieldValue(field, formatted);
     formikRef.current?.setFieldError(field, errorMsg);
@@ -254,6 +270,10 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
                 error={touched.fecha_venta && Boolean(msg(errors.fecha_venta))}
                 helperText={touched.fecha_venta && msg(errors.fecha_venta)}
                 InputLabelProps={{ shrink: true }}
+                inputProps={{
+                  min: YESTERDAY_YMD,
+                  max: TODAY_YMD,
+                }}
               />
 
               <TextField
@@ -326,6 +346,11 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
                 rows={2}
                 error={touched.descripcion && Boolean(msg(errors.descripcion))}
                 helperText={touched.descripcion && msg(errors.descripcion)}
+                inputProps={{
+                min: formatLocalDateYYYYMMDD(new Date(Date.now() - 24*60*60*1000)), // AYER
+                max: formatLocalDateYYYYMMDD(new Date()),                          // HOY
+                }}
+
               />
             </DialogContent>
 
@@ -335,7 +360,7 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
                 type="submit"
                 variant="contained"
                 disabled={isSubmitting}
-                perm={initialValues ? 'gestion_huerta.change_venta' : 'gestion_huerta.add_venta'}
+                perm={initialValues ? 'change_venta' : 'gestion_huerta.add_venta'}
               >
                 {isSubmitting ? <CircularProgress size={22} /> : 'Guardar'}
               </PermissionButton>

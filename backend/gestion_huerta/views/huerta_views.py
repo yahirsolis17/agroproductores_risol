@@ -334,8 +334,8 @@ class HuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
     pagination_class = GenericPagination
     permission_classes = [
         IsAuthenticated,
-        # HasHuertaModulePermission,
-        # HuertaGranularPermission,
+        HasHuertaModulePermission,
+        HuertaGranularPermission,
     ]
 
     # ---------- LIST ----------
@@ -511,8 +511,8 @@ class HuertaRentadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelV
     pagination_class = GenericPagination
     permission_classes = [
         IsAuthenticated,
-        # HasHuertaModulePermission,
-        # HuertaGranularPermission,
+        HasHuertaModulePermission,
+        HuertaGranularPermission,
     ]
 
     def list(self, request, *args, **kwargs):
@@ -736,6 +736,9 @@ class HuertasCombinadasViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Ge
                     "count": paginator.page.paginator.count,
                     "next": paginator.get_next_link(),
                     "previous": paginator.get_previous_link(),
+                    "page": paginator.page.number,
+                    "page_size": paginator.get_page_size(request),   # <- usar request local
+                    "total_pages": paginator.page.paginator.num_pages,
                 },
                 "results": page_data,
                 "huertas": page_data  # alias compat

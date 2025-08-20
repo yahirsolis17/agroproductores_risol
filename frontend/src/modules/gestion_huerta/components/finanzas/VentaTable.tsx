@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/components/finanzas/VentaTable.tsx
 import React from 'react';
 import { Box, Chip } from '@mui/material';
 import { TableLayout, Column } from '../../../../components/common/TableLayout';

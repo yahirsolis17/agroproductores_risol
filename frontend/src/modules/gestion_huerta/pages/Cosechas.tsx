@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/pages/Cosechas.tsx
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -52,41 +53,62 @@ const Cosechas: React.FC = () => {
   } = useCosechas();
 
   // Carga de temporada
-  useEffect(() => {
-    if (!temporadaId) {
-      setTempInfo(null);
-      dispatch(clearBreadcrumbs());
-      return;
-    }
-    (async () => {
-      try {
-        setTempLoading(true);
-        const resp = await temporadaService.getById(temporadaId);
-        const t = resp.data.temporada;
-        setTempInfo({
-          id: t.id,
-          año: t.año,
-          huerta_id: t.huerta_id ?? null,
-          huerta_nombre: t.huerta_nombre ?? null,
-          is_rentada: !!t.is_rentada,
-          is_active: t.is_active,
-          finalizada: t.finalizada,
-        });
-        if (t.huerta_id && t.huerta_nombre) {
-          dispatch(setBreadcrumbs(
-            breadcrumbRoutes.cosechasList(t.huerta_id, t.huerta_nombre, t.año, t.id)
-          ));
-        } else {
-          dispatch(clearBreadcrumbs());
-        }
-      } catch {
+useEffect(() => {
+  let cancelled = false;
+
+  if (!temporadaId) {
+    setTempInfo(null);
+    dispatch(clearBreadcrumbs());
+    return;
+  }
+
+  (async () => {
+    try {
+      setTempLoading(true);
+      const resp = await temporadaService.getById(temporadaId);
+      if (cancelled) return;
+
+      const t = resp.data.temporada;
+      setTempInfo({
+        id: t.id,
+        año: t.año,
+        huerta_id: t.huerta_id ?? null,
+        huerta_nombre: t.huerta_nombre ?? null,
+        is_rentada: !!t.is_rentada,
+        is_active: t.is_active,
+        finalizada: t.finalizada,
+      });
+
+      if (t.huerta_id && (t.huerta_nombre ?? '')) {
+        dispatch(
+          setBreadcrumbs(
+            breadcrumbRoutes.cosechasList(
+              t.huerta_id,
+              t.huerta_nombre ?? `Huerta #${t.huerta_id}`,
+              t.año,
+              t.id
+            )
+          )
+        );
+      } else {
+        dispatch(clearBreadcrumbs());
+      }
+    } catch {
+      if (!cancelled) {
         setTempErr('No se pudo cargar la temporada.');
         dispatch(clearBreadcrumbs());
-      } finally {
-        setTempLoading(false);
       }
-    })();
-  }, [temporadaId]);
+    } finally {
+      if (!cancelled) setTempLoading(false);
+    }
+  })();
+
+  return () => {
+    cancelled = true;
+    dispatch(clearBreadcrumbs());
+  };
+}, [temporadaId, dispatch]);
+
 
   // Comunicar temporada al slice
   useEffect(() => {
@@ -94,8 +116,8 @@ const Cosechas: React.FC = () => {
   }, [temporadaId]);
 
   // Lógica de creación
-  const totalCosechas = meta.count;
-  const maxReached = totalCosechas >= 6;
+  const totalRegistradas = (meta as any)?.total_registradas ?? meta.count;  // 👈 NUEVO
+  const maxReached = totalRegistradas >= 6;                                  // 👈 CAMBIA base
   const canCreate = Boolean(
     temporadaId &&
     tempInfo?.is_active &&
@@ -132,12 +154,16 @@ const Cosechas: React.FC = () => {
   // Crear cosecha auto-número
   const handleCreate = async () => {
     if (!temporadaId) return;
-    const nums = cosechas
+
+    const visibles = cosechas
       .map(c => c.nombre.match(/Cosecha\s+(\d+)/i)?.[1])
       .filter(Boolean)
       .map(Number);
-    const next = nums.length ? Math.max(...nums) + 1 : totalCosechas + 1;
-    const nombre = `Cosecha ${next}`;
+
+    // Base sobre el total real en BD (activas + archivadas)
+    const base = Math.max(totalRegistradas, ...(visibles.length ? visibles : [0])); // 👈 NUEVO
+    const nombre = `Cosecha ${base + 1}`;
+
     try {
       await addCosecha({ temporada: temporadaId, nombre });
     } catch (e: any) {

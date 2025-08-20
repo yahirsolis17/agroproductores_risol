@@ -1,19 +1,18 @@
 # gestion_huerta/views/inversion_views.py
+from datetime import datetime
+from django.db import transaction
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, filters, status, serializers
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
-from django_filters.rest_framework import DjangoFilterBackend
-from django.db import transaction
-from datetime import datetime
 
-from gestion_huerta.utils.audit   import ViewSetAuditMixin
-from gestion_huerta.views.huerta_views import NotificationMixin
-from gestion_huerta.permissions import HasHuertaModulePermission, HuertaGranularPermission
 from agroproductores_risol.utils.pagination import GenericPagination
-from gestion_huerta.utils.activity import registrar_actividad
-
 from gestion_huerta.models import InversionesHuerta, Cosecha
 from gestion_huerta.serializers import InversionesHuertaSerializer
+from gestion_huerta.utils.activity import registrar_actividad
+from gestion_huerta.utils.audit import ViewSetAuditMixin
+from gestion_huerta.views.huerta_views import NotificationMixin
+from gestion_huerta.permissions import HasHuertaModulePermission, HuertaGranularPermission
 
 
 # --------------------------- Helpers de mapeo de errores ---------------------------
@@ -43,6 +42,7 @@ def _map_inversion_validation_errors(errors: dict) -> tuple[str, dict]:
         "gastos_insumos", "gastos_mano_obra",
         "categoria_id", "cosecha_id", "temporada_id",
         "huerta_id", "huerta_rentada_id",
+        "cosecha", "temporada", "huerta", "huerta_rentada",
     ):
         if k in errors:
             flat += _txts(errors[k])
@@ -78,11 +78,21 @@ def _map_inversion_validation_errors(errors: dict) -> tuple[str, dict]:
         if t == "La huerta rentada no coincide con la de la cosecha.":
             return "inversion_huerta_rentada_incoherente", {"errors": errors}
         if t == "No asignes huerta propia en una cosecha de huerta rentada.":
-            return "inversion_origen_propia_en_rentada", {"errors": errors}
-        if t == "No asignes huerta rentada en una cosecha de huerta propia.":
             return "inversion_origen_rentada_en_propia", {"errors": errors}
+        if t == "No asignes huerta rentada en una cosecha de huerta propia.":
+            return "inversion_origen_propia_en_rentada", {"errors": errors}
         if t == "La cosecha no tiene origen (huerta/huerta_rentada) definido.":
             return "inversion_cosecha_sin_origen", {"errors": errors}
+
+        # Mensajes de model.clean
+        if t == "La cosecha debe estar activa y no finalizada.":
+            return "inversion_cosecha_no_permitida", {"errors": errors}
+        if t == "La temporada debe estar activa y no finalizada.":
+            return "inversion_temporada_no_permitida", {"errors": errors}
+        if t == "No se pueden registrar inversiones en una huerta archivada.":
+            return "inversion_huerta_archivada", {"errors": errors}
+        if t == "No se pueden registrar inversiones en una huerta rentada archivada.":
+            return "inversion_huerta_rentada_archivada", {"errors": errors}
 
     # Fallback genérico
     return "validation_error", {"errors": errors}
@@ -117,9 +127,6 @@ class InversionHuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
     Gestiona inversiones por cosecha: CRUD + archivar/restaurar (POST|PATCH),
     filtros por cosecha/temporada/categoría/huerta/huerta_rentada + estado (activas|archivadas|todas)
     y rango de fechas (fecha_desde / fecha_hasta, inclusive).
-
-    Incluye prechecks de estado para impedir operaciones cuando la temporada/cosecha
-    estén archivadas o finalizadas (evita inconsistencias al duplicar pestañas).
     """
     queryset = (
         InversionesHuerta.objects
@@ -163,19 +170,32 @@ class InversionHuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
 
         return qs
 
-    # ------------------------------ LIST
+    # ------------------------------ LIST (con fallback si no hay paginación)
     def list(self, request, *args, **kwargs):
-        page       = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
-        serializer = self.get_serializer(page, many=True)
+        qs   = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            ser = self.get_serializer(page, many=True)
+            return self.notify(
+                key="data_processed_success",
+                data={
+                    "inversiones": ser.data,
+                    "meta": {
+                        "count": self.paginator.page.paginator.count,
+                        "next": self.paginator.get_next_link(),
+                        "previous": self.paginator.get_previous_link(),
+                    }
+                },
+                status_code=status.HTTP_200_OK
+            )
+
+        # fallback sin paginación
+        ser = self.get_serializer(qs, many=True)
         return self.notify(
             key="data_processed_success",
             data={
-                "inversiones": serializer.data,
-                "meta": {
-                    "count": self.paginator.page.paginator.count,
-                    "next": self.paginator.get_next_link(),
-                    "previous": self.paginator.get_previous_link(),
-                }
+                "inversiones": ser.data,
+                "meta": {"count": len(ser.data), "next": None, "previous": None},
             },
             status_code=status.HTTP_200_OK
         )

@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/pages/Inversion.tsx
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useMemo, useState, useEffect } from 'react';
 import { Box, Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
@@ -153,7 +154,8 @@ const Inversion: React.FC = () => {
     return c;
   }, [filters]);
 
-  const handleClearFilters = () => changeFilters({});
+  const handleClearFilters = () => changeFilters({ estado: 'activas' });
+
 
   // Modal crear/editar
   const [modalOpen, setModalOpen] = useState(false);

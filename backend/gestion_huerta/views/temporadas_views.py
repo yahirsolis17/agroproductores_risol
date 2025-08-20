@@ -1,3 +1,20 @@
+# ---------------------------------------------------------------------------
+#  ████████╗███████╗███╗   ███╗██████╗  ██████╗ ██████╗  █████╗ ███╗   ██╗
+#  ╚══██╔══╝██╔════╝████╗ ████║██╔══██╗██╔════╝ ██╔══██╗██╔══██╗████╗  ██║
+#     ██║   █████╗  ██╔████╔██║██████╔╝██║  ███╗██████╔╝███████║██╔██╗ ██║
+#     ██║   ██╔══╝  ██║╚██╔╝██║██╔══██╗██║   ██║██╔══██╗██╔══██║██║╚██╗██║
+#     ██║   ███████╗██║ ╚═╝ ██║██║  ██║╚██████╔╝██║  ██║██║  ██║██║ ╚████║
+#     ╚═╝   ╚══════╝╚═╝     ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝
+#
+#  Vista de Temporadas (ModelViewSet) con:
+#  - Contrato de paginación uniforme (count, next, previous, page, page_size, total_pages)
+#  - Validaciones XOR de origen (huerta vs huerta_rentada)
+#  - Normalización de estado (activos/activas, archivados/archivadas, todos/all)
+#  - Notificaciones con message_key consistentes
+#  - Cascada con conteos "affected" en archivar/restaurar
+#  - Seguridad y auditoría
+# ---------------------------------------------------------------------------
+
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.db.models import Q, CharField
@@ -17,20 +34,25 @@ from agroproductores_risol.utils.pagination import TemporadaPagination
 from gestion_huerta.permissions    import HasHuertaModulePermission, HuertaGranularPermission
 
 
+# ---------------------------------------------------------------------------
+# Mapeo de errores de validación → message_key coherente con el frontend
+# ---------------------------------------------------------------------------
 def _map_temporada_validation_errors(errors: dict) -> tuple[str, dict]:
-    non_field = errors.get('non_field_errors') or errors.get('__all__') or []
-    año_err   = errors.get('año') or []
+    non_field  = errors.get('non_field_errors') or errors.get('__all__') or []
+    año_err    = errors.get('año') or []
     huerta_err = errors.get('huerta') or []
     hr_err     = errors.get('huerta_rentada') or []
 
-    to_texts = lambda lst: [str(x) for x in (lst if isinstance(lst, (list, tuple)) else [lst])]
-    all_texts = to_texts(non_field) + to_texts(año_err) + to_texts(huerta_err) + to_texts(hr_err)
+    to_texts   = lambda lst: [str(x) for x in (lst if isinstance(lst, (list, tuple)) else [lst])]
+    all_texts  = to_texts(non_field) + to_texts(año_err) + to_texts(huerta_err) + to_texts(hr_err)
 
     for msg in all_texts:
         txt = msg.strip()
-        if txt == "Debe asignar una huerta o una huerta rentada.":
+        if txt in ("Debe asignar una huerta o una huerta rentada.",
+                   "Debe asignar una huerta propia o rentada."):
             return "temporada_origen_requerido", {"errors": errors}
-        if txt == "No puede asignar ambas huertas al mismo tiempo.":
+        if txt in ("No puede asignar ambas huertas al mismo tiempo.",
+                   "No puede asignar ambas huertas a la vez."):
             return "temporada_origen_exclusivo", {"errors": errors}
         if txt == "El año debe estar entre 2000 y el año siguiente al actual.":
             return "temporada_año_fuera_de_rango", {"errors": errors}
@@ -45,16 +67,20 @@ def _map_temporada_validation_errors(errors: dict) -> tuple[str, dict]:
     return "temporada_campos_invalidos", {"errors": errors}
 
 
+# ---------------------------------------------------------------------------
+#  📅  TEMPORADAS
+# ---------------------------------------------------------------------------
 class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
     queryset = (
         Temporada.objects
         .select_related("huerta", "huerta_rentada", "huerta__propietario", "huerta_rentada__propietario")
-        .order_by("-año", "-id")  # <- orden estable (tiebreaker)
+        .order_by("-año", "-id")  # orden estable (tiebreaker)
     )
     serializer_class   = TemporadaSerializer
     pagination_class   = TemporadaPagination
     permission_classes = [IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission]
 
+    # ----------------------------- Queryset base -----------------------------
     def get_queryset(self):
         # base con select_related profundo y orden estable
         qs = (
@@ -64,6 +90,7 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         )
         params = self.request.query_params
 
+        # Para acciones directas sobre un recurso, no aplicamos filtros de lista
         if self.action in ['archivar', 'restaurar', 'retrieve', 'destroy', 'finalizar', 'update', 'partial_update']:
             return qs
 
@@ -72,18 +99,23 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         if year:
             qs = qs.filter(año=year)
 
+        # Filtros por origen (huerta vs huerta_rentada)
         if (h_id := params.get("huerta")):
             qs = qs.filter(huerta_id=h_id)
 
         if (hr_id := params.get("huerta_rentada")):
             qs = qs.filter(huerta_rentada_id=hr_id)
 
-        estado = (params.get("estado") or "activas").lower()
-        if estado == "activas":
+        # Normalización de estado (acepta ambas variantes y "todos"/"all")
+        estado_raw = (params.get("estado") or "activos").strip().lower()
+        if estado_raw in ("activos", "activas"):
             qs = qs.filter(is_active=True)
-        elif estado == "archivadas":
+        elif estado_raw in ("archivados", "archivadas"):
             qs = qs.filter(is_active=False)
+        elif estado_raw in ("todos", "all"):
+            pass  # sin filtro
 
+        # Estado de finalización (en_curso/finalizadas o boolean finalizada=true/false)
         if (fin_estado := params.get("estado_finalizacion")):
             fin_estado = fin_estado.lower()
             if fin_estado == "en_curso":
@@ -93,12 +125,13 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
 
         finalizada = params.get("finalizada")
         if finalizada is not None:
-            low = finalizada.lower()
+            low = str(finalizada).lower()
             if low in ('true', '1'):
                 qs = qs.filter(finalizada=True)
             elif low in ('false', '0'):
                 qs = qs.filter(finalizada=False)
 
+        # Búsqueda rica (año como texto + nombres de huertas/propietarios)
         if (search := params.get("search")):
             qs = qs.annotate(año_txt=Cast("año", CharField())).filter(
                 Q(año_txt__icontains=search) |
@@ -111,21 +144,23 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
             )
         return qs
 
+    # -------------------------------- LIST ----------------------------------
     def list(self, request, *args, **kwargs):
+        # Rechazo explícito si la consulta viene con ambos padres (ambiguo)
+        params = request.query_params
+        has_h  = bool(params.get("huerta"))
+        has_hr = bool(params.get("huerta_rentada"))
+        if has_h and has_hr:
+            return self.notify(
+                key="temporada_origen_exclusivo",
+                data={"errors": {"non_field_errors": ["No puede usar huerta y huerta_rentada a la vez."]}},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
         page = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
         ser  = self.get_serializer(page, many=True)
 
-        # meta extendida (no rompe front; suma claridad)
-        paginator = getattr(self, "paginator", None)
-        page_number = getattr(getattr(paginator, "page", None), "number", None)
-        page_size = None
-        try:
-            page_size = paginator.get_page_size(request)  # si tu pagination lo soporta
-        except Exception:
-            page_size = len(ser.data)
-        total_pages = getattr(getattr(paginator, "page", None), "paginator", None)
-        total_pages = getattr(total_pages, "num_pages", None)
-
+        # Contrato de paginación uniforme (idéntico a Huertas)
         return self.notify(
             key="data_processed_success",
             data={
@@ -134,16 +169,18 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
                     "count": self.paginator.page.paginator.count,
                     "next":  self.paginator.get_next_link(),
                     "previous": self.paginator.get_previous_link(),
-                    "page": page_number,
-                    "page_size": page_size,
-                    "total_pages": total_pages,
+                    "page": self.paginator.page.number,
+                    "page_size": self.paginator.get_page_size(request),
+                    "total_pages": self.paginator.page.paginator.num_pages,
                 }
             },
             status_code=status.HTTP_200_OK
         )
 
+    # ------------------------------- CREATE ---------------------------------
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
+        # saneamiento de campos "vacíos"
         for f in ("huerta", "huerta_rentada"):
             if f in data and data[f] in [None, "", "null", "None"]:
                 data.pop(f)
@@ -163,6 +200,7 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
             status_code=status.HTTP_201_CREATED,
         )
 
+    # ------------------------------- UPDATE ---------------------------------
     def update(self, request, *args, **kwargs):
         partial  = kwargs.pop("partial", False)
         instance = self.get_object()
@@ -191,6 +229,7 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         registrar_actividad(request.user, f"Actualizó temporada {ser.data.get('año')}")
         return self.notify(key="temporada_update_success", data={"temporada": ser.data})
 
+    # ------------------------------- DELETE ---------------------------------
     def destroy(self, request, *args, **kwargs):
         temp = self.get_object()
         if temp.is_active:
@@ -210,6 +249,7 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         registrar_actividad(request.user, f"Eliminó temporada {año}")
         return self.notify(key="temporada_delete_success", data={"info": f"Temporada {año} eliminada."})
 
+    # ----------------------------- FINALIZAR --------------------------------
     @action(detail=True, methods=["post"], url_path="finalizar")
     def finalizar(self, request, pk=None):
         temp = self.get_object()
@@ -232,6 +272,7 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
 
         return self.notify(key=key, data={"temporada": self.get_serializer(temp).data})
 
+    # ------------------------------ ARCHIVAR --------------------------------
     @action(detail=True, methods=["post"], url_path="archivar")
     def archivar(self, request, pk=None):
         temp = self.get_object()
@@ -243,7 +284,7 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
             )
         try:
             with transaction.atomic():
-                temp.archivar()
+                affected = temp.archivar()   # ← devolvemos conteos de cascada
         except Exception:
             return self.notify(
                 key="operacion_atomica_fallida",
@@ -252,8 +293,12 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
             )
 
         registrar_actividad(request.user, f"Archivó la temporada {temp.año}")
-        return self.notify(key="temporada_archivada", data={"temporada": self.get_serializer(temp).data})
+        return self.notify(
+            key="temporada_archivada",
+            data={"temporada": self.get_serializer(temp).data, "affected": affected}
+        )
 
+    # ----------------------------- RESTAURAR --------------------------------
     @action(detail=True, methods=["post"], url_path="restaurar")
     def restaurar(self, request, pk=None):
         temp = self.get_object()
@@ -264,6 +309,7 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Validar que el origen no esté archivado
         if temp.huerta_id and not temp.huerta.is_active:
             return self.notify(
                 key="temporada_origen_archivado_no_restaurar",
@@ -279,7 +325,7 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
 
         try:
             with transaction.atomic():
-                temp.desarchivar()
+                affected = temp.desarchivar()  # ← devolvemos conteos de cascada
         except Exception:
             return self.notify(
                 key="operacion_atomica_fallida",
@@ -288,4 +334,7 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
             )
 
         registrar_actividad(request.user, f"Restauró la temporada {temp.año}")
-        return self.notify(key="temporada_restaurada", data={"temporada": self.get_serializer(temp).data})
+        return self.notify(
+            key="temporada_restaurada",
+            data={"temporada": self.get_serializer(temp).data, "affected": affected}
+        )

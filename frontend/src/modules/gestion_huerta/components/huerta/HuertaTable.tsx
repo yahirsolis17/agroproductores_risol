@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/components/huerta/HuertaTable.tsx
 import React from 'react';
 import { Chip, Tooltip, Button } from '@mui/material';
 import { TableLayout, Column, FilterConfig } from '../../../../components/common/TableLayout';

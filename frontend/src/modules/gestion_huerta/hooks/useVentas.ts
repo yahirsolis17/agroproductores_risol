@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/hooks/useVentas.ts
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../../global/store/store';
@@ -34,7 +35,7 @@ export function useVentas() {
 
   // Auto-fetch cuando cambien contexto / paginación / filtros
   useEffect(() => {
-    if ((!huertaId && !huertaRentadaId) || !temporadaId || !cosechaId) return;
+    if (!temporadaId || !cosechaId) return;
     dispatch(fetchVentas());
   }, [dispatch, huertaId, huertaRentadaId, temporadaId, cosechaId, page, filters]);
 

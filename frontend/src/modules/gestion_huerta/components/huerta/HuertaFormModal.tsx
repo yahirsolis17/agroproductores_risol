@@ -1,3 +1,4 @@
+// src/modules/gestion_huerta/components/huerta/HuertaFormModal.tsx
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { DialogContent, DialogActions, Button, TextField, CircularProgress } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
@@ -60,7 +61,8 @@ const HuertaFormModal: React.FC<Props> = ({
       await onSubmit(vals);
       onClose();
     } catch (err: unknown) {
-      const backend  = err?.data || err?.response?.data || {};
+      const error = err as { response?: { data: any }; data?: any };
+      const backend = error?.response?.data || error?.data || {};
       const beErrors = backend.errors || backend.data?.errors || {};
       const fErrors: Record<string, string> = {};
 
