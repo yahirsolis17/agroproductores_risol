@@ -4,15 +4,14 @@
 #     ██║   █████╗  ██╔████╔██║██████╔╝██║  ███╗██████╔╝███████║██╔██╗ ██║
 #     ██║   ██╔══╝  ██║╚██╔╝██║██╔══██╗██║   ██║██╔══██╗██╔══██║██║╚██╗██║
 #     ██║   ███████╗██║ ╚═╝ ██║██║  ██║╚██████╔╝██║  ██║██║  ██║██║ ╚████║
-#     ╚═╝   ╚══════╝╚═╝     ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝
+#     ╚═╝   ╚══════╝╚═╝     ╚═╝╚═╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝  ╚═══╝
 #
-#  Vista de Temporadas (ModelViewSet) con:
-#  - Contrato de paginación uniforme (count, next, previous, page, page_size, total_pages)
-#  - Validaciones XOR de origen (huerta vs huerta_rentada)
-#  - Normalización de estado (activos/activas, archivados/archivadas, todos/all)
-#  - Notificaciones con message_key consistentes
-#  - Cascada con conteos "affected" en archivar/restaurar
-#  - Seguridad y auditoría
+#  Vista de Temporadas (ModelViewSet) con permisos granulares y validaciones:
+#  - Paginación uniforme
+#  - XOR de origen (huerta vs huerta_rentada)
+#  - Estados normalizados (activos/archivados)
+#  - Cascada con conteos en archivar/restaurar
+#  - 🔐 Permiso contextual en 'finalizar': finalize vs reactivate
 # ---------------------------------------------------------------------------
 
 from django.utils import timezone
@@ -35,7 +34,7 @@ from gestion_huerta.permissions    import HasHuertaModulePermission, HuertaGranu
 
 
 # ---------------------------------------------------------------------------
-# Mapeo de errores de validación → message_key coherente con el frontend
+# Helpers
 # ---------------------------------------------------------------------------
 def _map_temporada_validation_errors(errors: dict) -> tuple[str, dict]:
     non_field  = errors.get('non_field_errors') or errors.get('__all__') or []
@@ -67,6 +66,17 @@ def _map_temporada_validation_errors(errors: dict) -> tuple[str, dict]:
     return "temporada_campos_invalidos", {"errors": errors}
 
 
+def _has_perm(user, codename: str) -> bool:
+    """
+    Admin pasa siempre. Si no, exige el codename 'gestion_huerta.<codename>'.
+    """
+    if not user or not user.is_authenticated:
+        return False
+    if getattr(user, "role", None) == "admin":
+        return True
+    return user.has_perm(f"gestion_huerta.{codename}")
+
+
 # ---------------------------------------------------------------------------
 #  📅  TEMPORADAS
 # ---------------------------------------------------------------------------
@@ -74,11 +84,50 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
     queryset = (
         Temporada.objects
         .select_related("huerta", "huerta_rentada", "huerta__propietario", "huerta_rentada__propietario")
-        .order_by("-año", "-id")  # orden estable (tiebreaker)
+        .order_by("-año", "-id")
     )
     serializer_class   = TemporadaSerializer
     pagination_class   = TemporadaPagination
     permission_classes = [IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission]
+
+    # Mapa base (CRUD + archivar/restaurar)
+    _perm_map = {
+        "list":           ["view_temporada"],
+        "retrieve":       ["view_temporada"],
+        "create":         ["add_temporada"],
+        "update":         ["change_temporada"],
+        "partial_update": ["change_temporada"],
+        "destroy":        ["delete_temporada"],
+        "archivar":       ["archive_temporada"],
+        "restaurar":      ["restore_temporada"],
+        # 'finalizar' se resuelve de forma CONTEXTUAL más abajo
+    }
+
+    def get_permissions(self):
+        """
+        Para 'finalizar' intentamos decidir el permiso necesario con el estado actual:
+        - Si la temporada NO está finalizada → finalize_temporada
+        - Si SÍ está finalizada          → reactivate_temporada
+        Si no podemos resolver (p.ej. listar o 404), permitimos cualquiera de ambos para
+        que el sistema llegue al handler y devuelva 404/403 donde toca. Luego se revalida
+        dentro del método 'finalizar' antes de ejecutar.
+        """
+        if self.action == "finalizar":
+            required = ["finalize_temporada", "reactivate_temporada"]
+            pk = self.kwargs.get("pk")
+            if pk:
+                try:
+                    # Cargar sólo lo necesario; evitar costos altos
+                    finalizada = Temporada.objects.only("id", "finalizada").get(pk=pk).finalizada
+                    required = ["reactivate_temporada"] if finalizada else ["finalize_temporada"]
+                except Temporada.DoesNotExist:
+                    # dejar ambos para no filtrar un 404 por permisos
+                    pass
+            self.required_permissions = required
+        else:
+            self.required_permissions = self._perm_map.get(self.action, ["view_temporada"])
+
+        return [p() for p in self.permission_classes]
 
     # ----------------------------- Queryset base -----------------------------
     def get_queryset(self):
@@ -182,7 +231,7 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         data = request.data.copy()
         # saneamiento de campos "vacíos"
         for f in ("huerta", "huerta_rentada"):
-            if f in data and data[f] in [None, "", "null", "None"]:
+            if f in data and f in data and data[f] in [None, "", "null", "None"]:
                 data.pop(f)
 
         ser = self.get_serializer(data=data)
@@ -249,16 +298,36 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         registrar_actividad(request.user, f"Eliminó temporada {año}")
         return self.notify(key="temporada_delete_success", data={"info": f"Temporada {año} eliminada."})
 
-    # ----------------------------- FINALIZAR --------------------------------
+    # ----------------------------- FINALIZAR (toggle) -----------------------
     @action(detail=True, methods=["post"], url_path="finalizar")
     def finalizar(self, request, pk=None):
         temp = self.get_object()
+
+        # 🔐 Chequeo FORTALECIDO: permiso específico según el estado actual
+        if not temp.finalizada:
+            # Va a FINALIZAR → exige 'finalize_temporada'
+            if not _has_perm(request.user, "finalize_temporada"):
+                return self.notify(
+                    key="permission_denied",
+                    data={"info": "No tienes permiso para finalizar temporadas."},
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
+        else:
+            # Va a REACTIVAR → exige 'reactivate_temporada'
+            if not _has_perm(request.user, "reactivate_temporada"):
+                return self.notify(
+                    key="permission_denied",
+                    data={"info": "No tienes permiso para reactivar temporadas."},
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
+
         if not temp.is_active:
             return self.notify(
                 key="temporada_archivada_no_finalizar",
                 data={"info": "No puedes finalizar/reactivar una temporada archivada."},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
+
         if not temp.finalizada:
             temp.finalizar()
             registrar_actividad(request.user, f"Finalizó la temporada {temp.año}")

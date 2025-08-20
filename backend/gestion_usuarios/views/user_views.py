@@ -1,16 +1,14 @@
+# gestion_usuarios/views/user_views.py
 from django.db import transaction
-from django.db.models import Q
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status, viewsets, filters
 from rest_framework.decorators import action
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
-from django.contrib.auth import authenticate
 from django.contrib.auth.models import Permission
-from django.contrib.contenttypes.models import ContentType
 
 from agroproductores_risol.utils.pagination import GenericPagination
 from gestion_usuarios.permissions import IsAdmin, IsSelfOrAdmin
@@ -53,7 +51,7 @@ _MODEL_LABELS = {
     'huertarentada': 'Huertas rentadas',
     'temporada': 'Temporadas',
     'cosecha': 'Cosechas',
-    'inversion': 'Inversiones',
+    'inversioneshuerta': 'Inversiones',          # 👈 FIX
     'venta': 'Ventas',
     'categoriainversion': 'Categorías de inversión',
     'propietario': 'Propietarios',
@@ -71,6 +69,7 @@ _ACTION_LABELS = {
     'archive': 'Archivar',
     'restore': 'Restaurar',
     'finalize': 'Finalizar',
+    'reactivate': 'Reactivar',                   # 👈 FIX
 }
 
 def _friendly_name_from_codename(codename: str, model_label: str) -> str:
@@ -98,7 +97,7 @@ def _catalog_queryset():
 #                                 AUTH VIEWS                                  #
 # --------------------------------------------------------------------------- #
 class LoginView(APIView):
-    permission_classes = []
+    permission_classes = [AllowAny]              # 👈 FIX (no dejar [])
     throttle_classes = [LoginThrottle]
 
     def post(self, request):
@@ -170,7 +169,7 @@ class RegistroActividadViewSet(viewsets.ModelViewSet):
     throttle_classes = [AdminOnlyThrottle]
 
     def get_queryset(self):
-        # Excluimos actividad de super-admins para no saturar listados
+        # Nota: si quieres ver también actividades del admin, elimina este exclude.
         return (
             RegistroActividad.objects.select_related("usuario")
             .exclude(usuario__role="admin")

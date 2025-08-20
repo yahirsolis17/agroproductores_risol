@@ -1,3 +1,4 @@
+# agroproductores_risol/settings.py
 """
 Django settings for agroproductores_risol project.
 
@@ -8,54 +9,60 @@ from pathlib import Path
 from datetime import timedelta
 import os
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-hqq+7*v0)dyeqt(^sin=@6xvf52vux2*##m=fkqyhennl&ndr$'
 
-# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+# ✅ Para desarrollo local y evitar DisallowedHost
+ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 
+# CORS
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
+    "http://localhost:5173",  # Vite
 ]
 CORS_ALLOW_CREDENTIALS = True
+# (opcional) Si descargas archivos desde API y quieres leer nombres:
+# CORS_EXPOSE_HEADERS = ["Content-Disposition"]
 
-
-# Application definition
 INSTALLED_APPS = [
-    # Django apps    
-    'gestion_usuarios',  
-    'gestion_huerta',    # App para gestión de huertas (cosechas, informes, etc.)
-    'gestion_bodega',    # App para gestión de bodegas
-    'gestion_venta',  
-    # App para usuarios y autenticación
+    # Apps del dominio
+    'gestion_usuarios',
+    'gestion_huerta',
+    'gestion_bodega',
+    'gestion_venta',
+
+    # Django
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    # Tus apps modulares
-   # App para gestión de ventas
-    # Otras apps que uses
+
+    # 3rd party
     'rest_framework',
     'corsheaders',
     'rest_framework_simplejwt',
+
+    # ⚠️ Si no usas tokens legacy, podrías quitar esta app.
+    # La dejo porque ya tienes tablas en BD; no estorba.
     'rest_framework.authtoken',
+
+    # ✅ Habilita blacklist de refresh tokens (lo usamos en LogoutView)
+    'rest_framework_simplejwt.token_blacklist',
+
     'drf_spectacular',
     'drf_spectacular_sidecar',
-
 ]
+
 SPECTACULAR_SETTINGS = {
     'SWAGGER_UI_DIST': 'SIDECAR',
     'SWAGGER_UI_FAVICON_HREF': 'SIDECAR',
     'REDOC_DIST': 'SIDECAR',
-    # Otras configuraciones...
+    # Puedes añadir componentes de seguridad si documentas JWT en Swagger
 }
 
 MIDDLEWARE = [
@@ -67,19 +74,22 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    # Middlewares personalizados (asegúrate de que las rutas sean correctas según la nueva estructura)
-    #'agroproductores_risol.middlewares.ip_restriction',
+
+    # Middlewares personalizados
+    # 'agroproductores_risol.middlewares.ip_restriction',
     'agroproductores_risol.middlewares.security.BlockInactiveUserMiddleware',
     'agroproductores_risol.middlewares.security.PreventBackAfterLogoutMiddleware',
     'agroproductores_risol.middlewares.security.RoleBasedRedirectMiddleware',
 ]
 
 ROOT_URLCONF = 'agroproductores_risol.urls'
+
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -100,7 +110,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'agroproductores_risol.wsgi.application'
 
-# Database configuration using MySQL
+# Base de datos (MySQL/MariaDB)
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
@@ -112,22 +122,25 @@ DATABASES = {
     }
 }
 
-# REST Framework and JWT settings
+# DRF + JWT
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
+
+    # ⚠️ Asegúrate de que esta clase exista; si no, comenta el bloque THROTTLE
     "DEFAULT_THROTTLE_CLASSES": [
         "gestion_usuarios.utils.throttles.BaseUserThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
-        "default_user": "50000/day",  # Aumenta el límite aquí
-        "login": "20/min",            # Aumenta el límite aquí
-        "sensitive_action": "50/hour",# Aumenta el límite aquí
-        "admin_only": "100/day",      # Aumenta el límite aquí
-        "refresh_token": "20/hour",   # Aumenta el límite aquí
-        "permissions": "30/min",      # Aumenta el límite aquí
+        "default_user": "50000/day",
+        "login": "20/min",
+        "sensitive_action": "50/hour",
+        "admin_only": "100/day",
+        "refresh_token": "20/hour",
+        "permissions": "30/min",
     },
+
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
@@ -136,12 +149,16 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
-
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=7),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+
+    # Puedes dejar False. Si algún día activas rotación, la blacklist sigue funcionando.
     'ROTATE_REFRESH_TOKENS': False,
+
+    # ✅ Necesario para que funcione blacklist
     'BLACKLIST_AFTER_ROTATION': True,
+
     'UPDATE_LAST_LOGIN': False,
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': SECRET_KEY,
@@ -161,26 +178,21 @@ SIMPLE_JWT = {
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
 MESSAGE_STORAGE = 'django.contrib.messages.storage.session.SessionStorage'
 
-# Static files (CSS, JavaScript, Images)
-
-
-# Custom user model: usamos el definido en la app gestion_usuarios
 AUTH_USER_MODEL = 'gestion_usuarios.Users'
 
-
-# URL redirection settings after login/logout
+# (No usamos login/logout de Django en SPA, pero no estorban)
 LOGOUT_REDIRECT_URL = 'gestion_usuarios:login'
 LOGIN_URL = 'gestion_usuarios:login'
 LOGIN_REDIRECT_URL = '/redirect_dashboard/'
 
-# Internationalization
+# i18n
 LANGUAGE_CODE = 'es-mx'
 TIME_ZONE = 'America/Mexico_City'
 USE_I18N = True
 USE_L10N = True
 USE_TZ = True
 
-# Number formatting
+# Formato numérico
 USE_THOUSAND_SEPARATOR = True
 DECIMAL_SEPARATOR = '.'
 THOUSAND_SEPARATOR = ','

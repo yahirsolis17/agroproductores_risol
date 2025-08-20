@@ -73,6 +73,17 @@ def _get_temporada_id_from_payload(data):
     return None
 
 
+def _has_perm(user, codename: str) -> bool:
+    """
+    Admin pasa siempre; si no, exige 'gestion_huerta.<codename>'.
+    """
+    if not user or not user.is_authenticated:
+        return False
+    if getattr(user, "role", None) == "admin":
+        return True
+    return user.has_perm(f"gestion_huerta.{codename}")
+
+
 class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
     """
     CRUD de cosechas + acciones custom (archivar, restaurar, finalizar/toggle)
@@ -87,7 +98,38 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
         HuertaGranularPermission,
     ]
 
-    # 🔎 Búsqueda por nombre (sin duplicar lógica)
+    _perm_map = {
+        "list":               ["view_cosecha"],
+        "retrieve":           ["view_cosecha"],
+        "create":             ["add_cosecha"],
+        "update":             ["change_cosecha"],
+        "partial_update":     ["change_cosecha"],
+        "destroy":            ["delete_cosecha"],
+        "archivar":           ["archive_cosecha"],
+        "restaurar":          ["restore_cosecha"],
+        "finalizar":          ["finalize_cosecha"],
+        "toggle_finalizada":  ["finalize_cosecha", "reactivate_cosecha"],  # se afina dinámicamente abajo
+        "reactivar":          ["reactivate_cosecha"],
+    }
+
+    def get_permissions(self):
+        # Afinar dinámicamente el permiso requerido en toggle:
+        if self.action == "toggle_finalizada":
+            required = ["finalize_cosecha", "reactivate_cosecha"]
+            pk = self.kwargs.get("pk")
+            if pk:
+                try:
+                    finalizada = Cosecha.objects.only("id", "finalizada").get(pk=pk).finalizada
+                    # Si va a finalizar (no finalizada) → finalize; si va a reactivar → reactivate
+                    required = ["reactivate_cosecha"] if finalizada else ["finalize_cosecha"]
+                except Cosecha.DoesNotExist:
+                    pass
+            self.required_permissions = required
+        else:
+            self.required_permissions = self._perm_map.get(self.action, [])
+        return [p() for p in self.permission_classes]
+
+    # 🔎 Búsqueda por nombre
     filter_backends = [filters.SearchFilter]
     search_fields   = ['nombre']
 
@@ -150,7 +192,7 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
                         "count": self.paginator.page.paginator.count,
                         "next": self.paginator.get_next_link(),
                         "previous": self.paginator.get_previous_link(),
-                        "total_registradas": total_registradas,  # 👈 NUEVO
+                        "total_registradas": total_registradas,
                     }
                 }
             )
@@ -164,7 +206,7 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
                     "count": len(serializer.data),
                     "next": None,
                     "previous": None,
-                    "total_registradas": total_registradas,  # 👈 NUEVO
+                    "total_registradas": total_registradas,
                 }
             }
         )
@@ -338,6 +380,14 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
     def finalizar(self, request, pk=None):
         c = self.get_object()
 
+        # 🔐 Reforzar permiso explícito por si el mapeo previo no alcanzara
+        if not _has_perm(request.user, "finalize_cosecha"):
+            return self.notify(
+                key="permission_denied",
+                data={"info": "No tienes permiso para finalizar cosechas."},
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
         # No finalizar si la temporada está archivada o finalizada (consistente con reglas)
         if not c.temporada.is_active:
             return self.notify(
@@ -376,6 +426,24 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
             with transaction.atomic():
                 # Estado objetivo: si estaba finalizada, vamos a reactivar; si no, a finalizar.
                 target_finalizada = not c.finalizada
+
+                # 🔐 Permiso contextual estricto
+                if target_finalizada:
+                    # Va a FINALIZAR
+                    if not _has_perm(request.user, "finalize_cosecha"):
+                        return self.notify(
+                            key="permission_denied",
+                            data={"info": "No tienes permiso para finalizar cosechas."},
+                            status_code=status.HTTP_403_FORBIDDEN,
+                        )
+                else:
+                    # Va a REACTIVAR
+                    if not _has_perm(request.user, "reactivate_cosecha"):
+                        return self.notify(
+                            key="permission_denied",
+                            data={"info": "No tienes permiso para reactivar cosechas."},
+                            status_code=status.HTTP_403_FORBIDDEN,
+                        )
 
                 # ⛔ Nunca permitir operar si la temporada está archivada
                 if not c.temporada.is_active:

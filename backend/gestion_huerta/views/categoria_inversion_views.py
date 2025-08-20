@@ -60,6 +60,24 @@ class CategoriaInversionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.M
     search_fields      = ['nombre']
     ordering_fields    = ['nombre', 'id']
 
+    # 👇 mapa de permisos por acción
+    _perm_map = {
+        "list":           ["view_categoriainversion"],
+        "retrieve":       ["view_categoriainversion"],
+        "create":         ["add_categoriainversion"],
+        "update":         ["change_categoriainversion"],
+        "partial_update": ["change_categoriainversion"],
+        "destroy":        ["delete_categoriainversion"],
+        "archivar":       ["archive_categoriainversion"],
+        "restaurar":      ["restore_categoriainversion"],
+        "list_all":       ["view_categoriainversion"],  # acción custom
+    }
+
+    def get_permissions(self):
+        # Hace visible a HasHuertaModulePermission qué codenames exigir
+        self.required_permissions = self._perm_map.get(self.action, [])
+        return [p() for p in self.permission_classes]
+
     def get_queryset(self):
         base = (
             CategoriaInversion.objects

@@ -83,15 +83,31 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
     queryset = Propietario.objects.all().order_by('-id')
     serializer_class = PropietarioSerializer
     pagination_class = GenericPagination
-    # 🔥 QUITAMOS SearchFilter para evitar doble search:
-    # filter_backends = [filters.SearchFilter]
-    # search_fields = ['nombre', 'apellidos', 'telefono']
 
     permission_classes = [
         IsAuthenticated,
-        HasHuertaModulePermission,
-        HuertaGranularPermission,
+        HasHuertaModulePermission,   # lee self.required_permissions
+        HuertaGranularPermission,    # si la usas, se mantiene
     ]
+
+    # 👇 mapa de permisos por acción
+    _perm_map = {
+        "list":             ["view_propietario"],
+        "retrieve":         ["view_propietario"],
+        "create":           ["add_propietario"],
+        "update":           ["change_propietario"],
+        "partial_update":   ["change_propietario"],
+        "destroy":          ["delete_propietario"],
+        "archivar":         ["archive_propietario"],
+        "restaurar":        ["restore_propietario"],
+        "solo_con_huertas": ["view_propietario"],
+        "buscar_por_id":    ["view_propietario"],
+    }
+
+    def get_permissions(self):
+        # Default al permiso de lectura para no dejar endpoints sin proteger
+        self.required_permissions = self._perm_map.get(self.action, ["view_propietario"])
+        return [p() for p in self.permission_classes]
 
     # ---------- LIST ----------
     def list(self, request, *args, **kwargs):
@@ -332,11 +348,27 @@ class HuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
     serializer_class = HuertaSerializer
     queryset = Huerta.objects.all().order_by('-id')
     pagination_class = GenericPagination
+
     permission_classes = [
         IsAuthenticated,
         HasHuertaModulePermission,
         HuertaGranularPermission,
     ]
+
+    _perm_map = {
+        "list":           ["view_huerta"],
+        "retrieve":       ["view_huerta"],
+        "create":         ["add_huerta"],
+        "update":         ["change_huerta"],
+        "partial_update": ["change_huerta"],
+        "destroy":        ["delete_huerta"],
+        "archivar":       ["archive_huerta"],
+        "restaurar":      ["restore_huerta"],
+    }
+
+    def get_permissions(self):
+        self.required_permissions = self._perm_map.get(self.action, ["view_huerta"])
+        return [p() for p in self.permission_classes]
 
     # ---------- LIST ----------
     def list(self, request, *args, **kwargs):
@@ -509,11 +541,27 @@ class HuertaRentadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelV
     serializer_class = HuertaRentadaSerializer
     queryset = HuertaRentada.objects.all().order_by('-id')
     pagination_class = GenericPagination
+
     permission_classes = [
         IsAuthenticated,
         HasHuertaModulePermission,
         HuertaGranularPermission,
     ]
+
+    _perm_map = {
+        "list":           ["view_huertarentada"],
+        "retrieve":       ["view_huertarentada"],
+        "create":         ["add_huertarentada"],
+        "update":         ["change_huertarentada"],
+        "partial_update": ["change_huertarentada"],
+        "destroy":        ["delete_huertarentada"],
+        "archivar":       ["archive_huertarentada"],
+        "restaurar":      ["restore_huertarentada"],
+    }
+
+    def get_permissions(self):
+        self.required_permissions = self._perm_map.get(self.action, ["view_huertarentada"])
+        return [p() for p in self.permission_classes]
 
     def list(self, request, *args, **kwargs):
         page = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
@@ -673,7 +721,19 @@ class HuertaRentadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelV
 # ==========================================================
 class HuertasCombinadasViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewSet):
     pagination_class = GenericPagination
-    permission_classes = [IsAuthenticated]
+
+    permission_classes = [
+        IsAuthenticated,
+        HasHuertaModulePermission,
+    ]
+    # Para listar combinadas basta con tener permiso de ver cualquiera de las dos
+    _perm_map = {
+        "listar_combinadas": ["view_huerta", "view_huertarentada"],
+    }
+
+    def get_permissions(self):
+        self.required_permissions = self._perm_map.get(self.action, ["view_huerta"])
+        return [p() for p in self.permission_classes]
 
     @action(detail=False, methods=["get"], url_path="combinadas")
     def listar_combinadas(self, request):

@@ -12,6 +12,7 @@ from gestion_huerta.views.huerta_views import NotificationMixin
 from gestion_huerta.permissions import HasHuertaModulePermission, HuertaGranularPermission
 from agroproductores_risol.utils.pagination import GenericPagination
 from gestion_huerta.utils.activity import registrar_actividad
+from gestion_huerta.utils.audit import ViewSetAuditMixin
 
 
 # ---------- Helpers de mapeo de errores ----------
@@ -96,7 +97,6 @@ def _map_venta_validation_errors(errors: dict) -> tuple[str, dict]:
     return "validation_error", {"errors": errors}
 
 
-
 def _parse_date(val: str):
     try:
         return datetime.strptime(val, "%Y-%m-%d").date()
@@ -121,7 +121,18 @@ def _get_cosecha_from_payload(data) -> Cosecha | None:
         return None
 
 
-class VentaViewSet(NotificationMixin, viewsets.ModelViewSet):
+def _has_perm(user, codename: str) -> bool:
+    """
+    Admin pasa siempre; si no, exige 'gestion_huerta.<codename>'.
+    """
+    if not user or not user.is_authenticated:
+        return False
+    if getattr(user, "role", None) == "admin":
+        return True
+    return user.has_perm(f"gestion_huerta.{codename}")
+
+
+class VentaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
     """
     CRUD de ventas por cosecha + archivar/restaurar,
     con filtros por cosecha, temporada, huerta, huerta_rentada, tipo_mango,
@@ -136,6 +147,22 @@ class VentaViewSet(NotificationMixin, viewsets.ModelViewSet):
     filterset_fields   = ['cosecha', 'temporada', 'huerta', 'huerta_rentada', 'tipo_mango']
     search_fields      = ['tipo_mango', 'descripcion']
     ordering_fields    = ['fecha_venta']
+
+    # 👇 mapa de permisos por acción
+    _perm_map = {
+        "list":           ["view_venta"],
+        "retrieve":       ["view_venta"],
+        "create":         ["add_venta"],
+        "update":         ["change_venta"],
+        "partial_update": ["change_venta"],
+        "destroy":        ["delete_venta"],
+        "archivar":       ["archive_venta"],
+        "restaurar":      ["restore_venta"],
+    }
+
+    def get_permissions(self):
+        self.required_permissions = self._perm_map.get(self.action, [])
+        return [p() for p in self.permission_classes]
 
     # ------------------------------ QUERYSET
     def get_queryset(self):
@@ -200,7 +227,6 @@ class VentaViewSet(NotificationMixin, viewsets.ModelViewSet):
             return ("venta_contexto_cosecha_finalizada",
                     {"info": "No puedes registrar ventas: la cosecha está finalizada."})
         return None
-
 
     def _precheck_estado_contexto_edit(self, venta: Venta):
         """
@@ -301,6 +327,14 @@ class VentaViewSet(NotificationMixin, viewsets.ModelViewSet):
         if not venta.is_active:
             return self.notify(key="venta_ya_archivada", status_code=status.HTTP_400_BAD_REQUEST)
 
+        # 🔐 Refuerzo explícito (además del permiso del viewset)
+        if not _has_perm(request.user, "archive_venta"):
+            return self.notify(
+                key="permission_denied",
+                data={"info": "No tienes permiso para archivar ventas."},
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
         with transaction.atomic():
             venta.archivar()
 
@@ -316,6 +350,14 @@ class VentaViewSet(NotificationMixin, viewsets.ModelViewSet):
         venta = self.get_object()
         if venta.is_active:
             return self.notify(key="venta_no_archivada", status_code=status.HTTP_400_BAD_REQUEST)
+
+        # 🔐 Refuerzo explícito (además del permiso del viewset)
+        if not _has_perm(request.user, "restore_venta"):
+            return self.notify(
+                key="permission_denied",
+                data={"info": "No tienes permiso para restaurar ventas."},
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
 
         c = venta.cosecha
         t = venta.temporada

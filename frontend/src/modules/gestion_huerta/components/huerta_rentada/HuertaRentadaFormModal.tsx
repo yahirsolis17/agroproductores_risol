@@ -276,7 +276,7 @@ const HuertaRentadaFormModal: React.FC<Props> = ({
           <DialogActions className="px-6 py-4">
             <Button variant="outlined" onClick={onClose}>Cancelar</Button>
             <PermissionButton
-              perm={initialValues ? 'change_huerta_rentada' : 'add_huerta_rentada'}
+              perm={initialValues ? 'change_huertarentada' : 'add_huertarentada'}
               type="submit"
               variant="contained"
               disabled={isSubmitting}

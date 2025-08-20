@@ -21,30 +21,32 @@ import DoneAllIcon from '@mui/icons-material/DoneAll';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import AgricultureIcon from '@mui/icons-material/Agriculture';
 
+type Perm = string | string[] | undefined;
+
 interface ActionsMenuProps {
   isArchived: boolean;
-  isFinalized?: boolean;                       // Nuevo flag para estado “finalizada”
+  isFinalized?: boolean;
   onEdit?: () => void;
-  onFinalize?: () => void;                     // Nuevo callback para “Finalizar” o “Reactivar”
+  onFinalize?: () => void;
   onArchiveOrRestore?: () => void;
   onDelete?: () => void;
   onTemporadas?: () => void;
   hideEdit?: boolean;
   hideDelete?: boolean;
   hideArchiveToggle?: boolean;
-  hideFinalize?: boolean;                      // Oculta “Finalizar/Reactivar” si no queremos mostrarlo
+  hideFinalize?: boolean;
   hideTemporadas?: boolean;
-  labelFinalize?: string;                      // Texto personalizado para “Finalizar” o “Reactivar”
+  labelFinalize?: string;
   labelTemporadas?: string;
-  permEdit?: string;
-  permFinalize?: string;
-  permArchiveOrRestore?: string;
-  permDelete?: string;
-  permTemporadas?: string;
+  permEdit?: Perm;
+  permFinalize?: Perm;
+  permArchiveOrRestore?: Perm;
+  permDelete?: Perm;
+  permTemporadas?: Perm;
 
-  // 👇 NUEVOS (para navegar a cosechas)
+  // Navegar a cosechas
   onCosechas?: () => void;
-  permCosechas?: string;
+  permCosechas?: Perm;
 }
 
 const ActionsMenu: React.FC<ActionsMenuProps> = ({
@@ -67,8 +69,6 @@ const ActionsMenu: React.FC<ActionsMenuProps> = ({
   permArchiveOrRestore,
   permDelete,
   permTemporadas,
-
-  // 👇 NUEVOS
   onCosechas,
   permCosechas,
 }) => {
@@ -80,20 +80,25 @@ const ActionsMenu: React.FC<ActionsMenuProps> = ({
     fn && fn();
   };
 
-  // Permisos: replicar la lógica de PermissionButton
-  const roleRedux  = useSelector(
-    (s: RootState) => s.auth.user?.role,
-    shallowEqual
-  );
-  const permsRedux = useSelector(
-    (s: RootState) => s.auth.permissions,
-    shallowEqual
-  );
-  const { user: ctxUser, permissions: ctxPerms } = useAuth();
-  const role = roleRedux ?? ctxUser?.role;
-  const raw  = permsRedux.length ? permsRedux : ctxPerms;
-  const normalized = raw.map(p => p.includes('.') ? p.split('.').pop()! : p);
-  const hasPerm = (perm?: string) => !perm || role === 'admin' || normalized.includes(perm);
+  // Permisos: Redux primero; si no hay, cae al Context
+  const roleRedux  = useSelector((s: RootState) => s.auth.user?.role, shallowEqual);
+  const permsRedux = useSelector((s: RootState) => s.auth.permissions as string[] | undefined, shallowEqual);
+  const { user: ctxUser, permissions: ctxPerms /*, refreshPermissions */ } = useAuth();
+
+  const role = roleRedux ?? ctxUser?.role ?? undefined;
+
+  const rawFromRedux = permsRedux ?? [];
+  const rawFromCtx   = (ctxPerms ?? []) as string[];
+  const raw          = rawFromRedux.length ? rawFromRedux : rawFromCtx;
+
+  const normalized = raw.map(p => (p && p.includes('.')) ? p.split('.').pop()! : p).filter(Boolean) as string[];
+
+  const hasPerm = (perm: Perm) => {
+    if (role === 'admin') return true;
+    if (!perm) return false; // default seguro: si no se pasa permiso, deshabilita
+    const check = (p: string) => normalized.includes(p);
+    return Array.isArray(perm) ? perm.some(check) : check(perm);
+  };
 
   return (
     <>
@@ -110,8 +115,7 @@ const ActionsMenu: React.FC<ActionsMenuProps> = ({
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
-
-        {/* 1) FINALIZAR / REACTIVAR (si no está archivada) */}
+        {/* Finalizar / Reactivar (solo si NO está archivada) */}
         {!hideFinalize && !isArchived && onFinalize && (
           (() => {
             const allowed = hasPerm(permFinalize);
@@ -136,7 +140,7 @@ const ActionsMenu: React.FC<ActionsMenuProps> = ({
           })()
         )}
 
-        {/* 2) CONSULTAR (detalle/leer) */}
+        {/* Ver Temporadas */}
         {!hideTemporadas && !isArchived && onTemporadas && (
           (() => {
             const allowed = hasPerm(permTemporadas);
@@ -155,7 +159,7 @@ const ActionsMenu: React.FC<ActionsMenuProps> = ({
           })()
         )}
 
-        {/* 3) VER COSECHAS (nuevo) */}
+        {/* Ver Cosechas */}
         {!isArchived && onCosechas && (
           (() => {
             const allowed = hasPerm(permCosechas);
@@ -212,7 +216,7 @@ const ActionsMenu: React.FC<ActionsMenuProps> = ({
           })()
         )}
 
-        {/* Eliminar */}
+        {/* Eliminar (solo cuando está archivado) */}
         {!hideDelete && isArchived && onDelete && (
           (() => {
             const allowed = hasPerm(permDelete);

@@ -122,6 +122,17 @@ def _get_cosecha_from_payload(data) -> Cosecha | None:
         return None
 
 
+def _has_perm(user, codename: str) -> bool:
+    """
+    Admin pasa siempre; si no, exige 'gestion_huerta.<codename>'.
+    """
+    if not user or not user.is_authenticated:
+        return False
+    if getattr(user, "role", None) == "admin":
+        return True
+    return user.has_perm(f"gestion_huerta.{codename}")
+
+
 class InversionHuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
     """
     Gestiona inversiones por cosecha: CRUD + archivar/restaurar (POST|PATCH),
@@ -140,6 +151,23 @@ class InversionHuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
     filterset_fields   = ['cosecha', 'temporada', 'categoria', 'huerta', 'huerta_rentada']
     search_fields      = ['descripcion']
     ordering_fields    = ['fecha', 'id']
+
+    # 👇 mapa de permisos por acción (usa codenames de tu migración)
+    _perm_map = {
+        "list":           ["view_inversioneshuerta"],
+        "retrieve":       ["view_inversioneshuerta"],
+        "create":         ["add_inversioneshuerta"],
+        "update":         ["change_inversioneshuerta"],
+        "partial_update": ["change_inversioneshuerta"],
+        "destroy":        ["delete_inversioneshuerta"],
+        "archivar":       ["archive_inversioneshuerta"],
+        "restaurar":      ["restore_inversioneshuerta"],
+    }
+
+    def get_permissions(self):
+        # Hace visible a HasHuertaModulePermission qué codenames exigir
+        self.required_permissions = self._perm_map.get(self.action, [])
+        return [p() for p in self.permission_classes]
 
     # ------------------------------ Queryset dinámico
     def get_queryset(self):
@@ -306,9 +334,9 @@ class InversionHuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
         self.perform_destroy(inv)
         registrar_actividad(request.user, f"Eliminó inversión {inv.id}")
         return self.notify(
-            key="inversion_delete_success",
-            data={"info": "Inversión eliminada."},
-            status_code=status.HTTP_200_OK,
+                key="inversion_delete_success",
+                data={"info": "Inversión eliminada."},
+                status_code=status.HTTP_200_OK,
         )
 
     # ------------------------------ ARCHIVAR / RESTAURAR
@@ -317,6 +345,14 @@ class InversionHuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
         inv = self.get_object()
         if not inv.is_active:
             return self.notify(key="inversion_ya_archivada", status_code=status.HTTP_400_BAD_REQUEST)
+
+        # 🔐 Refuerzo explícito (además del permiso del viewset)
+        if not _has_perm(request.user, "archive_inversioneshuerta"):
+            return self.notify(
+                key="permission_denied",
+                data={"info": "No tienes permiso para archivar inversiones."},
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
 
         with transaction.atomic():
             inv.archivar()
@@ -333,6 +369,14 @@ class InversionHuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
         inv = self.get_object()
         if inv.is_active:
             return self.notify(key="inversion_no_archivada", status_code=status.HTTP_400_BAD_REQUEST)
+
+        # 🔐 Refuerzo explícito (además del permiso del viewset)
+        if not _has_perm(request.user, "restore_inversioneshuerta"):
+            return self.notify(
+                key="permission_denied",
+                data={"info": "No tienes permiso para restaurar inversiones."},
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
 
         c = inv.cosecha
         t = inv.temporada
