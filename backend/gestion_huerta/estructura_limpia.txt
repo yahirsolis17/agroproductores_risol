@@ -1,0 +1,110 @@
+Listado de rutas de carpetas
+El número de serie del volumen es BC46-2ECE
+C:.
+|   admin.py
+|   apps.py
+|   estructura_limpia.txt
+|   models.py
+|   permissions.py
+|   serializers.py
+|   tests.py
+|   urls.py
+|   __init__.py
+|   
++---migrations
+|   |   0001_initial.py
+|   |   0002_alter_cosecha_options_and_more.py
+|   |   0003_inversioneshuerta_archivado_en_and_more.py
+|   |   0004_categoriainversion_archivado_en_and_more.py
+|   |   0005_alter_categoriainversion_options_and_more.py
+|   |   0006_alter_huerta_unique_together_and_more.py
+|   |   0007_alter_propietario_options_and_more.py
+|   |   0008_cosecha_gestion_hue_tempora_23249d_idx_and_more.py
+|   |   0009_venta_huerta_rentada_alter_venta_huerta.py
+|   |   0010_cosecha_archivado_por_cascada_and_more.py
+|   |   0011_alter_categoriainversion_nombre.py
+|   |   0012_alter_propietario_telefono.py
+|   |   __init__.py
+|   |   
+|   \---__pycache__
+|           0001_initial.cpython-312.pyc
+|           0002_alter_cosecha_options_and_more.cpython-312.pyc
+|           0003_inversioneshuerta_archivado_en_and_more.cpython-312.pyc
+|           0004_categoriainversion_archivado_en_and_more.cpython-312.pyc
+|           0005_alter_categoriainversion_options_and_more.cpython-312.pyc
+|           0006_alter_huerta_unique_together_and_more.cpython-312.pyc
+|           0007_alter_propietario_options_and_more.cpython-312.pyc
+|           0008_cosecha_gestion_hue_tempora_23249d_idx_and_more.cpython-312.pyc
+|           0009_venta_huerta_rentada_alter_venta_huerta.cpython-312.pyc
+|           0010_cosecha_archivado_por_cascada_and_more.cpython-312.pyc
+|           0011_alter_categoriainversion_nombre.cpython-312.pyc
+|           0012_alter_propietario_telefono.cpython-312.pyc
+|           __init__.cpython-312.pyc
+|           
++---templatetags
+|   |   custom_filters.py
+|   |   custom_tags.py
+|   |   formatting_tags.py
+|   |   form_tags.py
+|   |   number_filters.py
+|   |   __init__.py
+|   |   
+|   \---__pycache__
+|           custom_filters.cpython-312.pyc
+|           custom_tags.cpython-312.pyc
+|           formatting_tags.cpython-312.pyc
+|           form_tags.cpython-312.pyc
+|           number_filters.cpython-312.pyc
+|           __init__.cpython-312.pyc
+|           
++---test
+|       test_bloqueos_estado.py
+|       test_huerta_delete.py
+|       test_model_validations.py
+|       __init__.py
+|       
++---utils
+|   |   activity.py
+|   |   audit.py
+|   |   constants.py
+|   |   notification_handler.py
+|   |   throttles.py
+|   |   __init__.py
+|   |   
+|   \---__pycache__
+|           activity.cpython-312.pyc
+|           audit.cpython-312.pyc
+|           constants.cpython-312.pyc
+|           notification_handler.cpython-312.pyc
+|           __init__.cpython-312.pyc
+|           
++---views
+|   |   categoria_inversion_views.py
+|   |   cosechas_views.py
+|   |   huerta_views.py
+|   |   informes_views.py
+|   |   inversiones_views.py
+|   |   registro_actividad.py
+|   |   temporadas_views.py
+|   |   ventas_views.py
+|   |   __init__.py
+|   |   
+|   \---__pycache__
+|           categoria_inversion_views.cpython-312.pyc
+|           cosechas_views.cpython-312.pyc
+|           huerta_views.cpython-312.pyc
+|           inversiones_views.cpython-312.pyc
+|           registro_actividad.cpython-312.pyc
+|           temporadas_views.cpython-312.pyc
+|           ventas_views.cpython-312.pyc
+|           __init__.cpython-312.pyc
+|           
+\---__pycache__
+        admin.cpython-312.pyc
+        apps.cpython-312.pyc
+        models.cpython-312.pyc
+        permissions.cpython-312.pyc
+        serializers.cpython-312.pyc
+        urls.cpython-312.pyc
+        __init__.cpython-312.pyc
+        

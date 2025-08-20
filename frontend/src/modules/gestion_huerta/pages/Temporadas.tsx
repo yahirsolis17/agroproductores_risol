@@ -1,4 +1,3 @@
-// src/modules/gestion_huerta/pages/Temporadas.tsx
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useState, useEffect, useMemo } from 'react';
 import {
@@ -33,6 +32,7 @@ import { breadcrumbRoutes } from '../../../global/constants/breadcrumbRoutes';
 // 👉 servicios para obtener nombre/propietario de la huerta seleccionada
 import { huertaService } from '../services/huertaService';
 import { huertaRentadaService } from '../services/huertaRentadaService';
+import { temporadaService } from '../services/temporadaService';
 
 const currentYear = new Date().getFullYear();
 const pageSize = 10;
@@ -186,7 +186,8 @@ const Temporadas: React.FC = () => {
           breadcrumbRoutes.temporadasList(
             huertaId,
             displayHuertaNombre,
-            tipo || undefined
+            tipo || undefined,
+            displayPropietario && displayPropietario !== '—' ? displayPropietario : undefined
           )
         )
       );
@@ -199,7 +200,7 @@ const Temporadas: React.FC = () => {
       setHuerta(null);
       setHuertaRentada(null);
     };
-  }, [dispatch, huertaId, displayHuertaNombre, tipo, setHuerta, setHuertaRentada]);
+  }, [dispatch, huertaId, displayHuertaNombre, displayPropietario, tipo, setHuerta, setHuertaRentada]);
 
   /* ──────────────────── Estados locales ──────────────────── */
   const [spin, setSpin] = useState(false);
@@ -232,6 +233,39 @@ const Temporadas: React.FC = () => {
       default: return 'No hay temporadas.';
     }
   }, [estadoFilter]);
+
+  /* ──────────────────── EXISTE TEMPORADA ESTE AÑO (cualquier estado) ──────────────────── */
+  const [existsThisYearAny, setExistsThisYearAny] = useState(false);
+  const [checkingExists, setCheckingExists] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const check = async () => {
+      if (!huertaId || !tipo) { setExistsThisYearAny(false); return; }
+
+      setCheckingExists(true);
+      try {
+        const res = await temporadaService.list(
+          1,                                   // page
+          currentYear,                         // año
+          tipo === 'propia'  ? huertaId : undefined,
+          tipo === 'rentada' ? huertaId : undefined,
+          'todas'                              // 👈 incluye activas y archivadas
+        );
+        if (cancelled) return;
+        const count = res?.data?.meta?.count ?? 0;
+        setExistsThisYearAny(count > 0);
+      } catch {
+        if (!cancelled) setExistsThisYearAny(false);
+      } finally {
+        if (!cancelled) setCheckingExists(false);
+      }
+    };
+
+    check();
+    // Re-evaluar si cambia la lista (p.ej., archivar/restaurar) o el contexto
+  }, [huertaId, tipo, temporadas.length]);
 
   /* ──────────────────── Acciones CRUD / toggle ──────────────────── */
   const handleCreate = async () => {
@@ -309,21 +343,17 @@ const Temporadas: React.FC = () => {
 
   /* ──────────────────── Flags auxiliares ──────────────────── */
   const huertaEstaArchivada = false; // el backend lo valida igualmente
-  const temporadaYaExiste = temporadas.some(
-    (t) =>
-      t.año === currentYear &&
-      t.is_active &&
-      (t.huerta_id === huertaId || t.huerta_rentada === huertaId)
-  );
 
-  const canCreateTemporada = !!(huertaId && !huertaEstaArchivada && !temporadaYaExiste);
-  const createTooltip = huertaEstaArchivada
-    ? 'No se puede iniciar una temporada en una huerta archivada.'
-    : temporadaYaExiste
-    ? `Ya existe una temporada activa en el año ${currentYear} para esta huerta.`
-    : !huertaId
-    ? 'Selecciona una huerta para crear una temporada.'
-    : '';
+  // 👇 ahora nos basamos en existsThisYearAny (activa o archivada)
+  const canCreateTemporada = !!huertaId && !huertaEstaArchivada && !existsThisYearAny;
+  const createTooltip =
+    !huertaId
+      ? 'Selecciona una huerta para crear una temporada.'
+      : huertaEstaArchivada
+      ? 'No se puede iniciar una temporada en una huerta archivada.'
+      : existsThisYearAny
+      ? `Ya existe una temporada para este año en esta huerta.`
+      : '';
 
   /* ──────────────────── Render ──────────────────── */
   return (
@@ -354,7 +384,7 @@ const Temporadas: React.FC = () => {
           onYearChange={setYear}
           finalizadaFilter={finalizadaFilter}
           onFinalizadaChange={setFinalizada}
-          onCreateClick={huertaId ? () => setConfirmOpen(true) : undefined}
+          onCreateClick={() => setConfirmOpen(true)} 
           canCreate={canCreateTemporada}
           createTooltip={createTooltip}
           totalCount={meta.count}
@@ -422,7 +452,9 @@ const Temporadas: React.FC = () => {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setConfirmOpen(false)}>Cancelar</Button>
-            <Button variant="contained" onClick={handleCreate}>Iniciar</Button>
+            <Button variant="contained" onClick={handleCreate} disabled={!canCreateTemporada || checkingExists}>
+              Iniciar
+            </Button>
           </DialogActions>
         </Dialog>
 

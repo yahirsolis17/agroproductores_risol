@@ -267,8 +267,8 @@ useEffect(() => {
         <CosechaToolbar
           searchValue={search}
           onSearchChange={setSearch}
-          onCreateClick={canCreate ? handleCreate : undefined}
-          canCreate={canCreate}
+          onCreateClick={handleCreate}            // 👈 SIEMPRE pasamos el handler
+          canCreate={canCreate} 
           createTooltip={createTooltip}
           totalCount={meta.count}
           activeFiltersCount={activeFiltersCount}
