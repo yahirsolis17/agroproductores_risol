@@ -69,6 +69,7 @@ useEffect(() => {
       if (cancelled) return;
 
       const t = resp.data.temporada;
+
       setTempInfo({
         id: t.id,
         año: t.año,
@@ -79,6 +80,15 @@ useEffect(() => {
         finalizada: t.finalizada,
       });
 
+      // Lee tipo/propietario de la URL si vienen (prioridad),
+      // si no, infiere el tipo por is_rentada y deja propietario indefinido.
+      const sp = new URLSearchParams(window.location.search);
+      const tipoInUrl = sp.get('tipo');
+      const tipo = (tipoInUrl === 'propia' || tipoInUrl === 'rentada')
+        ? tipoInUrl
+        : (t.is_rentada ? 'rentada' : 'propia');
+      const propietario = sp.get('propietario') || undefined;
+
       if (t.huerta_id && (t.huerta_nombre ?? '')) {
         dispatch(
           setBreadcrumbs(
@@ -86,7 +96,8 @@ useEffect(() => {
               t.huerta_id,
               t.huerta_nombre ?? `Huerta #${t.huerta_id}`,
               t.año,
-              t.id
+              t.id,
+              { tipo, propietario }
             )
           )
         );
@@ -102,6 +113,7 @@ useEffect(() => {
       if (!cancelled) setTempLoading(false);
     }
   })();
+
 
   return () => {
     cancelled = true;

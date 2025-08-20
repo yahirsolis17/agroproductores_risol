@@ -1,35 +1,15 @@
-// src/global/constants/breadcrumbRoutes.ts
 import { Crumb } from '../store/breadcrumbsSlice';
 
-type TipoHuerta = 'propia' | 'rentada';
-
-function buildTemporadasPath(huertaId: number, tipo?: TipoHuerta, huertaNombre?: string, propietario?: string) {
-  const qp = new URLSearchParams();
-  qp.set('huerta_id', String(huertaId));
-  if (tipo) qp.set('tipo', tipo);
-  if (huertaNombre) qp.set('huerta_nombre', huertaNombre);
-  if (propietario) qp.set('propietario', propietario);
-  return `/temporadas?${qp.toString()}`;
-}
-
-function buildCosechasPath(temporadaId: number, huertaId?: number, tipo?: TipoHuerta, huertaNombre?: string, propietario?: string) {
-  const qp = new URLSearchParams();
-  qp.set('temporada_id', String(temporadaId));
-  if (huertaId) qp.set('huerta_id', String(huertaId));
-  if (tipo) qp.set('tipo', tipo);
-  if (huertaNombre) qp.set('huerta_nombre', huertaNombre);
-  if (propietario) qp.set('propietario', propietario);
-  return `/cosechas?${qp.toString()}`;
-}
-
-function buildFinanzasPath(temporadaId: number, cosechaId: number, huertaId?: number, tipo?: TipoHuerta, huertaNombre?: string, propietario?: string) {
-  const qp = new URLSearchParams();
-  if (huertaId) qp.set('huerta_id', String(huertaId));
-  if (tipo) qp.set('tipo', tipo);
-  if (huertaNombre) qp.set('huerta_nombre', huertaNombre);
-  if (propietario) qp.set('propietario', propietario);
-  const q = qp.toString();
-  return q ? `/finanzas/${temporadaId}/${cosechaId}?${q}` : `/finanzas/${temporadaId}/${cosechaId}`;
+/** Helper: arma querystring ignorando nulos/vacíos y encodeando valores */
+function qs(params: Record<string, string | number | boolean | undefined | null>) {
+  const entries = Object.entries(params).filter(
+    ([, v]) => v !== undefined && v !== null && String(v).trim() !== ''
+  );
+  if (!entries.length) return '';
+  const q = entries
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+    .join('&');
+  return `?${q}`;
 }
 
 export const breadcrumbRoutes = {
@@ -38,11 +18,15 @@ export const breadcrumbRoutes = {
     { label: 'Huertas', path: '/huertas' },
   ],
 
-  /** Temporadas de una huerta */
+  /**
+   * Temporadas de una huerta
+   * Mantiene el contexto en la URL (huerta_id, tipo, huerta_nombre, propietario)
+   * para que, al recargar o volver desde otras vistas, no se pierda.
+   */
   temporadasList: (
     huertaId: number,
     huertaNombre: string,
-    tipo?: TipoHuerta,
+    tipo?: 'propia' | 'rentada',
     propietario?: string
   ): Crumb[] => [
     {
@@ -51,54 +35,79 @@ export const breadcrumbRoutes = {
     },
     {
       label: 'Temporadas',
-      path: buildTemporadasPath(huertaId, tipo, huertaNombre, propietario),
+      path: `/temporadas${qs({
+        huerta_id: huertaId,
+        tipo,
+        huerta_nombre: huertaNombre,
+        propietario,
+      })}`,
     },
   ],
 
-  /** Cosechas de una temporada */
+  /**
+   * Cosechas de una temporada
+   * → el crumb "Temporada {año}" enlaza con /temporadas preservando huerta_id/tipo/huerta_nombre/propietario
+   * → el crumb "Cosechas" incluye también su propio contexto por si recargas en Cosechas.
+   */
   cosechasList: (
     huertaId: number,
     huertaName: string,
     año: number,
     temporadaId: number,
-    tipo?: TipoHuerta,
-    propietario?: string
+    opts?: { tipo?: 'propia' | 'rentada'; propietario?: string }
   ): Crumb[] => [
     {
-      label: `Huertas – ${huertaName || `#${huertaId}`}`,
+      label: `Huertas – ${huertaName}`,
       path: '/huertas',
     },
     {
       label: `Temporada ${año}`,
-      path: buildTemporadasPath(huertaId, tipo, huertaName, propietario),
+      path: `/temporadas${qs({
+        huerta_id: huertaId,
+        tipo: opts?.tipo,
+        huerta_nombre: huertaName,
+        propietario: opts?.propietario,
+      })}`,
     },
     {
       label: 'Cosechas',
-      path: buildCosechasPath(temporadaId, huertaId, tipo, huertaName, propietario),
+      path: `/cosechas${qs({
+        temporada_id: temporadaId,
+        huerta_id: huertaId,
+        tipo: opts?.tipo,
+        huerta_nombre: huertaName,
+        propietario: opts?.propietario,
+      })}`,
     },
   ],
 
-  /** Ventas & Inversiones (Finanzas por Cosecha) */
+  /**
+   * Ventas & Inversiones por cosecha
+   * → preserva el contexto al volver a /temporadas
+   * (si quieres, puedes agregar aquí un crumb intermedio a Cosechas; lo dejo como antes).
+   */
   ventasInversiones: (
     huertaId: number,
     huertaName: string,
     año: number,
-    temporadaId: number,
-    cosechaId: number,
-    tipo?: TipoHuerta,
-    propietario?: string
+    opts?: { tipo?: 'propia' | 'rentada'; propietario?: string; temporadaId?: number; cosechaId?: number }
   ): Crumb[] => [
     {
-      label: `Huertas – ${huertaName || `#${huertaId}`}`,
+      label: `Huertas – ${huertaName}`,
       path: '/huertas',
     },
     {
       label: `Temporada ${año}`,
-      path: buildTemporadasPath(huertaId, tipo, huertaName, propietario),
+      path: `/temporadas${qs({
+        huerta_id: huertaId,
+        tipo: opts?.tipo,
+        huerta_nombre: huertaName,
+        propietario: opts?.propietario,
+      })}`,
     },
     {
       label: 'Ventas & Inversiones',
-      path: buildFinanzasPath(temporadaId, cosechaId, huertaId, tipo, huertaName, propietario), // puedes poner '' si prefieres no linkear el último
+      path: '', // vista actual
     },
   ],
 };
