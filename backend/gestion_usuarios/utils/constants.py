@@ -71,6 +71,11 @@ NOTIFICATION_MESSAGES = {
         "type": "error",
         "code": 403
     },
+    "invalid_permissions": {     # 👈 añadido para set-permisos
+        "message": "Algunos permisos no existen o presentan colisiones",
+        "type": "error",
+        "code": 400
+    },
     "server_error": {
         "message": "Ha ocurrido un error en el servidor back",
         "type": "error",

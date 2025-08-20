@@ -1,11 +1,10 @@
-# gestion_usuarios/serializers.py
-
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 import re
 from django.contrib.auth.models import Permission
 from .models import Users, RegistroActividad
 from .validators import validate_telefono
+
 # Login
 class LoginSerializer(serializers.Serializer):
     telefono = serializers.CharField(max_length=10)
@@ -63,7 +62,6 @@ class CustomUserCreationSerializer(serializers.ModelSerializer):
         return value
 
     def validate_nombre(self, value):
-        # Solo letras (incluyendo tildes) y espacios, entre 3 y 100 caracteres
         v = value.strip()
         if not re.fullmatch(r'[a-zA-ZñÑáéíóúÁÉÍÓÚ\s]{3,100}', v):
             raise serializers.ValidationError(
@@ -72,7 +70,6 @@ class CustomUserCreationSerializer(serializers.ModelSerializer):
         return v
 
     def validate_apellido(self, value):
-        # Mismas reglas que para 'nombre'
         v = value.strip()
         if not re.fullmatch(r'[a-zA-ZñÑáéíóúÁÉÍÓÚ\s]{3,100}', v):
             raise serializers.ValidationError(
@@ -81,13 +78,11 @@ class CustomUserCreationSerializer(serializers.ModelSerializer):
         return v
 
     def validate_role(self, value):
-        # Debe ser 'admin' o 'usuario'
         if value not in ('admin', 'usuario'):
             raise serializers.ValidationError("Rol inválido. Debe ser 'admin' o 'usuario'.")
         return value
 
     def create(self, validated_data):
-        # Asigna contraseña por defecto y obliga a cambio en primer login
         default_pwd = "12345678"
         user = Users(**validated_data)
         user.set_password(default_pwd)
@@ -95,12 +90,12 @@ class CustomUserCreationSerializer(serializers.ModelSerializer):
         user.save()
         return user
 
-# Serializador general para mostrar usuarios
+
 class UsuarioSerializer(serializers.ModelSerializer):
     full_name = serializers.ReadOnlyField()
     is_admin  = serializers.ReadOnlyField()
     role      = serializers.CharField(read_only=True)
-    archivado_en = serializers.DateTimeField(read_only=True)   # 👈 añade
+    archivado_en = serializers.DateTimeField(read_only=True)
     permisos = serializers.SlugRelatedField(
         many=True,
         read_only=True,
@@ -114,18 +109,17 @@ class UsuarioSerializer(serializers.ModelSerializer):
             'id', 'telefono', 'nombre', 'apellido',
             'password',
             'is_staff', 'is_admin', 'is_active',
-            'archivado_en',               # 👈 incluye aquí
+            'archivado_en',
             'role', 'full_name', 'permisos', 'must_change_password'
         ]
         extra_kwargs = {'password': {'write_only': True}}
 
-# Serializador para logs
+
 class RegistroActividadSerializer(serializers.ModelSerializer):
     usuario = UsuarioSerializer()
 
     class Meta:
         model  = RegistroActividad
-        # Sólo los campos que queremos exponer en la tabla
         fields = [
             'id',
             'usuario',
@@ -134,6 +128,7 @@ class RegistroActividadSerializer(serializers.ModelSerializer):
             'detalles',
             'ip',
         ]
+
 
 class PermisoSerializer(serializers.ModelSerializer):
     content_type = serializers.StringRelatedField()

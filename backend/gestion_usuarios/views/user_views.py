@@ -1,6 +1,8 @@
+from django.db import transaction
+from django.db.models import Q
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status, viewsets, filters
 from rest_framework.decorators import action
@@ -8,11 +10,19 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import Permission
+from django.contrib.contenttypes.models import ContentType
+
 from agroproductores_risol.utils.pagination import GenericPagination
 from gestion_usuarios.permissions import IsAdmin, IsSelfOrAdmin
 from gestion_usuarios.models import Users, RegistroActividad
 from gestion_usuarios.utils.activity import registrar_actividad
 from gestion_usuarios.utils.notification_handler import NotificationHandler
+from gestion_usuarios.utils.throttles import (
+    LoginThrottle,
+    SensitiveActionThrottle,
+    PermissionsThrottle,
+    AdminOnlyThrottle,
+)
 from gestion_usuarios.serializers import (
     UsuarioSerializer,
     LoginSerializer,
@@ -22,10 +32,74 @@ from gestion_usuarios.serializers import (
 )
 
 # --------------------------------------------------------------------------- #
+#                                HELPERS                                      #
+# --------------------------------------------------------------------------- #
+
+def _to_plain(codenames_or_dotted):
+    """
+    Acepta lista de codenames 'app.codename' o 'codename' y devuelve solo planos.
+    """
+    plains = []
+    for p in codenames_or_dotted:
+        if not p:
+            continue
+        plains.append(p.split('.', 1)[1] if '.' in p else p)
+    return plains
+
+# Mapeo legible por módulo/entidad (solo etiqueta visual).
+_MODEL_LABELS = {
+    # dominio principal
+    'huerta': 'Huertas',
+    'huertarentada': 'Huertas rentadas',
+    'temporada': 'Temporadas',
+    'cosecha': 'Cosechas',
+    'inversion': 'Inversiones',
+    'venta': 'Ventas',
+    'categoriainversion': 'Categorías de inversión',
+    'propietario': 'Propietarios',
+    # gestión de usuarios (si algún permiso se expone)
+    'users': 'Usuarios',
+    'registroactividad': 'Registro de actividad',
+    'permission': 'Permisos del sistema',
+}
+
+_ACTION_LABELS = {
+    'view': 'Ver',
+    'add': 'Crear',
+    'change': 'Editar',
+    'delete': 'Eliminar',
+    'archive': 'Archivar',
+    'restore': 'Restaurar',
+    'finalize': 'Finalizar',
+}
+
+def _friendly_name_from_codename(codename: str, model_label: str) -> str:
+    """
+    Genera un nombre legible: 'Ver huertas', 'Finalizar temporada', etc.
+    """
+    try:
+        action, *_ = codename.split('_', 1)
+    except ValueError:
+        action = codename
+    verb = _ACTION_LABELS.get(action, action.capitalize())
+    return f"{verb} {model_label.lower()}"
+
+def _catalog_queryset():
+    """
+    Devuelve queryset de permisos relevantes (dominio + usuarios si quieres mostrarlos).
+    Si quisieras limitarlo más, ajusta el filtro de content_type.model aquí.
+    """
+    ct_allowed = list(_MODEL_LABELS.keys())
+    return Permission.objects.select_related('content_type').filter(
+        content_type__model__in=ct_allowed
+    ).order_by('content_type__model', 'codename')
+
+# --------------------------------------------------------------------------- #
 #                                 AUTH VIEWS                                  #
 # --------------------------------------------------------------------------- #
 class LoginView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = []
+    throttle_classes = [LoginThrottle]
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data, context={"request": request})
@@ -68,16 +142,20 @@ class LogoutView(APIView):
 
 
 class CustomTokenRefreshView(TokenRefreshView):
-    pass  # throttle_classes = [RefreshTokenThrottle]  # Eliminado
+    throttle_classes = []  # configura si deseas rate limit aquí
 
 
 # --------------------------------------------------------------------------- #
 #                              PERMISOS & LOGS                                #
 # --------------------------------------------------------------------------- #
 class PermisoViewSet(ReadOnlyModelViewSet):
+    """
+    Catálogo crudo de Django (poco usado por el frontend). Restringido a admin.
+    """
     queryset = Permission.objects.all().order_by("name")
     serializer_class = PermisoSerializer
     permission_classes = [IsAuthenticated, IsAdmin]
+    throttle_classes = [PermissionsThrottle]
     pagination_class = None
 
 
@@ -88,6 +166,8 @@ class RegistroActividadViewSet(viewsets.ModelViewSet):
     search_fields = ["accion", "detalles", "ip", "usuario__telefono"]
     ordering_fields = ["fecha_hora"]
     ordering = ["-fecha_hora"]
+    permission_classes = [IsAuthenticated, IsAdmin]
+    throttle_classes = [AdminOnlyThrottle]
 
     def get_queryset(self):
         # Excluimos actividad de super-admins para no saturar listados
@@ -101,12 +181,11 @@ class RegistroActividadViewSet(viewsets.ModelViewSet):
 # --------------------------------------------------------------------------- #
 #                             USUARIO CRUD VIEWSET                            #
 # --------------------------------------------------------------------------- #
-# gestion_usuarios/views/user_views.py  ➜  solo la clase UsuarioViewSet
-
 class UsuarioViewSet(ModelViewSet):
     queryset = Users.objects.all().order_by('-id')
     serializer_class = UsuarioSerializer
     pagination_class = GenericPagination
+
     # ───────────────────── permisos dinámicos ──────────────────────
     def get_permissions(self):
         if self.action == "list":
@@ -123,10 +202,17 @@ class UsuarioViewSet(ModelViewSet):
 
     # ──────────────────── ACCIONES PERSONALIZADAS ──────────────────
     # ---------- set-permisos ----------
-    @action(detail=True, methods=["patch"], permission_classes=[IsAdmin], url_path="set-permisos")
+    @action(
+        detail=True,
+        methods=["patch"],
+        permission_classes=[IsAuthenticated, IsAdmin],
+        throttle_classes=[SensitiveActionThrottle],
+        url_path="set-permisos",
+    )
     def set_permisos(self, request, pk=None):
         user_obj = self.get_object()
 
+        # Evitar que un admin no superuser se edite sus propios permisos
         if user_obj == request.user and not request.user.is_superuser:
             return NotificationHandler.generate_response(
                 message_key="permission_denied",
@@ -134,8 +220,51 @@ class UsuarioViewSet(ModelViewSet):
             )
 
         codenames = request.data.get("permisos", [])
-        permisos = Permission.objects.filter(codename__in=codenames)
-        user_obj.user_permissions.set(permisos)
+        if not isinstance(codenames, list):
+            return NotificationHandler.generate_response(
+                message_key="validation_error",
+                data={"errors": {"permisos": ["Debe ser una lista de codenames."]}},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validar existencia y colisiones por codename
+        plains = list(set(_to_plain(codenames)))
+        qs = Permission.objects.filter(codename__in=plains)
+
+        found_map = {}
+        for perm in qs.select_related('content_type'):
+            found_map.setdefault(perm.codename, []).append(perm)
+
+        missing = [c for c in plains if c not in found_map]
+        collisions = {c: v for c, v in found_map.items() if len(v) > 1}
+
+        if missing or collisions:
+            detail = {
+                "missing": missing,
+                "collisions": {
+                    k: [
+                        {
+                            "id": p.id,
+                            "app_label": p.content_type.app_label,
+                            "model": p.content_type.model,
+                            "name": p.name,
+                        }
+                        for p in v
+                    ]
+                    for k, v in collisions.items()
+                },
+            }
+            return NotificationHandler.generate_response(
+                message_key="invalid_permissions",
+                data=detail,
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            # Asignación directa de user_permissions (los grupos quedan intactos)
+            permisos = [found_map[c][0] for c in plains]
+            user_obj.user_permissions.set(permisos)
+
         registrar_actividad(request.user, f"Actualizó permisos de usuario {user_obj.id}")
 
         return NotificationHandler.generate_response(
@@ -144,7 +273,13 @@ class UsuarioViewSet(ModelViewSet):
         )
 
     # ---------- ARCHIVAR ----------
-    @action(detail=True, methods=["patch"], permission_classes=[IsAdmin], url_path="archivar")
+    @action(
+        detail=True,
+        methods=["patch"],
+        permission_classes=[IsAuthenticated, IsAdmin],
+        throttle_classes=[SensitiveActionThrottle],
+        url_path="archivar",
+    )
     def archivar_usuario(self, request, pk=None):
         user = self.get_object()
 
@@ -163,7 +298,13 @@ class UsuarioViewSet(ModelViewSet):
         )
 
     # ---------- RESTAURAR ----------
-    @action(detail=True, methods=["patch"], permission_classes=[IsAdmin], url_path="restaurar")
+    @action(
+        detail=True,
+        methods=["patch"],
+        permission_classes=[IsAuthenticated, IsAdmin],
+        throttle_classes=[SensitiveActionThrottle],
+        url_path="restaurar",
+    )
     def restaurar_usuario(self, request, pk=None):
         user = self.get_object()
 
@@ -201,7 +342,12 @@ class UsuarioViewSet(ModelViewSet):
         )
 
     # ---------- TOGGLE ACTIVE (solo para admins; NO afecta archivado) ----------
-    @action(detail=True, methods=["patch"], permission_classes=[IsAdmin])
+    @action(
+        detail=True,
+        methods=["patch"],
+        permission_classes=[IsAuthenticated, IsAdmin],
+        throttle_classes=[SensitiveActionThrottle],
+    )
     def toggle_active(self, request, pk=None):
         user = self.get_object()
         user.is_active = not user.is_active
@@ -241,7 +387,6 @@ class UsuarioViewSet(ModelViewSet):
 
     def get_queryset(self):
         estado = self.request.query_params.get('estado')  # activos | archivados | todos
-        queryset = Users.objects.all()
         queryset = super().get_queryset()
 
         if estado == 'activos':
@@ -251,11 +396,13 @@ class UsuarioViewSet(ModelViewSet):
 
         return queryset
 
+
 # --------------------------------------------------------------------------- #
 #                            UTILIDADES ADICIONALES                           #
 # --------------------------------------------------------------------------- #
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_classes = [SensitiveActionThrottle]
 
     def post(self, request):
         new_password = request.data.get("new_password")
@@ -305,58 +452,36 @@ class MeView(APIView):
 
 
 class UserPermissionsView(APIView):
+    """
+    Devuelve el set de permisos del usuario AUTENTICADO en formato plano (sin 'app.').
+    Respeta permisos por grupo (usa get_all_permissions()).
+    """
     permission_classes = [IsAuthenticated]
+    throttle_classes = [PermissionsThrottle]
+
     def get(self, request):
-        return Response({"permissions": list(request.user.get_all_permissions())})
+        dotted = list(request.user.get_all_permissions())
+        plains = _to_plain(dotted)
+        return Response({"permissions": plains})
 
-
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAdminUser
-
-# Permisos relevantes para gestión de huerta y módulos relacionados
-PERMISOS_RELEVANTES = {
-    'Huertas': {
-        'view_huerta': 'Ver huertas',
-        'add_huerta': 'Crear huerta',
-        'change_huerta': 'Editar huerta',
-        'delete_huerta': 'Eliminar huerta',
-    },
-    'Huertas rentadas': {
-        'view_huertarentada': 'Ver huertas rentadas',
-        'add_huertarentada': 'Crear huerta rentada',
-        'change_huertarentada': 'Editar huerta rentada',
-        'delete_huertarentada': 'Eliminar huerta rentada',
-    },
-    'Temporadas': {
-        'view_temporada': 'Ver temporadas',
-        'add_temporada': 'Crear temporada',
-        'change_temporada': 'Editar temporada',
-        'delete_temporada': 'Eliminar temporada',
-    },
-    'Propietarios': {
-        'view_propietario': 'Ver propietarios',
-        'add_propietario': 'Crear propietario',
-        'change_propietario': 'Editar propietario',
-        'delete_propietario': 'Eliminar propietario',
-    },
-    # Agrega aquí otros módulos relevantes si los tienes
-}
 
 class PermisosFiltradosView(APIView):
     """
-    Devuelve solo los permisos relevantes, agrupados y traducidos para el frontend.
+    Catálogo DINÁMICO de permisos relevantes, agrupados y traducidos para el frontend.
     Solo accesible para administradores.
     """
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAuthenticated, IsAdmin]
+    throttle_classes = [PermissionsThrottle]
 
     def get(self, request):
         permisos = []
-        for modulo, perms in PERMISOS_RELEVANTES.items():
-            for codename, nombre in perms.items():
-                permisos.append({
-                    'codename': codename,
-                    'nombre': nombre,
-                    'modulo': modulo,
-                })
+        for perm in _catalog_queryset():
+            model = perm.content_type.model  # ej: 'huertarentada'
+            modulo = _MODEL_LABELS.get(model, model.capitalize())
+            nombre = _friendly_name_from_codename(perm.codename, modulo)
+            permisos.append({
+                'codename': perm.codename,   # plano real de BD
+                'nombre': nombre,           # 'Ver huertas', etc.
+                'modulo': modulo,           # 'Huertas'
+            })
         return Response(permisos)
