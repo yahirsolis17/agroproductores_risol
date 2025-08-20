@@ -314,7 +314,7 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
                   type="submit"
                   variant="contained"
                   disabled={isSubmitting}
-                  perm={initialValues ? 'change_inversion' : 'add_inversion'}
+                  perm={initialValues ? 'change_inversioneshuerta' : 'add_inversioneshuerta'}
                 >
                   {isSubmitting ? <CircularProgress size={22} /> : 'Guardar'}
                 </PermissionButton>

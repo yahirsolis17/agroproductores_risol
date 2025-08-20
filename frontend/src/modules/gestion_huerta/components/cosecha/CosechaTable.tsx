@@ -103,7 +103,7 @@ const CosechaTable: React.FC<Props> = ({
             onDelete={isArchived ? () => onDelete(c) : undefined}
           />
           <PermissionButton
-            perm="view_inversion"
+            perm="view_inversioneshuerta"
             variant="outlined"
             size="small"
             onClick={() => onVerFinanzas(c)}

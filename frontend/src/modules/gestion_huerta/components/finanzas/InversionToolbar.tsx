@@ -143,7 +143,7 @@ const InversionToolbar: React.FC<Props> = ({
           <Tooltip title={createTooltip || ''}>
             <span>
               <PermissionButton
-                perm="add_inversion"  // ← codename con app-label
+                perm="add_inversioneshuerta"  // ← codename con app-label
                 variant="contained"
                 startIcon={<AddIcon />}
                 onClick={onCreateClick}
