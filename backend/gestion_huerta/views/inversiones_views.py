@@ -12,7 +12,7 @@ from gestion_huerta.serializers import InversionesHuertaSerializer
 from gestion_huerta.utils.activity import registrar_actividad
 from gestion_huerta.utils.audit import ViewSetAuditMixin
 from gestion_huerta.views.huerta_views import NotificationMixin
-from gestion_huerta.permissions import HasHuertaModulePermission, HuertaGranularPermission
+from gestion_usuarios.permissions import HasModulePermission
 
 
 # --------------------------- Helpers de mapeo de errores ---------------------------
@@ -146,7 +146,7 @@ class InversionHuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
     )
     serializer_class   = InversionesHuertaSerializer
     pagination_class   = GenericPagination
-    permission_classes = [IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission]
+    permission_classes = [IsAuthenticated, HasModulePermission]
     filter_backends    = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields   = ['cosecha', 'temporada', 'categoria', 'huerta', 'huerta_rentada']
     search_fields      = ['descripcion']
@@ -165,7 +165,7 @@ class InversionHuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
     }
 
     def get_permissions(self):
-        # Hace visible a HasHuertaModulePermission qué codenames exigir
+        # Hace visible a HasModulePermission qué codenames exigir
         self.required_permissions = self._perm_map.get(self.action, [])
         return [p() for p in self.permission_classes]
 

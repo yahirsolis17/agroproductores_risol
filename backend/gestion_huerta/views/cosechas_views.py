@@ -11,7 +11,7 @@ from gestion_huerta.utils.activity import registrar_actividad
 from gestion_huerta.utils.audit import ViewSetAuditMixin
 from agroproductores_risol.utils.pagination import GenericPagination
 from gestion_huerta.views.huerta_views import NotificationMixin
-from gestion_huerta.permissions import HasHuertaModulePermission, HuertaGranularPermission
+from gestion_usuarios.permissions import HasModulePermission
 
 
 # 👉 Límite global por temporada (usado en create)
@@ -94,8 +94,7 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
     pagination_class   = GenericPagination
     permission_classes = [
         IsAuthenticated,
-        HasHuertaModulePermission,
-        HuertaGranularPermission,
+        HasModulePermission,
     ]
 
     _perm_map = {

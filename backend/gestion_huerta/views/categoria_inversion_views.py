@@ -8,7 +8,7 @@ from django.db import transaction
 from gestion_huerta.models import CategoriaInversion
 from gestion_huerta.serializers import CategoriaInversionSerializer
 from gestion_huerta.views.huerta_views import NotificationMixin
-from gestion_huerta.permissions import HasHuertaModulePermission, HuertaGranularPermission
+from gestion_usuarios.permissions import HasModulePermission
 from agroproductores_risol.utils.pagination import GenericPagination
 from gestion_huerta.utils.activity import registrar_actividad
 from gestion_huerta.utils.audit import ViewSetAuditMixin
@@ -55,7 +55,7 @@ class CategoriaInversionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.M
     """
     serializer_class   = CategoriaInversionSerializer
     pagination_class   = GenericPagination
-    permission_classes = [IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission]
+    permission_classes = [IsAuthenticated, HasModulePermission]
     filter_backends    = [filters.SearchFilter, filters.OrderingFilter]
     search_fields      = ['nombre']
     ordering_fields    = ['nombre', 'id']
@@ -74,7 +74,7 @@ class CategoriaInversionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.M
     }
 
     def get_permissions(self):
-        # Hace visible a HasHuertaModulePermission qué codenames exigir
+        # Hace visible a HasModulePermission qué codenames exigir
         self.required_permissions = self._perm_map.get(self.action, [])
         return [p() for p in self.permission_classes]
 

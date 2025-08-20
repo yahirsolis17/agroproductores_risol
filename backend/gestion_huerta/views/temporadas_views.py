@@ -30,7 +30,7 @@ from gestion_huerta.utils.activity import registrar_actividad
 from gestion_huerta.utils.audit    import ViewSetAuditMixin
 from gestion_huerta.views.huerta_views import NotificationMixin
 from agroproductores_risol.utils.pagination import TemporadaPagination
-from gestion_huerta.permissions    import HasHuertaModulePermission, HuertaGranularPermission
+from gestion_usuarios.permissions    import HasModulePermission
 
 
 # ---------------------------------------------------------------------------
@@ -88,7 +88,7 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
     )
     serializer_class   = TemporadaSerializer
     pagination_class   = TemporadaPagination
-    permission_classes = [IsAuthenticated, HasHuertaModulePermission, HuertaGranularPermission]
+    permission_classes = [IsAuthenticated, HasModulePermission]
 
     # Mapa base (CRUD + archivar/restaurar)
     _perm_map = {
