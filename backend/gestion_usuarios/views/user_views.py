@@ -84,6 +84,7 @@ class PermisoViewSet(ReadOnlyModelViewSet):
 class RegistroActividadViewSet(viewsets.ModelViewSet):
     queryset = RegistroActividad.objects.all()
     serializer_class = RegistroActividadSerializer
+    permission_classes = [IsAuthenticated, IsAdmin]
     filter_backends = [filters.OrderingFilter, filters.SearchFilter]
     search_fields = ["accion", "detalles", "ip", "usuario__telefono"]
     ordering_fields = ["fecha_hora"]

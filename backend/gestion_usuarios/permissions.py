@@ -1,6 +1,13 @@
 # src/gestion_usuarios/permissions.py
 from rest_framework.permissions import BasePermission
 
+__all__ = [
+    "IsAdmin",
+    "IsUser",
+    "IsSelfOrAdmin",
+    "HasModulePermission",
+]
+
 class IsAdmin(BasePermission):
     def has_permission(self, request, view):
         return bool(
