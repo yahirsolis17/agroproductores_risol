@@ -1,4 +1,5 @@
 # src/gestion_usuarios/permissions.py
+from typing import Iterable
 from rest_framework.permissions import BasePermission
 
 __all__ = [
@@ -51,7 +52,7 @@ class HasModulePermission(BasePermission):
         if user.role == "admin":
             return True
 
-        required = getattr(view, "required_permissions", [])
+        required: Iterable[str] = getattr(view, "required_permissions", [])
         if isinstance(required, str):
             required = [required]
         if not required:

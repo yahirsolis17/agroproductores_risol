@@ -325,91 +325,33 @@ class UserPermissionsView(APIView):
         return Response({"permissions": sorted(perms)})
 
 
-PERMISOS_RELEVANTES = {
-    'Huertas': {
-        'view_huerta': 'Ver huertas',
-        'add_huerta': 'Crear huerta',
-        'change_huerta': 'Editar huerta',
-        'delete_huerta': 'Eliminar huerta',
-        'archivar_huerta': 'Archivar huerta',
-        'restaurar_huerta': 'Restaurar huerta',
-    },
-    'Huertas rentadas': {
-        'view_huertarentada': 'Ver huertas rentadas',
-        'add_huertarentada': 'Crear huerta rentada',
-        'change_huertarentada': 'Editar huerta rentada',
-        'delete_huertarentada': 'Eliminar huerta rentada',
-        'archivar_huertarentada': 'Archivar huerta rentada',
-        'restaurar_huertarentada': 'Restaurar huerta rentada',
-    },
-    'Temporadas': {
-        'view_temporada': 'Ver temporadas',
-        'add_temporada': 'Crear temporada',
-        'change_temporada': 'Editar temporada',
-        'delete_temporada': 'Eliminar temporada',
-        'archivar_temporada': 'Archivar temporada',
-        'restaurar_temporada': 'Restaurar temporada',
-        'finalizar_temporada': 'Finalizar temporada',
-        'reactivar_temporada': 'Reactivar temporada',
-    },
-    'Propietarios': {
-        'view_propietario': 'Ver propietarios',
-        'add_propietario': 'Crear propietario',
-        'change_propietario': 'Editar propietario',
-        'delete_propietario': 'Eliminar propietario',
-        'archivar_propietario': 'Archivar propietario',
-        'restaurar_propietario': 'Restaurar propietario',
-    },
-    'Cosechas': {
-        'view_cosecha': 'Ver cosechas',
-        'add_cosecha': 'Crear cosecha',
-        'change_cosecha': 'Editar cosecha',
-        'delete_cosecha': 'Eliminar cosecha',
-        'archivar_cosecha': 'Archivar cosecha',
-        'restaurar_cosecha': 'Restaurar cosecha',
-        'finalizar_cosecha': 'Finalizar cosecha',
-        'reactivar_cosecha': 'Reactivar cosecha',
-    },
-    'Inversiones': {
-        'view_inversioneshuerta': 'Ver inversiones',
-        'add_inversioneshuerta': 'Crear inversión',
-        'change_inversioneshuerta': 'Editar inversión',
-        'delete_inversioneshuerta': 'Eliminar inversión',
-        'archivar_inversion': 'Archivar inversión',
-        'restaurar_inversion': 'Restaurar inversión',
-    },
-    'Categorías inversión': {
-        'view_categoriainversion': 'Ver categorías',
-        'add_categoriainversion': 'Crear categoría',
-        'change_categoriainversion': 'Editar categoría',
-        'delete_categoriainversion': 'Eliminar categoría',
-        'archivar_categoriainversion': 'Archivar categoría',
-        'restaurar_categoriainversion': 'Restaurar categoría',
-    },
-    'Ventas': {
-        'view_venta': 'Ver ventas',
-        'add_venta': 'Crear venta',
-        'change_venta': 'Editar venta',
-        'delete_venta': 'Eliminar venta',
-        'archivar_venta': 'Archivar venta',
-        'restaurar_venta': 'Restaurar venta',
-    },
-    # Agrega aquí otros módulos relevantes si los tienes
-}
-
-
 class PermisosFiltradosView(APIView):
     """Return grouped permission codenames for the admin modal."""
-
     permission_classes = [IsAdmin]
 
+    MODEL_LABELS = {
+        "huerta": "Huertas",
+        "huertarentada": "Huertas rentadas",
+        "temporada": "Temporadas",
+        "propietario": "Propietarios",
+        "cosecha": "Cosechas",
+        "inversioneshuerta": "Inversiones",
+        "categoriainversion": "Categorías inversión",
+        "venta": "Ventas",
+    }
+
     def get(self, request):
-        permisos = []
-        for modulo, perms in PERMISOS_RELEVANTES.items():
-            for codename, nombre in perms.items():
-                permisos.append({
-                    "codename": codename,
-                    "nombre": nombre,
-                    "modulo": modulo,
-                })
+        qs = (
+            Permission.objects.select_related("content_type")
+            .filter(content_type__model__in=self.MODEL_LABELS)
+            .order_by("content_type__model", "codename")
+        )
+        permisos = [
+            {
+                "codename": perm.codename,
+                "nombre": perm.name,
+                "modulo": self.MODEL_LABELS[perm.content_type.model],
+            }
+            for perm in qs
+        ]
         return Response(permisos)
