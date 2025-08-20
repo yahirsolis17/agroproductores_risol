@@ -310,11 +310,6 @@ class UserPermissionsView(APIView):
         return Response({"permissions": list(request.user.get_all_permissions())})
 
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAdminUser
-
-# Permisos relevantes para gestión de huerta y módulos relacionados
 PERMISOS_RELEVANTES = {
     'Huertas': {
         'view_huerta': 'Ver huertas',
@@ -387,11 +382,10 @@ PERMISOS_RELEVANTES = {
     # Agrega aquí otros módulos relevantes si los tienes
 }
 
+
 class PermisosFiltradosView(APIView):
-    """
-    Devuelve solo los permisos relevantes, agrupados y traducidos para el frontend.
-    Solo accesible para administradores.
-    """
+    """Return grouped permission codenames for the admin modal."""
+
     permission_classes = [IsAdmin]
 
     def get(self, request):
@@ -399,8 +393,8 @@ class PermisosFiltradosView(APIView):
         for modulo, perms in PERMISOS_RELEVANTES.items():
             for codename, nombre in perms.items():
                 permisos.append({
-                    'codename': codename,
-                    'nombre': nombre,
-                    'modulo': modulo,
+                    "codename": codename,
+                    "nombre": nombre,
+                    "modulo": modulo,
                 })
         return Response(permisos)

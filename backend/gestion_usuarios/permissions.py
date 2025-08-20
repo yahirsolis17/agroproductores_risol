@@ -25,3 +25,27 @@ class IsSelfOrAdmin(BasePermission):
             and (request.user.role == 'admin' or obj == request.user)
         )
 
+
+class HasModulePermission(BasePermission):
+    """Generic codename checker that honors group permissions."""
+
+    def has_permission(self, request, view):
+        user = request.user
+        if not user or not user.is_authenticated:
+            return False
+
+        # Admin always passes
+        if user.role == "admin":
+            return True
+
+        required = getattr(view, "required_permissions", [])
+        if not required:
+            return True
+
+        app_label = getattr(view, "permission_app", "")
+        for codename in required:
+            full_code = codename if "." in codename else f"{app_label}.{codename}" if app_label else codename
+            if user.has_perm(full_code):
+                return True
+        return False
+
