@@ -45,6 +45,15 @@ def _map_categoria_validation_errors(errors: dict) -> tuple[str, dict]:
     return "validation_error", {"errors": errors}
 
 
+def _has_perm(user, codename: str) -> bool:
+    """Comprueba si el usuario tiene el permiso indicado."""
+    if not user or not user.is_authenticated:
+        return False
+    if getattr(user, "role", None) == "admin":
+        return True
+    return user.has_perm(f"gestion_huerta.{codename}")
+
+
 class CategoriaInversionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
     """
     CRUD de categorías con soft-delete + filtro por estado (activas|archivadas|todas),
@@ -210,6 +219,12 @@ class CategoriaInversionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.M
     # ------------------------------ ARCHIVAR / RESTAURAR
     @action(detail=True, methods=["post"], url_path="archivar")
     def archivar(self, request, pk=None):
+        if not _has_perm(request.user, "archive_categoriainversion"):
+            return self.notify(
+                key="permission_denied",
+                data={"info": "No tienes permiso para archivar categorías."},
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
         cat = self.get_object()
         if not cat.is_active:
             return self.notify(key="categoria_ya_archivada", status_code=status.HTTP_400_BAD_REQUEST)
@@ -226,6 +241,12 @@ class CategoriaInversionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.M
 
     @action(detail=True, methods=["post"], url_path="restaurar")
     def restaurar(self, request, pk=None):
+        if not _has_perm(request.user, "restore_categoriainversion"):
+            return self.notify(
+                key="permission_denied",
+                data={"info": "No tienes permiso para restaurar categorías."},
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
         cat = self.get_object()
         if cat.is_active:
             return self.notify(key="categoria_no_archivada", status_code=status.HTTP_400_BAD_REQUEST)

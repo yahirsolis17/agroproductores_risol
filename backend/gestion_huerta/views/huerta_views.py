@@ -73,6 +73,15 @@ def _msg_in(errors_dict, text_substring: str) -> bool:
     return False
 
 
+def _has_perm(user, codename: str) -> bool:
+    """Comprueba si el usuario posee el permiso especificado."""
+    if not user or not user.is_authenticated:
+        return False
+    if getattr(user, "role", None) == "admin":
+        return True
+    return user.has_perm(f"gestion_huerta.{codename}")
+
+
 # ---------------------------------------------------------------------------
 #  🏠  PROPIETARIOS
 # ---------------------------------------------------------------------------
@@ -201,6 +210,12 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
     # ---------- ARCHIVAR ----------
     @action(detail=True, methods=["patch"], url_path="archivar")
     def archivar(self, request, pk=None):
+        if not _has_perm(request.user, "archive_propietario"):
+            return self.notify(
+                key="permission_denied",
+                data={"info": "No tienes permiso para archivar propietarios."},
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
         propietario = self.get_object()
         if propietario.archivado_en:
             return self.notify(
@@ -217,6 +232,12 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
     # ---------- RESTAURAR ----------
     @action(detail=True, methods=["patch"], url_path="restaurar")
     def restaurar(self, request, pk=None):
+        if not _has_perm(request.user, "restore_propietario"):
+            return self.notify(
+                key="permission_denied",
+                data={"info": "No tienes permiso para restaurar propietarios."},
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
         propietario = self.get_object()
         if propietario.is_active:
             return self.notify(
@@ -456,6 +477,12 @@ class HuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
     # ---------- CUSTOM ACTIONS ----------
     @action(detail=True, methods=["post"], url_path="archivar")
     def archivar(self, request, pk=None):
+        if not _has_perm(request.user, "archive_huerta"):
+            return self.notify(
+                key="permission_denied",
+                data={"info": "No tienes permiso para archivar huertas."},
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
         instance = self.get_object()
         if not instance.is_active:
             return self.notify(key="ya_esta_archivada", status_code=status.HTTP_400_BAD_REQUEST)
@@ -471,6 +498,12 @@ class HuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
 
     @action(detail=True, methods=["post"], url_path="restaurar")
     def restaurar(self, request, pk=None):
+        if not _has_perm(request.user, "restore_huerta"):
+            return self.notify(
+                key="permission_denied",
+                data={"info": "No tienes permiso para restaurar huertas."},
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
         instance = self.get_object()
         if instance.is_active:
             return self.notify(key="ya_esta_activa", status_code=status.HTTP_400_BAD_REQUEST)
@@ -644,6 +677,12 @@ class HuertaRentadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelV
 
     @action(detail=True, methods=["post"], url_path="archivar")
     def archivar(self, request, pk=None):
+        if not _has_perm(request.user, "archive_huertarentada"):
+            return self.notify(
+                key="permission_denied",
+                data={"info": "No tienes permiso para archivar huertas rentadas."},
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
         instance = self.get_object()
         if not instance.is_active:
             return self.notify(key="ya_esta_archivada", status_code=status.HTTP_400_BAD_REQUEST)
@@ -656,6 +695,12 @@ class HuertaRentadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelV
 
     @action(detail=True, methods=["post"], url_path="restaurar")
     def restaurar(self, request, pk=None):
+        if not _has_perm(request.user, "restore_huertarentada"):
+            return self.notify(
+                key="permission_denied",
+                data={"info": "No tienes permiso para restaurar huertas rentadas."},
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
         instance = self.get_object()
         if instance.is_active:
             return self.notify(key="ya_esta_activa", status_code=status.HTTP_400_BAD_REQUEST)

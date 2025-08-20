@@ -325,6 +325,12 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
     # ------------------------------ ACCIONES CUSTOM ------------------------------
     @action(detail=True, methods=["post"], url_path="archivar")
     def archivar(self, request, pk=None):
+        if not _has_perm(request.user, "archive_cosecha"):
+            return self.notify(
+                key="permission_denied",
+                data={"info": "No tienes permiso para archivar cosechas."},
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
         c = self.get_object()
         if not c.is_active:
             return self.notify(key="cosecha_ya_archivada", status_code=status.HTTP_400_BAD_REQUEST)
@@ -344,6 +350,12 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
 
     @action(detail=True, methods=["post"], url_path="restaurar")
     def restaurar(self, request, pk=None):
+        if not _has_perm(request.user, "restore_cosecha"):
+            return self.notify(
+                key="permission_denied",
+                data={"info": "No tienes permiso para restaurar cosechas."},
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
         c = self.get_object()
         if c.is_active:
             return self.notify(key="cosecha_no_archivada", status_code=status.HTTP_400_BAD_REQUEST)
@@ -420,30 +432,18 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
     @action(detail=True, methods=["post"], url_path="toggle-finalizada")
     def toggle_finalizada(self, request, pk=None):
         c = self.get_object()
+        target_finalizada = not c.finalizada
+        required = "finalize_cosecha" if target_finalizada else "reactivate_cosecha"
+        if not _has_perm(request.user, required):
+            info = "finalizar" if target_finalizada else "reactivar"
+            return self.notify(
+                key="permission_denied",
+                data={"info": f"No tienes permiso para {info} cosechas."},
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
 
         try:
             with transaction.atomic():
-                # Estado objetivo: si estaba finalizada, vamos a reactivar; si no, a finalizar.
-                target_finalizada = not c.finalizada
-
-                # 🔐 Permiso contextual estricto
-                if target_finalizada:
-                    # Va a FINALIZAR
-                    if not _has_perm(request.user, "finalize_cosecha"):
-                        return self.notify(
-                            key="permission_denied",
-                            data={"info": "No tienes permiso para finalizar cosechas."},
-                            status_code=status.HTTP_403_FORBIDDEN,
-                        )
-                else:
-                    # Va a REACTIVAR
-                    if not _has_perm(request.user, "reactivate_cosecha"):
-                        return self.notify(
-                            key="permission_denied",
-                            data={"info": "No tienes permiso para reactivar cosechas."},
-                            status_code=status.HTTP_403_FORBIDDEN,
-                        )
-
                 # ⛔ Nunca permitir operar si la temporada está archivada
                 if not c.temporada.is_active:
                     return self.notify(
@@ -454,7 +454,6 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
 
                 if target_finalizada:
                     # 👉 Finalizar
-                    # La temporada NO debe estar finalizada para finalizar la cosecha (consistencia)
                     if c.temporada.finalizada:
                         return self.notify(
                             key="cosecha_temporada_finalizada_no_restaurar",
@@ -474,45 +473,41 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
                         status_code=status.HTTP_200_OK,
                     )
 
-                else:
-                    # 👉 Reactivar (quitar finalizada)
-                    # La temporada NO debe estar finalizada para reactivar una cosecha
-                    if c.temporada.finalizada:
-                        return self.notify(
-                            key="cosecha_temporada_finalizada_no_restaurar",
-                            data={"info": "No puedes reactivar una cosecha cuya temporada está finalizada."},
-                            status_code=status.HTTP_400_BAD_REQUEST,
-                        )
-
-                    # Regla de negocio: solo una cosecha activa/no finalizada por temporada
-                    existe_activa = Cosecha.objects.filter(
-                        temporada=c.temporada,
-                        is_active=True,
-                        finalizada=False
-                    ).exclude(pk=c.pk).exists()
-                    if existe_activa:
-                        return self.notify(
-                            key="cosecha_activa_existente",
-                            data={"errors": {"non_field_errors": ["Ya existe una cosecha activa en esta temporada."]}},
-                            status_code=status.HTTP_400_BAD_REQUEST,
-                        )
-
-                    c.finalizada = False
-                    c.fecha_fin = None
-                    c.save(update_fields=["finalizada", "fecha_fin"])
-                    try:
-                        registrar_actividad(request.user, f"Reactivó la cosecha: {c.nombre}")
-                    except Exception:
-                        pass
-
+                # 👉 Reactivar
+                if c.temporada.finalizada:
                     return self.notify(
-                        key="cosecha_reactivada",
-                        data={"cosecha": self.get_serializer(c).data},
-                        status_code=status.HTTP_200_OK,
+                        key="cosecha_temporada_finalizada_no_restaurar",
+                        data={"info": "No puedes reactivar una cosecha cuya temporada está finalizada."},
+                        status_code=status.HTTP_400_BAD_REQUEST,
                     )
 
+                existe_activa = Cosecha.objects.filter(
+                    temporada=c.temporada,
+                    is_active=True,
+                    finalizada=False
+                ).exclude(pk=c.pk).exists()
+                if existe_activa:
+                    return self.notify(
+                        key="cosecha_activa_existente",
+                        data={"errors": {"non_field_errors": ["Ya existe una cosecha activa en esta temporada."]}},
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                c.finalizada = False
+                c.fecha_fin = None
+                c.save(update_fields=["finalizada", "fecha_fin"])
+                try:
+                    registrar_actividad(request.user, f"Reactivó la cosecha: {c.nombre}")
+                except Exception:
+                    pass
+
+                return self.notify(
+                    key="cosecha_reactivada",
+                    data={"cosecha": self.get_serializer(c).data},
+                    status_code=status.HTTP_200_OK,
+                )
+
         except Exception:
-            # Cualquier error: respuesta uniforme de error (sin 500)
             return self.notify(
                 key="operacion_atomica_fallida",
                 data={"info": "No se pudo completar la operación."},
