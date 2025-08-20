@@ -53,7 +53,6 @@ const UsersAdmin: React.FC = () => {
   // Estados de diálogo y selección
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [selUserId, setSelUserId] = React.useState(0);
-  const [selUserPerms, setSelUserPerms] = React.useState<string[]>([]);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
   const [confirmUserId, setConfirmUserId] = React.useState(0);
 
@@ -92,9 +91,8 @@ const UsersAdmin: React.FC = () => {
     }
   };
 
-  const handleManagePermissions = (userId: number, perms: string[]) => {
+  const handleManagePermissions = (userId: number) => {
     setSelUserId(userId);
-    setSelUserPerms(perms);
     setDialogOpen(true);
   };
 
@@ -141,7 +139,7 @@ const UsersAdmin: React.FC = () => {
                     setConfirmUserId(u.id);
                     setConfirmOpen(true);
                   }}
-                  onManagePermissions={() => handleManagePermissions(u.id, u.permisos)}
+                  onManagePermissions={() => handleManagePermissions(u.id)}
                 />
               );
             }}
@@ -153,7 +151,6 @@ const UsersAdmin: React.FC = () => {
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
         userId={selUserId}
-        currentPerms={selUserPerms}
       />
 
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>

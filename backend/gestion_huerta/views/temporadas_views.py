@@ -253,6 +253,9 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
     @action(detail=True, methods=["post"], url_path="finalizar")
     def finalizar(self, request, pk=None):
         temp = self.get_object()
+        perm = 'gestion_huerta.finalizar_temporada' if not temp.finalizada else 'gestion_huerta.reactivar_temporada'
+        if request.user.role != 'admin' and not request.user.has_perm(perm):
+            return self.notify(key="permission_denied", status_code=status.HTTP_403_FORBIDDEN)
         if not temp.is_active:
             return self.notify(
                 key="temporada_archivada_no_finalizar",
@@ -275,6 +278,8 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
     # ------------------------------ ARCHIVAR --------------------------------
     @action(detail=True, methods=["post"], url_path="archivar")
     def archivar(self, request, pk=None):
+        if request.user.role != 'admin' and not request.user.has_perm('gestion_huerta.archivar_temporada'):
+            return self.notify(key="permission_denied", status_code=status.HTTP_403_FORBIDDEN)
         temp = self.get_object()
         if not temp.is_active:
             return self.notify(
@@ -301,6 +306,8 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
     # ----------------------------- RESTAURAR --------------------------------
     @action(detail=True, methods=["post"], url_path="restaurar")
     def restaurar(self, request, pk=None):
+        if request.user.role != 'admin' and not request.user.has_perm('gestion_huerta.restaurar_temporada'):
+            return self.notify(key="permission_denied", status_code=status.HTTP_403_FORBIDDEN)
         temp = self.get_object()
         if temp.is_active:
             return self.notify(

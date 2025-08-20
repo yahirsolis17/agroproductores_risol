@@ -192,6 +192,8 @@ class CategoriaInversionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.M
     # ------------------------------ ARCHIVAR / RESTAURAR
     @action(detail=True, methods=["post"], url_path="archivar")
     def archivar(self, request, pk=None):
+        if request.user.role != 'admin' and not request.user.has_perm('gestion_huerta.archivar_categoriainversion'):
+            return self.notify(key="permission_denied", status_code=status.HTTP_403_FORBIDDEN)
         cat = self.get_object()
         if not cat.is_active:
             return self.notify(key="categoria_ya_archivada", status_code=status.HTTP_400_BAD_REQUEST)
@@ -208,6 +210,8 @@ class CategoriaInversionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.M
 
     @action(detail=True, methods=["post"], url_path="restaurar")
     def restaurar(self, request, pk=None):
+        if request.user.role != 'admin' and not request.user.has_perm('gestion_huerta.restaurar_categoriainversion'):
+            return self.notify(key="permission_denied", status_code=status.HTTP_403_FORBIDDEN)
         cat = self.get_object()
         if cat.is_active:
             return self.notify(key="categoria_no_archivada", status_code=status.HTTP_400_BAD_REQUEST)

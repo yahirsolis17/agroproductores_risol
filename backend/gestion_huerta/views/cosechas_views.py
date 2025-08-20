@@ -284,6 +284,8 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
     # ------------------------------ ACCIONES CUSTOM ------------------------------
     @action(detail=True, methods=["post"], url_path="archivar")
     def archivar(self, request, pk=None):
+        if request.user.role != 'admin' and not request.user.has_perm('gestion_huerta.archivar_cosecha'):
+            return self.notify(key="permission_denied", status_code=status.HTTP_403_FORBIDDEN)
         c = self.get_object()
         if not c.is_active:
             return self.notify(key="cosecha_ya_archivada", status_code=status.HTTP_400_BAD_REQUEST)
@@ -303,6 +305,8 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
 
     @action(detail=True, methods=["post"], url_path="restaurar")
     def restaurar(self, request, pk=None):
+        if request.user.role != 'admin' and not request.user.has_perm('gestion_huerta.restaurar_cosecha'):
+            return self.notify(key="permission_denied", status_code=status.HTTP_403_FORBIDDEN)
         c = self.get_object()
         if c.is_active:
             return self.notify(key="cosecha_no_archivada", status_code=status.HTTP_400_BAD_REQUEST)
@@ -336,6 +340,8 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
 
     @action(detail=True, methods=["post"], url_path="finalizar")
     def finalizar(self, request, pk=None):
+        if request.user.role != 'admin' and not request.user.has_perm('gestion_huerta.finalizar_cosecha'):
+            return self.notify(key="permission_denied", status_code=status.HTTP_403_FORBIDDEN)
         c = self.get_object()
 
         # No finalizar si la temporada está archivada o finalizada (consistente con reglas)
@@ -371,11 +377,15 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
     @action(detail=True, methods=["post"], url_path="toggle-finalizada")
     def toggle_finalizada(self, request, pk=None):
         c = self.get_object()
+        target_finalizada = not c.finalizada
+        perm = 'gestion_huerta.finalizar_cosecha' if target_finalizada else 'gestion_huerta.reactivar_cosecha'
+        if request.user.role != 'admin' and not request.user.has_perm(perm):
+            return self.notify(key="permission_denied", status_code=status.HTTP_403_FORBIDDEN)
 
         try:
             with transaction.atomic():
                 # Estado objetivo: si estaba finalizada, vamos a reactivar; si no, a finalizar.
-                target_finalizada = not c.finalizada
+                # target_finalizada ya calculado arriba
 
                 # ⛔ Nunca permitir operar si la temporada está archivada
                 if not c.temporada.is_active:

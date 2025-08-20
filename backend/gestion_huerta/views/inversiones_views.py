@@ -314,6 +314,8 @@ class InversionHuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
     # ------------------------------ ARCHIVAR / RESTAURAR
     @action(detail=True, methods=["post", "patch"], url_path="archivar")
     def archivar(self, request, pk=None):
+        if request.user.role != 'admin' and not request.user.has_perm('gestion_huerta.archivar_inversion'):
+            return self.notify(key="permission_denied", status_code=status.HTTP_403_FORBIDDEN)
         inv = self.get_object()
         if not inv.is_active:
             return self.notify(key="inversion_ya_archivada", status_code=status.HTTP_400_BAD_REQUEST)
@@ -330,6 +332,8 @@ class InversionHuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
 
     @action(detail=True, methods=["post", "patch"], url_path="restaurar")
     def restaurar(self, request, pk=None):
+        if request.user.role != 'admin' and not request.user.has_perm('gestion_huerta.restaurar_inversion'):
+            return self.notify(key="permission_denied", status_code=status.HTTP_403_FORBIDDEN)
         inv = self.get_object()
         if inv.is_active:
             return self.notify(key="inversion_no_archivada", status_code=status.HTTP_400_BAD_REQUEST)

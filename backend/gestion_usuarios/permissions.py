@@ -25,24 +25,3 @@ class IsSelfOrAdmin(BasePermission):
             and (request.user.role == 'admin' or obj == request.user)
         )
 
-class HasModulePermission(BasePermission):
-    """
-    Admin siempre pasa; usuarios deben tener algún codename en required_permissions.
-    """
-    def has_permission(self, request, view):
-        if not request.user or not request.user.is_authenticated:
-            return False
-
-        # Admin → acceso total
-        if request.user.role == 'admin':
-            return True
-
-        required = getattr(view, 'required_permissions', [])
-        if not required:
-            # Si la vista no define permisos, la dejamos pública para usuarios autenticados
-            return True
-
-        # Usa el manager real de Django
-        return request.user.user_permissions.filter(
-            codename__in=required
-        ).exists()

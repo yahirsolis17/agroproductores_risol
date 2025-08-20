@@ -49,6 +49,10 @@ class Propietario(models.Model):
             models.Index(fields=['nombre', 'apellidos'], name='idx_prop_nom_ape'),
         ]
         ordering = ['-id']
+        permissions = [
+            ("archivar_propietario", "Puede archivar propietarios"),
+            ("restaurar_propietario", "Puede restaurar propietarios"),
+        ]
 
     def __str__(self):
         return f'{self.nombre} {self.apellidos}'
@@ -91,6 +95,10 @@ class Huerta(models.Model):
             models.Index(fields=['archivado_en'], name='idx_huerta_archivado'),
             models.Index(fields=['is_active'], name='idx_huerta_is_active'),
             models.Index(fields=['propietario', 'archivado_en'], name='idx_huerta_prop_arch'),
+        ]
+        permissions = [
+            ("archivar_huerta", "Puede archivar huertas"),
+            ("restaurar_huerta", "Puede restaurar huertas"),
         ]
 
     def __str__(self):
@@ -168,6 +176,10 @@ class HuertaRentada(models.Model):
             models.Index(fields=['archivado_en'], name='idx_hr_archivado'),
             models.Index(fields=['is_active'], name='idx_hr_is_active'),
             models.Index(fields=['propietario', 'archivado_en'], name='idx_hr_prop_arch'),
+        ]
+        permissions = [
+            ("archivar_huertarentada", "Puede archivar huertas rentadas"),
+            ("restaurar_huertarentada", "Puede restaurar huertas rentadas"),
         ]
 
     def __str__(self):
@@ -247,6 +259,12 @@ class Temporada(models.Model):
             models.Index(fields=['año', 'huerta']),
             models.Index(fields=['año', 'huerta_rentada']),
         ]
+        permissions = [
+            ("archivar_temporada", "Puede archivar temporadas"),
+            ("restaurar_temporada", "Puede restaurar temporadas"),
+            ("finalizar_temporada", "Puede finalizar temporadas"),
+            ("reactivar_temporada", "Puede reactivar temporadas"),
+        ]
 
 
     def clean(self):
@@ -313,6 +331,10 @@ class CategoriaInversion(models.Model):
     class Meta:
         ordering = ['id']
         indexes  = [models.Index(fields=['nombre'])]
+        permissions = [
+            ("archivar_categoriainversion", "Puede archivar categorías de inversión"),
+            ("restaurar_categoriainversion", "Puede restaurar categorías de inversión"),
+        ]
 
     def archivar(self):
         if self.is_active:
@@ -358,6 +380,12 @@ class Cosecha(models.Model):
             models.Index(fields=["temporada"]),
             models.Index(fields=["is_active"]),
             models.Index(fields=["temporada", "is_active"]),
+        ]
+        permissions = [
+            ("archivar_cosecha", "Puede archivar cosechas"),
+            ("restaurar_cosecha", "Puede restaurar cosechas"),
+            ("finalizar_cosecha", "Puede finalizar cosechas"),
+            ("reactivar_cosecha", "Puede reactivar cosechas"),
         ]
 
     @property
@@ -509,6 +537,10 @@ class InversionesHuerta(models.Model):
             models.Index(fields=['cosecha']),
             models.Index(fields=['temporada']),
         ]
+        permissions = [
+            ("archivar_inversion", "Puede archivar inversiones"),
+            ("restaurar_inversion", "Puede restaurar inversiones"),
+        ]
 
     @property
     def gastos_totales(self) -> Decimal:
@@ -580,6 +612,12 @@ class Venta(models.Model):
     is_active    = models.BooleanField(default=True)
     archivado_en = models.DateTimeField(null=True, blank=True)
     archivado_por_cascada = models.BooleanField(default=False)
+
+    class Meta:
+        permissions = [
+            ("archivar_venta", "Puede archivar ventas"),
+            ("restaurar_venta", "Puede restaurar ventas"),
+        ]
 
     @property
     def total_venta(self) -> int:

@@ -189,6 +189,8 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
     # ---------- ARCHIVAR ----------
     @action(detail=True, methods=["patch"], url_path="archivar")
     def archivar(self, request, pk=None):
+        if request.user.role != 'admin' and not request.user.has_perm('gestion_huerta.archivar_propietario'):
+            return self.notify(key="permission_denied", status_code=status.HTTP_403_FORBIDDEN)
         propietario = self.get_object()
         if propietario.archivado_en:
             return self.notify(
@@ -205,6 +207,8 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
     # ---------- RESTAURAR ----------
     @action(detail=True, methods=["patch"], url_path="restaurar")
     def restaurar(self, request, pk=None):
+        if request.user.role != 'admin' and not request.user.has_perm('gestion_huerta.restaurar_propietario'):
+            return self.notify(key="permission_denied", status_code=status.HTTP_403_FORBIDDEN)
         propietario = self.get_object()
         if propietario.is_active:
             return self.notify(
@@ -429,6 +433,8 @@ class HuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
     # ---------- CUSTOM ACTIONS ----------
     @action(detail=True, methods=["post"], url_path="archivar")
     def archivar(self, request, pk=None):
+        if request.user.role != 'admin' and not request.user.has_perm('gestion_huerta.archivar_huerta'):
+            return self.notify(key="permission_denied", status_code=status.HTTP_403_FORBIDDEN)
         instance = self.get_object()
         if not instance.is_active:
             return self.notify(key="ya_esta_archivada", status_code=status.HTTP_400_BAD_REQUEST)
@@ -444,6 +450,8 @@ class HuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
 
     @action(detail=True, methods=["post"], url_path="restaurar")
     def restaurar(self, request, pk=None):
+        if request.user.role != 'admin' and not request.user.has_perm('gestion_huerta.restaurar_huerta'):
+            return self.notify(key="permission_denied", status_code=status.HTTP_403_FORBIDDEN)
         instance = self.get_object()
         if instance.is_active:
             return self.notify(key="ya_esta_activa", status_code=status.HTTP_400_BAD_REQUEST)
@@ -602,6 +610,8 @@ class HuertaRentadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelV
 
     @action(detail=True, methods=["post"], url_path="archivar")
     def archivar(self, request, pk=None):
+        if request.user.role != 'admin' and not request.user.has_perm('gestion_huerta.archivar_huertarentada'):
+            return self.notify(key="permission_denied", status_code=status.HTTP_403_FORBIDDEN)
         instance = self.get_object()
         if not instance.is_active:
             return self.notify(key="ya_esta_archivada", status_code=status.HTTP_400_BAD_REQUEST)
@@ -614,6 +624,8 @@ class HuertaRentadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelV
 
     @action(detail=True, methods=["post"], url_path="restaurar")
     def restaurar(self, request, pk=None):
+        if request.user.role != 'admin' and not request.user.has_perm('gestion_huerta.restaurar_huertarentada'):
+            return self.notify(key="permission_denied", status_code=status.HTTP_403_FORBIDDEN)
         instance = self.get_object()
         if instance.is_active:
             return self.notify(key="ya_esta_activa", status_code=status.HTTP_400_BAD_REQUEST)
@@ -673,7 +685,7 @@ class HuertaRentadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelV
 # ==========================================================
 class HuertasCombinadasViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewSet):
     pagination_class = GenericPagination
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasHuertaModulePermission]
 
     @action(detail=False, methods=["get"], url_path="combinadas")
     def listar_combinadas(self, request):

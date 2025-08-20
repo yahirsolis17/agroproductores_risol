@@ -1,7 +1,8 @@
 # gestion_usuarios/views/registro_actividad.py
 
 from rest_framework import viewsets
-from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
+from gestion_usuarios.permissions import IsAdmin
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.filters import OrderingFilter
 
@@ -22,7 +23,7 @@ class RegistroActividadViewSet(viewsets.ReadOnlyModelViewSet):
                 .order_by('-fecha_hora')
     serializer_class = RegistroActividadSerializer
     pagination_class = ActivityPagination
-    permission_classes = [IsAuthenticated, IsAdminUser]  # Sólo admins
+    permission_classes = [IsAuthenticated, IsAdmin]  # Sólo admins
 
     filter_backends = [OrderingFilter]
     ordering_fields = ['fecha_hora']

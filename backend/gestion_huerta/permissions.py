@@ -29,7 +29,7 @@ class RolePermissionHuertaMixin():
 class HasHuertaModulePermission(BasePermission):
     """
     Admin siempre puede.
-    Usuario normal puede si tiene permiso para ver huertas o propietarios.
+    Usuario normal puede si tiene permiso para ver huertas, huertas rentadas o propietarios.
     """
 
     def has_permission(self, request, view):
@@ -45,6 +45,7 @@ class HasHuertaModulePermission(BasePermission):
         # usuarios comunes necesitan al menos uno de estos permisos
         return (
             user.has_perm('gestion_huerta.view_huerta') or
+            user.has_perm('gestion_huerta.view_huertarentada') or
             user.has_perm('gestion_huerta.view_propietario')
         )
 

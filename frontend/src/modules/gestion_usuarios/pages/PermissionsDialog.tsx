@@ -43,7 +43,6 @@ interface PermissionsDialogProps {
   open: boolean;
   onClose: () => void;
   userId: number;
-  currentPerms: string[];
 }
 
 const PermissionsDialog: React.FC<PermissionsDialogProps> = ({

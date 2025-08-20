@@ -297,6 +297,8 @@ class VentaViewSet(NotificationMixin, viewsets.ModelViewSet):
     # ------------------------------ ARCHIVAR/RESTAURAR
     @action(detail=True, methods=["post", "patch"], url_path="archivar")
     def archivar(self, request, pk=None):
+        if request.user.role != 'admin' and not request.user.has_perm('gestion_huerta.archivar_venta'):
+            return self.notify(key="permission_denied", status_code=status.HTTP_403_FORBIDDEN)
         venta = self.get_object()
         if not venta.is_active:
             return self.notify(key="venta_ya_archivada", status_code=status.HTTP_400_BAD_REQUEST)
@@ -313,6 +315,8 @@ class VentaViewSet(NotificationMixin, viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post", "patch"], url_path="restaurar")
     def restaurar(self, request, pk=None):
+        if request.user.role != 'admin' and not request.user.has_perm('gestion_huerta.restaurar_venta'):
+            return self.notify(key="permission_denied", status_code=status.HTTP_403_FORBIDDEN)
         venta = self.get_object()
         if venta.is_active:
             return self.notify(key="venta_no_archivada", status_code=status.HTTP_400_BAD_REQUEST)
