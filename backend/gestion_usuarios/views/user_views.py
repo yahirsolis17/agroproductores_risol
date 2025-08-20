@@ -134,7 +134,20 @@ class UsuarioViewSet(ModelViewSet):
             )
 
         codenames = request.data.get("permisos", [])
-        permisos = Permission.objects.filter(codename__in=codenames)
+        if not isinstance(codenames, (list, tuple)):
+            codenames = [codenames]
+
+        unique = {str(code) for code in codenames}
+        permisos = Permission.objects.filter(codename__in=unique)
+        valid = set(permisos.values_list("codename", flat=True))
+        missing = sorted(unique - valid)
+        if missing:
+            return NotificationHandler.generate_response(
+                message_key="validation_error",
+                data={"errors": {"permisos": [f"Permisos inválidos: {', '.join(missing)}"]}},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
         user_obj.user_permissions.set(permisos)
         registrar_actividad(request.user, f"Actualizó permisos de usuario {user_obj.id}")
 
@@ -307,7 +320,8 @@ class MeView(APIView):
 class UserPermissionsView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request):
-        return Response({"permissions": list(request.user.get_all_permissions())})
+        perms = {p.split(".")[-1] for p in request.user.get_all_permissions()}
+        return Response({"permissions": sorted(perms)})
 
 
 PERMISOS_RELEVANTES = {
