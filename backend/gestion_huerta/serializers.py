@@ -546,7 +546,7 @@ class VentaSerializer(serializers.ModelSerializer):
     huerta_rentada_id = serializers.PrimaryKeyRelatedField(queryset=HuertaRentada.objects.all(),  source='huerta_rentada', write_only=True, required=False, allow_null=True)
 
     # Forzamos “gasto” obligatorio a nivel API (>= 0)
-    gasto = serializers.DecimalField(max_digits=14, decimal_places=2, required=True, allow_null=False)
+    gasto = serializers.IntegerField(min_value=0, required=True, allow_null=False)
 
     class Meta:
         model  = Venta

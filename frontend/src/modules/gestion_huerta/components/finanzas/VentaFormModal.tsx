@@ -354,13 +354,15 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
               />
             </DialogContent>
 
+
             <DialogActions>
               <Button onClick={onClose}>Cancelar</Button>
               <PermissionButton
                 type="submit"
                 variant="contained"
                 disabled={isSubmitting}
-                perm={initialValues ? 'change_venta' : 'gestion_huerta.add_venta'}
+                // 👇 corregido: solo codename (sin prefijo de app)
+                perm={initialValues ? 'change_venta' : 'add_venta'}
               >
                 {isSubmitting ? <CircularProgress size={22} /> : 'Guardar'}
               </PermissionButton>

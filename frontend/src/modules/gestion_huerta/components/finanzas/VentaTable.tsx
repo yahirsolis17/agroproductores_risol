@@ -1,4 +1,3 @@
-// src/modules/gestion_huerta/components/finanzas/VentaTable.tsx
 import React from 'react';
 import { Box, Chip } from '@mui/material';
 import { TableLayout, Column } from '../../../../components/common/TableLayout';
@@ -135,7 +134,8 @@ const VentaTable: React.FC<Props> = ({
           onArchiveOrRestore={() => isArchived ? onRestore(venta.id) : onArchive(venta.id)}
           onDelete={isArchived ? () => onDelete(venta.id) : undefined}
           permEdit="change_venta"
-          permArchiveOrRestore="archive_venta"
+          // 👇 permiso correcto según acción visible
+          permArchiveOrRestore={isArchived ? 'restore_venta' : 'archive_venta'}
           permDelete="delete_venta"
         />
       );
