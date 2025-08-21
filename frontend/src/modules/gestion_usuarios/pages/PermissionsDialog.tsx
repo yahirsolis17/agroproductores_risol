@@ -50,6 +50,7 @@ const PermissionsDialog: React.FC<PermissionsDialogProps> = ({
   open,
   onClose,
   userId,
+  currentPerms,
 }) => {
   /* ------------------------------------------------- */
   /*                       STATE                       */
@@ -71,6 +72,8 @@ const PermissionsDialog: React.FC<PermissionsDialogProps> = ({
   /* ------------------------------------------------- */
   useEffect(() => {
     if (!open) return;
+
+    setSelected(currentPerms);
 
     let timer: ReturnType<typeof setTimeout> | undefined;
     (async () => {
@@ -98,7 +101,7 @@ const PermissionsDialog: React.FC<PermissionsDialogProps> = ({
     })();
 
     return () => clearTimeout(timer);
-  }, [open, userId]);
+  }, [open, userId, currentPerms]);
 
   /* ------------------------------------------------- */
   /*                     HANDLERS                      */
