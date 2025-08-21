@@ -40,7 +40,7 @@ NOTIFICATION_MESSAGES = {
         "message": "Permisos actualizados correctamente back",
         "type": "success",
         "action": "redirect",
-        "target": "/user-permissions"
+        "target": "/users-admin"
     },
     # --- CRUD generales ---
     "create_success": {
