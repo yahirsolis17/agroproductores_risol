@@ -35,7 +35,7 @@ export function useInversiones() {
 
   // Auto-fetch cuando cambien contexto / paginación / filtros
   useEffect(() => {
-    if ((!huertaId && !huertaRentadaId) || !temporadaId || !cosechaId) return;
+    if (!temporadaId || !cosechaId) return;
     dispatch(fetchInversiones());
   }, [dispatch, huertaId, huertaRentadaId, temporadaId, cosechaId, page, filters]);
 

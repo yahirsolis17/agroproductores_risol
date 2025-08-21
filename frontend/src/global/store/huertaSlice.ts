@@ -163,12 +163,16 @@ const huertaSlice = createSlice({
       if (s.meta.count > 0) s.meta.count -= 1;
     });
 
+    // En huertaSlice:
     b.addCase(archiveHuerta.fulfilled, (s, { payload }) => {
       if (s.estado === 'activos') {
         s.list = s.list.filter(h => h.id !== payload.id);
       } else {
         const i = s.list.findIndex(h => h.id === payload.id);
-        if (i !== -1) s.list[i].archivado_en = payload.archivado_en;
+        if (i !== -1) {
+          s.list[i].archivado_en = payload.archivado_en;
+          s.list[i].is_active = false; // 👈 añadir
+        }
       }
     });
     b.addCase(restoreHuerta.fulfilled, (s, { payload }) => {
@@ -176,9 +180,13 @@ const huertaSlice = createSlice({
         s.list = s.list.filter(h => h.id !== payload.id);
       } else {
         const i = s.list.findIndex(h => h.id === payload.id);
-        if (i !== -1) s.list[i].archivado_en = payload.archivado_en;
+        if (i !== -1) {
+          s.list[i].archivado_en = payload.archivado_en;
+          s.list[i].is_active = true; // 👈 añadir
+        }
       }
     });
+
   },
 });
 export const { setHPage, setHEstado, setHFilters } = huertaSlice.actions;

@@ -101,6 +101,11 @@ const CosechaTable: React.FC<Props> = ({
             onEdit={!isArchived ? () => onRename(c) : undefined}
             onArchiveOrRestore={() => (isArchived ? onRestore(c) : onArchive(c))}
             onDelete={isArchived ? () => onDelete(c) : undefined}
+            /* 👇 permisos necesarios (solo añadidos; nada más cambia) */
+            permEdit="change_cosecha"
+            permArchiveOrRestore={['archive_cosecha', 'restore_cosecha']}
+            permDelete="delete_cosecha"
+            permFinalize={['finalize_cosecha', 'change_cosecha']}
           />
           <PermissionButton
             perm="view_inversioneshuerta"

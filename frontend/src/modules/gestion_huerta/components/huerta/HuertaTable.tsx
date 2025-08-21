@@ -124,19 +124,32 @@ const HuertaTable: React.FC<Props> = ({
         </Button>
       )
     }
-    renderActions={(h) => (
-      <ActionsMenu
-        isArchived={!h.is_active}
-        onEdit={!h.is_active ? undefined : () => onEdit(h)}
-        onArchiveOrRestore={() => (!h.is_active ? onRestore(h) : onArchive(h))}
-        onDelete={() => onDelete(h)}
-        onTemporadas={!h.is_active || !onTemporadas ? undefined : () => onTemporadas(h)}
-        permEdit="change_huerta"
-        permArchiveOrRestore="archive_huerta"
-        permDelete="delete_huerta"
-        permTemporadas="view_temporada"
-      />
-    )}
+    renderActions={(h) => {
+      // ⚙️ Normalizamos estado y codenames por tipo + acción
+      const isArchived = Boolean(h.archivado_en); // más robusto si el flag local aún no refresca
+      const isRent     = h.tipo === 'rentada';
+
+      const permEdit   = isRent ? 'change_huertarentada'  : 'change_huerta';
+      const permDelete = isRent ? 'delete_huertarentada'  : 'delete_huerta';
+      const permArch   = isRent ? 'archive_huertarentada' : 'archive_huerta';
+      const permRest   = isRent ? 'restore_huertarentada' : 'restore_huerta';
+      const permArchiveOrRestore = isArchived ? permRest : permArch;
+
+      return (
+        <ActionsMenu
+          isArchived={isArchived}
+          onEdit={isArchived ? undefined : () => onEdit(h)}
+          onArchiveOrRestore={() => (isArchived ? onRestore(h) : onArchive(h))}
+          onDelete={() => onDelete(h)}
+          onTemporadas={!isArchived && onTemporadas ? () => onTemporadas(h) : undefined}
+          // ⬇️ permisos correctos por tipo + acción
+          permEdit={permEdit}
+          permArchiveOrRestore={permArchiveOrRestore}
+          permDelete={permDelete}
+          permTemporadas="view_temporada"
+        />
+      );
+    }}
   />
 );
 

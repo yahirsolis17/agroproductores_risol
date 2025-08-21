@@ -168,7 +168,10 @@ const hrSlice = createSlice({
         s.list = s.list.filter(h => h.id !== payload.id);
       } else {
         const i = s.list.findIndex(h => h.id === payload.id);
-        if (i !== -1) s.list[i].archivado_en = payload.archivado_en;
+        if (i !== -1) {
+          s.list[i].archivado_en = payload.archivado_en;
+          s.list[i].is_active = false; // 👈 añadir
+        }
       }
     });
     b.addCase(restoreHuertaRentada.fulfilled, (s, { payload }) => {
@@ -176,7 +179,10 @@ const hrSlice = createSlice({
         s.list = s.list.filter(h => h.id !== payload.id);
       } else {
         const i = s.list.findIndex(h => h.id === payload.id);
-        if (i !== -1) s.list[i].archivado_en = payload.archivado_en;
+        if (i !== -1) {
+          s.list[i].archivado_en = payload.archivado_en;
+          s.list[i].is_active = true; // 👈 añadir
+        }
       }
     });
   },

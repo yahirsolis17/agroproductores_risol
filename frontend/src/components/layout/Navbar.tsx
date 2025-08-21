@@ -1,4 +1,3 @@
-// src/components/layout/Navbar.tsx
 import React, { useState, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -14,10 +13,10 @@ const Navbar: React.FC = () => {
   const [openLogout, setOpenLogout] = useState(false);
 
   /* ────────────────── visibilidad del navbar ────────────────── */
-  const shouldHideNavbar = 
-    location.pathname === '/login' || 
+  const shouldHideNavbar =
+    location.pathname === '/login' ||
     (location.pathname === '/change-password' && user?.must_change_password);
-  
+
   if (shouldHideNavbar) return null;
 
   /* ────────────────── helpers ────────────────── */
@@ -25,20 +24,20 @@ const Navbar: React.FC = () => {
 
   /** Rutas visibles según permiso */
   const role: 'admin' | 'usuario' = user?.role ?? 'usuario';
-  const visibleRoutes = useMemo(() => 
-    NAV_ITEMS[role].filter(i => !i.perm || hasPerm(i.perm)),
+  const visibleRoutes = useMemo(
+    () => (NAV_ITEMS[role] ?? []).filter(i => !i.perm || hasPerm(i.perm)),
     [role, hasPerm]
   );
 
   /** Renderiza un menú desplegable */
   const renderMenu = (
     title: string,
-    routes: { to: string; label: string }[],
+    routes: { to: string; label: string }[]
   ) => {
     if (routes.length === 0) return null;
-    
+
     const isMenuActive = hoverMenu === title || routes.some(r => isActive(r.to));
-    
+
     return (
       <div
         className="relative"
@@ -48,9 +47,7 @@ const Navbar: React.FC = () => {
         <button
           className={clsx(
             'text-sm transition-colors',
-            isMenuActive
-              ? 'text-primary font-semibold'
-              : 'text-neutral-500',
+            isMenuActive ? 'text-primary font-semibold' : 'text-neutral-500',
           )}
           aria-haspopup="true"
           aria-expanded={isMenuActive}
@@ -93,13 +90,14 @@ const Navbar: React.FC = () => {
   };
 
   // Memoizar rutas para cada menú
-  const userManagementRoutes = useMemo(() => 
-    visibleRoutes.filter(r => /users?|register|activity/.test(r.to)), 
+  const userManagementRoutes = useMemo(
+    () => visibleRoutes.filter(r => /users?|register|activity/.test(r.to)),
     [visibleRoutes]
   );
 
-  const gardenManagementRoutes = useMemo(() => 
-    visibleRoutes.filter(r => /huerta|propietario|cosecha/.test(r.to)), 
+  // Incluye temporadas (se agregan "temporad" para cubrir singular/plural)
+  const gardenManagementRoutes = useMemo(
+    () => visibleRoutes.filter(r => /huerta|propietario|cosecha|temporad/i.test(r.to)),
     [visibleRoutes]
   );
 
@@ -123,9 +121,7 @@ const Navbar: React.FC = () => {
               to="/profile"
               className={clsx(
                 'text-sm transition-colors',
-                isActive('/profile')
-                  ? 'text-primary font-semibold'
-                  : 'text-neutral-500',
+                isActive('/profile') ? 'text-primary font-semibold' : 'text-neutral-500',
               )}
             >
               Mi Perfil
@@ -145,16 +141,16 @@ const Navbar: React.FC = () => {
               variant="contained"
               color="primary"
               size="small"
-              sx={{ 
-                textTransform: 'none', 
-                fontWeight: 500, 
-                borderRadius: '8px' 
+              sx={{
+                textTransform: 'none',
+                fontWeight: 500,
+                borderRadius: '8px'
               }}
             >
               Cerrar Sesión
             </Button>
-            <Dialog 
-              open={openLogout} 
+            <Dialog
+              open={openLogout}
               onClose={() => setOpenLogout(false)}
             >
               <DialogTitle>Confirmar cierre de sesión</DialogTitle>
@@ -165,11 +161,11 @@ const Navbar: React.FC = () => {
                 <Button onClick={() => setOpenLogout(false)}>
                   Cancelar
                 </Button>
-                <Button 
-                  color="error" 
-                  onClick={() => { 
-                    setOpenLogout(false); 
-                    logout(); 
+                <Button
+                  color="error"
+                  onClick={() => {
+                    setOpenLogout(false);
+                    logout();
                   }}
                 >
                   Confirmar

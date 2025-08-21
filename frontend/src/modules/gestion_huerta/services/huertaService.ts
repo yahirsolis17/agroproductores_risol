@@ -32,9 +32,10 @@ export const huertaService = {
 
     const { data } = await apiClient.get<{
       success: boolean;
-      message_key: string;
+      notification: any;              // 👈 antes era message_key
       data: ListRespRaw;
     }>('/huerta/huertas/', { params, signal: config.signal });
+
 
     const raw = data.data;
     const list = raw.results ?? raw.huertas ?? [];
@@ -44,16 +45,16 @@ export const huertaService = {
   async create(payload: HuertaCreateData) {
     const { data } = await apiClient.post<{
       success: boolean;
-      message_key: string;
+      notification: any;              // 👈
       data: ItemWrapper;
     }>('/huerta/huertas/', payload);
-    return data;
+      return data;
   },
 
   async update(id: number, payload: HuertaUpdateData) {
     const { data } = await apiClient.put<{
       success: boolean;
-      message_key: string;
+      notification: any;              // 👈
       data: ItemWrapper;
     }>(`/huerta/huertas/${id}/`, payload);
     return data;
@@ -62,7 +63,7 @@ export const huertaService = {
   async delete(id: number) {
     const { data } = await apiClient.delete<{
       success: boolean;
-      message_key: string;
+      notification: any;              // 👈
       data: { info: string };
     }>(`/huerta/huertas/${id}/`);
     return data;
@@ -71,7 +72,7 @@ export const huertaService = {
   async archivar(id: number) {
     const { data } = await apiClient.post<{
       success: boolean;
-      message_key: string;
+      notification: any;              // 👈
       data: { huerta_id: number; affected?: AffectedCounts };
     }>(`/huerta/huertas/${id}/archivar/`);
     return data;
@@ -80,7 +81,7 @@ export const huertaService = {
   async restaurar(id: number) {
     const { data } = await apiClient.post<{
       success: boolean;
-      message_key: string;
+      notification: any;              // 👈
       data: { huerta_id: number; affected?: AffectedCounts };
     }>(`/huerta/huertas/${id}/restaurar/`);
     return data;

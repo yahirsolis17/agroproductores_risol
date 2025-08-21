@@ -30,6 +30,7 @@ import { CategoriaInversion } from '../../types/categoriaInversionTypes';
 import { categoriaInversionService } from '../../services/categoriaInversionService';
 import useCategoriasInversion from '../../hooks/useCategoriasInversion';
 import CategoriaInversionEditModal from './CategoriaInversionEditModal';
+import { useAuth } from '../../../gestion_usuarios/context/AuthContext'; // 👈 añadido
 
 /* ---------- Encabezado por grupo ---------- */
 const GroupHeader = styled('div')(({ theme }) => ({
@@ -199,6 +200,14 @@ const CategoriaAutocomplete: React.FC<Props> = ({
     keepOpenRef.current = false;
     await loadAll();
   };
+
+  // 👇 permisos (solo afectan habilitado/tooltip; no ocultan nada)
+  const { hasPerm, user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+  const canEdit    = isAdmin || hasPerm('change_categoriainversion');
+  const canArchive = isAdmin || hasPerm('archive_categoriainversion');
+  const canRestore = isAdmin || hasPerm('restore_categoriainversion');
+  const canDelete  = isAdmin || hasPerm('delete_categoriainversion');
 
   return (
     <>
@@ -388,27 +397,46 @@ const CategoriaAutocomplete: React.FC<Props> = ({
           },
         }}
       >
-        <MenuItem onClick={handleEdit} disabled={!menu.cat?.is_active}>
-          <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Editar</ListItemText>
-        </MenuItem>
+        {/* Editar */}
+        <Tooltip title={(!canEdit || !menu.cat?.is_active) ? (!canEdit ? 'No tienes permiso' : 'No disponible en archivadas') : ''}>
+          <span>
+            <MenuItem onClick={handleEdit} disabled={!canEdit || !menu.cat?.is_active}>
+              <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
+              <ListItemText>Editar</ListItemText>
+            </MenuItem>
+          </span>
+        </Tooltip>
 
+        {/* Archivar / Restaurar */}
         {menu.cat?.is_active ? (
-          <MenuItem onClick={handleArchive}>
-            <ListItemIcon><ArchiveIcon fontSize="small" /></ListItemIcon>
-            <ListItemText>Archivar</ListItemText>
-          </MenuItem>
+          <Tooltip title={!canArchive ? 'No tienes permiso' : ''}>
+            <span>
+              <MenuItem onClick={handleArchive} disabled={!canArchive}>
+                <ListItemIcon><ArchiveIcon fontSize="small" /></ListItemIcon>
+                <ListItemText>Archivar</ListItemText>
+              </MenuItem>
+            </span>
+          </Tooltip>
         ) : (
-          <MenuItem onClick={handleRestore}>
-            <ListItemIcon><UnarchiveIcon fontSize="small" /></ListItemIcon>
-            <ListItemText>Restaurar</ListItemText>
-          </MenuItem>
+          <Tooltip title={!canRestore ? 'No tienes permiso' : ''}>
+            <span>
+              <MenuItem onClick={handleRestore} disabled={!canRestore}>
+                <ListItemIcon><UnarchiveIcon fontSize="small" /></ListItemIcon>
+                <ListItemText>Restaurar</ListItemText>
+              </MenuItem>
+            </span>
+          </Tooltip>
         )}
 
-        <MenuItem onClick={handleDelete} disabled={menu.cat?.is_active}>
-          <ListItemIcon><DeleteIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Eliminar</ListItemText>
-        </MenuItem>
+        {/* Eliminar */}
+        <Tooltip title={(!canDelete || menu.cat?.is_active) ? (menu.cat?.is_active ? 'Archiva antes de eliminar' : 'No tienes permiso') : ''}>
+          <span>
+            <MenuItem onClick={handleDelete} disabled={!canDelete || menu.cat?.is_active}>
+              <ListItemIcon><DeleteIcon fontSize="small" /></ListItemIcon>
+              <ListItemText>Eliminar</ListItemText>
+            </MenuItem>
+          </span>
+        </Tooltip>
       </Menu>
 
       {/* Modal editar */}

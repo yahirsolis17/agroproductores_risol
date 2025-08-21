@@ -130,9 +130,15 @@ export const cosechaService = {
   },
 
   // GET BY ID (normalizado)
-  getById(id: number): Promise<{ data: { cosecha: Cosecha } }> {
-    return apiClient
-      .get<Cosecha>(`/huerta/cosechas/${id}/`)
-      .then((res) => ({ data: { cosecha: res.data } }));
+// src/modules/gestion_huerta/services/cosechaService.ts
+  getById: async (id: number): Promise<{ data: { cosecha: Cosecha } }> => {
+    const { data } = await apiClient.get<any>(`/huerta/cosechas/${id}/`);
+    // Envelope { success, notification, data: { cosecha } }
+    if (data && data.data && data.data.cosecha) {
+      return { data: { cosecha: data.data.cosecha as Cosecha } };
+    }
+    // Objeto plano Cosecha
+    return { data: { cosecha: data as Cosecha } };
   },
+
 };

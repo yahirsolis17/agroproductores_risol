@@ -1,4 +1,3 @@
-# gestion_usuarios/views/user_views.py
 from django.db import transaction
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from rest_framework.views import APIView
@@ -167,6 +166,7 @@ class RegistroActividadViewSet(viewsets.ModelViewSet):
     ordering = ["-fecha_hora"]
     permission_classes = [IsAuthenticated, IsAdmin]
     throttle_classes = [AdminOnlyThrottle]
+    pagination_class = GenericPagination  # 👈 asegura meta consistente
 
     def get_queryset(self):
         # Nota: si quieres ver también actividades del admin, elimina este exclude.
@@ -174,6 +174,31 @@ class RegistroActividadViewSet(viewsets.ModelViewSet):
             RegistroActividad.objects.select_related("usuario")
             .exclude(usuario__role="admin")
             .order_by("-fecha_hora")
+        )
+
+    # 👇 respuesta consistente con NotificationHandler
+    def list(self, request, *args, **kwargs):
+        qs = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            meta = {
+                "count": self.paginator.page.paginator.count,
+                "next": self.paginator.get_next_link(),
+                "previous": self.paginator.get_previous_link(),
+            }
+            return NotificationHandler.generate_response(
+                message_key="silent_response",  # evita toast en FE
+                data={"results": serializer.data, "meta": meta},
+                status_code=status.HTTP_200_OK,
+            )
+
+        serializer = self.get_serializer(qs, many=True)
+        meta = {"count": len(serializer.data), "next": None, "previous": None}
+        return NotificationHandler.generate_response(
+            message_key="silent_response",
+            data={"results": serializer.data, "meta": meta},
+            status_code=status.HTTP_200_OK,
         )
 
 
@@ -198,6 +223,39 @@ class UsuarioViewSet(ModelViewSet):
     # ───────────────────── serializer dinámico ─────────────────────
     def get_serializer_class(self):
         return CustomUserCreationSerializer if self.action == "create" else UsuarioSerializer
+
+    # 👇 lista con contrato consistente para el FE
+    def list(self, request, *args, **kwargs):
+        qs = self.filter_queryset(self.get_queryset())
+
+        # Filtro por estado (activos | archivados | todos)
+        estado = request.query_params.get('estado')
+        if estado == 'activos':
+            qs = qs.filter(archivado_en__isnull=True)
+        elif estado == 'archivados':
+            qs = qs.filter(archivado_en__isnull=False)
+
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            meta = {
+                "count": self.paginator.page.paginator.count,
+                "next": self.paginator.get_next_link(),
+                "previous": self.paginator.get_previous_link(),
+            }
+            return NotificationHandler.generate_response(
+                message_key="silent_response",
+                data={"results": serializer.data, "meta": meta},
+                status_code=status.HTTP_200_OK,
+            )
+
+        serializer = self.get_serializer(qs, many=True)
+        meta = {"count": len(serializer.data), "next": None, "previous": None}
+        return NotificationHandler.generate_response(
+            message_key="silent_response",
+            data={"results": serializer.data, "meta": meta},
+            status_code=status.HTTP_200_OK,
+        )
 
     # ──────────────────── ACCIONES PERSONALIZADAS ──────────────────
     # ---------- set-permisos ----------

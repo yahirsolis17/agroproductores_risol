@@ -18,7 +18,6 @@ NOTIFICATION_MESSAGES = {
         "action": "redirect",
         "target": "/change-password"
     },
-    "usuario_ya_archivado":   { "message": "El usuario ya está archivado",   "type": "error" },
     "usuario_no_archivado":   { "message": "El usuario no está archivado",   "type": "error" },
     "usuario_archivado":      { "message": "Usuario archivado correctamente","type": "success"},
     "usuario_restaurado":     { "message": "Usuario restaurado correctamente","type": "success"},

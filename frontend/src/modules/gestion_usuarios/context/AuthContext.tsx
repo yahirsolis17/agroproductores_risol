@@ -76,6 +76,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     init();
   }, []);
 
+  // 🔁 Refresco de permisos al recuperar foco de la ventana
+  useEffect(() => {
+    const onFocus = async () => {
+      if (!authService.getAccessToken()) return;
+      try {
+        await fetchPermissions();
+      } catch {
+        /* no-op */
+      }
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
+
   /* -------------------------------------------------------------------- */
   /*                     helpers internos                                  */
   /* -------------------------------------------------------------------- */
@@ -109,8 +123,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       tokens,
     } = await authService.login({ telefono, password });
 
+    // Mostramos notificación (NotificationEngine ya ignora redirect para login_success)
     handleBackendNotification({ success: true, notification });
 
+    // (Los tokens ya se guardan en authService.login; repetimos por compat)
     localStorage.setItem('accessToken', tokens.access);
     localStorage.setItem('refreshToken', tokens.refresh);
 

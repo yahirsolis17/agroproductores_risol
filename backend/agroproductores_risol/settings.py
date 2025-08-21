@@ -192,6 +192,26 @@ USE_I18N = True
 USE_L10N = True
 USE_TZ = True
 
+# Logging configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'file': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'huerta_registration.log'),
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+    },
+}
+
 # Formato numérico
 USE_THOUSAND_SEPARATOR = True
 DECIMAL_SEPARATOR = '.'

@@ -1,4 +1,3 @@
-// src/modules/gestion_huerta/services/propietarioService.ts
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import apiClient from '../../../global/api/apiClient';
 import {
@@ -12,22 +11,29 @@ import {
 /* -------------------------------------------------------------------------- */
 type ReqCfg = { signal?: AbortSignal };
 
-interface ListResp {
-  propietarios: Propietario[];
-  meta: { count: number; next: string | null; previous: string | null };
+/** Estructura de meta “rica” para paginación */
+export interface PaginationMeta {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  page: number;
+  page_size: number;
+  total_pages: number;
 }
 
+interface ListResp {
+  propietarios: Propietario[];
+  meta: PaginationMeta;
+}
 interface ItemWrapper { propietario: Propietario }
 
 /* -------------------------------------------------------------------------- */
-/*  Helper → traduce estado ☞ query param “archivado”                         */
+/*  Helpers                                                                   */
 /* -------------------------------------------------------------------------- */
+// Traducir estado de UI → query param “archivado”
 const estadoToQuery = (estado: 'activos' | 'archivados' | 'todos') =>
   estado === 'todos' ? undefined : estado === 'activos' ? 'false' : 'true';
 
-/* -------------------------------------------------------------------------- */
-/*  Helper de formato (DRY)                                                   */
-/* -------------------------------------------------------------------------- */
 const toOption = (p: Propietario) => ({
   label: `${p.nombre} ${p.apellidos} – ${p.telefono}`,
   value: p.id,
@@ -41,17 +47,22 @@ export const propietarioService = {
   async list(
     page = 1,
     estado: 'activos' | 'archivados' | 'todos',
-    filters: Record<string, any> = {}
-  ) {
-    const params: Record<string, any> = { page };
+    filters: Record<string, any> = {},
+    config: { signal?: AbortSignal; pageSize?: number } = {}
+  ): Promise<ListResp> {
+    const pageSize = config.pageSize ?? 10;
+    const params: Record<string, any> = { page, page_size: pageSize };
+
     const arch = estadoToQuery(estado);
     if (arch !== undefined) params.archivado = arch;
+
     Object.assign(params, filters);
 
     const { data } = await apiClient.get<{
       success: boolean; message_key: string; data: ListResp;
-    }>('/huerta/propietarios/', { params });
+    }>('/huerta/propietarios/', { params, signal: config.signal });
 
+    // Backend ya devuelve meta con page, page_size, total_pages
     return data.data;
   },
 
@@ -60,16 +71,14 @@ export const propietarioService = {
     search: string,
     config: ReqCfg = {},
     includeArchived = false
-  ) {
-    const params: Record<string, any> = {};
+  ): Promise<ListResp> {
+    const params: Record<string, any> = { page_size: 50 }; // evita truncar en 1ra página
     if (search) params.search = search;
     if (!includeArchived) params.archivado = 'false';
 
     return apiClient
       .get<{
-        success: boolean;
-        message_key: string;
-        data: ListResp;
+        success: boolean; message_key: string; data: ListResp;
       }>('/huerta/propietarios/solo-con-huertas/', {
         params,
         signal: config.signal,
@@ -119,9 +128,7 @@ export const propietarioService = {
   async fetchById(id: string | number, config: ReqCfg = {}): Promise<Propietario | null> {
     try {
       const { data } = await apiClient.get<{
-        success: boolean;
-        message_key: string;
-        data: { propietario: Propietario };
+        success: boolean; message_key: string; data: { propietario: Propietario };
       }>('/huerta/propietarios/buscar/', {
         params: { id },
         signal: config.signal,
@@ -149,13 +156,8 @@ export const propietarioService = {
     if (!includeArchived) params.archivado = 'false';
 
     const { data } = await apiClient.get<{
-      success: boolean;
-      message_key: string;
-      data: { propietarios: Propietario[] };
-    }>('/huerta/propietarios/', {
-      params,
-      signal,
-    });
+      success: boolean; message_key: string; data: { propietarios: Propietario[] };
+    }>('/huerta/propietarios/', { params, signal });
 
     return data.data.propietarios.map(toOption);
   },
@@ -172,13 +174,9 @@ export const propietarioService = {
     if (!includeArchived) params.archivado = 'false';
 
     const { data } = await apiClient.get<{
-      success: boolean;
-      message_key: string;
-      data: { propietarios: Propietario[] };
-    }>('/huerta/propietarios/', {
-      params,
-      signal: config.signal,
-    });
+      success: boolean; message_key: string; data: { propietarios: Propietario[] };
+    }>('/huerta/propietarios/', { params, signal: config.signal });
+
     return data.data.propietarios;
   },
 };

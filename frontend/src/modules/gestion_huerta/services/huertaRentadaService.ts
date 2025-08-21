@@ -33,7 +33,7 @@ export const huertaRentadaService = {
 
     const { data } = await apiClient.get<{
       success: boolean;
-      message_key: string;
+      notification: any;              // 👈
       data: ListRespRaw;
     }>('/huerta/huertas-rentadas/', { params, signal: config.signal });
 
@@ -45,7 +45,7 @@ export const huertaRentadaService = {
   async create(payload: HuertaRentadaCreateData) {
     const { data } = await apiClient.post<{
       success: boolean;
-      message_key: string;
+      notification: any;              // 👈
       data: ItemWrapper;
     }>('/huerta/huertas-rentadas/', payload);
     return data;
@@ -54,7 +54,7 @@ export const huertaRentadaService = {
   async update(id: number, payload: HuertaRentadaUpdateData) {
     const { data } = await apiClient.put<{
       success: boolean;
-      message_key: string;
+      notification: any;              // 👈
       data: ItemWrapper;
     }>(`/huerta/huertas-rentadas/${id}/`, payload);
     return data;
@@ -63,7 +63,7 @@ export const huertaRentadaService = {
   async delete(id: number) {
     const { data } = await apiClient.delete<{
       success: boolean;
-      message_key: string;
+      notification: any;              // 👈
       data: { info: string };
     }>(`/huerta/huertas-rentadas/${id}/`);
     return data;
@@ -72,7 +72,7 @@ export const huertaRentadaService = {
   async archivar(id: number) {
     const { data } = await apiClient.post<{
       success: boolean;
-      message_key: string;
+      notification: any;              // 👈
       data: { huerta_rentada_id: number; affected?: AffectedCounts };
     }>(`/huerta/huertas-rentadas/${id}/archivar/`);
     return data;
@@ -81,9 +81,9 @@ export const huertaRentadaService = {
   async restaurar(id: number) {
     const { data } = await apiClient.post<{
       success: boolean;
-      message_key: string;
+      notification: any;              // 👈
       data: { huerta_rentada_id: number; affected?: AffectedCounts };
-    }>(`/huerta/huertas-rentadas/${id}/restaurar/`);
+    }>(`/huerta/huertas-rentadas/${id}/archivar/`);
     return data;
   },
 

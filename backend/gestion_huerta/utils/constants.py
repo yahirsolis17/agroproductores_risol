@@ -93,6 +93,14 @@ NOTIFICATION_MESSAGES = {
         "type": "error"
     },
 
+    "propietario_campos_invalidos": {
+        "message": "Revisa nombre, apellidos y dirección.",
+        "type": "error"
+    },
+    "propietario_telefono_duplicado": {
+        "message": "Ese teléfono ya está registrado.",
+        "type": "error"
+    },
     # -------------------------------------------------
     # Huertas propias
     # -------------------------------------------------
@@ -708,5 +716,49 @@ NOTIFICATION_MESSAGES = {
     "cosecha_sin_origen": {
         "message": "La cosecha no tiene origen (huerta/huerta rentada) definido.",
         "type": "error"
-    }
+    },
+    
+# --- Propietarios (complementos de validación) ---
+"propietario_campos_invalidos": {
+    "message": "Revisa nombre, apellidos y dirección.",
+    "type": "error"
+},
+"propietario_telefono_duplicado": {
+    "message": "Ese teléfono ya está registrado.",
+    "type": "error"
+},
+
+# --- Huertas propias (complementos de validación/duplicado) ---
+"huerta_campos_invalidos": {
+    "message": "Revisa nombre, ubicación, variedades y hectáreas.",
+    "type": "error"
+},
+"huerta_propietario_archivado": {
+    "message": "No puedes asignar huertas a un propietario archivado.",
+    "type": "error"
+},
+"huerta_duplicada": {
+    "message": "Ya existe una huerta activa con ese nombre y ubicación para el mismo propietario.",
+    "type": "error"
+},
+
+# --- Huertas rentadas (complementos de validación/duplicado) ---
+"huerta_rentada_campos_invalidos": {
+    "message": "Revisa nombre, ubicación, variedades y hectáreas.",
+    "type": "error"
+},
+"huerta_rentada_propietario_archivado": {
+    "message": "No puedes asignar huertas rentadas a un propietario archivado.",
+    "type": "error"
+},
+"huerta_rentada_monto_invalido": {
+    "message": "El monto de la renta debe ser mayor a 0.",
+    "type": "error"
+},
+"huerta_rentada_duplicada": {
+    "message": "Ya existe una huerta rentada activa con ese nombre y ubicación para el mismo propietario.",
+    "type": "error"
+},
+
+
 }

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { propietarioService } from '../../modules/gestion_huerta/services/propietarioService';
+import { propietarioService, PaginationMeta } from '../../modules/gestion_huerta/services/propietarioService';
 import { handleBackendNotification } from '../utils/NotificationEngine';
 import {
   Propietario,
@@ -9,15 +9,9 @@ import {
 } from '../../modules/gestion_huerta/types/propietarioTypes';
 
 /* -------------------------------------------------------------------------- */
-/*  Tipos de filtro y de estado                                               */
+/*  Tipos                                                                      */
 /* -------------------------------------------------------------------------- */
 export type Estado = 'activos' | 'archivados' | 'todos';
-
-interface PaginationMeta {
-  count: number;
-  next: string | null;
-  previous: string | null;
-}
 
 interface PropietarioState {
   list:    Propietario[];
@@ -27,113 +21,135 @@ interface PropietarioState {
   page:    number;
   estado:  Estado;
   meta:    PaginationMeta;
-  // Cambiar filters a objeto plano
-  filters: { [key: string]: any };
+  filters: Record<string, any>;
 }
 
 const initialState: PropietarioState = {
-  list: [],
+  list:    [],
   loading: false,
-  error: null,
-  loaded: false,
-  page: 1,
-  estado: 'activos',
-  meta: { count: 0, next: null, previous: null },
+  error:   null,
+  loaded:  false,
+  page:    1,
+  estado:  'activos',
+  meta:    { count: 0, next: null, previous: null, page: 1, page_size: 10, total_pages: 1 },
   filters: {},
 };
 
 /* -------------------------------------------------------------------------- */
-/*  THUNKS – una única fuente de verdad para IO                               */
+/*  THUNKS                                                                     */
 /* -------------------------------------------------------------------------- */
-export const fetchPropietarios = createAsyncThunk(
+type FetchParams = { page: number; estado: Estado } & Record<string, any>;
+
+export const fetchPropietarios = createAsyncThunk<
+  { propietarios: Propietario[]; meta: PaginationMeta },
+  FetchParams,
+  { rejectValue: string }
+>(
   'propietarios/fetch',
-  async (params: any) => {
-    // params ya es { page, estado, id, ... }
-    const { page, estado, ...filters } = params;
-    if (import.meta.env.DEV) {
-      console.log('[Redux] fetchPropietarios thunk ejecutado:', { page, estado, ...filters });
+  async (params, thunkAPI) => {
+    try {
+      const { page, estado, ...filters } = params;
+      const { signal } = thunkAPI;
+      return await propietarioService.list(page, estado, filters, { signal });
+    } catch (err: any) {
+      handleBackendNotification(err?.response?.data);
+      return thunkAPI.rejectWithValue('Error al cargar propietarios');
     }
-    return await propietarioService.list(page, estado, filters);
   }
 );
 
-
-
-export const createPropietario = createAsyncThunk(
+export const createPropietario = createAsyncThunk<
+  Propietario,
+  PropietarioCreateData,
+  { rejectValue: string }
+>(
   'propietarios/create',
-  async (payload: PropietarioCreateData, { rejectWithValue }) => {
+  async (payload, { rejectWithValue }) => {
     try {
       const res = await propietarioService.create(payload);
       handleBackendNotification(res);
       return res.data.propietario as Propietario;
     } catch (err: any) {
-      handleBackendNotification(err.response?.data);
-      return rejectWithValue(err.response?.data);
+      handleBackendNotification(err?.response?.data);
+      return rejectWithValue('Error al crear propietario');
     }
   }
 );
 
-export const updatePropietario = createAsyncThunk(
+export const updatePropietario = createAsyncThunk<
+  Propietario,
+  { id: number; payload: PropietarioUpdateData },
+  { rejectValue: string }
+>(
   'propietarios/update',
-  async (
-    { id, payload }: { id: number; payload: PropietarioUpdateData },
-    { rejectWithValue }
-  ) => {
+  async ({ id, payload }, { rejectWithValue }) => {
     try {
       const res = await propietarioService.update(id, payload);
       handleBackendNotification(res);
       return res.data.propietario as Propietario;
     } catch (err: any) {
-      handleBackendNotification(err.response?.data);
-      return rejectWithValue(err.response?.data);
+      handleBackendNotification(err?.response?.data);
+      return rejectWithValue('Error al actualizar propietario');
     }
   }
 );
 
-export const archivePropietario = createAsyncThunk(
+export const archivePropietario = createAsyncThunk<
+  Propietario,
+  number,
+  { rejectValue: string }
+>(
   'propietarios/archive',
-  async (id: number, { rejectWithValue }) => {
+  async (id, { rejectWithValue }) => {
     try {
       const res = await propietarioService.archive(id);
       handleBackendNotification(res);
-      return res.data.propietario as Propietario;      // retorna el objeto ya archivado
+      return res.data.propietario as Propietario; // Objeto ya archivado
     } catch (err: any) {
-      handleBackendNotification(err.response?.data);
-      return rejectWithValue(err.response?.data);
+      handleBackendNotification(err?.response?.data);
+      return rejectWithValue('Error al archivar propietario');
     }
   }
 );
 
-export const restorePropietario = createAsyncThunk(
+export const restorePropietario = createAsyncThunk<
+  Propietario,
+  number,
+  { rejectValue: string }
+>(
   'propietarios/restore',
-  async (id: number, { rejectWithValue }) => {
+  async (id, { rejectWithValue }) => {
     try {
       const res = await propietarioService.restore(id);
       handleBackendNotification(res);
-      return res.data.propietario as Propietario;      // retorna el objeto restaurado
+      return res.data.propietario as Propietario; // Objeto restaurado
     } catch (err: any) {
-      handleBackendNotification(err.response?.data);
-      return rejectWithValue(err.response?.data);
+      handleBackendNotification(err?.response?.data);
+      return rejectWithValue('Error al restaurar propietario');
     }
   }
 );
 
-export const deletePropietario = createAsyncThunk(
+export const deletePropietario = createAsyncThunk<
+  number,
+  number,
+  { rejectValue: string }
+>(
   'propietarios/delete',
-  async (id: number, { rejectWithValue }) => {
+  async (id, { rejectWithValue }) => {
     try {
       const res = await propietarioService.delete(id);
       handleBackendNotification(res);
       return id;
     } catch (err: any) {
-      handleBackendNotification(err.response?.data);
-      return rejectWithValue(err.response?.data);
+      handleBackendNotification(err?.response?.data);
+      return rejectWithValue('Error al eliminar propietario');
     }
   }
 );
 
 /* -------------------------------------------------------------------------- */
-/*  SLICE                                                                     */
+/*  SLICE                                                                      */
 /* -------------------------------------------------------------------------- */
 const propietariosSlice = createSlice({
   name: 'propietarios',
@@ -141,15 +157,10 @@ const propietariosSlice = createSlice({
   reducers: {
     setPage:   (s, a: PayloadAction<number>) => { s.page = a.payload; },
     setEstado: (s, a: PayloadAction<Estado>) => { s.estado = a.payload; s.page = 1; },
-setFilters: (s, a: PayloadAction<{ [key: string]: any }>) => {
-  if (import.meta.env.DEV) {
-    console.log('[Redux] setFilters reducer ejecutado. Payload:', a.payload);
-  }
-  // Forzar nueva referencia
-  s.filters = { ...a.payload };
-  s.page = 1;
-},
-
+    setFilters:(s, a: PayloadAction<Record<string, any>>) => {
+      s.filters = { ...a.payload }; // nueva referencia para memoizar
+      s.page = 1;
+    },
   },
   extraReducers: (b) => {
     /* -------- fetch -------- */
@@ -160,15 +171,15 @@ setFilters: (s, a: PayloadAction<{ [key: string]: any }>) => {
       s.loading = false;
       s.loaded  = true;
     });
-    b.addCase(fetchPropietarios.rejected, (s,{error})=>{
+    b.addCase(fetchPropietarios.rejected, (s,{payload, error})=>{
       s.loading = false;
-      s.error   = error.message ?? 'Error al cargar';
       s.loaded  = true;
+      s.error   = (payload as string) ?? error.message ?? 'Error';
     });
 
     /* -------- create / update -------- */
     b.addCase(createPropietario.fulfilled,(s,{payload})=>{
-      if (s.estado === 'activos') s.list.unshift(payload);          // optimista
+      if (s.estado === 'activos') s.list.unshift(payload);
       s.meta.count += 1;
     });
     b.addCase(updatePropietario.fulfilled,(s,{payload})=>{
@@ -178,11 +189,9 @@ setFilters: (s, a: PayloadAction<{ [key: string]: any }>) => {
 
     /* -------- archive / restore -------- */
     b.addCase(archivePropietario.fulfilled,(s,{payload})=>{
-      /* elimina de activos inmediato para UX */
       if (s.estado === 'activos') {
         s.list = s.list.filter(p => p.id !== payload.id);
-      } else if (s.estado !== 'archivados') {
-        // estado === todos → solo actualizo
+      } else {
         const i = s.list.findIndex(p=>p.id===payload.id);
         if (i !== -1) s.list[i] = payload;
       }
@@ -190,7 +199,7 @@ setFilters: (s, a: PayloadAction<{ [key: string]: any }>) => {
     b.addCase(restorePropietario.fulfilled,(s,{payload})=>{
       if (s.estado === 'archivados') {
         s.list = s.list.filter(p => p.id !== payload.id);
-      } else if (s.estado !== 'activos') {
+      } else {
         const i = s.list.findIndex(p=>p.id===payload.id);
         if (i !== -1) s.list[i] = payload;
       }

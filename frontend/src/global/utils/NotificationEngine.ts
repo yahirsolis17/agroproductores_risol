@@ -2,16 +2,30 @@ import { toast } from 'react-toastify';
 
 const SILENT_NOTIFICATION_KEYS = ['no_notification', 'silent_response', 'data_processed_success'];
 
+// ⛔ Claves que NO deben provocar redirect automático
+const REDIRECT_BLOCKLIST = new Set(['login_success', 'password_change_success']);
+
 export function handleBackendNotification(response: any) {
   const notif = response?.notification;
-
   if (!notif) return;
 
-  const { type = 'info', message = 'Operación completada.', key } = notif;
+  const { type = 'info', message = 'Operación completada.', key, action, target } = notif;
 
-  // ⛔ No mostrar toast si la clave está en la lista de silenciosas
-  if (key && SILENT_NOTIFICATION_KEYS.includes(key)) return;
+  // Notificaciones silenciosas (no toast)
+  if (key && SILENT_NOTIFICATION_KEYS.includes(key)) {
+    // Aun si es silenciosa, respetamos redirect salvo que esté bloqueado
+    if (
+      action === 'redirect' &&
+      typeof target === 'string' &&
+      target &&
+      !REDIRECT_BLOCKLIST.has(key || '')
+    ) {
+      window.location.assign(target);
+    }
+    return;
+  }
 
+  // Toasts
   switch (type) {
     case 'success':
       toast.success(message);
@@ -27,8 +41,17 @@ export function handleBackendNotification(response: any) {
       toast.info(message);
   }
 
-  // Log para debugging (solo en desarrollo)
+  // Redirect si aplica y NO está bloqueado por política
+  if (
+    action === 'redirect' &&
+    typeof target === 'string' &&
+    target &&
+    !REDIRECT_BLOCKLIST.has(key || '')
+  ) {
+    window.location.assign(target);
+  }
+
   if (import.meta.env.DEV) {
-    console.log(`[Notificación: ${key}]`, message);
+    console.log(`[Notificación: ${key}]`, message, action ? `action=${action}` : '');
   }
 }

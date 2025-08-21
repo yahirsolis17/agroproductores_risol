@@ -49,21 +49,22 @@ def _map_temporada_validation_errors(errors: dict) -> tuple[str, dict]:
         txt = msg.strip()
         if txt in ("Debe asignar una huerta o una huerta rentada.",
                    "Debe asignar una huerta propia o rentada."):
-            return "temporada_origen_requerido", {"errors": errors}
+            return "temporada_sin_origen", {"errors": errors}
         if txt in ("No puede asignar ambas huertas al mismo tiempo.",
                    "No puede asignar ambas huertas a la vez."):
-            return "temporada_origen_exclusivo", {"errors": errors}
+            return "temporada_con_dos_origenes", {"errors": errors}
         if txt == "El año debe estar entre 2000 y el año siguiente al actual.":
-            return "temporada_año_fuera_de_rango", {"errors": errors}
+            return "validation_error", {"errors": errors}
         if txt in ("Ya existe una temporada para esta huerta en ese año.",
                    "Ya existe una temporada para esta huerta rentada en ese año."):
             return "temporada_duplicada", {"errors": errors}
         if txt == "No se puede crear/editar temporada en una huerta archivada.":
-            return "temporada_huerta_archivada", {"errors": errors}
+            return "huerta_archivada_temporada", {"errors": errors}
         if txt == "No se puede crear/editar temporada en una huerta rentada archivada.":
-            return "temporada_huerta_rentada_archivada", {"errors": errors}
+            return "huerta_rentada_archivada", {"errors": errors}
 
     return "temporada_campos_invalidos", {"errors": errors}
+
 
 
 def _has_perm(user, codename: str) -> bool:

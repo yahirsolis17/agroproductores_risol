@@ -1,4 +1,3 @@
-// src/global/api/apiClient.ts
 import axios from 'axios';
 import authService from '../../modules/gestion_usuarios/services/authService';
 
@@ -45,8 +44,12 @@ apiClient.interceptors.response.use(
         });
 
         const newAccess = res.data.access;
+
+        // Persistir y propagar el nuevo access token
         localStorage.setItem('accessToken', newAccess);
+        apiClient.defaults.headers.common['Authorization'] = `Bearer ${newAccess}`;
         originalRequest.headers.Authorization = `Bearer ${newAccess}`;
+
         return apiClient(originalRequest);
       } catch (refreshError) {
         forceLogout();

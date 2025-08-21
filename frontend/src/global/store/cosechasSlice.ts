@@ -8,7 +8,10 @@ interface PaginationMeta {
   count: number;
   next: string | null;
   previous: string | null;
-  total_registradas?: number; // 👈 NUEVO
+  total_registradas?: number;
+  page?: number;         // opcional
+  page_size?: number;    // opcional
+  total_pages?: number;  // opcional
 }
 
 interface CosechasState {

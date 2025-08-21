@@ -23,19 +23,26 @@ const schema = Yup.object({
 const CosechaFormModal: React.FC<Props> = ({ open, onClose, cosecha, onSubmit }) => (
   <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
     <DialogTitle>Renombrar cosecha</DialogTitle>
-    <Formik
-      initialValues={{ nombre: cosecha?.nombre || '' }}
-      validationSchema={schema}
-      onSubmit={async (vals, { setSubmitting }) => {
-        try {
-          await onSubmit(vals.nombre.trim());
-        } finally {
-          setSubmitting(false);
-          onClose();
-        }
-      }}
-      enableReinitialize
-    >
+      <Formik
+        initialValues={{ nombre: cosecha?.nombre || '' }}
+        validationSchema={schema}
+        onSubmit={async (vals, { setSubmitting, setErrors }) => {
+          try {
+            await onSubmit(vals.nombre.trim()); // ← si esto lanza, NO cerramos
+            onClose();                          // ← cerrar SOLO en éxito
+          } catch (err: any) {
+            const be = err?.response?.data || err?.data || {};
+            const beErrors = be?.errors || be?.data?.errors || {};
+            if (typeof beErrors?.nombre === 'string') {
+              setErrors({ nombre: beErrors.nombre });
+            }
+            // opcional: manejar non_field_errors
+          } finally {
+            setSubmitting(false);
+          }
+        }}
+        enableReinitialize
+      >
       {({ values, errors, handleChange, isSubmitting }) => (
         <Form>
           <DialogContent dividers>

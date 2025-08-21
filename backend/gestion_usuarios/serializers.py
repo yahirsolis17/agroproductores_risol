@@ -92,7 +92,7 @@ class CustomUserCreationSerializer(serializers.ModelSerializer):
 
 
 class UsuarioSerializer(serializers.ModelSerializer):
-    full_name = serializers.ReadOnlyField()
+    full_name = serializers.ReadOnlyField(source='get_full_name')
     is_admin  = serializers.ReadOnlyField()
     role      = serializers.CharField(read_only=True)
     archivado_en = serializers.DateTimeField(read_only=True)

@@ -74,19 +74,25 @@ export const inversionService = {
     return data;
   },
 
+  // src/modules/gestion_huerta/services/inversionService.ts
   async update(id: number, payload: InversionHuertaUpdateData) {
-    const body: any = { ...payload };
-    if (typeof payload.categoria === 'number') {
-      body.categoria = undefined;
-      body.categoria_id = payload.categoria;
+    const body: Record<string, any> = { ...payload };
+
+    // 👉 Si viene 'categoria', enviamos 'categoria_id' y eliminamos 'categoria'
+    if ('categoria' in body) {
+      body.categoria_id = body.categoria;
+      delete body.categoria;
     }
+
     const { data } = await apiClient.patch<{
       success: boolean;
       notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
       data: { inversion: InversionHuerta };
     }>(`/huerta/inversiones/${id}/`, body);
+
     return data;
   },
+
 
   async archivar(id: number) {
     const { data } = await apiClient.post<{

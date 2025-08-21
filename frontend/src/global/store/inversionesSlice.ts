@@ -252,8 +252,10 @@ const inversionesSlice = createSlice({
        s.loaded = true;
      })
      .addCase(createInversion.fulfilled, (s, { payload }) => {
-       s.list.unshift(payload);
-       s.meta.count += 1;
+       if ((s.filters.estado ?? 'activas') !== 'archivadas') {
+         s.list.unshift(payload);
+         s.meta.count += 1;
+       }
      })
      .addCase(updateInversion.fulfilled, (s, { payload }) => {
        const i = s.list.findIndex(inv => inv.id === payload.id);

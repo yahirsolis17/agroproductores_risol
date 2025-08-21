@@ -125,7 +125,7 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
                     pass
             self.required_permissions = required
         else:
-            self.required_permissions = self._perm_map.get(self.action, [])
+            self.required_permissions = self._perm_map.get(self.action, ["view_cosecha"])
         return [p() for p in self.permission_classes]
 
     # 🔎 Búsqueda por nombre
@@ -191,6 +191,9 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
                         "count": self.paginator.page.paginator.count,
                         "next": self.paginator.get_next_link(),
                         "previous": self.paginator.get_previous_link(),
+                        "page": self.paginator.page.number,
+                        "page_size": self.paginator.get_page_size(request),
+                        "total_pages": self.paginator.page.paginator.num_pages,
                         "total_registradas": total_registradas,
                     }
                 }

@@ -102,7 +102,8 @@ const PropietarioTable: React.FC<Props> = ({
             onArchiveOrRestore={() => onArchiveOrRestore(p.id, isArch)}
             onDelete={() => onDelete(p.id)}
             permEdit="change_propietario"
-            permArchiveOrRestore="archive_propietario"
+            // ⬇️ antes estaba fijo en "archive_propietario"
+            permArchiveOrRestore={isArch ? 'restore_propietario' : 'archive_propietario'}
             permDelete="delete_propietario"
           />
         );

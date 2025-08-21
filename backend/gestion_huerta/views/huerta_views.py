@@ -142,6 +142,9 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
                     "count": self.paginator.page.paginator.count,
                     "next": self.paginator.get_next_link(),
                     "previous": self.paginator.get_previous_link(),
+                    "page": self.paginator.page.number,                
+                    "page_size": self.paginator.get_page_size(self.request),
+                    "total_pages": self.paginator.page.paginator.num_pages,
                 }
             }
         )
@@ -765,7 +768,6 @@ class HuertasCombinadasViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Ge
         IsAuthenticated,
         HasModulePermission,
     ]
-    # Para listar combinadas basta con tener permiso de ver cualquiera de las dos
     _perm_map = {
         "listar_combinadas": ["view_huerta", "view_huertarentada"],
     }
@@ -810,24 +812,29 @@ class HuertasCombinadasViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Ge
             combined.extend([('propia', pk) for pk in qs_p.values_list('id', flat=True)])
         if tipo in ("", "rentada"):
             combined.extend([('rentada', pk) for pk in qs_r.values_list('id', flat=True)])
-
         ordered = exact + combined
-
         paginator = self.pagination_class()
         page_ids = paginator.paginate_queryset(ordered, request)
-
+        ids_p = [pk for t, pk in page_ids if t == 'propia']
+        ids_r = [pk for t, pk in page_ids if t == 'rentada']
+        map_p = {o.id: o for o in Huerta.objects.select_related('propietario').filter(id__in=ids_p)}
+        map_r = {o.id: o for o in HuertaRentada.objects.select_related('propietario').filter(id__in=ids_r)}
         page_data = []
         for t, pk in page_ids:
             if t == 'propia':
-                obj = Huerta.objects.get(pk=pk)
+                obj = map_p.get(pk)
+                if not obj:
+                    continue
                 d = HuertaSerializer(obj).data
                 d['tipo'] = 'propia'
             else:
-                obj = HuertaRentada.objects.get(pk=pk)
+                obj = map_r.get(pk)
+                if not obj:
+                    continue
                 d = HuertaRentadaSerializer(obj).data
                 d['tipo'] = 'rentada'
             page_data.append(d)
-
+            
         return self.notify(
             key="data_processed_success",
             data={
@@ -836,10 +843,10 @@ class HuertasCombinadasViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Ge
                     "next": paginator.get_next_link(),
                     "previous": paginator.get_previous_link(),
                     "page": paginator.page.number,
-                    "page_size": paginator.get_page_size(request),   # <- usar request local
+                    "page_size": paginator.get_page_size(request),
                     "total_pages": paginator.page.paginator.num_pages,
                 },
                 "results": page_data,
-                "huertas": page_data  # alias compat
+                "huertas": page_data
             }
         )

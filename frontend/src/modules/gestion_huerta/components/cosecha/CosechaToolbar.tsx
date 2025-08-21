@@ -13,7 +13,10 @@ interface Props {
   totalCount: number;
   activeFiltersCount: number;
   onClearFilters: () => void;
+  finalizadaValue?: 'todas' | 'true' | 'false';
+  onFinalizadaChange?: (v: 'todas' | 'true' | 'false') => void;
 }
+
 
 const CosechaToolbar: React.FC<Props> = ({
   searchValue,

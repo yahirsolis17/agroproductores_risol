@@ -9,6 +9,7 @@ import * as Yup from 'yup';
 import { CategoriaInversion } from '../../types/categoriaInversionTypes';
 import useCategoriasInversion from '../../hooks/useCategoriasInversion';
 import { handleBackendNotification } from '../../../../global/utils/NotificationEngine';
+import {PermissionButton} from '../../../../components/common/PermissionButton';
 
 interface Props {
   open: boolean;
@@ -86,9 +87,14 @@ const CategoriaInversionEditModal: React.FC<Props> = ({ open, categoria, onClose
             </DialogContent>
             <DialogActions>
               <Button onClick={onClose} disabled={isSubmitting}>Cancelar</Button>
-              <Button variant="contained" disabled={isSubmitting} onClick={submitForm}>
-                {isSubmitting ? <CircularProgress size={20} /> : 'Guardar'}
-              </Button>
+                <PermissionButton
+                  variant="contained"
+                  disabled={isSubmitting}
+                  onClick={submitForm}
+                  perm="change_categoriainversion"
+                >
+                  {isSubmitting ? <CircularProgress size={20} /> : 'Guardar'}
+                </PermissionButton>
             </DialogActions>
           </Form>
         )}
