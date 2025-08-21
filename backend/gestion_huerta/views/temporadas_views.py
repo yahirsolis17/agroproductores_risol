@@ -243,7 +243,6 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
             return self.notify(key=key, data=payload, status_code=status.HTTP_400_BAD_REQUEST)
 
         self.perform_create(ser)
-        registrar_actividad(request.user, f"Creó temporada {ser.data.get('año')}")
         return self.notify(
             key="temporada_create_success",
             data={"temporada": ser.data},
@@ -276,7 +275,6 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
             return self.notify(key=key, data=payload, status_code=status.HTTP_400_BAD_REQUEST)
 
         self.perform_update(ser)
-        registrar_actividad(request.user, f"Actualizó temporada {ser.data.get('año')}")
         return self.notify(key="temporada_update_success", data={"temporada": ser.data})
 
     # ------------------------------- DELETE ---------------------------------
@@ -296,7 +294,6 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
             )
         año = temp.año
         self.perform_destroy(temp)
-        registrar_actividad(request.user, f"Eliminó temporada {año}")
         return self.notify(key="temporada_delete_success", data={"info": f"Temporada {año} eliminada."})
 
     # ----------------------------- FINALIZAR (toggle) -----------------------
@@ -322,13 +319,15 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
 
         if not temp.finalizada:
             temp.finalizar()
-            registrar_actividad(request.user, f"Finalizó la temporada {temp.año}")
+            origen = temp.huerta or temp.huerta_rentada
+            registrar_actividad(request.user, f"Finalizó la temporada {temp.año} de {origen}")
             key = "temporada_finalizada"
         else:
             temp.finalizada = False
             temp.fecha_fin  = None
             temp.save(update_fields=["finalizada", "fecha_fin"])
-            registrar_actividad(request.user, f"Reactivó la temporada {temp.año}")
+            origen = temp.huerta or temp.huerta_rentada
+            registrar_actividad(request.user, f"Reactivó la temporada {temp.año} de {origen}")
             key = "temporada_reactivada"
 
         return self.notify(key=key, data={"temporada": self.get_serializer(temp).data})
@@ -359,7 +358,8 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        registrar_actividad(request.user, f"Archivó la temporada {temp.año}")
+        origen = temp.huerta or temp.huerta_rentada
+        registrar_actividad(request.user, f"Archivó la temporada {temp.año} de {origen}")
         return self.notify(
             key="temporada_archivada",
             data={"temporada": self.get_serializer(temp).data, "affected": affected}
@@ -406,7 +406,8 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        registrar_actividad(request.user, f"Restauró la temporada {temp.año}")
+        origen = temp.huerta or temp.huerta_rentada
+        registrar_actividad(request.user, f"Restauró la temporada {temp.año} de {origen}")
         return self.notify(
             key="temporada_restaurada",
             data={"temporada": self.get_serializer(temp).data, "affected": affected}

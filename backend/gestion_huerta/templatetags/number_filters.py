@@ -4,7 +4,10 @@ from num2words import num2words
 
 register = template.Library()
 
-locale.setlocale(locale.LC_ALL, 'es_MX.UTF-8')
+try:
+    locale.setlocale(locale.LC_ALL, 'es_MX.UTF-8')
+except locale.Error:
+    pass
 
 @register.filter
 def custom_floatformat(value):

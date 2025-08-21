@@ -2,13 +2,11 @@ from gestion_usuarios.utils.activity import registrar_actividad
 
 
 class ViewSetAuditMixin:
-    """
-    Añade auditoría automática a los métodos *create* / *update* / *destroy*
+    """Añade auditoría automática a los métodos *create* / *update* / *destroy*
     de cualquier `ModelViewSet`.
 
-    • Registra IP y User-Agent.  
-    • Permite personalizar los textos con los atributos
-      `audit_create_fmt`, `audit_update_fmt`, `audit_delete_fmt`.
+    Permite personalizar los textos con los atributos
+    `audit_create_fmt`, `audit_update_fmt`, `audit_delete_fmt`.
     """
 
     # Textos por defecto ── usa `{obj}` como placeholder.
@@ -22,7 +20,6 @@ class ViewSetAuditMixin:
             usuario=self.request.user,
             accion=fmt.format(obj=obj),
             detalles=detalles,
-            ip=self.request.META.get("REMOTE_ADDR"),
         )
 
     # ───────── hooks de DRF ─────────
@@ -43,12 +40,15 @@ class ViewSetAuditMixin:
         post = {f: getattr(instance, f) for f in serializer.validated_data.keys()}
 
         # 4) Construir lista de cambios
+        def _repr(val):
+            return str(val)
+
         diffs = []
         for field, old in prev.items():
             new = post[field]
             if old != new:
-                diffs.append(f"{field}: '{old}' → '{new}'")
-        detalles = "; ".join(diffs) if diffs else None
+                diffs.append(f"• {field}: '{_repr(old)}' → '{_repr(new)}'")
+        detalles = "\n".join(diffs) if diffs else None
 
         # 5) Registrar con detalles
         self._audit_msg(self.audit_update_fmt, str(instance), detalles=detalles)

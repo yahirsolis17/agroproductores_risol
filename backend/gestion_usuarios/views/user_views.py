@@ -161,7 +161,7 @@ class RegistroActividadViewSet(viewsets.ModelViewSet):
     queryset = RegistroActividad.objects.all()
     serializer_class = RegistroActividadSerializer
     filter_backends = [filters.OrderingFilter, filters.SearchFilter]
-    search_fields = ["accion", "detalles", "ip", "usuario__telefono"]
+    search_fields = ["accion", "detalles", "usuario__telefono"]
     ordering_fields = ["fecha_hora"]
     ordering = ["-fecha_hora"]
     permission_classes = [IsAuthenticated, IsAdmin]
@@ -322,7 +322,7 @@ class UsuarioViewSet(ModelViewSet):
             permisos = [found_map[c][0] for c in plains]
             user_obj.user_permissions.set(permisos)
 
-        registrar_actividad(request.user, f"Actualizó permisos de usuario {user_obj.id}")
+        registrar_actividad(request.user, f"Actualizó permisos del usuario {user_obj}")
 
         return NotificationHandler.generate_response(
             message_key="permission_update_success",
@@ -347,7 +347,7 @@ class UsuarioViewSet(ModelViewSet):
             )
 
         user.archivar()
-        registrar_actividad(request.user, f"Archivó usuario {user.id}")
+        registrar_actividad(request.user, f"Archivó al usuario {user}")
 
         return NotificationHandler.generate_response(
             message_key="usuario_archivado",
@@ -372,7 +372,7 @@ class UsuarioViewSet(ModelViewSet):
             )
 
         user.desarchivar()
-        registrar_actividad(request.user, f"Restauró usuario {user.id}")
+        registrar_actividad(request.user, f"Restauró al usuario {user}")
 
         return NotificationHandler.generate_response(
             message_key="usuario_restaurado",
@@ -390,7 +390,7 @@ class UsuarioViewSet(ModelViewSet):
             )
 
         user = serializer.save()
-        registrar_actividad(request.user, f"Registró al usuario: {user.telefono}")
+        registrar_actividad(request.user, f"Registró al usuario {user.telefono}")
 
         return NotificationHandler.generate_response(
             message_key="register_success",
@@ -438,7 +438,7 @@ class UsuarioViewSet(ModelViewSet):
             )
 
         self.perform_destroy(instance)
-        registrar_actividad(request.user, f"Eliminó usuario {instance.id}")
+        registrar_actividad(request.user, f"Eliminó al usuario {instance}")
 
         return NotificationHandler.generate_response(message_key="delete_success")
 

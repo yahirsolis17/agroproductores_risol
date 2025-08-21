@@ -226,7 +226,7 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
         propietario.archivar()
-        registrar_actividad(request.user, f"Archivó al propietario: {propietario.nombre}")
+        registrar_actividad(request.user, f"Archivó al propietario {propietario}")
         return self.notify(
             key="propietario_archivado",
             data={"propietario": self.get_serializer(propietario).data},
@@ -248,7 +248,7 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
         propietario.desarchivar()
-        registrar_actividad(request.user, f"Restauró al propietario: {propietario.nombre}")
+        registrar_actividad(request.user, f"Restauró al propietario {propietario}")
         return self.notify(
             key="propietario_restaurado",
             data={"propietario": self.get_serializer(propietario).data},
@@ -492,7 +492,7 @@ class HuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
 
         with transaction.atomic():
             counts = instance.archivar()
-            registrar_actividad(request.user, f"Archivó la huerta: {instance.nombre}")
+            registrar_actividad(request.user, f"Archivó la huerta {instance}")
 
         return self.notify(
             key="huerta_archivada",
@@ -514,7 +514,7 @@ class HuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
         try:
             with transaction.atomic():
                 counts = instance.desarchivar()
-                registrar_actividad(request.user, f"Restauró la huerta: {instance.nombre}")
+                registrar_actividad(request.user, f"Restauró la huerta {instance}")
         except ValueError as e:
             # Conflicto de unicidad u otra política de negocio
             code = str(e)
@@ -692,7 +692,7 @@ class HuertaRentadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelV
 
         with transaction.atomic():
             counts = instance.archivar()
-            registrar_actividad(request.user, f"Archivó la huerta rentada: {instance.nombre}")
+            registrar_actividad(request.user, f"Archivó la huerta rentada {instance}")
 
         return self.notify(key="huerta_archivada", data={"huerta_rentada_id": instance.id, "affected": counts})
 
@@ -711,7 +711,7 @@ class HuertaRentadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelV
         try:
             with transaction.atomic():
                 counts = instance.desarchivar()
-                registrar_actividad(request.user, f"Restauró la huerta rentada: {instance.nombre}")
+                registrar_actividad(request.user, f"Restauró la huerta rentada {instance}")
         except ValueError as e:
             code = str(e)
             if code == "conflicto_unicidad_al_restaurar":
