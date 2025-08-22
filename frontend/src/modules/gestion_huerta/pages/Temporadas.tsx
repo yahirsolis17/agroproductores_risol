@@ -335,7 +335,12 @@ const Temporadas: React.FC = () => {
   };
 
   const handleReporteTemporada = (t: Temporada) => {
-    navigate(`/reporte-temporada/${t.id}?huerta_id=${huertaId}&año=${t.año}&huerta_nombre=${encodeURIComponent(displayHuertaNombre || '')}&tipo=${tipo || ''}&propietario=${encodeURIComponent(displayPropietario || '')}`);
+    const params = new URLSearchParams({ año: String(t.año) });
+    if (huertaId) params.set('huerta_id', String(huertaId));
+    if (displayHuertaNombre) params.set('huerta_nombre', displayHuertaNombre);
+    if (tipo) params.set('tipo', tipo);
+    if (displayPropietario) params.set('propietario', displayPropietario);
+    navigate(`/reportes/temporada/${t.id}?${params.toString()}`);
   };
 
   // Limpiar todos los filtros (excepto estado)
