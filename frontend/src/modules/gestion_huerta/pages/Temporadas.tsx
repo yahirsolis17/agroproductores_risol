@@ -334,6 +334,10 @@ const Temporadas: React.FC = () => {
     navigate(`/cosechas?${params.toString()}`);
   };
 
+  const handleReporteTemporada = (t: Temporada) => {
+    navigate(`/reporte-temporada/${t.id}?huerta_id=${huertaId}&año=${t.año}&huerta_nombre=${encodeURIComponent(displayHuertaNombre || '')}&tipo=${tipo || ''}&propietario=${encodeURIComponent(displayPropietario || '')}`);
+  };
+
   // Limpiar todos los filtros (excepto estado)
   const handleClearFilters = () => {
     setSearch('');
@@ -427,6 +431,7 @@ const Temporadas: React.FC = () => {
             emptyMessage={emptyMsg}
             loading={loading}
             onCosechas={handleCosechas}
+            onReporteTemporada={handleReporteTemporada}
           />
         )}
 

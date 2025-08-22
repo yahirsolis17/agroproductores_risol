@@ -151,7 +151,7 @@ export const breadcrumbRoutes = {
     huertaId: number,
     huertaName: string,
     año: number,
-    temporadaId: number,
+    _temporadaId: number,
     opts?: { tipo?: 'propia' | 'rentada'; propietario?: string }
   ): Crumb[] => [
     {

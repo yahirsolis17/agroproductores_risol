@@ -12,7 +12,6 @@ import {
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
-  Download as DownloadIcon,
   PictureAsPdf as PdfIcon,
   TableChart as ExcelIcon,
   DataObject as JsonIcon,

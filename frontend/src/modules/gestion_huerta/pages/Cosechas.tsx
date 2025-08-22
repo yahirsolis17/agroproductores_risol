@@ -230,6 +230,12 @@ useEffect(() => {
     navigate(`/finanzas/${temporadaId}/${c.id}`);
   };
 
+  // Navegar a Reporte de Cosecha
+  const handleReporteCosecha = (c: Cosecha) => {
+    if (!tempInfo) return;
+    navigate(`/reporte-cosecha/${c.id}?temporada_id=${temporadaId}&huerta_id=${tempInfo.huerta_id}&año=${tempInfo.año}&huerta_nombre=${encodeURIComponent(tempInfo.huerta_nombre || '')}`);
+  };
+
   const clearFilters = () => {
     setSearch('');
     setEstado('activas');
@@ -301,6 +307,7 @@ useEffect(() => {
           onRestore={handleRestore}
           onToggleFinalizada={handleToggleFinal}
           onVerFinanzas={handleVerFinanzas}
+          onReporteCosecha={handleReporteCosecha}
           emptyMessage={emptyMessage}
           loading={loading}   // 👈 deja que la tabla muestre el overlay; sin pantallazos
         />

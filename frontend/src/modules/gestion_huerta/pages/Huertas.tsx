@@ -281,6 +281,7 @@ const Huertas: React.FC = () => {
             onArchive={h => handleArchiveOrRestore(h, false)}
             onRestore={h => handleArchiveOrRestore(h, true)}
             onTemporadas={h => navigate(`/temporadas?huerta_id=${h.id}&tipo=${isRentada(h) ? 'rentada' : 'propia'}`)}
+            onReporteHuerta={h => navigate(`/reporte-huerta-perfil/${h.id}?tipo=${isRentada(h) ? 'rentada' : 'propia'}&huerta_nombre=${encodeURIComponent(h.nombre || '')}`)}
           />
         </Box>
 
