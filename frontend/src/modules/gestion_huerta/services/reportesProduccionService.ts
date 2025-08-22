@@ -1,34 +1,13 @@
 // frontend/src/modules/gestion_huerta/services/reportesProduccionService.ts
 import apiClient from '../../../global/api/apiClient';
+import {
+  ReporteCosechaRequest,
+  ReporteTemporadaRequest,
+  ReportePerfilHuertaRequest,
+  ReporteProduccionResponse
+} from '../types/reportesProduccionTypes';
 
 const BASE = '/huerta/reportes-produccion';
-
-export type FormatoReporte = 'json' | 'pdf' | 'excel';
-
-export interface ReporteProduccionRequest {
-  formato: FormatoReporte;
-  fecha_inicio?: string;
-  fecha_fin?: string;
-}
-
-export interface ReporteCosechaRequest extends ReporteProduccionRequest {
-  cosecha_id: number;
-}
-
-export interface ReporteTemporadaRequest extends ReporteProduccionRequest {
-  temporada_id: number;
-}
-
-export interface ReportePerfilHuertaRequest extends ReporteProduccionRequest {
-  huerta_id: number;
-}
-
-export interface ReporteProduccionResponse {
-  success: boolean;
-  data?: any;
-  message?: string;
-  errors?: Record<string, string[]>;
-}
 
 const handleResponse = async (response: Response): Promise<ReporteProduccionResponse> => {
   const contentType = response.headers.get('content-type');

@@ -1,10 +1,10 @@
 // frontend/src/modules/gestion_huerta/hooks/useReporteCosecha.ts
 import { useCallback, useEffect, useState } from 'react';
-import { reporteService } from '../services/reporteService';
-import { ReportPayload } from '../types/reportTypes';
+import { reportesProduccionService } from '../services/reportesProduccionService';
+import { ReporteProduccionData } from '../types/reportesProduccionTypes';
 
 export const useReporteCosecha = (id?: number, from?: string, to?: string) => {
-  const [data, setData] = useState<ReportPayload | null>(null);
+  const [data, setData] = useState<ReporteProduccionData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -13,8 +13,17 @@ export const useReporteCosecha = (id?: number, from?: string, to?: string) => {
     setLoading(true);
     setError(null);
     try {
-      const payload = await reporteService.getCosecha(id, from, to);
-      setData(payload);
+      const response = await reportesProduccionService.generarReporteCosecha({
+        cosecha_id: id,
+        fecha_inicio: from,
+        fecha_fin: to,
+        formato: 'json'
+      });
+      if (response.success) {
+        setData(response.data);
+      } else {
+        setError(response.message || 'Error al cargar reporte de cosecha');
+      }
     } catch (e: any) {
       setError(e?.response?.data?.message || 'Error al cargar reporte de cosecha');
     } finally {

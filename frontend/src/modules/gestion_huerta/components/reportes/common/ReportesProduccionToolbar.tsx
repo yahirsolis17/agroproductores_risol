@@ -16,7 +16,7 @@ import {
   TableChart as ExcelIcon,
   DataObject as JsonIcon,
 } from '@mui/icons-material';
-import { FormatoReporte } from '../../../services/reportesProduccionService';
+import { FormatoReporte } from '../../../types/reportesProduccionTypes';
 
 interface Props {
   from?: string;
