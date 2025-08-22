@@ -83,7 +83,7 @@ export const huertaRentadaService = {
       success: boolean;
       notification: any;              // 👈
       data: { huerta_rentada_id: number; affected?: AffectedCounts };
-    }>(`/huerta/huertas-rentadas/${id}/archivar/`);
+    }>(`/huerta/huertas-rentadas/${id}/restaurar/`);
     return data;
   },
 

@@ -1,24 +1,22 @@
-# Implementación de Reportes de Producción - Sistema Agroproductores Risol
+# Diseño e Implementación de Reportes de Producción - Sistema Agroproductores Risol
 
 ## Análisis del Sistema Actual
 
-### Arquitectura Identificada
+El sistema Agroproductores Risol cuenta con una arquitectura sólida y consistente, dividida en backend y frontend:
 
-El sistema presenta una arquitectura extremadamente sólida y consistente:
-
-#### Backend (Django REST Framework)
-- **Modelos robustos** con soft-delete, validaciones de negocio y cascadas controladas
-- **Serializers con validaciones exhaustivas** que mantienen integridad de datos
-- **ViewSets unificados** con NotificationHandler para respuestas consistentes
+### Backend (Django REST Framework)
+- **Modelos robustos** con soft-delete y validaciones de negocio
+- **Serializers con validaciones exhaustivas** que mantienen integridad de datos  
+- **ViewSets unificados** con `NotificationHandler` para respuestas consistentes
 - **Paginación genérica** reutilizable (`GenericPagination`)
 - **Sistema de permisos granular** con roles y permisos específicos
 - **Manejo de errores centralizado** con mensajes de notificación estandarizados
-- **Auditoria y logging** integrados en todas las operaciones
+- **Auditoría y logging** integrados en todas las operaciones
 
-#### Frontend (React + TypeScript + Redux Toolkit)
+### Frontend (React + TypeScript + Redux Toolkit)
 - **Componentes reutilizables** como `TableLayout`, `ActionsMenu`, `PermissionButton`
 - **Hooks personalizados** para cada entidad con manejo de estado consistente
-- **Validaciones de formularios** con Formik + Yup y mensajes de error específicos
+- **Validaciones de formularios** con Formik + Yup mostrando mensajes de error claros
 - **Sistema de notificaciones** unificado con `NotificationEngine`
 - **Manejo de estados** centralizado con Redux Toolkit
 - **Componentes de UI** consistentes con Material-UI y estilos Tailwind
@@ -26,12 +24,36 @@ El sistema presenta una arquitectura extremadamente sólida y consistente:
 ### Patrones de Consistencia Identificados
 
 1. **Validaciones de formularios**: Campos se marcan en rojo con mensajes específicos
-2. **Paginación**: Implementada de forma consistente en backend y frontend
+2. **Paginación**: Implementada de forma consistente en backend y frontend  
 3. **Filtros**: Sistema unificado de filtros con autocomplete y búsqueda
 4. **Manejo de errores**: Respuestas estandarizadas con códigos y mensajes específicos
 5. **Permisos**: Sistema granular aplicado en toda la aplicación
 6. **Soft-delete**: Archivado/restauración en cascada con auditoría
 7. **Componentes reutilizables**: TableLayout, ActionsMenu, FormModals consistentes
+
+## Visión General de los Reportes de Producción
+
+En el módulo de gestión de huertas, se incorporarán **Reportes de Producción** que brindarán a los usuarios (propietarios y gestores de huertas) una vista completa del desempeño de sus cosechas, temporadas y huertas a lo largo del tiempo. 
+
+### Objetivos Clave
+- Ofrecer una **experiencia única** que facilite la toma de decisiones
+- Permitir **comparar rendimientos, inversiones y ganancias** de forma dinámica e interactiva
+- Proporcionar **información procesable** con métricas clave y recomendaciones
+- Mantener **consistencia visual** con plantilla común (logo, nombre, identidad corporativa)
+
+### Filosofía de Datos
+- **Unidades familiares**: El rendimiento se mide en **número de cajas** (no toneladas) ya que el sistema registra ventas por cajas y precio por caja, evitando conversiones confusas
+- **Métricas financieras** directamente ligadas al conteo de cajas vendidas y precio unitario
+- **Datos procesables** no solo informativos, con comparativas claras y recomendaciones
+
+### Tipos de Reportes
+Los reportes están diseñados para diferentes niveles de agregación:
+
+1. **Reporte Individual por Cosecha** - Detalle completo de una sola cosecha específica
+2. **Reporte Consolidado por Temporada** - Visión general de todas las cosechas en una temporada agrícola con comparativas
+3. **Perfil Histórico de Huerta** - Panorama multi-temporada con análisis de tendencias históricas y proyecciones
+
+> **Nota**: Estos reportes se convertirán en la **"cereza del pastel"** del módulo de huertas, brindando una herramienta profesional de análisis a la altura de las mejores prácticas del sector agrícola
 
 ## Especificación de Reportes de Producción
 
@@ -1067,7 +1089,7 @@ class ExportacionService:
             ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
             ('FONTSIZE', (0, 0), (-1, -1), 9),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-            ('ALTERNATEROWCOLORS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
             ('GRID', (0, 0), (-1, -1), 1, colors.black)
         ]))
         
@@ -1091,14 +1113,14 @@ class ExportacionService:
         
         ven_table = Table(ven_data, colWidths=[1.2*inch, 1.5*inch, 1*inch, 1.2*inch, 1.4*inch])
         ven_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.darkorange),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.orange),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
             ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
             ('FONTSIZE', (0, 0), (-1, -1), 9),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-            ('ALTERNATEROWCOLORS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
             ('GRID', (0, 0), (-1, -1), 1, colors.black)
         ]))
         
@@ -1347,14 +1369,45 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views.reportes_views import ReportesProduccionViewSet
 
+# Importar otros ViewSets existentes
+from gestion_huerta.views.huerta_views import (
+    HuertaViewSet,
+    HuertaRentadaViewSet,
+    PropietarioViewSet,
+    HuertasCombinadasViewSet
+)
+from gestion_huerta.views.inversiones_views import InversionHuertaViewSet
+from gestion_huerta.views.categoria_inversion_views import CategoriaInversionViewSet
+from gestion_huerta.views.cosechas_views import CosechaViewSet
+from gestion_huerta.views.ventas_views import VentaViewSet
+from gestion_huerta.views.temporadas_views import TemporadaViewSet
+from gestion_huerta.views.registro_actividad import RegistroActividadViewSet
+
+app_name = "gestion_huerta"
+
 router = DefaultRouter()
-router.register(r'reportes-produccion', ReportesProduccionViewSet, basename='reportes-produccion')
+router.register(r"propietarios", PropietarioViewSet, basename="propietario")
+router.register(r"huertas", HuertaViewSet, basename="huerta")
+router.register(r"huertas-rentadas", HuertaRentadaViewSet, basename="huerta-rentada")
+router.register(r"cosechas", CosechaViewSet, basename="cosecha")
+router.register(r"categorias-inversion", CategoriaInversionViewSet, basename="categorias-inversion")
+router.register(r"inversiones", InversionHuertaViewSet, basename="inversion")
+router.register(r"ventas", VentaViewSet, basename="venta")
+router.register(r"temporadas", TemporadaViewSet, basename="temporada")
+router.register(r"actividad", RegistroActividadViewSet, basename="actividad")
+router.register(r"huertas-combinadas", HuertasCombinadasViewSet, basename="huertas-combinadas")
+
+# ✅ Registrar reportes dentro del módulo (quedará /huerta/reportes-produccion/...)
+router.register(r"reportes-produccion", ReportesProduccionViewSet, basename="reportes-produccion")
 
 urlpatterns = [
-    # ... otras rutas existentes
-    path('api/', include(router.urls)),
+    path("", include(router.urls)),
 ]
 ```
+
+**Rutas resultantes:**
+- `POST /huerta/reportes-produccion/cosecha/`
+- `POST /huerta/reportes-produccion/temporada/`
 
 ```python
 # backend/requirements.txt - Agregar dependencias
@@ -1551,7 +1604,7 @@ export interface GenerarReporteRequest {
 ```typescript
 // frontend/src/modules/gestion_huerta/services/reportes.service.ts
 
-import { apiClient } from '../../../global/api/apiClient';
+import apiClient from '../../../global/api/apiClient';
 import { 
   ReporteCosecha, 
   ReporteTemporada, 
@@ -1560,7 +1613,7 @@ import {
 } from '../types/reportes.types';
 
 export class ReportesService {
-  private static baseUrl = '/gestion-huerta/reportes-produccion';
+  private static baseUrl = '/huerta/reportes-produccion';
 
   static async generarReporteCosecha(request: GenerarReporteRequest): Promise<ReporteCosecha | Blob> {
     const response = await apiClient.post(`${this.baseUrl}/cosecha/`, request, {
@@ -2088,7 +2141,7 @@ export const GeneradorReportes: React.FC = () => {
                           startIcon={<Visibility />}
                           onClick={() => handleGenerarReporte(values, 'json')}
                           disabled={loading}
-                          permission="gestion_huerta.view_reportes"
+                          perm="view_reportes"
                         >
                           Ver Reporte
                         </PermissionButton>
@@ -2099,7 +2152,7 @@ export const GeneradorReportes: React.FC = () => {
                           startIcon={<PictureAsPdf />}
                           onClick={() => handleGenerarReporte(values, 'pdf')}
                           disabled={loading}
-                          permission="gestion_huerta.export_reportes"
+                          perm="export_reportes"
                         >
                           Exportar PDF
                         </PermissionButton>
@@ -2110,7 +2163,7 @@ export const GeneradorReportes: React.FC = () => {
                           startIcon={<TableChart />}
                           onClick={() => handleGenerarReporte(values, 'excel')}
                           disabled={loading}
-                          permission="gestion_huerta.export_reportes"
+                          perm="export_reportes"
                         >
                           Exportar Excel
                         </PermissionButton>
@@ -2326,7 +2379,7 @@ export const ReporteCosechaViewer: React.FC<Props> = ({ reporte }) => {
 
 from django.core.exceptions import ValidationError
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, datetime
 import hashlib
 import json
 
@@ -2348,7 +2401,7 @@ class ReportesSecurityService:
             # Verificar fechas válidas
             fecha_generacion = timezone.now()
             if 'metadata' in reporte_data:
-                fecha_reporte = timezone.datetime.fromisoformat(
+                fecha_reporte = datetime.fromisoformat(
                     reporte_data['metadata']['fecha_generacion'].replace('Z', '+00:00')
                 )
                 if fecha_reporte > fecha_generacion + timedelta(minutes=5):
