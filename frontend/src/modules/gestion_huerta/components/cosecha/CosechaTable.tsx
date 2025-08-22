@@ -1,6 +1,8 @@
 // src/modules/gestion_huerta/components/cosecha/CosechaTable.tsx
+// Reportes de Producción - generado por asistente IA (enero 2025)
 import React from 'react';
 import { Chip, Box } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 import { TableLayout, Column } from '../../../../components/common/TableLayout';
 import { Cosecha } from '../../types/cosechaTypes';
 import ActionsMenu from '../common/ActionsMenu';
@@ -74,7 +76,9 @@ const CosechaTable: React.FC<Props> = ({
   data, page, pageSize, count, onPageChange,
   onRename, onDelete, onArchive, onRestore, onToggleFinalizada, onVerFinanzas,
   emptyMessage, loading,
-}) => (
+}) => {
+  const navigate = useNavigate();
+  return (
   <TableLayout<Cosecha>
     data={data}
     page={page}
@@ -106,6 +110,8 @@ const CosechaTable: React.FC<Props> = ({
             permArchiveOrRestore={['archive_cosecha', 'restore_cosecha']}
             permDelete="delete_cosecha"
             permFinalize={['finalize_cosecha', 'change_cosecha']}
+            onReporte={() => navigate('/reportes', { state: { tipo: 'cosecha', id: c.id } })}
+            permReporte="view_reportes"
           />
           <PermissionButton
             perm="view_inversioneshuerta"
@@ -120,6 +126,7 @@ const CosechaTable: React.FC<Props> = ({
       );
     }}
   />
-);
+  );
+};
 
 export default CosechaTable;

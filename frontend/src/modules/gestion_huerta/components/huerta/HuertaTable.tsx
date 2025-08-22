@@ -1,6 +1,8 @@
 // src/modules/gestion_huerta/components/huerta/HuertaTable.tsx
+// Reportes de Producción - generado por asistente IA (enero 2025)
 import React from 'react';
 import { Chip, Tooltip, Button } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 import { TableLayout, Column, FilterConfig } from '../../../../components/common/TableLayout';
 import { Huerta } from '../../types/huertaTypes';
 import { HuertaRentada } from '../../types/huertaRentadaTypes';
@@ -100,7 +102,9 @@ const HuertaTable: React.FC<Props> = ({
   filterValues,
   onFilterChange,
   limpiarFiltros
-}) => (
+}) => {
+  const navigate = useNavigate();
+  return (
   <TableLayout<Registro>
     data={data}
     page={page}
@@ -147,10 +151,13 @@ const HuertaTable: React.FC<Props> = ({
           permArchiveOrRestore={permArchiveOrRestore}
           permDelete={permDelete}
           permTemporadas="view_temporada"
+          onReporte={() => navigate('/reportes', { state: { tipo: 'huerta', id: h.id } })}
+          permReporte="view_reportes"
         />
       );
     }}
   />
-);
+  );
+};
 
 export default HuertaTable;

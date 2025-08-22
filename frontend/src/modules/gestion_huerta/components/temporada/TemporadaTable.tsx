@@ -1,6 +1,8 @@
+// Reportes de Producción - generado por asistente IA (enero 2025)
 // src/modules/gestion_huerta/components/temporada/TemporadaTable.tsx
 import React from 'react';
 import { Chip } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 import { TableLayout, Column } from '../../../../components/common/TableLayout';
 import ActionsMenu from '../common/ActionsMenu';
 import { Temporada } from '../../types/temporadaTypes';
@@ -112,7 +114,9 @@ const TemporadaTable: React.FC<Props> = ({
 
   // 👇 NUEVO
   onCosechas,
-}) => (
+}) => {
+  const navigate = useNavigate();
+  return (
   <TableLayout<Temporada>
     data={data}
     page={page}
@@ -152,10 +156,13 @@ const TemporadaTable: React.FC<Props> = ({
           // 👇 NUEVOS props para “Ver cosechas”
           onCosechas={() => onCosechas(t)}
           permCosechas="view_cosecha"
+          onReporte={() => navigate('/reportes', { state: { tipo: 'temporada', id: t.id } })}
+          permReporte="view_reportes"
         />
       );
     }}
   />
-);
+  );
+};
 
 export default TemporadaTable;
