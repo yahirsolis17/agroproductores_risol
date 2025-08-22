@@ -1,5 +1,5 @@
 Listado de rutas de carpetas
-El número de serie del volumen es BC46-2ECE
+El nï¿½mero de serie del volumen es BC46-2ECE
 C:.
 |   admin.py
 |   apps.py
@@ -24,6 +24,8 @@ C:.
 |   |   0010_cosecha_archivado_por_cascada_and_more.py
 |   |   0011_alter_categoriainversion_nombre.py
 |   |   0012_alter_propietario_telefono.py
+|   |   0013_seed_extra_permissions.py
+|   |   0014_alter_huerta_options_alter_huertarentada_options_and_more.py
 |   |   __init__.py
 |   |   
 |   \---__pycache__
@@ -39,6 +41,8 @@ C:.
 |           0010_cosecha_archivado_por_cascada_and_more.cpython-312.pyc
 |           0011_alter_categoriainversion_nombre.cpython-312.pyc
 |           0012_alter_propietario_telefono.cpython-312.pyc
+|           0013_seed_extra_permissions.cpython-312.pyc
+|           0014_alter_huerta_options_alter_huertarentada_options_and_more.cpython-312.pyc
 |           __init__.cpython-312.pyc
 |           
 +---templatetags
@@ -61,6 +65,7 @@ C:.
 |       test_bloqueos_estado.py
 |       test_huerta_delete.py
 |       test_model_validations.py
+|       test_permissions_archive_restore.py
 |       __init__.py
 |       
 +---utils

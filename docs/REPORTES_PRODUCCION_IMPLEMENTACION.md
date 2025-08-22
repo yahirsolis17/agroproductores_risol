@@ -69,6 +69,7 @@ REPORTE DE PRODUCCIÓN - COSECHA INDIVIDUAL
 
 INFORMACIÓN GENERAL
 - Huerta: [Nombre] ([Tipo: Propia/Rentada])
+- Ubicacion
 - Propietario: [Nombre Completo]
 - Temporada: [Año]
 - Cosecha: [Nombre]
