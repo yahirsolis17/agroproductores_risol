@@ -38,8 +38,9 @@ interface Props {
   emptyMessage?: string;
   loading?: boolean;
 
-  // 👇 NUEVO: callback para “Ver cosechas”
+  // 👇 NUEVO: callback para "Ver cosechas"
   onCosechas: (t: Temporada) => void;
+  onReporteTemporada?: (t: Temporada) => void;
 }
 
 const columns: Column<Temporada>[] = [
@@ -112,6 +113,7 @@ const TemporadaTable: React.FC<Props> = ({
 
   // 👇 NUEVO
   onCosechas,
+  onReporteTemporada,
 }) => (
   <TableLayout<Temporada>
     data={data}
@@ -149,9 +151,13 @@ const TemporadaTable: React.FC<Props> = ({
           permArchiveOrRestore="archive_temporada"
           permDelete="delete_temporada"
 
-          // 👇 NUEVOS props para “Ver cosechas”
+          // 👇 NUEVOS props para "Ver cosechas"
           onCosechas={() => onCosechas(t)}
           permCosechas="view_cosecha"
+          
+          // 👇 NUEVO: Reporte de temporada
+          onReporteTemporada={onReporteTemporada ? () => onReporteTemporada(t) : undefined}
+          permReporteTemporada="view_temporada"
         />
       );
     }}

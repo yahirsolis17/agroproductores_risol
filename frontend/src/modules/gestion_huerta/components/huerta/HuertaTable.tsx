@@ -75,6 +75,7 @@ interface Props {
   onRestore: (h: Registro) => void;
   onDelete:  (h: Registro) => void;
   onTemporadas?: (h: Registro) => void;
+  onReporteHuerta?: (h: Registro) => void;
   loading?: boolean;
   emptyMessage: string;
   filterConfig?: FilterConfig[];
@@ -94,6 +95,7 @@ const HuertaTable: React.FC<Props> = ({
   onRestore,
   onDelete,
   onTemporadas,
+  onReporteHuerta,
   loading = false,
   emptyMessage,
   filterConfig = [],
@@ -142,11 +144,13 @@ const HuertaTable: React.FC<Props> = ({
           onArchiveOrRestore={() => (isArchived ? onRestore(h) : onArchive(h))}
           onDelete={() => onDelete(h)}
           onTemporadas={!isArchived && onTemporadas ? () => onTemporadas(h) : undefined}
+          onReporteHuerta={!isArchived && onReporteHuerta ? () => onReporteHuerta(h) : undefined}
           // ⬇️ permisos correctos por tipo + acción
           permEdit={permEdit}
           permArchiveOrRestore={permArchiveOrRestore}
           permDelete={permDelete}
           permTemporadas="view_temporada"
+          permReporteHuerta={isRent ? "view_huertarentada" : "view_huerta"}
         />
       );
     }}

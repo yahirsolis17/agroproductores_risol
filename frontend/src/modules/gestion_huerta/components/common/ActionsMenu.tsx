@@ -20,6 +20,7 @@ import EventNoteIcon from '@mui/icons-material/EventNote';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import AgricultureIcon from '@mui/icons-material/Agriculture';
+import AssessmentIcon from '@mui/icons-material/Assessment';
 
 type Perm = string | string[] | undefined;
 
@@ -47,6 +48,14 @@ interface ActionsMenuProps {
   // Navegar a cosechas
   onCosechas?: () => void;
   permCosechas?: Perm;
+
+  // 👉 NUEVOS: reportes
+  onReporteCosecha?: () => void;
+  permReporteCosecha?: Perm;
+  onReporteTemporada?: () => void;
+  permReporteTemporada?: Perm;
+  onReporteHuerta?: () => void;
+  permReporteHuerta?: Perm;
 }
 
 const ActionsMenu: React.FC<ActionsMenuProps> = ({
@@ -71,6 +80,14 @@ const ActionsMenu: React.FC<ActionsMenuProps> = ({
   permTemporadas,
   onCosechas,
   permCosechas,
+
+  // reportes
+  onReporteCosecha,
+  permReporteCosecha,
+  onReporteTemporada,
+  permReporteTemporada,
+  onReporteHuerta,
+  permReporteHuerta,
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const openMenu = (e: React.MouseEvent<HTMLElement>) => setAnchorEl(e.currentTarget);
@@ -171,6 +188,58 @@ const ActionsMenu: React.FC<ActionsMenuProps> = ({
                       <AgricultureIcon fontSize="small" />
                     </ListItemIcon>
                     <ListItemText primary="Ver cosechas" />
+                  </MenuItem>
+                </span>
+              </Tooltip>
+            );
+          })()
+        )}
+
+        {/* ====== REPORTES ====== */}
+        {/* Reporte de Cosecha */}
+        {!isArchived && onReporteCosecha && (
+          (() => {
+            const allowed = hasPerm(permReporteCosecha);
+            return (
+              <Tooltip title={allowed ? '' : 'No tienes permiso'} disableHoverListener={allowed}>
+                <span style={{ display: 'block' }}>
+                  <MenuItem disabled={!allowed} onClick={() => handle(onReporteCosecha)}>
+                    <ListItemIcon><AssessmentIcon fontSize="small" /></ListItemIcon>
+                    <ListItemText primary="Reporte de Cosecha" />
+                  </MenuItem>
+                </span>
+              </Tooltip>
+            );
+          })()
+        )}
+
+        {/* Reporte de Temporada */}
+        {!isArchived && onReporteTemporada && (
+          (() => {
+            const allowed = hasPerm(permReporteTemporada);
+            return (
+              <Tooltip title={allowed ? '' : 'No tienes permiso'} disableHoverListener={allowed}>
+                <span style={{ display: 'block' }}>
+                  <MenuItem disabled={!allowed} onClick={() => handle(onReporteTemporada)}>
+                    <ListItemIcon><AssessmentIcon fontSize="small" /></ListItemIcon>
+                    <ListItemText primary="Reporte de Temporada" />
+                  </MenuItem>
+                </span>
+              </Tooltip>
+            );
+          })()
+        )}
+
+        {/* Reporte de Huerta (perfil) */}
+        {!isArchived && onReporteHuerta && (
+          (() => {
+            const allowed = hasPerm(permReporteHuerta);
+            return (
+              <Tooltip title={allowed ? '' : 'No tienes permiso'} disableHoverListener={allowed}>
+                <span style={{ display: 'block' }}>
+                  <MenuItem disabled={!allowed} onClick={() => handle(onReporteHuerta)}>
+                    <ListItemIcon><AssessmentIcon fontSize="small" /></ListItemIcon>
+                    <ListItemText primary="Reporte de Huerta" />
                   </MenuItem>
                 </span>
               </Tooltip>

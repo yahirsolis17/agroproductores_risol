@@ -73,4 +73,24 @@ export const moduleRoutes: ModuleRoute[] = [
     allowedRoles: ['admin', 'usuario'],
     element: lazyRoute(() => import('../../modules/gestion_huerta/pages/FinanzasPorCosecha')),
   },
+
+  // 👉 NUEVAS RUTAS: Reportes
+  {
+    path: '/reportes/cosecha/:cosechaId',
+    module: 'gestion_huerta',
+    allowedRoles: ['admin', 'usuario'],
+    element: lazyRoute(() => import('../../modules/gestion_huerta/pages/ReporteCosecha')),
+  },
+  {
+    path: '/reportes/temporada/:temporadaId',
+    module: 'gestion_huerta',
+    allowedRoles: ['admin', 'usuario'],
+    element: lazyRoute(() => import('../../modules/gestion_huerta/pages/ReporteTemporada')),
+  },
+  {
+    path: '/reportes/huerta/:huertaId/perfil',
+    module: 'gestion_huerta',
+    allowedRoles: ['admin', 'usuario'],
+    element: lazyRoute(() => import('../../modules/gestion_huerta/pages/ReporteHuertaPerfil')),
+  },
 ];

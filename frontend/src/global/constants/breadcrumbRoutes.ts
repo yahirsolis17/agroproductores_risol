@@ -110,4 +110,73 @@ export const breadcrumbRoutes = {
       path: '', // vista actual
     },
   ],
+
+  /** Reporte de Cosecha */
+  reporteCosecha: (
+    huertaId: number,
+    huertaName: string,
+    año: number,
+    temporadaId: number,
+    cosechaId: number,
+    opts?: { tipo?: 'propia' | 'rentada'; propietario?: string }
+  ): Crumb[] => [
+    {
+      label: `Huertas – ${huertaName}`,
+      path: '/huertas',
+    },
+    {
+      label: `Temporada ${año}`,
+      path: `/temporadas${qs({
+        huerta_id: huertaId,
+        tipo: opts?.tipo,
+        huerta_nombre: huertaName,
+        propietario: opts?.propietario,
+      })}`,
+    },
+    {
+      label: 'Cosechas',
+      path: `/cosechas${qs({
+        temporada_id: temporadaId,
+        huerta_id: huertaId,
+        tipo: opts?.tipo,
+        huerta_nombre: huertaName,
+        propietario: opts?.propietario,
+      })}`,
+    },
+    { label: `Reporte de Cosecha #${cosechaId}`, path: '' },
+  ],
+
+  /** Reporte de Temporada */
+  reporteTemporada: (
+    huertaId: number,
+    huertaName: string,
+    año: number,
+    temporadaId: number,
+    opts?: { tipo?: 'propia' | 'rentada'; propietario?: string }
+  ): Crumb[] => [
+    {
+      label: `Huertas – ${huertaName}`,
+      path: '/huertas',
+    },
+    {
+      label: `Temporada ${año}`,
+      path: `/temporadas${qs({
+        huerta_id: huertaId,
+        tipo: opts?.tipo,
+        huerta_nombre: huertaName,
+        propietario: opts?.propietario,
+      })}`,
+    },
+    { label: `Reporte de Temporada ${año}`, path: '' },
+  ],
+
+  /** Reporte Perfil de Huerta */
+  reporteHuertaPerfil: (
+    huertaId: number,
+    huertaName: string,
+    _opts?: { tipo?: 'propia' | 'rentada'; propietario?: string }
+  ): Crumb[] => [
+    { label: 'Huertas', path: '/huertas' },
+    { label: `Reporte de Huerta – ${huertaName || `#${huertaId}`}`, path: '' },
+  ],
 };
