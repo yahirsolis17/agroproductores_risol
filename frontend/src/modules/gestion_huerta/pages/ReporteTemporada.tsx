@@ -1,6 +1,6 @@
 // frontend/src/modules/gestion_huerta/pages/ReporteTemporada.tsx
 import { useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { Box, Typography, Divider, Alert, CircularProgress } from '@mui/material';
 import ReportesProduccionToolbar from '../components/reportes/common/ReportesProduccionToolbar';
 import ReporteProduccionViewer from '../components/reportes/common/ReporteProduccionViewer';
@@ -9,8 +9,8 @@ import { reportesProduccionService } from '../services/reportesProduccionService
 import { FormatoReporte } from '../types/reportesProduccionTypes';
 
 export default function ReporteTemporada() {
-  const [params] = useSearchParams();
-  const id = useMemo(() => Number(params.get('id') || ''), [params]);
+  const { temporadaId } = useParams<{ temporadaId: string }>();
+  const id = useMemo(() => Number(temporadaId), [temporadaId]);
 
   const [filters, setFilters] = useState<{ from?: string; to?: string; formato: FormatoReporte }>({
     formato: 'json'
@@ -45,7 +45,7 @@ export default function ReporteTemporada() {
         onExport={handleExport}
       />
       <Divider sx={{ my: 2 }} />
-      {!id && <Alert severity="info">Proporcione ?id=&lt;temporadaId&gt; en la URL.</Alert>}
+      {!id && <Alert severity="info">Proporcione un temporadaId en la URL.</Alert>}
       {loading && <CircularProgress size={24} />}
       {error && <Alert severity="error">{error}</Alert>}
       {data && <ReporteProduccionViewer data={data} title="Reporte de Temporada" />}
