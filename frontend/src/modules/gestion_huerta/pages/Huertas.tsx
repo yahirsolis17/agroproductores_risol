@@ -32,7 +32,6 @@ import { huertasCombinadasService } from '../services/huertasCombinadasService';
 
 import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
 import { FilterConfig } from '../../../components/common/TableLayout';
-import { isRentada } from '../utils/huertaTypeGuards';
 
 import type { HuertaCreateData, HuertaUpdateData } from '../types/huertaTypes';
 import type { HuertaRentadaCreateData, HuertaRentadaUpdateData } from '../types/huertaRentadaTypes';
@@ -183,7 +182,7 @@ const Huertas: React.FC = () => {
     setModalOpen(false);
   };
 
-  const askDelete = (h: Registro) => setDelDialog({ id: h.id, tipo: isRentada(h) ? 'rentada' : 'propia' });
+  const askDelete = (h: Registro) => setDelDialog({ id: h.id, tipo: h.tipo === 'rentada' ? 'rentada' : 'propia' });
   const confirmDelete = async (): Promise<void> => {
     if (!delDialog) return;
     try {
@@ -199,15 +198,18 @@ const Huertas: React.FC = () => {
     }
   };
 
-  const handleArchiveOrRestore = async (h: Registro, arc: boolean): Promise<void> => {
-    let res;
-    if (isRentada(h)) {
-      res = arc
-        ? await huertaRentadaService.restaurar(h.id)
-        : await huertaRentadaService.archivar(h.id);
-    } else {
-      res = arc ? await huertaService.restaurar(h.id) : await huertaService.archivar(h.id);
-    }
+  const archiveHuerta = async (h: Registro): Promise<void> => {
+    const res = h.tipo === 'rentada'
+      ? await huertaRentadaService.archivar(h.id)
+      : await huertaService.archivar(h.id);
+    handleBackendNotification(res);
+    refetchAll();
+  };
+
+  const restoreHuerta = async (h: Registro): Promise<void> => {
+    const res = h.tipo === 'rentada'
+      ? await huertaRentadaService.restaurar(h.id)
+      : await huertaService.restaurar(h.id);
     handleBackendNotification(res);
     refetchAll();
   };
@@ -276,11 +278,11 @@ const Huertas: React.FC = () => {
             filterValues={{ tipo: tipoFiltro, nombre: nombreFiltro, propietario: propietarioFiltro }}
             onFilterChange={handleFilterChange}
             limpiarFiltros={limpiarFiltros}
-            onEdit={h => { setEditTarget({ tipo: isRentada(h) ? 'rentada' : 'propia', data: h }); setModalOpen(true); }}
+            onEdit={h => { setEditTarget({ tipo: h.tipo === 'rentada' ? 'rentada' : 'propia', data: h }); setModalOpen(true); }}
             onDelete={askDelete}
-            onArchive={h => handleArchiveOrRestore(h, false)}
-            onRestore={h => handleArchiveOrRestore(h, true)}
-            onTemporadas={h => navigate(`/temporadas?huerta_id=${h.id}&tipo=${isRentada(h) ? 'rentada' : 'propia'}`)}
+            onArchive={archiveHuerta}
+            onRestore={restoreHuerta}
+            onTemporadas={h => navigate(`/temporadas?huerta_id=${h.id}&tipo=${h.tipo === 'rentada' ? 'rentada' : 'propia'}`)}
           />
         </Box>
 
