@@ -268,7 +268,6 @@ class VentaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
             self.perform_create(ser)
             venta = ser.instance
 
-        registrar_actividad(request.user, f"Creó venta {venta.id} en cosecha {venta.cosecha.id}")
         return self.notify(
             key="venta_create_success",
             data={"venta": ser.data},
@@ -296,7 +295,6 @@ class VentaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
         with transaction.atomic():
             self.perform_update(ser)
 
-        registrar_actividad(request.user, f"Actualizó venta {inst.id}")
         return self.notify(
             key="venta_update_success",
             data={"venta": ser.data},
@@ -313,7 +311,6 @@ class VentaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
         self.perform_destroy(venta)
-        registrar_actividad(request.user, f"Eliminó venta {venta.id}")
         return self.notify(
             key="venta_delete_success",
             data={"info": "Venta eliminada."},
@@ -338,7 +335,11 @@ class VentaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
         with transaction.atomic():
             venta.archivar()
 
-        registrar_actividad(request.user, f"Archivó venta {venta.id}")
+        origen = venta.huerta or venta.huerta_rentada
+        registrar_actividad(
+            request.user,
+            f"Archivó la venta {venta} de la cosecha {venta.cosecha} (temporada {venta.temporada}, huerta {origen})",
+        )
         return self.notify(
             key="venta_archivada",
             data={"venta": self.get_serializer(venta).data},
@@ -390,7 +391,11 @@ class VentaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
         with transaction.atomic():
             venta.desarchivar()
 
-        registrar_actividad(request.user, f"Restauró venta {venta.id}")
+        origen = venta.huerta or venta.huerta_rentada
+        registrar_actividad(
+            request.user,
+            f"Restauró la venta {venta} de la cosecha {venta.cosecha} (temporada {venta.temporada}, huerta {origen})",
+        )
         return self.notify(
             key="venta_restaurada",
             data={"venta": self.get_serializer(venta).data},

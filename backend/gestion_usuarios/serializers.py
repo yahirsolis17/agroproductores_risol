@@ -126,7 +126,6 @@ class RegistroActividadSerializer(serializers.ModelSerializer):
             'accion',
             'fecha_hora',
             'detalles',
-            'ip',
         ]
 
 

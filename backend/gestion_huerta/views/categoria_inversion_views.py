@@ -155,7 +155,6 @@ class CategoriaInversionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.M
         with transaction.atomic():
             self.perform_create(ser)
 
-        registrar_actividad(request.user, f"Creó categoría {ser.instance.id}")
         return self.notify(
             key="categoria_inversion_create_success",
             data={"categoria": ser.data},
@@ -183,7 +182,6 @@ class CategoriaInversionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.M
         with transaction.atomic():
             self.perform_update(ser)
 
-        registrar_actividad(request.user, f"Actualizó categoría {inst.id}")
         return self.notify(
             key="categoria_inversion_update_success",
             data={"categoria": ser.data},
@@ -209,7 +207,6 @@ class CategoriaInversionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.M
         with transaction.atomic():
             self.perform_destroy(cat)
 
-        registrar_actividad(request.user, f"Eliminó categoría {cat.id}")
         return self.notify(
             key="categoria_inversion_delete_success",
             data={"info": "Categoría eliminada."},
@@ -232,7 +229,7 @@ class CategoriaInversionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.M
         with transaction.atomic():
             cat.archivar()
 
-        registrar_actividad(request.user, f"Archivó categoría {cat.id}")
+        registrar_actividad(request.user, f"Archivó la categoría {cat}")
         return self.notify(
             key="categoria_archivada",
             data={"categoria": self.get_serializer(cat).data},
@@ -254,7 +251,7 @@ class CategoriaInversionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.M
         with transaction.atomic():
             cat.desarchivar()
 
-        registrar_actividad(request.user, f"Restauró categoría {cat.id}")
+        registrar_actividad(request.user, f"Restauró la categoría {cat}")
         return self.notify(
             key="categoria_restaurada",
             data={"categoria": self.get_serializer(cat).data},

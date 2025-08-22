@@ -4,24 +4,15 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def registrar_actividad(usuario, accion, detalles=None, ip=None, user_agent=None):
-    """
-    Crea un registro de actividad de manera resiliente.
-    """
+def registrar_actividad(usuario, accion, detalles=None):
+    """Crea un registro de actividad de manera resiliente."""
     try:
         RegistroActividad.objects.create(
             usuario=usuario,
             accion=accion,
             detalles=detalles,
-            ip=ip,
         )
-        # Log informativo (no falla si user_agent es None)
-        logger.info(
-            "Actividad registrada: %s | IP: %s | UA: %s",
-            accion,
-            ip or "-",
-            (user_agent or "")[:256],  # acotamos tamaño en logs
-        )
+        logger.info("Actividad registrada: %s", accion)
     except Exception as e:
         logger.error("Error al registrar actividad: %s", e)
 
@@ -48,19 +39,11 @@ def audit(self_or_request, mensaje: str, detalles: str = None):
             request = None
 
         user = getattr(request, "user", None) if request else None
-        ip = request.META.get("REMOTE_ADDR") if request else None
-        ua = request.META.get("HTTP_USER_AGENT") if request else None
 
         if not user:
             logger.warning("audit(): no hay usuario autenticado asociado a la petición.")
             return
 
-        registrar_actividad(
-            usuario=user,
-            accion=mensaje,
-            detalles=detalles,
-            ip=ip,
-            user_agent=ua,
-        )
+        registrar_actividad(usuario=user, accion=mensaje, detalles=detalles)
     except Exception as e:
         logger.error("Error en audit(): %s", e)

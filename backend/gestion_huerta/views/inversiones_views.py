@@ -288,7 +288,6 @@ class InversionHuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
             self.perform_create(ser)
             inv = ser.instance
 
-        registrar_actividad(request.user, f"Creó inversión {inv.id} en cosecha {inv.cosecha_id}")
         return self.notify(
             key="inversion_create_success",
             data={"inversion": ser.data},
@@ -315,7 +314,6 @@ class InversionHuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
         with transaction.atomic():
             self.perform_update(ser)
 
-        registrar_actividad(request.user, f"Actualizó inversión {inst.id}")
         return self.notify(
             key="inversion_update_success",
             data={"inversion": ser.data},
@@ -332,7 +330,6 @@ class InversionHuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
         self.perform_destroy(inv)
-        registrar_actividad(request.user, f"Eliminó inversión {inv.id}")
         return self.notify(
                 key="inversion_delete_success",
                 data={"info": "Inversión eliminada."},
@@ -357,7 +354,11 @@ class InversionHuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
         with transaction.atomic():
             inv.archivar()
 
-        registrar_actividad(request.user, f"Archivó inversión {inv.id}")
+        origen = inv.huerta or inv.huerta_rentada
+        registrar_actividad(
+            request.user,
+            f"Archivó la inversión {inv} de la cosecha {inv.cosecha} (temporada {inv.temporada}, huerta {origen})",
+        )
         return self.notify(
             key="inversion_archivada",
             data={"inversion": self.get_serializer(inv).data},
@@ -409,7 +410,11 @@ class InversionHuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
         with transaction.atomic():
             inv.desarchivar()
 
-        registrar_actividad(request.user, f"Restauró inversión {inv.id}")
+        origen = inv.huerta or inv.huerta_rentada
+        registrar_actividad(
+            request.user,
+            f"Restauró la inversión {inv} de la cosecha {inv.cosecha} (temporada {inv.temporada}, huerta {origen})",
+        )
         return self.notify(
             key="inversion_restaurada",
             data={"inversion": self.get_serializer(inv).data},

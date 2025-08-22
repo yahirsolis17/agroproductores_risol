@@ -243,7 +243,6 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
             return self.notify(key=key, data=payload, status_code=status.HTTP_400_BAD_REQUEST)
 
         instance = serializer.save()  # is_active=True por defecto (modelo)
-        registrar_actividad(request.user, f"Creó la cosecha: {instance.nombre}")
 
         return self.notify(
             key="cosecha_create_success",
@@ -291,7 +290,6 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
             return self.notify(key=key, data=payload, status_code=status.HTTP_400_BAD_REQUEST)
 
         self.perform_update(serializer)
-        registrar_actividad(request.user, f"Actualizó la cosecha: {instance.nombre}")
         return self.notify(
             key="cosecha_update_success",
             data={"cosecha": serializer.data},
@@ -319,7 +317,6 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
 
         nombre = instance.nombre
         self.perform_destroy(instance)
-        registrar_actividad(request.user, f"Eliminó la cosecha: {nombre}")
         return self.notify(
             key="cosecha_delete_success",
             data={"info": "Cosecha eliminada."},
@@ -348,7 +345,7 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        registrar_actividad(request.user, f"Archivó la cosecha: {c.nombre}")
+        registrar_actividad(request.user, f"Archivó la cosecha {c}")
         return self.notify(key="cosecha_archivada", data={"cosecha": self.get_serializer(c).data})
 
     @action(detail=True, methods=["post"], url_path="restaurar")
@@ -387,7 +384,7 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        registrar_actividad(request.user, f"Restauró la cosecha: {c.nombre}")
+        registrar_actividad(request.user, f"Restauró la cosecha {c}")
         return self.notify(key="cosecha_restaurada", data={"cosecha": self.get_serializer(c).data})
 
     @action(detail=True, methods=["post"], url_path="finalizar")
@@ -429,7 +426,7 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        registrar_actividad(request.user, f"Finalizó la cosecha: {c.nombre}")
+        registrar_actividad(request.user, f"Finalizó la cosecha {c}")
         return self.notify(key="cosecha_finalizada", data={"cosecha": self.get_serializer(c).data})
 
     @action(detail=True, methods=["post"], url_path="toggle-finalizada")
@@ -467,7 +464,7 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
                     c.fecha_fin = timezone.now()
                     c.save(update_fields=["finalizada", "fecha_fin"])
                     try:
-                        registrar_actividad(request.user, f"Finalizó la cosecha: {c.nombre}")
+                        registrar_actividad(request.user, f"Finalizó la cosecha {c}")
                     except Exception:
                         pass
                     return self.notify(
@@ -500,7 +497,7 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
                 c.fecha_fin = None
                 c.save(update_fields=["finalizada", "fecha_fin"])
                 try:
-                    registrar_actividad(request.user, f"Reactivó la cosecha: {c.nombre}")
+                    registrar_actividad(request.user, f"Reactivó la cosecha {c}")
                 except Exception:
                     pass
 

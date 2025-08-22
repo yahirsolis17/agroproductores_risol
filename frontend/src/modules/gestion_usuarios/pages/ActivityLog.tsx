@@ -24,7 +24,6 @@ interface Activity {
   accion: string;
   fecha_hora: string;
   detalles?: string;
-  ip?: string;
 }
 
 interface Meta {
@@ -63,12 +62,6 @@ const columns: Column<Activity>[] = [
         '—'
       ),
     align: 'left',
-  },
-  {
-    label: 'IP',
-    key: 'ip',
-    render: (a) => a.ip || '—',
-    align: 'center',
   },
 ];
 
