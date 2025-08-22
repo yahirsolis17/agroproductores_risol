@@ -20,6 +20,7 @@ import EventNoteIcon from '@mui/icons-material/EventNote';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import AgricultureIcon from '@mui/icons-material/Agriculture';
+import AssessmentIcon from '@mui/icons-material/Assessment';
 
 type Perm = string | string[] | undefined;
 
@@ -47,6 +48,10 @@ interface ActionsMenuProps {
   // Navegar a cosechas
   onCosechas?: () => void;
   permCosechas?: Perm;
+
+  // Generar reportes
+  onReporte?: () => void;
+  permReporte?: Perm;
 }
 
 const ActionsMenu: React.FC<ActionsMenuProps> = ({
@@ -71,6 +76,8 @@ const ActionsMenu: React.FC<ActionsMenuProps> = ({
   permTemporadas,
   onCosechas,
   permCosechas,
+  onReporte,
+  permReporte,
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const openMenu = (e: React.MouseEvent<HTMLElement>) => setAnchorEl(e.currentTarget);
@@ -171,6 +178,25 @@ const ActionsMenu: React.FC<ActionsMenuProps> = ({
                       <AgricultureIcon fontSize="small" />
                     </ListItemIcon>
                     <ListItemText primary="Ver cosechas" />
+                  </MenuItem>
+                </span>
+              </Tooltip>
+            );
+          })()
+        )}
+
+        {/* Reporte */}
+        {onReporte && (
+          (() => {
+            const allowed = hasPerm(permReporte);
+            return (
+              <Tooltip title={allowed ? '' : 'No tienes permiso'} disableHoverListener={allowed}>
+                <span style={{ display: 'block' }}>
+                  <MenuItem disabled={!allowed} onClick={() => handle(onReporte)}>
+                    <ListItemIcon>
+                      <AssessmentIcon fontSize="small" />
+                    </ListItemIcon>
+                    <ListItemText primary="Reporte" />
                   </MenuItem>
                 </span>
               </Tooltip>
