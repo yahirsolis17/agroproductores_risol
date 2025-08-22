@@ -233,7 +233,13 @@ useEffect(() => {
   // Navegar a Reporte de Cosecha
   const handleReporteCosecha = (c: Cosecha) => {
     if (!tempInfo) return;
-    navigate(`/reporte-cosecha/${c.id}?temporada_id=${temporadaId}&huerta_id=${tempInfo.huerta_id}&año=${tempInfo.año}&huerta_nombre=${encodeURIComponent(tempInfo.huerta_nombre || '')}`);
+    const params = new URLSearchParams({
+      temporada_id: String(temporadaId),
+      huerta_id: String(tempInfo.huerta_id),
+      año: String(tempInfo.año),
+    });
+    if (tempInfo.huerta_nombre) params.set('huerta_nombre', tempInfo.huerta_nombre);
+    navigate(`/reportes/cosecha/${c.id}?${params.toString()}`);
   };
 
   const clearFilters = () => {
