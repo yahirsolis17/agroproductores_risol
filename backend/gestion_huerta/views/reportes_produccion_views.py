@@ -28,7 +28,11 @@ from gestion_huerta.utils.notification_handler import NotificationHandler
 from gestion_huerta.permissions import HasHuertaModulePermission
 
 from gestion_huerta.models import Cosecha, Temporada, InversionesHuerta, Venta
-
+from celery.result import AsyncResult
+from django.conf import settings
+from gestion_huerta.tasks import (
+    exportar_cosecha_task, exportar_temporada_task, exportar_perfil_huerta_task
+)
 
 def _as_int(value: Optional[object], field: str) -> int:
     try:
@@ -41,6 +45,84 @@ class ReportesProduccionViewSet(viewsets.GenericViewSet):
     """ViewSet para generar y exportar reportes de producción robustos"""
 
     permission_classes = [IsAuthenticated, HasHuertaModulePermission]
+
+
+# Dispara exporte asíncrono
+    @action(detail=False, methods=["post"], url_path="exportar-async")
+    def exportar_async(self, request):
+        """
+        Body:
+        {
+        "tipo": "cosecha|temporada|perfil_huerta",
+        "id": <int>,         # cosecha_id o temporada_id
+        "huerta_id": <int>,  # para perfil_huerta (opc)
+        "huerta_rentada_id": <int>, # para perfil_huerta (opc)
+        "años": 5,           # opcional perfil
+        "formato": "pdf|excel"
+        }
+        """
+        tipo = (request.data.get("tipo") or "").lower()
+        formato = (request.data.get("formato") or "pdf").lower()
+
+        if tipo not in {"cosecha", "temporada", "perfil_huerta"}:
+            return NotificationHandler.generate_response(
+                message_key="validation_error",
+                data={"errors": {"tipo": "Debe ser cosecha|temporada|perfil_huerta"}},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        if formato not in {"pdf", "excel"}:
+            return NotificationHandler.generate_response(
+                message_key="validation_error",
+                data={"errors": {"formato": "Debe ser pdf o excel"}},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            if tipo == "cosecha":
+                cosecha_id = _as_int(request.data.get("id"), "id")
+                task = exportar_cosecha_task.delay(cosecha_id, request.user.id, formato)
+            elif tipo == "temporada":
+                temporada_id = _as_int(request.data.get("id"), "id")
+                task = exportar_temporada_task.delay(temporada_id, request.user.id, formato)
+            else:
+                hid = request.data.get("huerta_id")
+                hrid = request.data.get("huerta_rentada_id")
+                años = int(request.data.get("años", 5))
+                task = exportar_perfil_huerta_task.delay(
+                    _as_int(hid, "huerta_id") if hid is not None else None,
+                    _as_int(hrid, "huerta_rentada_id") if hrid is not None else None,
+                    request.user.id,
+                    formato,
+                    años,
+                )
+
+            return NotificationHandler.generate_response(
+                message_key="ok",
+                data={"job_id": task.id, "estado": "PENDING"},
+                status_code=status.HTTP_202_ACCEPTED,
+            )
+        except ValidationError as e:
+            return NotificationHandler.generate_response(
+                message_key="validation_error",
+                data={"errors": getattr(e, "message_dict", {"detalle": str(e)})},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as e:
+            return NotificationHandler.generate_response(
+                message_key="server_error", data={"error": str(e)}, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    # Consultar estado/resultado
+    @action(detail=False, methods=["get"], url_path=r"estado-export/(?P<job_id>[^/]+)")
+    def estado_export(self, request, job_id=None):
+        res = AsyncResult(job_id)
+        payload = {"job_id": job_id, "estado": res.status}
+        if res.successful():
+            info = res.result or {}
+            payload.update({"url": info.get("url"), "path": info.get("path")})
+        elif res.failed():
+            payload.update({"error": str(res.result)})
+        return NotificationHandler.generate_response(message_key="ok", data=payload, status_code=status.HTTP_200_OK)
 
     # ------------
     # COSECHA

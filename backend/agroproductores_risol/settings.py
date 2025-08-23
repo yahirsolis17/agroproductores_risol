@@ -219,3 +219,29 @@ THOUSAND_SEPARATOR = ','
 NUMBER_GROUPING = 3
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+
+# ===== Celery / Redis =====
+CELERY_BROKER_URL = "redis://localhost:6379/0"
+CELERY_RESULT_BACKEND = "redis://localhost:6379/0"
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_ACKS_LATE = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_TASK_TIME_LIMIT = 60 * 30         # 30 min hard
+CELERY_TASK_SOFT_TIME_LIMIT = 60 * 25    # 25 min soft
+CELERY_RESULT_EXPIRES = 60 * 60 * 6      # 6 h
+
+from kombu import Queue
+CELERY_TASK_QUEUES = (
+    Queue("exports_light"),
+    Queue("exports_heavy"),
+)
+CELERY_TASK_DEFAULT_QUEUE = "exports_light"
+
+# ===== Archivos exportados (usa MEDIA_ROOT si ya lo tienes) =====
+import os
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+MEDIA_ROOT = globals().get("MEDIA_ROOT") or os.path.join(BASE_DIR, "media")
+MEDIA_URL = globals().get("MEDIA_URL") or "/media/"
+EXPORTS_SUBDIR = "exports"  # media/exports/...
