@@ -49,7 +49,14 @@ export default function ReporteCosecha() {
       {!id && <Alert severity="info">Proporcione un cosechaId en la URL.</Alert>}
       {loading && <CircularProgress size={24} />}
       {error && <Alert severity="error">{error}</Alert>}
-      {data && <ReporteProduccionViewer data={data} title="Reporte de Cosecha" subtitle={subtitle} />}
+      {data && 
+      <ReporteProduccionViewer
+        data={data}
+        title="Reporte de Cosecha"
+        subtitle={subtitle}
+        onExport={() => handleExport(filters.formato)}
+      />
+      }
     </Box>
   );
 }

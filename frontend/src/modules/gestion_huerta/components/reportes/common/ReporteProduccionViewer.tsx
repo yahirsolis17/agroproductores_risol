@@ -539,7 +539,7 @@ const VentasTable: React.FC<{ ventas: TablaVenta[] }> = ({ ventas }) => {
         Ventas
       </Typography>
       <TableContainer>
-        <Table size="medium" stickyHeader>
+        <Table size="medium" stickyHeader sx={{ tableLayout: 'auto' }}>
           <TableHead>
             <TableRow>
               <TableCell sortDirection={orderBy === 'fecha' ? order : false}>
@@ -552,39 +552,42 @@ const VentasTable: React.FC<{ ventas: TablaVenta[] }> = ({ ventas }) => {
                   Fecha
                 </TableSortLabel>
               </TableCell>
+
               <TableCell align="right" sortDirection={orderBy === 'cantidad' ? order : false}>
                 <TableSortLabel
                   active={orderBy === 'cantidad'}
                   direction={orderBy === 'cantidad' ? order : 'asc'}
                   onClick={() => handleRequestSort('cantidad')}
-                  sx={{ fontWeight: 600 }}
+                  sx={{ fontWeight: 600, display: 'inline-flex', justifyContent: 'flex-end' }}
                 >
-                  Cantidad
+                  Cantidad de Cajas
                 </TableSortLabel>
               </TableCell>
+
               <TableCell align="right" sortDirection={orderBy === 'precio_unitario' ? order : false}>
                 <TableSortLabel
                   active={orderBy === 'precio_unitario'}
                   direction={orderBy === 'precio_unitario' ? order : 'asc'}
                   onClick={() => handleRequestSort('precio_unitario')}
-                  sx={{ fontWeight: 600 }}
+                  sx={{ fontWeight: 600, display: 'inline-flex', justifyContent: 'flex-end' }}
                 >
-                  Precio Unitario
+                  Precio por Caja
                 </TableSortLabel>
               </TableCell>
+
               <TableCell align="right" sortDirection={orderBy === 'total' ? order : false}>
                 <TableSortLabel
                   active={orderBy === 'total'}
                   direction={orderBy === 'total' ? order : 'asc'}
                   onClick={() => handleRequestSort('total')}
-                  sx={{ fontWeight: 600 }}
+                  sx={{ fontWeight: 600, display: 'inline-flex', justifyContent: 'flex-end' }}
                 >
                   Total
                 </TableSortLabel>
               </TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Comprador</TableCell>
             </TableRow>
           </TableHead>
+
           <TableBody>
             {rows.map((v) => {
               const d = parseLocalDateStrict(v.fecha);
@@ -595,18 +598,10 @@ const VentasTable: React.FC<{ ventas: TablaVenta[] }> = ({ ventas }) => {
               return (
                 <TableRow key={v.id} hover sx={{ transition: 'background-color 0.2s ease' }}>
                   <TableCell>{fechaStr}</TableCell>
-                  <TableCell align="right">{formatNumber(v.cantidad)}</TableCell>
-                  <TableCell align="right">{formatCurrency(v.precio_unitario)}</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 500 }}>
+                  <TableCell align="right" sx={{ pr: 3 }}>{formatNumber(v.cantidad)}</TableCell>
+                  <TableCell align="right" sx={{ pr: 3 }}>{formatCurrency(v.precio_unitario)}</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600, pr: 3 }}>
                     {formatCurrency(v.total)}
-                  </TableCell>
-                  <TableCell>
-                    <Chip 
-                      label={v.comprador || 'N/A'} 
-                      size="small" 
-                      color="secondary" 
-                      variant="outlined"
-                    />
                   </TableCell>
                 </TableRow>
               );
@@ -616,7 +611,7 @@ const VentasTable: React.FC<{ ventas: TablaVenta[] }> = ({ ventas }) => {
       </TableContainer>
     </Paper>
   );
-};
+}
 
 // --------------------------
 // Componente principal

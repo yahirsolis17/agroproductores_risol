@@ -33,8 +33,6 @@ from gestion_huerta.models import (
     Venta,
 )
 
-
-
 # Exportador (PDF/Excel)
 from gestion_huerta.services.exportacion_service import ExportacionService
 
@@ -302,6 +300,7 @@ class ReportesProduccionService:
 
         total_inversiones = D(0)
         total_ventas = D(0)
+        total_gastos_venta = D(0)  # <- incluye gastos de venta a nivel temporada
         total_cajas = 0
         cosechas_data: List[Dict[str, Any]] = []
 
@@ -310,6 +309,7 @@ class ReportesProduccionService:
                 rep_c = ReportesProduccionService.generar_reporte_cosecha(c.id, usuario, "json", force_refresh=force_refresh)
                 inv_c = D(rep_c["resumen_financiero"]["total_inversiones"])
                 ven_c = D(rep_c["resumen_financiero"]["total_ventas"])
+                gas_c = D(rep_c["resumen_financiero"]["total_gastos_venta"])  # <- nuevo agregado consistente
                 gan_c = D(rep_c["resumen_financiero"]["ganancia_neta"])
                 roi_c = D(rep_c["resumen_financiero"]["roi_porcentaje"])
                 cajas_c = int(rep_c["metricas_rendimiento"]["cajas_totales"])
@@ -326,13 +326,15 @@ class ReportesProduccionService:
                 )
                 total_inversiones += inv_c
                 total_ventas += ven_c
+                total_gastos_venta += gas_c
                 total_cajas += cajas_c
             except Exception as e:
                 # Continuar con otras cosechas sin romper reporte completo
                 print(f"[reporte_temporada] Error procesando cosecha {c.id}: {e}")
                 continue
 
-        ganancia_neta = total_ventas - total_inversiones
+        # Utilidad neta de temporada = ventas - gastos de venta - inversiones
+        ganancia_neta = total_ventas - total_gastos_venta - total_inversiones
         roi_temporada = (ganancia_neta / total_inversiones * D(100)) if total_inversiones > 0 else D(0)
 
         # Agregados a nivel temporada (para análisis de categorías/variedades)
@@ -365,6 +367,7 @@ class ReportesProduccionService:
                 "roi_temporada": Flt(roi_temporada),
                 "productividad": Flt(D(total_cajas) / hectareas) if hectareas > 0 else 0.0,
                 "cajas_totales": total_cajas,
+                "total_gastos_venta": Flt(total_gastos_venta),  # informativo (no requerido por exportadores)
             },
             "comparativo_cosechas": cosechas_data,
             "analisis_categorias": ReportesProduccionService._analizar_categorias_inversiones(
@@ -442,7 +445,8 @@ class ReportesProduccionService:
                         "ventas": rep_t["resumen_ejecutivo"]["ventas_totales"],
                         "ganancia": rep_t["resumen_ejecutivo"]["ganancia_neta"],
                         "roi": rep_t["resumen_ejecutivo"]["roi_temporada"],
-                        "productividad": rep_t["resumen_ejecutivo"]["cajas_totales"],
+                        # usar productividad correcta (cajas/ha), no "cajas_totales"
+                        "productividad": rep_t["resumen_ejecutivo"]["productividad"],
                         "cosechas_count": rep_t["informacion_general"]["total_cosechas"],
                     }
                 )

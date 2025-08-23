@@ -1,117 +1,129 @@
+// frontend/src/modules/gestion_huerta/components/reportes/common/ReportesProduccionToolbar.tsx
 import {
   Stack,
   Button,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   CircularProgress,
   Tooltip,
+  Paper,
+  Box,
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
   PictureAsPdf as PdfIcon,
   TableChart as ExcelIcon,
-  DataObject as JsonIcon,
 } from '@mui/icons-material';
+import { styled, alpha } from '@mui/material/styles';
 import { FormatoReporte } from '../../../types/reportesProduccionTypes';
 
 interface Props {
   from?: string;
   to?: string;
-  formato: FormatoReporte;
+  /** Ya no mostramos selector; se deja opcional para compatibilidad */
+  formato?: FormatoReporte;
   loading?: boolean;
-  onChange: (filters: { from?: string; to?: string; formato: FormatoReporte }) => void;
+  /** Ya no se usa, pero se deja opcional para compatibilidad */
+  onChange?: (filters: { from?: string; to?: string; formato: FormatoReporte }) => void;
   onRefresh: () => void;
   onExport: (formato: FormatoReporte) => void;
   showExportButtons?: boolean;
 }
 
-const formatoIcons = {
-  json: <JsonIcon />,
-  pdf: <PdfIcon />,
-  excel: <ExcelIcon />,
-};
+const ToolbarContainer = styled(Paper)(({ theme }) => ({
+  borderRadius: 16,
+  padding: theme.spacing(1.5),
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: theme.spacing(1.5),
+  background:
+    theme.palette.mode === 'dark'
+      ? alpha(theme.palette.background.paper, 0.7)
+      : `linear-gradient(160deg, ${alpha('#f8fafc', 0.95)} 0%, ${alpha('#ffffff', 0.98)} 100%)`,
+  border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+  boxShadow: '0 8px 24px rgba(0,0,0,0.06)',
+}));
 
-const formatoLabels = {
-  json: 'JSON',
-  pdf: 'PDF',
-  excel: 'Excel',
-};
+const GradientButton = styled(Button)(({ theme }) => ({
+  borderRadius: 10,
+  textTransform: 'none',
+  fontWeight: 700,
+  paddingLeft: theme.spacing(2),
+  paddingRight: theme.spacing(2),
+}));
 
 export default function ReportesProduccionToolbar({
-  from,
-  to,
-  formato,
   loading = false,
-  onChange,
   onRefresh,
   onExport,
   showExportButtons = true,
 }: Props) {
-
-  const handleFormatoChange = (newFormato: FormatoReporte) => {
-    onChange({ from, to, formato: newFormato });
-  };
-
   return (
-    <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
-      <FormControl size="small" sx={{ minWidth: 120 }}>
-        <InputLabel>Formato</InputLabel>
-        <Select
-          value={formato}
-          label="Formato"
-          onChange={(e) => handleFormatoChange(e.target.value as FormatoReporte)}
-          disabled={loading}
-        >
-          <MenuItem value="json">
-            <Stack direction="row" spacing={1} alignItems="center">
-              <JsonIcon fontSize="small" />
-              <span>JSON</span>
-            </Stack>
-          </MenuItem>
-          <MenuItem value="pdf">
-            <Stack direction="row" spacing={1} alignItems="center">
-              <PdfIcon fontSize="small" />
-              <span>PDF</span>
-            </Stack>
-          </MenuItem>
-          <MenuItem value="excel">
-            <Stack direction="row" spacing={1} alignItems="center">
-              <ExcelIcon fontSize="small" />
-              <span>Excel</span>
-            </Stack>
-          </MenuItem>
-        </Select>
-      </FormControl>
-
-      <Button
-        variant="outlined"
-        startIcon={loading ? <CircularProgress size={16} /> : <RefreshIcon />}
-        onClick={onRefresh}
-        disabled={loading}
-      >
-        {loading ? 'Cargando...' : 'Actualizar'}
-      </Button>
+    <ToolbarContainer elevation={0}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Tooltip title="Actualizar datos">
+          <span>
+            <GradientButton
+              variant="outlined"
+              startIcon={loading ? <CircularProgress size={16} /> : <RefreshIcon />}
+              onClick={onRefresh}
+              disabled={loading}
+              sx={(theme) => ({
+                borderColor: alpha(theme.palette.primary.main, 0.3),
+                color: theme.palette.primary.main,
+                '&:hover': {
+                  borderColor: theme.palette.primary.main,
+                  background: alpha(theme.palette.primary.main, 0.06),
+                },
+              })}
+            >
+              {loading ? 'Cargando…' : 'Actualizar'}
+            </GradientButton>
+          </span>
+        </Tooltip>
+      </Box>
 
       {showExportButtons && (
-        <>
-          {(['pdf', 'excel'] as FormatoReporte[]).map((fmt) => (
-            <Tooltip key={fmt} title={`Exportar como ${formatoLabels[fmt]}`}>
-              <Button
-                variant={formato === fmt ? 'contained' : 'outlined'}
-                size="small"
-                startIcon={formatoIcons[fmt]}
-                onClick={() => onExport(fmt)}
+        <Stack direction="row" spacing={1}>
+          <Tooltip title="Exportar como PDF">
+            <span>
+              <GradientButton
+                variant="contained"
+                startIcon={<PdfIcon />}
+                onClick={() => onExport('pdf')}
                 disabled={loading}
-                color={formato === fmt ? 'primary' : 'inherit'}
+                sx={(theme) => ({
+                  background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                  '&:hover': {
+                    background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.secondary.dark})`,
+                  },
+                })}
               >
-                {formatoLabels[fmt]}
-              </Button>
-            </Tooltip>
-          ))}
-        </>
+                PDF
+              </GradientButton>
+            </span>
+          </Tooltip>
+
+          <Tooltip title="Exportar como Excel">
+            <span>
+              <GradientButton
+                variant="contained"
+                startIcon={<ExcelIcon />}
+                onClick={() => onExport('excel')}
+                disabled={loading}
+                color="success"
+                sx={(theme) => ({
+                  background: `linear-gradient(135deg, ${theme.palette.success.main}, ${theme.palette.info.main})`,
+                  '&:hover': {
+                    background: `linear-gradient(135deg, ${theme.palette.success.dark}, ${theme.palette.info.dark})`,
+                  },
+                })}
+              >
+                Excel
+              </GradientButton>
+            </span>
+          </Tooltip>
+        </Stack>
       )}
-    </Stack>
+    </ToolbarContainer>
   );
 }

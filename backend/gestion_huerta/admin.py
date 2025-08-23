@@ -1,3 +1,5 @@
+# backend/gestion_huerta/admin.py
+
 from django.contrib import admin
 from gestion_huerta.models import (
     Propietario, Huerta, HuertaRentada, Cosecha,

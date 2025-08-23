@@ -12,6 +12,7 @@ from __future__ import annotations
 from io import BytesIO
 from typing import Dict, Any, Iterable, List, Tuple, Optional
 from functools import partial
+import logging
 
 from reportlab.lib import colors
 from reportlab.lib.colors import HexColor
@@ -30,6 +31,9 @@ from reportlab.platypus import (
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Border, Side
 from openpyxl.worksheet.worksheet import Worksheet
+from openpyxl.cell.cell import WriteOnlyCell
+
+logger = logging.getLogger(__name__)
 
 
 # =========================
@@ -93,7 +97,7 @@ def _pdf_doc(buffer: BytesIO) -> SimpleDocTemplate:
     return SimpleDocTemplate(
         buffer,
         pagesize=A4,
-        topMargin=1 * inch,
+        topMargin=0.75 * inch,   # refinado
         leftMargin=0.5 * inch,
         rightMargin=0.5 * inch,
         bottomMargin=0.75 * inch,
@@ -143,22 +147,61 @@ def _pdf_header_footer(canvas, doc, title: str):
     canvas.restoreState()
 
 
+# =========================
+# Utilidades para Excel (write_only-safe)
+# =========================
+
+def _woc(ws: Worksheet, value, font: Optional[Font] = None, fill: Optional[PatternFill] = None, number_format: Optional[str] = None):
+    """Crea una WriteOnlyCell con formato aplicado antes de append (requerido en write_only=True)."""
+    c = WriteOnlyCell(ws, value=value)
+    if font:
+        c.font = font
+    if fill:
+        c.fill = fill
+    if number_format:
+        c.number_format = number_format
+    return c
+
+
 def _ws_header(ws: Worksheet, title: str, merge_to_col: int = 6):
-    ws["A1"] = title
-    ws["A1"].font = Font(bold=True, size=16)
-    end_col_letter = chr(ord("A") + merge_to_col - 1)
-    ws.merge_cells(f"A1:{end_col_letter}1")
+    """
+    Cabecera de hoja compatible con write_only:
+    - En write_only: agrega una fila con la celda A1 estilizada (sin merge).
+    - En modo normal: escribe en A1 y realiza merge opcional.
+    """
+    is_write_only = getattr(ws.parent, "write_only", False)
+    if is_write_only:
+        title_cell = _woc(ws, title, font=Font(bold=True, size=16))
+        # Rellenar columnas para mantener ancho lógico
+        pad = [WriteOnlyCell(ws, value="") for _ in range(max(0, merge_to_col - 1))]
+        ws.append([title_cell] + pad)
+    else:
+        ws["A1"] = title
+        ws["A1"].font = Font(bold=True, size=16)
+        if merge_to_col and merge_to_col > 1:
+            end_col_letter = chr(ord("A") + merge_to_col - 1)
+            ws.merge_cells(f"A1:{end_col_letter}1")
 
 
 def _ws_section_title(ws: Worksheet, row: int, text: str):
+    """
+    Título de sección compatible con write_only.
+    - En write_only: agrega fila con fondo y texto blanco (sin coordenadas).
+    - En modo normal: escribe en A{row}.
+    """
     header_font = Font(bold=True, color="FFFFFF")
     header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-    ws[f"A{row}"] = text
-    ws[f"A{row}"].font = header_font
-    ws[f"A{row}"].fill = header_fill
+    is_write_only = getattr(ws.parent, "write_only", False)
+    if is_write_only:
+        ws.append([_woc(ws, text, font=header_font, fill=header_fill)])
+    else:
+        ws[f"A{row}"] = text
+        ws[f"A{row}"].font = header_font
+        ws[f"A{row}"].fill = header_fill
 
 
 def _apply_border(ws: Worksheet, cell_range: str):
+    # Nota: no usar en write_only. Mantener para hojas normales.
     thin = Side(style="thin", color="000000")
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
     for row in ws[cell_range]:
@@ -193,7 +236,8 @@ def _try_weasy_from_reporting(kind: str, reporte_data: Dict[str, Any]) -> Option
             if hid:
                 return rep.render_huerta_pdf(int(hid))
         return None
-    except Exception:
+    except Exception as e:
+        logger.debug("WeasyPrint fallback (%s) -> ReportLab. Motivo: %s", kind, e)
         return None
 
 
@@ -223,6 +267,7 @@ class ExportacionService:
         title_style, heading_style, note_style = _pdf_styles()
 
         story: List[Any] = []
+        story.append(Paragraph("REPORTE DE COSECHA", title_style))  # refinado
 
         info = reporte_data.get("informacion_general", {}) or {}
         resumen = reporte_data.get("resumen_financiero", {}) or {}
@@ -303,6 +348,11 @@ class ExportacionService:
                 )
                 t.setStyle(_table_style_header(HexColor("#0288d1")))
                 t.setStyle(_table_style_body())
+                # refinado: alinear texto libre a la izquierda
+                t.setStyle(TableStyle([
+                    ("ALIGN", (1, 1), (1, -1), "LEFT"),   # Categoría
+                    ("ALIGN", (5, 1), (5, -1), "LEFT"),   # Descripción
+                ]))
                 story.append(t)
                 if i < (len(body) - 1) // 800:
                     story.append(PageBreak())
@@ -344,11 +394,15 @@ class ExportacionService:
                 )
                 t.setStyle(_table_style_header(HexColor("#FF8C00")))
                 t.setStyle(_table_style_body())
+                # refinado: Variedad a la izquierda
+                t.setStyle(TableStyle([
+                    ("ALIGN", (1, 1), (1, -1), "LEFT"),
+                ]))
                 story.append(t)
                 if i < (len(body) - 1) // 800:
                     story.append(PageBreak())
 
-        # (Opcional) Análisis: categorías y variedades si llegan en el payload
+        # (Opcional) Análisis
         cats = reporte_data.get("analisis_categorias") or []
         if cats:
             story.append(Spacer(1, 10))
@@ -397,8 +451,13 @@ class ExportacionService:
         """
         Genera Excel del reporte de cosecha.
         Usa `Workbook(write_only=True)` para escalar a miles de filas sin agotar memoria.
+        *Compatibilidad write_only*: no se usan índices de celda ni iter_rows; todo via WriteOnlyCell.
         """
         wb = Workbook(write_only=True)
+
+        header_font = Font(bold=True, color="FFFFFF")
+        blue_fill   = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+        purple_fill = PatternFill(start_color="7030A0", end_color="7030A0", fill_type="solid")
 
         # Hoja Resumen
         ws_resumen = wb.create_sheet("Resumen")
@@ -419,84 +478,70 @@ class ExportacionService:
         ]
         for label, value in info_data:
             row += 1
-            ws_resumen.append([label, value])
-            ws_resumen.cell(row=row, column=1).font = Font(bold=True)
+            ws_resumen.append([_woc(ws_resumen, label, font=Font(bold=True)), _woc(ws_resumen, value)])
 
         row += 2
         _ws_section_title(ws_resumen, row, "RESUMEN FINANCIERO")
         resumen_rows = [
-            ("Total Inversiones", _money(resumen.get("total_inversiones"))),
-            ("Total Ventas", _money(resumen.get("total_ventas"))),
-            ("Gastos de Venta", _money(resumen.get("total_gastos_venta"))),
-            ("Ganancia Bruta", _money(resumen.get("ganancia_bruta"))),
-            ("Ganancia Neta", _money(resumen.get("ganancia_neta"))),
-            ("ROI (%)", _pct(resumen.get("roi_porcentaje"))),
-            ("Ganancia por Hectárea", _money(resumen.get("ganancia_por_hectarea"))),
+            ("Total Inversiones", _money(resumen.get("total_inversiones")), "#,##0.00"),
+            ("Total Ventas", _money(resumen.get("total_ventas")), "#,##0.00"),
+            ("Gastos de Venta", _money(resumen.get("total_gastos_venta")), "#,##0.00"),
+            ("Ganancia Bruta", _money(resumen.get("ganancia_bruta")), "#,##0.00"),
+            ("Ganancia Neta", _money(resumen.get("ganancia_neta")), "#,##0.00"),
+            ("ROI (%)", _pct(resumen.get("roi_porcentaje")), "0.0"),
+            ("Ganancia por Hectárea", _money(resumen.get("ganancia_por_hectarea")), "#,##0.00"),
         ]
-        for label, value in resumen_rows:
-            row += 1
-            ws_resumen.append([label, value])
-            ws_resumen.cell(row=row, column=1).font = Font(bold=True)
-            if isinstance(value, (int, float)) and "ROI" not in label:
-                ws_resumen.cell(row=row, column=2).number_format = "#,##0.00"
+        for label, value, fmt in resumen_rows:
+            ws_resumen.append([_woc(ws_resumen, label, font=Font(bold=True)), _woc(ws_resumen, value, number_format=fmt)])
+
+        ws_resumen.freeze_panes = "A4"
 
         # Hoja Inversiones
         ws_inv = wb.create_sheet("Inversiones")
-        ws_inv.append(["Fecha", "Categoría", "Insumos", "Mano Obra", "Total", "Descripción"])
-        for cell in ws_inv[1]:
-            cell.font = Font(bold=True, color="FFFFFF")
-            cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-
+        ws_inv.append([
+            _woc(ws_inv, "Fecha",      font=header_font, fill=blue_fill),
+            _woc(ws_inv, "Categoría",  font=header_font, fill=blue_fill),
+            _woc(ws_inv, "Insumos",    font=header_font, fill=blue_fill),
+            _woc(ws_inv, "Mano Obra",  font=header_font, fill=blue_fill),
+            _woc(ws_inv, "Total",      font=header_font, fill=blue_fill),
+            _woc(ws_inv, "Descripción",font=header_font, fill=blue_fill),
+        ])
         for inv in reporte_data.get("detalle_inversiones", []) or []:
-            ws_inv.append(
-                [
-                    _first(inv.get("fecha")),
-                    _safe_str(inv.get("categoria") or "Sin categoría"),
-                    _money(inv.get("gastos_insumos")),
-                    _money(inv.get("gastos_mano_obra")),
-                    _money(inv.get("total")),
-                    _safe_str(inv.get("descripcion")),
-                ]
-            )
-        # formatos numéricos
-        for row_cells in ws_inv.iter_rows(min_row=2):
-            if len(row_cells) >= 5:
-                for col in (3, 4, 5):
-                    row_cells[col - 1].number_format = "#,##0.00"
+            ws_inv.append([
+                _woc(ws_inv, _first(inv.get("fecha"))),
+                _woc(ws_inv, _safe_str(inv.get("categoria") or "Sin categoría")),
+                _woc(ws_inv, _money(inv.get("gastos_insumos")),   number_format="#,##0.00"),
+                _woc(ws_inv, _money(inv.get("gastos_mano_obra")), number_format="#,##0.00"),
+                _woc(ws_inv, _money(inv.get("total")),            number_format="#,##0.00"),
+                _woc(ws_inv, _safe_str(inv.get("descripcion"))),
+            ])
+        ws_inv.freeze_panes = "A2"
 
         # Hoja Ventas
         ws_ven = wb.create_sheet("Ventas")
-        ws_ven.append(["Fecha", "Variedad", "Cajas", "Precio/Caja", "Total", "Gasto", "Utilidad Neta"])
-        for cell in ws_ven[1]:
-            cell.font = Font(bold=True, color="FFFFFF")
-            cell.fill = PatternFill(start_color="7030A0", end_color="7030A0", fill_type="solid")
-
+        ws_ven.append([
+            _woc(ws_ven, "Fecha",        font=header_font, fill=purple_fill),
+            _woc(ws_ven, "Variedad",     font=header_font, fill=purple_fill),
+            _woc(ws_ven, "Cajas",        font=header_font, fill=purple_fill),
+            _woc(ws_ven, "Precio/Caja",  font=header_font, fill=purple_fill),
+            _woc(ws_ven, "Total",        font=header_font, fill=purple_fill),
+            _woc(ws_ven, "Gasto",        font=header_font, fill=purple_fill),
+            _woc(ws_ven, "Utilidad Neta",font=header_font, fill=purple_fill),
+        ])
         for v in reporte_data.get("detalle_ventas", []) or []:
             ingreso = _money(v.get("total_venta"))
-            gasto = _money(v.get("gasto"))
-            util = _money(v.get("ganancia_neta")) if "ganancia_neta" in v else (ingreso - gasto)
-            ws_ven.append(
-                [
-                    _first(v.get("fecha")),
-                    _safe_str(v.get("tipo_mango")),
-                    int(v.get("num_cajas") or 0),
-                    _money(v.get("precio_por_caja")),
-                    ingreso,
-                    gasto,
-                    util,
-                ]
-            )
-        for row_cells in ws_ven.iter_rows(min_row=2):
-            # cajas enteras
-            row_cells[2].number_format = "0"
-            # dinero
-            for col in (4, 5, 6, 7):
-                row_cells[col - 1].number_format = "#,##0.00"
-
-        # Congelamos encabezados
-        ws_inv.freeze_panes = "A2"
+            gasto   = _money(v.get("gasto"))
+            util    = _money(v.get("ganancia_neta")) if "ganancia_neta" in v else (ingreso - gasto)
+            ws_ven.append([
+                _woc(ws_ven, _first(v.get("fecha"))),
+                _woc(ws_ven, _safe_str(v.get("tipo_mango"))),
+                _woc(ws_ven, int(v.get("num_cajas") or 0),       number_format="0"),
+                _woc(ws_ven, _money(v.get("precio_por_caja")),   number_format="#,##0.00"),
+                _woc(ws_ven, ingreso,                             number_format="#,##0.00"),
+                _woc(ws_ven, gasto,                               number_format="#,##0.00"),
+                _woc(ws_ven, util,                                number_format="#,##0.00"),
+            ])
         ws_ven.freeze_panes = "A2"
-        ws_resumen.freeze_panes = "A4"
 
         buffer = BytesIO()
         wb.save(buffer)
@@ -521,6 +566,7 @@ class ExportacionService:
         title_style, heading_style, note_style = _pdf_styles()
 
         story: List[Any] = []
+        story.append(Paragraph("REPORTE DE TEMPORADA", title_style))  # refinado
 
         info = reporte_data.get("informacion_general", {}) or {}
         res = reporte_data.get("resumen_ejecutivo", {}) or {}
@@ -595,6 +641,10 @@ class ExportacionService:
                 )
                 t.setStyle(_table_style_header(HexColor("#0288d1")))
                 t.setStyle(_table_style_body())
+                # refinado: nombre de cosecha a la izquierda
+                t.setStyle(TableStyle([
+                    ("ALIGN", (0, 1), (0, -1), "LEFT"),
+                ]))
                 story.append(t)
                 if i < (len(body) - 1) // 800:
                     story.append(PageBreak())
@@ -606,7 +656,13 @@ class ExportacionService:
 
     @staticmethod
     def generar_excel_temporada(reporte_data: Dict[str, Any]) -> bytes:
+        """
+        Excel de temporada en modo write_only (formato aplicado al crear cada celda).
+        """
         wb = Workbook(write_only=True)
+
+        header_font = Font(bold=True, color="FFFFFF")
+        blue_fill   = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
 
         ws = wb.create_sheet("Resumen Ejecutivo")
         _ws_header(ws, "REPORTE DE PRODUCCIÓN - TEMPORADA COMPLETA", merge_to_col=6)
@@ -626,49 +682,40 @@ class ExportacionService:
         ]
         for label, value in info_rows:
             row += 1
-            ws.append([label, value])
-            ws.cell(row=row, column=1).font = Font(bold=True)
+            ws.append([_woc(ws, label, font=Font(bold=True)), _woc(ws, value)])
 
         row += 2
         _ws_section_title(ws, row, "RESUMEN EJECUTIVO")
         res_rows = [
-            ("Inversión Total", _money(res.get("inversion_total"))),
-            ("Ventas Totales", _money(res.get("ventas_totales"))),
-            ("Ganancia Neta", _money(res.get("ganancia_neta"))),
-            ("ROI Temporada (%)", _pct(res.get("roi_temporada"))),
-            ("Productividad (cajas/ha)", _money(res.get("productividad"))),
-            ("Cajas Totales", _money(res.get("cajas_totales"))),
+            ("Inversión Total", _money(res.get("inversion_total")), "#,##0.00"),
+            ("Ventas Totales", _money(res.get("ventas_totales")), "#,##0.00"),
+            ("Ganancia Neta", _money(res.get("ganancia_neta")), "#,##0.00"),
+            ("ROI Temporada (%)", _pct(res.get("roi_temporada")), "0.0"),
+            ("Productividad (cajas/ha)", _money(res.get("productividad")), "#,##0.00"),
+            ("Cajas Totales", _money(res.get("cajas_totales")), "0"),  # refinado
         ]
-        for label, value in res_rows:
-            row += 1
-            ws.append([label, value])
-            ws.cell(row=row, column=1).font = Font(bold=True)
-            if isinstance(value, (int, float)) and "ROI" not in label:
-                ws.cell(row=row, column=2).number_format = "#,##0.00"
-
-        # Comparativo por Cosecha (sheet aparte para grandes volúmenes)
-        ws_comp = wb.create_sheet("Comparativo Cosechas")
-        ws_comp.append(["Cosecha", "Inversión", "Ventas", "Ganancia", "ROI (%)", "Cajas"])
-        for cell in ws_comp[1]:
-            cell.font = Font(bold=True, color="FFFFFF")
-            cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-
-        for c in (reporte_data.get("comparativo_cosechas") or []):
-            ws_comp.append(
-                [
-                    _safe_str(c.get("nombre")),
-                    _money(c.get("inversion")),
-                    _money(c.get("ventas")),
-                    _money(c.get("ganancia")),
-                    _pct(c.get("roi")),
-                    _money(c.get("cajas")),
-                ]
-            )
-        for row_cells in ws_comp.iter_rows(min_row=2):
-            for col in (2, 3, 4, 6):
-                row_cells[col - 1].number_format = "#,##0.00"
-
+        for label, value, fmt in res_rows:
+            ws.append([_woc(ws, label, font=Font(bold=True)), _woc(ws, value, number_format=fmt)])
         ws.freeze_panes = "A4"
+
+        ws_comp = wb.create_sheet("Comparativo Cosechas")
+        ws_comp.append([
+            _woc(ws_comp, "Cosecha",  font=header_font, fill=blue_fill),
+            _woc(ws_comp, "Inversión",font=header_font, fill=blue_fill),
+            _woc(ws_comp, "Ventas",   font=header_font, fill=blue_fill),
+            _woc(ws_comp, "Ganancia", font=header_font, fill=blue_fill),
+            _woc(ws_comp, "ROI (%)",  font=header_font, fill=blue_fill),
+            _woc(ws_comp, "Cajas",    font=header_font, fill=blue_fill),
+        ])
+        for c in (reporte_data.get("comparativo_cosechas") or []):
+            ws_comp.append([
+                _woc(ws_comp, _safe_str(c.get("nombre"))),
+                _woc(ws_comp, _money(c.get("inversion")), number_format="#,##0.00"),
+                _woc(ws_comp, _money(c.get("ventas")),    number_format="#,##0.00"),
+                _woc(ws_comp, _money(c.get("ganancia")),  number_format="#,##0.00"),
+                _woc(ws_comp, _pct(c.get("roi")),         number_format="0.0"),
+                _woc(ws_comp, _money(c.get("cajas")),     number_format="0"),  # refinado
+            ])
         ws_comp.freeze_panes = "A2"
 
         buffer = BytesIO()
@@ -694,6 +741,7 @@ class ExportacionService:
         title_style, heading_style, note_style = _pdf_styles()
 
         story: List[Any] = []
+        story.append(Paragraph("PERFIL DE HUERTA", title_style))  # refinado
 
         info = reporte_data.get("informacion_general", {}) or {}
 
@@ -804,7 +852,14 @@ class ExportacionService:
 
     @staticmethod
     def generar_excel_perfil_huerta(reporte_data: Dict[str, Any]) -> bytes:
+        """
+        Excel de perfil de huerta en modo write_only, sin merges ni indexaciones directas.
+        """
         wb = Workbook(write_only=True)
+
+        header_font = Font(bold=True, color="FFFFFF")
+        blue_fill   = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+        orange_fill = PatternFill(start_color="9E480E", end_color="9E480E", fill_type="solid")
 
         ws = wb.create_sheet("Resumen Histórico")
         _ws_header(ws, "PERFIL HISTÓRICO DE HUERTA", merge_to_col=7)
@@ -824,48 +879,55 @@ class ExportacionService:
         ]
         for label, value in info_rows:
             row += 1
-            ws.append([label, value])
-            ws.cell(row=row, column=1).font = Font(bold=True)
+            ws.append([_woc(ws, label, font=Font(bold=True)), _woc(ws, value)])
 
         row += 2
         _ws_section_title(ws, row, "RESUMEN HISTÓRICO")
-        headers = ["Año", "Inversión", "Ventas", "Ganancia", "ROI (%)", "Productividad", "Cosechas"]
-        row += 1
-        ws.append(headers)
-        for i, _ in enumerate(headers, start=1):
-            c = ws.cell(row=row, column=i)
-            c.font = Font(bold=True, color="FFFFFF")
-            c.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-
+        ws.append([
+            _woc(ws, "Año",           font=header_font, fill=blue_fill),
+            _woc(ws, "Inversión",     font=header_font, fill=blue_fill),
+            _woc(ws, "Ventas",        font=header_font, fill=blue_fill),
+            _woc(ws, "Ganancia",      font=header_font, fill=blue_fill),
+            _woc(ws, "ROI (%)",       font=header_font, fill=blue_fill),
+            _woc(ws, "Productividad", font=header_font, fill=blue_fill),
+            _woc(ws, "Cosechas",      font=header_font, fill=blue_fill),
+        ])
         for d in (reporte_data.get("resumen_historico") or []):
-            ws.append(
-                [
-                    _safe_str(d.get("año")),
-                    _money(d.get("inversion")),
-                    _money(d.get("ventas")),
-                    _money(d.get("ganancia")),
-                    _pct(d.get("roi")),
-                    _money(d.get("productividad")),
-                    _safe_str(d.get("cosechas_count")),
-                ]
-            )
-
-        # Congelar encabezados
+            ws.append([
+                _woc(ws, _safe_str(d.get("año"))),
+                _woc(ws, _money(d.get("inversion")),     number_format="#,##0.00"),
+                _woc(ws, _money(d.get("ventas")),        number_format="#,##0.00"),
+                _woc(ws, _money(d.get("ganancia")),      number_format="#,##0.00"),
+                _woc(ws, _pct(d.get("roi")),             number_format="0.0"),
+                _woc(ws, _money(d.get("productividad")), number_format="#,##0.00"),
+                _woc(ws, _safe_str(d.get("cosechas_count"))),
+            ])
         ws.freeze_panes = "A5"
 
         # Hoja Proyecciones (si existen)
         pr = reporte_data.get("proyecciones") or {}
         ws2 = wb.create_sheet("Proyecciones")
         _ws_header(ws2, "Proyecciones")
-        ws2.append(["Métrica", "Valor"])
-        for cell in ws2[2]:
-            cell.font = Font(bold=True, color="FFFFFF")
-            cell.fill = PatternFill(start_color="9E480E", end_color="9E480E", fill_type="solid")
-        ws2.append(["Proyección Ventas Próx. Temporada", _money(pr.get("proyeccion_proxima_temporada"))])
-        ws2.append(["ROI Esperado (%)", _pct(pr.get("roi_esperado"))])
-        ws2.append(["Recomendaciones", ", ".join([_safe_str(x) for x in (pr.get("recomendaciones") or [])]) or "-"])
-        ws2.append(["Alertas", ", ".join([_safe_str(x) for x in (pr.get("alertas") or [])]) or "-"])
-
+        ws2.append([
+            _woc(ws2, "Métrica", font=header_font, fill=orange_fill),
+            _woc(ws2, "Valor",   font=header_font, fill=orange_fill),
+        ])
+        ws2.append([
+            _woc(ws2, "Proyección Ventas Próx. Temporada"),
+            _woc(ws2, _money(pr.get("proyeccion_proxima_temporada")), number_format="#,##0.00")
+        ])
+        ws2.append([
+            _woc(ws2, "ROI Esperado (%)"),
+            _woc(ws2, _pct(pr.get("roi_esperado")), number_format="0.0")
+        ])
+        ws2.append([
+            _woc(ws2, "Recomendaciones"),
+            _woc(ws2, ", ".join([_safe_str(x) for x in (pr.get("recomendaciones") or [])]) or "-")
+        ])
+        ws2.append([
+            _woc(ws2, "Alertas"),
+            _woc(ws2, ", ".join([_safe_str(x) for x in (pr.get("alertas") or [])]) or "-")
+        ])
         ws2.freeze_panes = "A3"
 
         buffer = BytesIO()
