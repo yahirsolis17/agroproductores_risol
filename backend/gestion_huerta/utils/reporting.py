@@ -24,6 +24,7 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from io import BytesIO
 from datetime import datetime
+import base64
 
 from django.db.models import Sum, F, Q
 from django.db.models.functions import TruncMonth
@@ -37,6 +38,12 @@ from gestion_huerta.models import (
     InversionesHuerta,
     Venta,
 )
+
+# Logo corporativo simple embebido en base64 (SVG)
+_LOGO_B64 = (
+    "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjAiIGhlaWdodD0iNDAiPjxyZWN0IHdpZHRoPSIxMjAiIGhlaWdodD0iNDAiIGZpbGw9IiMyZTdkMzIiLz48dGV4dCB4PSI2MCIgeT0iMjUiIGZvbnQtc2l6ZT0iMTgiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiPlJpc29sPC90ZXh0Pjwvc3ZnPg=="
+)
+_LOGO_DATA_URI = "data:image/svg+xml;base64," + _LOGO_B64
 
 # =========================
 # Utilidades seguras
@@ -602,7 +609,20 @@ def _dist_pie_like_html(title: str, data: List[Dict[str, Any]]) -> str:
 def _base_css() -> str:
     # Paleta y estilos “dashboard” similares al viewer
     return r"""
-    @page { size: A4; margin: 20mm 16mm; }
+    @page {
+      size: A4;
+      margin: 20mm 16mm;
+      @bottom-left {
+        content: "Agroproductores Risol";
+        font-size: 10px;
+        color: var(--muted);
+      }
+      @bottom-right {
+        content: "Página " counter(page) " de " counter(pages);
+        font-size: 10px;
+        color: var(--muted);
+      }
+    }
     :root {
       --bg: #f7f9fc;
       --paper: #ffffff;
@@ -636,6 +656,12 @@ def _base_css() -> str:
       color: #fff;
       background: var(--grad);
       position: relative;
+    }
+    .header .logo {
+      position: absolute;
+      top: 24px;
+      right: 24px;
+      height: 40px;
     }
     .header .title {
       font-size: 24px;
@@ -761,6 +787,7 @@ def _render_html_document(title: str, subtitle: str, meta_badges: List[str], bod
     <body>
       <div class="wrapper">
         <header class="header">
+          <img src="{_LOGO_DATA_URI}" alt="Logo" class="logo"/>
           <div class="title">{html_escape(title)}</div>
           <div class="subtitle">{html_escape(subtitle)}</div>
           <div class="meta">
