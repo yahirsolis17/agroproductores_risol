@@ -1,4 +1,3 @@
-// frontend/src/modules/gestion_huerta/pages/ReporteCosecha.tsx
 import { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Box, Typography, Divider, Alert, CircularProgress } from '@mui/material';
@@ -20,10 +19,7 @@ export default function ReporteCosecha() {
   const handleExport = async (formato: FormatoReporte) => {
     if (!id) return;
     try {
-      await reportesProduccionService.generarReporteCosecha({
-        cosecha_id: id,
-        formato,
-      });
+      await reportesProduccionService.generarReporteCosecha({ cosecha_id: id, formato });
     } catch (error) {
       console.error('Error al exportar reporte:', error);
     }

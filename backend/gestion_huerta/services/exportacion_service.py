@@ -1,4 +1,3 @@
-# backend/gestion_huerta/services/exportacion_service.py
 # -*- coding: utf-8 -*-
 """
 Servicio para exportar reportes de producción a PDF y Excel con enfoque en:
@@ -28,7 +27,7 @@ from reportlab.platypus import (
 )
 
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
+from openpyxl.styles import Font, PatternFill, Border, Side
 from openpyxl.worksheet.worksheet import Worksheet
 
 
@@ -143,23 +142,43 @@ def _ws_section_title(ws: Worksheet, row: int, text: str):
     ws[f"A{row}"].fill = header_fill
 
 
-def _auto_width(ws: Worksheet, max_width: int = 50):
-    # Heurística: calcula ancho basado en longitud de string; ignora celdas muy largas
-    dims = {}
-    for row in ws.iter_rows():
-        for cell in row:
-            v = "" if cell.value is None else str(cell.value)
-            dims[cell.column_letter] = min(max(dims.get(cell.column_letter, 0), len(v) + 2), max_width)
-    for col, width in dims.items():
-        ws.column_dimensions[col].width = width
-
-
 def _apply_border(ws: Worksheet, cell_range: str):
     thin = Side(style="thin", color="000000")
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
     for row in ws[cell_range]:
         for cell in row:
             cell.border = border
+
+
+# ===================================================
+# Integración opcional con WeasyPrint (reporting.py)
+# ===================================================
+
+def _try_weasy_from_reporting(kind: str, reporte_data: Dict[str, Any]) -> Optional[bytes]:
+    """
+    Intenta renderizar el PDF con los templates de reporting (WeasyPrint).
+    Si falla por cualquier razón, devuelve None y se usa ReportLab como fallback.
+    """
+    try:
+        # Import perezoso para no forzar dependencia si no se usa
+        from gestion_huerta.utils import reporting as rep  # type: ignore
+    except Exception:
+        return None
+
+    meta = (reporte_data or {}).get("metadata", {}) or {}
+    try:
+        if kind == "cosecha" and meta.get("cosecha_id"):
+            return rep.render_cosecha_pdf(int(meta["cosecha_id"]))
+        if kind == "temporada" and meta.get("temporada_id"):
+            return rep.render_temporada_pdf(int(meta["temporada_id"]))
+        if kind == "perfil_huerta":
+            # reporting.render_huerta_pdf espera un ID (propia o rentada)
+            hid = meta.get("huerta_id") or meta.get("huerta_rentada_id")
+            if hid:
+                return rep.render_huerta_pdf(int(hid))
+        return None
+    except Exception:
+        return None
 
 
 # ===================================================
@@ -177,8 +196,12 @@ class ExportacionService:
     def generar_pdf_cosecha(reporte_data: Dict[str, Any]) -> bytes:
         """
         Genera PDF del reporte de cosecha.
-        Seguro frente a claves faltantes y gran volumen de filas (tablas paginadas).
+        Intenta WeasyPrint (reporting) y hace fallback a ReportLab si no está disponible.
         """
+        weasy = _try_weasy_from_reporting("cosecha", reporte_data)
+        if weasy:
+            return weasy
+
         buffer = BytesIO()
         doc = _pdf_doc(buffer)
         title_style, heading_style, note_style = _pdf_styles()
@@ -255,7 +278,6 @@ class ExportacionService:
         if len(inv_rows) == 1:
             story.append(Paragraph("Sin inversiones registradas.", note_style))
         else:
-            # Partimos en bloques para no inflar demasiado un único Table
             header = inv_rows[0]
             body = inv_rows[1:]
             for i, chunk in enumerate(_chunk_rows(body, 800)):  # 800 filas por tabla ≈ seguro en A4
@@ -457,8 +479,7 @@ class ExportacionService:
             for col in (4, 5, 6, 7):
                 row_cells[col - 1].number_format = "#,##0.00"
 
-        # NOTA: write_only=True limita autofiltros y bordes por rango; se prioriza rendimiento.
-        # Aun así, podemos congelar paneles:
+        # Congelamos encabezados
         ws_inv.freeze_panes = "A2"
         ws_ven.freeze_panes = "A2"
         ws_resumen.freeze_panes = "A4"
@@ -474,6 +495,13 @@ class ExportacionService:
 
     @staticmethod
     def generar_pdf_temporada(reporte_data: Dict[str, Any]) -> bytes:
+        """
+        Genera PDF de temporada: intenta WeasyPrint (reporting) y cae a ReportLab si no.
+        """
+        weasy = _try_weasy_from_reporting("temporada", reporte_data)
+        if weasy:
+            return weasy
+
         buffer = BytesIO()
         doc = _pdf_doc(buffer)
         title_style, heading_style, note_style = _pdf_styles()
@@ -642,6 +670,13 @@ class ExportacionService:
 
     @staticmethod
     def generar_pdf_perfil_huerta(reporte_data: Dict[str, Any]) -> bytes:
+        """
+        Genera PDF de perfil de huerta: intenta WeasyPrint y cae a ReportLab si no.
+        """
+        weasy = _try_weasy_from_reporting("perfil_huerta", reporte_data)
+        if weasy:
+            return weasy
+
         buffer = BytesIO()
         doc = _pdf_doc(buffer)
         title_style, heading_style, note_style = _pdf_styles()
@@ -787,7 +822,7 @@ class ExportacionService:
         headers = ["Año", "Inversión", "Ventas", "Ganancia", "ROI (%)", "Productividad", "Cosechas"]
         row += 1
         ws.append(headers)
-        for i, h in enumerate(headers, start=1):
+        for i, _ in enumerate(headers, start=1):
             c = ws.cell(row=row, column=i)
             c.font = Font(bold=True, color="FFFFFF")
             c.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
@@ -805,10 +840,7 @@ class ExportacionService:
                 ]
             )
 
-        # Formatos numéricos
-        # Nota: en write_only no podemos iterar con total libertad por celdas ya "escritas";
-        # este formateo es mejor hacerlo en modo normal, pero priorizamos rendimiento y tamaño.
-        # Como alternativa, añadimos otra hoja con análisis (opcional).
+        # Congelar encabezados
         ws.freeze_panes = "A5"
 
         # Hoja Proyecciones (si existen)

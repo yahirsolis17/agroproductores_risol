@@ -1,9 +1,10 @@
 ﻿# backend/gestion_huerta/utils/reporting.py
 # -*- coding: utf-8 -*-
 """
-Punto único para construir el contrato de reportes para el front.
+Punto único para construir el contrato de reportes para el front
+y, adicionalmente, para renderizar PDFs con estilo tipo dashboard.
 
-Funciones expuestas (drop-in):
+Funciones expuestas (drop-in de datos):
 - aggregates_for_cosecha(cosecha_id: int) -> Dict
 - series_for_cosecha(cosecha_id: int) -> List[Dict]
 - aggregates_for_temporada(temporada_id: int) -> Dict
@@ -11,20 +12,22 @@ Funciones expuestas (drop-in):
 - aggregates_for_huerta(huerta_id: int) -> Dict
 - series_for_huerta(huerta_id: int) -> List[Dict]
 
-Estructuras devueltas:
-- Aggregates de cosecha: {"kpis": [...], "tabla_inversiones": {...}, "tabla_ventas": {...}}
-- Series de cosecha/temporada/huerta: [{"id","label","type","data"}]
-- Aggregates de temporada: {"kpis": [...], "tabla": {...}}
-- Aggregates de huerta: {"kpis": [...], "tabla": {...}}
+Funciones nuevas (PDF):
+- render_cosecha_pdf(cosecha_id: int) -> bytes
+- render_temporada_pdf(temporada_id: int) -> bytes
+- render_huerta_pdf(huerta_id: int) -> bytes
 """
 
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+from io import BytesIO
+from datetime import datetime
 
 from django.db.models import Sum, F, Q
 from django.db.models.functions import TruncMonth
+from django.utils.html import escape as html_escape
 
 from gestion_huerta.models import (
     Cosecha,
@@ -87,14 +90,6 @@ def aggregates_for_cosecha(cosecha_id: int) -> Dict[str, Any]:
     try:
         cosecha = (
             Cosecha.objects.select_related("temporada", "huerta", "huerta_rentada")
-            .prefetch_related(
-                # No hace falta select_related('categoria') aquí; las tablas muestran nombre ya guardado
-                # pero lo añadimos para evitar N+1 si el front lo requiere.
-                # (No rompe si la relación no existe en tu modelo).
-                # Comentado por compatibilidad estricta:
-                # Prefetch("inversiones", queryset=InversionesHuerta.objects.filter(is_active=True).select_related("categoria")),
-                # Prefetch("ventas", queryset=Venta.objects.filter(is_active=True)),
-            )
             .get(pk=cosecha_id)
         )
     except Cosecha.DoesNotExist:
@@ -231,7 +226,7 @@ def aggregates_for_temporada(temporada_id: int) -> Dict[str, Any]:
         {"id": "cajas_totales", "label": "Cajas Totales", "value": fmt_num(total_cajas)},
     ]
 
-    # Tabla comparativa por cosecha (consultas agregadas para evitar N+1)
+    # Tabla comparativa por cosecha
     cosechas = temp.cosechas.filter(is_active=True).order_by("id").values("id", "nombre")
     tabla = {"columns": ["Cosecha", "Inversión", "Ventas", "Ganancia", "ROI", "Cajas"], "rows": []}
     ids = [c["id"] for c in cosechas]
@@ -519,3 +514,450 @@ def series_for_huerta(huerta_id: int) -> List[Dict[str, Any]]:
         {"id": "dist_inversion_hist", "label": "Distribución Hist. Inversiones", "type": "pie", "data": data_pie},
         {"id": "estacionalidad", "label": "Estacionalidad de Ventas", "type": "line", "data": data_mes},
     ]
+
+
+# =====================================================================
+# ===================  RENDER PDF CON ESTILO (WeasyPrint)  =============
+# =====================================================================
+
+def _ensure_weasyprint():
+    try:
+        from weasyprint import HTML, CSS  # noqa: F401
+    except Exception as exc:
+        raise ImportError(
+            "WeasyPrint es requerido para generar el PDF. Instálalo con 'pip install weasyprint'."
+        ) from exc
+
+
+def _now_iso() -> str:
+    return datetime.now().strftime("%Y-%m-%d %H:%M")
+
+
+def _badge(text: str) -> str:
+    return f'<span class="badge">{html_escape(text)}</span>'
+
+
+def _kpi_cards_html(kpis: List[Dict[str, str]]) -> str:
+    # kpis: [{id,label,value}]
+    items = []
+    for i, k in enumerate(kpis):
+        label = html_escape(str(k.get("label", "")))
+        value = html_escape(str(k.get("value", "")))
+        items.append(f"""
+        <div class="kpi-card">
+            <div class="kpi-label">{label}</div>
+            <div class="kpi-value">{value}</div>
+        </div>
+        """)
+    return f'<section class="kpi-grid">{"".join(items)}</section>'
+
+
+def _table_html(title: str, table: Dict[str, Any]) -> str:
+    cols = table.get("columns", [])
+    rows = table.get("rows", [])
+    thead = "".join(f"<th>{html_escape(str(c))}</th>" for c in cols)
+    trows = []
+    for r in rows:
+        tds = "".join(f"<td>{html_escape(str(c))}</td>" for c in r)
+        trows.append(f"<tr>{tds}</tr>")
+    tbody = "".join(trows)
+    return f"""
+    <section class="table-block">
+      <h3 class="section-subtitle">{html_escape(title)}</h3>
+      <table class="data-table">
+        <thead><tr>{thead}</tr></thead>
+        <tbody>{tbody}</tbody>
+      </table>
+    </section>
+    """
+
+
+def _dist_pie_like_html(title: str, data: List[Dict[str, Any]]) -> str:
+    # Sustituto visual ligero para el pie: tabla + barra proporcional
+    total = sum(Flt(x.get("value", 0)) for x in data) or 1.0
+    rows = []
+    for x in data:
+        name = html_escape(str(x.get("name", "Sin categoría")))
+        val = Flt(x.get("value", 0))
+        pct = (val / total) * 100.0
+        rows.append(f"""
+          <div class="dist-row">
+            <div class="dist-name">{name}</div>
+            <div class="dist-bar">
+              <div class="dist-fill" style="width:{pct:.1f}%"></div>
+            </div>
+            <div class="dist-val">{fmt_money(val)} <span class="muted">({pct:.1f}%)</span></div>
+          </div>
+        """)
+    return f"""
+    <section class="table-block">
+      <h3 class="section-subtitle">{html_escape(title)}</h3>
+      <div class="dist-container">
+        {''.join(rows)}
+      </div>
+    </section>
+    """
+
+
+def _base_css() -> str:
+    # Paleta y estilos “dashboard” similares al viewer
+    return r"""
+    @page { size: A4; margin: 20mm 16mm; }
+    :root {
+      --bg: #f7f9fc;
+      --paper: #ffffff;
+      --primary: #2e7d32; /* verde */
+      --secondary: #0288d1; /* azul */
+      --text: #0f172a;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --shadow: 0 10px 30px rgba(0,0,0,0.08);
+      --radius: 14px;
+      --radius-lg: 20px;
+      --grad: linear-gradient(135deg, var(--primary), var(--secondary));
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, "Helvetica Neue", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    .wrapper {
+      background: var(--paper);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .header {
+      padding: 24px 28px;
+      color: #fff;
+      background: var(--grad);
+      position: relative;
+    }
+    .header .title {
+      font-size: 24px;
+      font-weight: 800;
+      margin: 0 0 4px 0;
+    }
+    .header .subtitle {
+      font-size: 14px;
+      opacity: .95;
+    }
+    .header .meta {
+      margin-top: 10px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .badge {
+      display: inline-block;
+      padding: 6px 10px;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 999px;
+      font-size: 12px;
+    }
+    .content {
+      padding: 22px 26px;
+    }
+    .section-title {
+      font-size: 18px;
+      font-weight: 800;
+      margin: 12px 0 12px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--border);
+    }
+    .section-subtitle {
+      font-size: 15px;
+      font-weight: 700;
+      margin: 0 0 10px;
+    }
+    /* KPI grid */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin: 8px 0 18px;
+    }
+    .kpi-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      background: linear-gradient(160deg, #ffffff, #fbfbff);
+    }
+    .kpi-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+    .kpi-value {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--primary);
+    }
+    /* Tablas */
+    .table-block { margin: 16px 0 10px; }
+    table.data-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      font-size: 12px;
+      background: #fff;
+    }
+    .data-table thead th {
+      background: #f1f5f9;
+      color: #0f172a;
+      text-align: left;
+      font-weight: 700;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .data-table tbody td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .data-table tbody tr:nth-child(even) td { background: #fafbff; }
+    .muted { color: var(--muted); }
+    /* Distribución (barras horizontales) */
+    .dist-container { display: grid; gap: 8px; }
+    .dist-row { display: grid; grid-template-columns: 1fr 3fr auto; gap: 8px; align-items: center; }
+    .dist-name { font-weight: 600; }
+    .dist-bar {
+      height: 10px; background: #eef2ff; border-radius: 999px; overflow: hidden; border: 1px solid #e2e8f0;
+    }
+    .dist-fill {
+      height: 100%; background: var(--grad);
+    }
+
+    /* Responsive (en PDF caben 4, pero por si se visualiza en HTML) */
+    @media (max-width: 900px) {
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 600px) {
+      .kpi-grid { grid-template-columns: 1fr; }
+    }
+    """
+
+
+def _render_html_document(title: str, subtitle: str, meta_badges: List[str], body_html: str) -> str:
+    return f"""
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+      <meta charset="utf-8"/>
+      <meta name="viewport" content="width=device-width, initial-scale=1"/>
+      <title>{html_escape(title)}</title>
+      <style>
+        {_base_css()}
+      </style>
+    </head>
+    <body>
+      <div class="wrapper">
+        <header class="header">
+          <div class="title">{html_escape(title)}</div>
+          <div class="subtitle">{html_escape(subtitle)}</div>
+          <div class="meta">
+            {_badge("Generado: " + _now_iso())}
+            {''.join(_badge(b) for b in meta_badges)}
+          </div>
+        </header>
+        <main class="content">
+          {body_html}
+        </main>
+      </div>
+    </body>
+    </html>
+    """
+
+
+def _html_cosecha(cosecha: Cosecha) -> str:
+    """Arma el HTML del reporte de cosecha con estilo."""
+    data = aggregates_for_cosecha(cosecha.id)
+    series = series_for_cosecha(cosecha.id)
+
+    # Header info
+    origen = cosecha.huerta or cosecha.huerta_rentada
+    badges = []
+    if cosecha.temporada:
+        badges.append(f"Temporada: {cosecha.temporada.año}")
+    if origen:
+        badges.append(f"Huerta: {getattr(origen, 'nombre', '—')}")
+        hect = getattr(origen, "hectareas", None)
+        if hect is not None:
+            badges.append(f"Hectáreas: {hect}")
+
+    # Cuerpo
+    body = []
+    body.append('<h2 class="section-title">Indicadores Clave</h2>')
+    body.append(_kpi_cards_html(data.get("kpis", [])))
+
+    # Distribución de inversiones (pie-like)
+    dist = next((s for s in series if s.get("id") == "dist_inversion"), None)
+    if dist and isinstance(dist.get("data"), list) and dist["data"]:
+        body.append(_dist_pie_like_html("Distribución de Inversiones por Categoría", dist["data"]))
+
+    # Tablas
+    tabla_inv = data.get("tabla_inversiones", {})
+    tabla_ven = data.get("tabla_ventas", {})
+    body.append('<h2 class="section-title">Detalle</h2>')
+    if tabla_inv.get("rows"):
+        body.append(_table_html("Inversiones", tabla_inv))
+    if tabla_ven.get("rows"):
+        body.append(_table_html("Ventas", tabla_ven))
+
+    return _render_html_document(
+        title=f"Reporte de Cosecha · {cosecha.nombre}",
+        subtitle="Resumen financiero y operativo",
+        meta_badges=badges,
+        body_html="".join(body),
+    )
+
+
+def _html_temporada(temp: Temporada) -> str:
+    data = aggregates_for_temporada(temp.id)
+    series = series_for_temporada(temp.id)  # no graficamos imagen, pero mostramos distribución/series como tablas si quisieras
+
+    badges = []
+    origen = temp.huerta or temp.huerta_rentada
+    badges.append(f"Año: {temp.año}")
+    if origen:
+        badges.append(f"Huerta: {getattr(origen, 'nombre', '—')}")
+
+    body = []
+    body.append('<h2 class="section-title">Indicadores Clave</h2>')
+    body.append(_kpi_cards_html(data.get("kpis", [])))
+
+    # Secciones series (ejemplos en tablas ligeras)
+    inv_m = next((s for s in series if s.get("id") == "inv_mensuales"), None)
+    ven_m = next((s for s in series if s.get("id") == "ventas_mensuales"), None)
+    dist = next((s for s in series if s.get("id") == "dist_inversion"), None)
+    var = next((s for s in series if s.get("id") == "variedades"), None)
+
+    if inv_m and inv_m.get("data"):
+        tbl = {"columns": ["Mes", "Inversión"], "rows": [[x["x"], fmt_money(x["y"])] for x in inv_m["data"]]}
+        body.append(_table_html("Inversiones por Mes", tbl))
+
+    if ven_m and ven_m.get("data"):
+        tbl = {"columns": ["Mes", "Ventas"], "rows": [[x["x"], fmt_money(x["y"])] for x in ven_m["data"]]}
+        body.append(_table_html("Ventas por Mes", tbl))
+
+    if dist and dist.get("data"):
+        body.append(_dist_pie_like_html("Distribución de Inversiones", dist["data"]))
+
+    if var and var.get("data"):
+        tbl = {
+            "columns": ["Variedad", "Cajas", "Precio Prom.", "Ingreso", "% Ingreso"],
+            "rows": [
+                [x["variedad"], fmt_num(x["cajas"]), fmt_money(x["precio_prom"]), fmt_money(x["ingreso"]), f'{x["porcentaje"]:.1f}%']
+                for x in var["data"]
+            ],
+        }
+        body.append(_table_html("Ventas por Variedad", tbl))
+
+    # Comparativa por cosecha
+    tabla = data.get("tabla", {})
+    if tabla.get("rows"):
+        body.append('<h2 class="section-title">Comparativa por Cosecha</h2>')
+        body.append(_table_html("Resumen por Cosecha", tabla))
+
+    return _render_html_document(
+        title=f"Reporte de Temporada · {temp.año}",
+        subtitle="Consolidado por temporada",
+        meta_badges=badges,
+        body_html="".join(body),
+    )
+
+
+def _html_huerta(h: Huerta | HuertaRentada) -> str:
+    data = aggregates_for_huerta(h.id)
+    series = series_for_huerta(h.id)
+
+    badges = []
+    badges.append(f"Huerta: {getattr(h, 'nombre', '—')}")
+    hect = getattr(h, "hectareas", None)
+    if hect is not None:
+        badges.append(f"Hectáreas: {hect}")
+
+    body = []
+    body.append('<h2 class="section-title">Indicadores Históricos</h2>')
+    body.append(_kpi_cards_html(data.get("kpis", [])))
+
+    # Series simplificadas
+    # ROI anual
+    roi = next((s for s in series if s.get("id") == "roi_anual"), None)
+    if roi and roi.get("data"):
+        tbl = {"columns": ["Año", "ROI"], "rows": [[x["year"], f'{x["roi"]:.1f}%'] for x in roi["data"]]}
+        body.append(_table_html("ROI por Año", tbl))
+
+    # Ingresos vs Inversiones
+    ivg = next((s for s in series if s.get("id") == "ingresos_vs_gastos"), None)
+    if ivg and ivg.get("data"):
+        tbl = {"columns": ["Año", "Inversión", "Ventas"], "rows": [[x["year"], fmt_money(x["inversion"]), fmt_money(x["ventas"])] for x in ivg["data"]]}
+        body.append(_table_html("Ingresos vs Inversiones por Año", tbl))
+
+    # Productividad
+    prod = next((s for s in series if s.get("id") == "productividad"), None)
+    if prod and prod.get("data"):
+        tbl = {"columns": ["Año", "Cajas/Ha"], "rows": [[x["year"], f'{x["cajas_por_ha"]:.1f}'] for x in prod["data"]]}
+        body.append(_table_html("Productividad (Cajas/Ha)", tbl))
+
+    # Distribución histórica de inversiones
+    dist = next((s for s in series if s.get("id") == "dist_inversion_hist"), None)
+    if dist and dist.get("data"):
+        body.append(_dist_pie_like_html("Distribución Histórica de Inversiones", dist["data"]))
+
+    # Tabla principal
+    tabla = data.get("tabla", {})
+    if tabla.get("rows"):
+        body.append('<h2 class="section-title">Últimos Años</h2>')
+        body.append(_table_html("Resumen por Año", tabla))
+
+    return _render_html_document(
+        title="Perfil de Huerta",
+        subtitle="Resumen histórico y métricas clave",
+        meta_badges=badges,
+        body_html="".join(body),
+    )
+
+
+def _html_to_pdf_bytes(html: str) -> bytes:
+    _ensure_weasyprint()
+    from weasyprint import HTML, CSS  # type: ignore
+    pdf_io = BytesIO()
+    HTML(string=html, base_url=".").write_pdf(pdf_io, stylesheets=[CSS(string="")])
+    return pdf_io.getvalue()
+
+
+# =========================
+# API pública de PDF
+# =========================
+
+def render_cosecha_pdf(cosecha_id: int) -> bytes:
+    try:
+        cosecha = Cosecha.objects.select_related("temporada", "huerta", "huerta_rentada").get(pk=cosecha_id)
+    except Cosecha.DoesNotExist:
+        raise ValueError("Cosecha no encontrada")
+    html = _html_cosecha(cosecha)
+    return _html_to_pdf_bytes(html)
+
+
+def render_temporada_pdf(temporada_id: int) -> bytes:
+    try:
+        temp = Temporada.objects.select_related("huerta", "huerta_rentada").get(pk=temporada_id)
+    except Temporada.DoesNotExist:
+        raise ValueError("Temporada no encontrada")
+    html = _html_temporada(temp)
+    return _html_to_pdf_bytes(html)
+
+
+def render_huerta_pdf(huerta_id: int) -> bytes:
+    h = _resolver_huerta(huerta_id)
+    html = _html_huerta(h)
+    return _html_to_pdf_bytes(html)

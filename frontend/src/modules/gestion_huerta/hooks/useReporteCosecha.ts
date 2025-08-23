@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { reportesProduccionService } from '../services/reportesProduccionService';
-import { ReporteProduccionData } from '../types/reportesProduccionTypes';
+import { ReporteProduccionData, InfoHuerta } from '../types/reportesProduccionTypes';
 
 // ---- Helpers de agregación (sumas por DÍA) ----
 const sumByDate = (items: any[], dateKey: string, valueKey: string) => {
@@ -8,11 +8,10 @@ const sumByDate = (items: any[], dateKey: string, valueKey: string) => {
   for (const it of items || []) {
     const raw = it?.[dateKey];
     if (!raw) continue;
-    const d = String(raw).slice(0, 10); // YYYY-MM-DD seguro
-    const val = Number(it?.[valueKey] || 0);
+    const d = String(raw).slice(0, 10); // YYYY-MM-DD
+    const val = Number(it?.[valueKey] ?? 0);
     acc[d] = (acc[d] ?? 0) + (Number.isFinite(val) ? val : 0);
   }
-  // ordenar ascendente por fecha
   return Object.entries(acc)
     .sort((a, b) => (a[0] < b[0] ? -1 : 1))
     .map(([fecha, valor]) => ({ fecha, valor }));
@@ -54,14 +53,14 @@ const adaptCosechaToUI = (reporte: any, filtroFrom?: string, filtroTo?: string):
     { label: 'Ganancia por Ha', value: Number(resumen.ganancia_por_hectarea || 0), format: 'currency' as const },
   ];
 
-  // Series agregadas por día (precisas)
+  // Series
   const series = {
     inversiones: sumByDate(detalleInv, 'fecha', 'total'),
     ventas: sumByDate(detalleVen, 'fecha', 'total_venta'),
     ganancias: sumByDate(detalleVen, 'fecha', 'ganancia_neta'),
   };
 
-  // Tablas (detalle)
+  // Tablas
   const tablas = {
     inversiones: detalleInv.map((x: any, idx: number) => ({
       id: idx + 1,
@@ -85,6 +84,33 @@ const adaptCosechaToUI = (reporte: any, filtroFrom?: string, filtroTo?: string):
   const periodoInicio = filtros.fecha_inicio || info.fecha_inicio || filtroFrom || '';
   const periodoFin = filtros.fecha_fin || info.fecha_fin || filtroTo || '';
 
+  // Ficha de huerta (para cabecera)
+  const infoHuerta: InfoHuerta = {
+    huerta_nombre: String(info.huerta_nombre || ''),
+    huerta_tipo: (info.huerta_tipo || '') as any,
+    propietario: String(info.propietario || ''),
+    ubicacion: String(info.ubicacion || ''),
+    hectareas: Number(info.hectareas || 0),
+    temporada_año: info.temporada_año,
+    cosecha_nombre: String(info.cosecha_nombre || ''),
+    estado: String(info.estado || ''),
+    fecha_inicio: info.fecha_inicio || '',
+    fecha_fin: info.fecha_fin || '',
+  };
+
+  // QA silenciosa
+  try {
+    const sumInv = detalleInv.reduce((acc: number, it: any) => acc + Number(it?.total || 0), 0);
+    const sumVen = detalleVen.reduce((acc: number, it: any) => acc + Number(it?.total_venta || 0), 0);
+    const tol = 0.01;
+    if (Math.abs(sumInv - Number(resumen.total_inversiones || 0)) > tol) {
+      console.warn('[QA] Inconsistencia total inversiones vs detalle', { sumInv, total: resumen.total_inversiones });
+    }
+    if (Math.abs(sumVen - Number(resumen.total_ventas || 0)) > tol) {
+      console.warn('[QA] Inconsistencia total ventas vs detalle', { sumVen, total: resumen.total_ventas });
+    }
+  } catch {}
+
   return {
     kpis,
     series,
@@ -98,6 +124,7 @@ const adaptCosechaToUI = (reporte: any, filtroFrom?: string, filtroTo?: string):
       },
       generado_en: meta.fecha_generacion || new Date().toISOString(),
       generado_por: meta.generado_por || '',
+      infoHuerta,
     },
   };
 };
@@ -132,5 +159,12 @@ export const useReporteCosecha = (id?: number, from?: string, to?: string) => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  return { data, loading, error, refetch: fetchData };
+  const totals = useMemo(() => {
+    if (!data) return null;
+    const inv = (data.tablas.inversiones || []).reduce((a, r) => a + (r.monto || 0), 0);
+    const ven = (data.tablas.ventas || []).reduce((a, r) => a + (r.total || 0), 0);
+    return { inversiones: inv, ventas: ven };
+  }, [data]);
+
+  return { data, loading, error, refetch: fetchData, totals };
 };

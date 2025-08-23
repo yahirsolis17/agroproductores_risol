@@ -1,4 +1,3 @@
-// frontend/src/modules/gestion_huerta/components/reportes/common/ReportesProduccionToolbar.tsx
 import {
   Stack,
   Button,
@@ -52,16 +51,11 @@ export default function ReportesProduccionToolbar({
 }: Props) {
 
   const handleFormatoChange = (newFormato: FormatoReporte) => {
-    onChange({
-      from,
-      to,
-      formato: newFormato,
-    });
+    onChange({ from, to, formato: newFormato });
   };
 
   return (
     <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
-      {/* Selector de formato (se mantiene JSON para vista; export solo PDF/Excel) */}
       <FormControl size="small" sx={{ minWidth: 120 }}>
         <InputLabel>Formato</InputLabel>
         <Select
@@ -91,7 +85,6 @@ export default function ReportesProduccionToolbar({
         </Select>
       </FormControl>
 
-      {/* Botón de actualizar */}
       <Button
         variant="outlined"
         startIcon={loading ? <CircularProgress size={16} /> : <RefreshIcon />}
@@ -101,7 +94,6 @@ export default function ReportesProduccionToolbar({
         {loading ? 'Cargando...' : 'Actualizar'}
       </Button>
 
-      {/* Botones de exportación: SOLO PDF y Excel */}
       {showExportButtons && (
         <>
           {(['pdf', 'excel'] as FormatoReporte[]).map((fmt) => (

@@ -1,4 +1,3 @@
-// frontend/src/modules/gestion_huerta/services/reportesProduccionService.ts
 import apiClient from '../../../global/api/apiClient';
 import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
 import {
@@ -24,11 +23,7 @@ const isJsonContent = (ct?: string) =>
 
 const blobToJson = async (blob: Blob) => {
   const text = await blob.text();
-  try {
-    return JSON.parse(text);
-  } catch {
-    return { message: text };
-  }
+  try { return JSON.parse(text); } catch { return { message: text }; }
 };
 
 const downloadFile = (blob: Blob, filename: string) => {
@@ -52,7 +47,6 @@ async function postBlobAndDownload(
   const resp = await apiClient.post(endpoint, payload, { responseType: 'blob' });
   const contentType: string = resp.headers['content-type'] || '';
 
-  // Si el servidor devolvió JSON (posible error en blob)
   if (isJsonContent(contentType)) {
     const json = await blobToJson(resp.data as Blob);
     try { handleBackendNotification(json); } catch {}
@@ -63,7 +57,6 @@ async function postBlobAndDownload(
     };
   }
 
-  // Éxito: descargar
   const blob = new Blob([resp.data], { type: contentType });
   downloadFile(blob, `${filenameBase}.${ext}`);
   return { success: true, data: blob };
@@ -72,7 +65,6 @@ async function postBlobAndDownload(
 export const reportesProduccionService = {
   async generarReporteCosecha(request: ReporteCosechaRequest): Promise<ReporteProduccionResponse> {
     try {
-      // JSON para render en pantalla (no descarga)
       if (request.formato === 'json') {
         const resp = await apiClient.post(`${BASE}/cosecha/`, request);
         try { handleBackendNotification(resp.data); } catch {}
@@ -80,7 +72,6 @@ export const reportesProduccionService = {
         return { success: true, data: unwrapped, message: resp.data?.message, errors: resp.data?.errors };
       }
 
-      // PDF / Excel → descarga directa con Axios blob
       const ext: 'pdf' | 'xlsx' = request.formato === 'pdf' ? 'pdf' : 'xlsx';
       return await postBlobAndDownload(
         `${BASE}/cosecha/`,
@@ -128,18 +119,27 @@ export const reportesProduccionService = {
 
   async generarReportePerfilHuerta(request: ReportePerfilHuertaRequest): Promise<ReporteProduccionResponse> {
     try {
+      // Sanitizar payload según backend (una de las dos IDs)
+      const payload: any = {
+        formato: request.formato,
+        años: request.años ?? 5,
+      };
+      if (request.huerta_id) payload.huerta_id = request.huerta_id;
+      if (request.huerta_rentada_id) payload.huerta_rentada_id = request.huerta_rentada_id;
+
       if (request.formato === 'json') {
-        const resp = await apiClient.post(`${BASE}/perfil-huerta/`, request);
+        const resp = await apiClient.post(`${BASE}/perfil-huerta/`, payload);
         try { handleBackendNotification(resp.data); } catch {}
         const unwrapped = unwrapJson(resp.data);
         return { success: true, data: unwrapped, message: resp.data?.message, errors: resp.data?.errors };
       }
 
       const ext: 'pdf' | 'xlsx' = request.formato === 'pdf' ? 'pdf' : 'xlsx';
+      const fileId = request.huerta_id ?? request.huerta_rentada_id ?? 'perfil';
       return await postBlobAndDownload(
         `${BASE}/perfil-huerta/`,
-        request,
-        `reporte_perfil_huerta_${request.huerta_id}`,
+        payload,
+        `reporte_perfil_huerta_${fileId}`,
         ext
       );
     } catch (err: any) {

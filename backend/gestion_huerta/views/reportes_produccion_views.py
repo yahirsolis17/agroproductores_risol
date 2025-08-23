@@ -1,4 +1,3 @@
-# backend/gestion_huerta/views/reportes_produccion_views.py
 # -*- coding: utf-8 -*-
 """
 ViewSet robusto para reportes de producción con:
@@ -20,11 +19,15 @@ from rest_framework.response import Response
 
 from django.http import HttpResponse
 from django.core.exceptions import ValidationError, PermissionDenied
+from django.core.cache import cache
 
 from gestion_huerta.services.reportes_produccion_service import ReportesProduccionService
+# ⚠️ Ahora importamos desde utils (coincide con la ruta del archivo que pediste)
 from gestion_huerta.services.exportacion_service import ExportacionService
 from gestion_huerta.utils.notification_handler import NotificationHandler
 from gestion_huerta.permissions import HasHuertaModulePermission
+
+from gestion_huerta.models import Cosecha, Temporada, InversionesHuerta, Venta
 
 
 def _as_int(value: Optional[object], field: str) -> int:
@@ -238,12 +241,13 @@ class ReportesProduccionViewSet(viewsets.GenericViewSet):
             )
 
         try:
-            huerta_id_int = int(huerta_id) if huerta_id is not None else None
-            huerta_rentada_id_int = int(huerta_rentada_id) if huerta_rentada_id is not None else None
+            # Normalizamos IDs
+            hid = _as_int(huerta_id, "huerta_id") if huerta_id is not None else None
+            hrid = _as_int(huerta_rentada_id, "huerta_rentada_id") if huerta_rentada_id is not None else None
 
             reporte_data = ReportesProduccionService.generar_perfil_huerta(
-                huerta_id=huerta_id_int,
-                huerta_rentada_id=huerta_rentada_id_int,
+                huerta_id=hid,
+                huerta_rentada_id=hrid,
                 usuario=request.user,
                 años=años,
                 formato="json",
@@ -251,18 +255,19 @@ class ReportesProduccionViewSet(viewsets.GenericViewSet):
 
             if formato == "pdf":
                 pdf = ExportacionService.generar_pdf_perfil_huerta(reporte_data)
-                nombre = reporte_data.get("informacion_general", {}).get("huerta_nombre", "huerta").replace(" ", "_")
+                # Nombre de archivo según origen
+                base = f"huerta_{hid}" if hid else f"huerta_rentada_{hrid}"
                 resp = HttpResponse(pdf, content_type="application/pdf")
-                resp["Content-Disposition"] = f'attachment; filename="perfil_huerta_{nombre}.pdf"'
+                resp["Content-Disposition"] = f'attachment; filename="perfil_{base}.pdf"'
                 return resp
 
             if formato == "excel":
                 excel = ExportacionService.generar_excel_perfil_huerta(reporte_data)
-                nombre = reporte_data.get("informacion_general", {}).get("huerta_nombre", "huerta").replace(" ", "_")
+                base = f"huerta_{hid}" if hid else f"huerta_rentada_{hrid}"
                 resp = HttpResponse(
                     excel, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
-                resp["Content-Disposition"] = f'attachment; filename="perfil_huerta_{nombre}.xlsx"'
+                resp["Content-Disposition"] = f'attachment; filename="perfil_{base}.xlsx"'
                 return resp
 
             return NotificationHandler.generate_response(
@@ -287,35 +292,17 @@ class ReportesProduccionViewSet(viewsets.GenericViewSet):
             )
 
     # ------------
-    # CACHE
+    # LIMPIAR CACHE
     # ------------
     @action(detail=False, methods=["post"], url_path="limpiar-cache")
     def limpiar_cache(self, request):
         """
-        Limpia el cache de reportes (solo administradores).
-
-        Body:
-        {
-            "tipo": "all|cosecha|temporada|perfil_huerta"   (opcional, default: all)
-            "entidad_id": int                               (opcional, clave específica)
-        }
+        Limpia el caché de reportes (útil cuando se cargan datos masivos y se quiere forzar regeneración).
         """
-        if not getattr(request.user, "is_superuser", False):
-            return NotificationHandler.generate_response(
-                message_key="permission_denied", status_code=status.HTTP_403_FORBIDDEN
-            )
-
-        tipo = (request.data.get("tipo") or "all").lower().strip()
-        _ = request.data.get("entidad_id")  # hoy no aplicamos invalidación selectiva por patrón
-
         try:
-            from django.core.cache import cache
-
-            # En una versión posterior puedes aplicar invalidación selectiva si usas naming por prefijos
             cache.clear()
-            msg = "Cache completo limpiado exitosamente" if tipo == "all" else f"Cache de {tipo} limpiado"
             return NotificationHandler.generate_response(
-                message_key="operation_success", data={"mensaje": msg}, status_code=status.HTTP_200_OK
+                message_key="ok", data={"status": "cache_cleared"}, status_code=status.HTTP_200_OK
             )
         except Exception as e:
             return NotificationHandler.generate_response(
@@ -323,28 +310,39 @@ class ReportesProduccionViewSet(viewsets.GenericViewSet):
             )
 
     # ------------
-    # ESTADÍSTICAS (stub)
+    # ESTADÍSTICAS RÁPIDAS (observabilidad)
     # ------------
     @action(detail=False, methods=["get"], url_path="estadisticas")
-    def estadisticas_reportes(self, request):
+    def estadisticas(self, request):
         """
-        Obtiene estadísticas de uso de reportes (solo administradores).
+        Devuelve métricas rápidas para monitoreo:
+        - conteos de cosechas/ventas/inversiones
+        - totales agregados (ingresos, inversiones)
+        - timestamp del sistema
         """
-        if not getattr(request.user, "is_superuser", False):
-            return NotificationHandler.generate_response(
-                message_key="permission_denied", status_code=status.HTTP_403_FORBIDDEN
-            )
+        try:
+            cosechas = Cosecha.objects.filter(is_active=True).count()
+            ventas = Venta.objects.filter(is_active=True).count()
+            inversiones = InversionesHuerta.objects.filter(is_active=True).count()
 
-        # Nota: en un entorno real, estas métricas vendrían de logs/monitoring.
-        estadisticas = {
-            "reportes_generados_hoy": 0,
-            "reportes_generados_semana": 0,
-            "reportes_generados_mes": 0,
-            "tipos_mas_solicitados": {"cosecha": 0, "temporada": 0, "perfil_huerta": 0},
-            "formatos_mas_solicitados": {"json": 0, "pdf": 0, "excel": 0},
-            "tiempo_promedio_generacion": "0.0s",
-            "cache_hit_rate": "0%",
-        }
-        return NotificationHandler.generate_response(
-            message_key="data_retrieved_successfully", data={"estadisticas": estadisticas}, status_code=status.HTTP_200_OK
-        )
+            # Agregados (no críticos; si el modelo cambia no se rompe porque están en try)
+            from django.db.models import Sum, F
+            tot_ingreso = Venta.objects.filter(is_active=True).aggregate(v=Sum(F("num_cajas") * F("precio_por_caja")))["v"] or 0
+            tot_inv = InversionesHuerta.objects.filter(is_active=True).aggregate(v=Sum(F("gastos_insumos") + F("gastos_mano_obra")))["v"] or 0
+
+            data = {
+                "cosechas_activas": cosechas,
+                "ventas_registradas": ventas,
+                "inversiones_registradas": inversiones,
+                "total_ingresos": float(tot_ingreso),
+                "total_inversiones": float(tot_inv),
+            }
+            return NotificationHandler.generate_response(
+                message_key="ok",
+                data=data,
+                status_code=status.HTTP_200_OK,
+            )
+        except Exception as e:
+            return NotificationHandler.generate_response(
+                message_key="server_error", data={"error": str(e)}, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

@@ -17,7 +17,6 @@ from gestion_huerta.views.temporadas_views import TemporadaViewSet
 from gestion_huerta.views.registro_actividad import RegistroActividadViewSet
 
 # ⬇️ IMPORTA el ViewSet de reportes
-from gestion_huerta.views.informes_views import ReportesViewSet
 from gestion_huerta.views.reportes_produccion_views import ReportesProduccionViewSet
 
 app_name = "gestion_huerta"
@@ -35,7 +34,6 @@ router.register(r"actividad", RegistroActividadViewSet, basename="actividad")
 router.register(r"huertas-combinadas", HuertasCombinadasViewSet, basename="huertas-combinadas")
 
 # ⬇️ REGISTRA el módulo de reportes
-router.register(r"informes", ReportesViewSet, basename="informes")
 router.register(r"reportes-produccion", ReportesProduccionViewSet, basename="reportes-produccion")
 
 urlpatterns = [
