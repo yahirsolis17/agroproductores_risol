@@ -1,7 +1,6 @@
 // frontend/src/modules/gestion_huerta/components/reportes/common/ReportesProduccionToolbar.tsx
 import {
   Stack,
-  TextField,
   Button,
   FormControl,
   InputLabel,
@@ -51,13 +50,6 @@ export default function ReportesProduccionToolbar({
   onExport,
   showExportButtons = true,
 }: Props) {
-  const handleDateChange = (field: 'from' | 'to', value: string) => {
-    onChange({
-      from: field === 'from' ? (value || undefined) : from,
-      to: field === 'to' ? (value || undefined) : to,
-      formato,
-    });
-  };
 
   const handleFormatoChange = (newFormato: FormatoReporte) => {
     onChange({
@@ -69,28 +61,7 @@ export default function ReportesProduccionToolbar({
 
   return (
     <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
-      {/* Filtros de fecha */}
-      <TextField
-        type="date"
-        size="small"
-        label="Fecha inicio"
-        value={from || ''}
-        onChange={(e) => handleDateChange('from', e.target.value)}
-        InputLabelProps={{ shrink: true }}
-        disabled={loading}
-      />
-      
-      <TextField
-        type="date"
-        size="small"
-        label="Fecha fin"
-        value={to || ''}
-        onChange={(e) => handleDateChange('to', e.target.value)}
-        InputLabelProps={{ shrink: true }}
-        disabled={loading}
-      />
-
-      {/* Selector de formato */}
+      {/* Selector de formato (se mantiene JSON para vista; export solo PDF/Excel) */}
       <FormControl size="small" sx={{ minWidth: 120 }}>
         <InputLabel>Formato</InputLabel>
         <Select
@@ -130,10 +101,10 @@ export default function ReportesProduccionToolbar({
         {loading ? 'Cargando...' : 'Actualizar'}
       </Button>
 
-      {/* Botones de exportación */}
+      {/* Botones de exportación: SOLO PDF y Excel */}
       {showExportButtons && (
         <>
-          {(['json', 'pdf', 'excel'] as FormatoReporte[]).map((fmt) => (
+          {(['pdf', 'excel'] as FormatoReporte[]).map((fmt) => (
             <Tooltip key={fmt} title={`Exportar como ${formatoLabels[fmt]}`}>
               <Button
                 variant={formato === fmt ? 'contained' : 'outlined'}

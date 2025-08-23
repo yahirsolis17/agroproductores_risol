@@ -58,6 +58,7 @@ C:.
 |   |       
 |   \---utils
 |           date.ts
+|           formatters.ts
 |           NotificationEngine.ts
 |           
 \---modules
@@ -100,6 +101,11 @@ C:.
     |   |   |       PropietarioTable.tsx
     |   |   |       PropietarioToolbar.tsx
     |   |   |       
+    |   |   +---reportes
+    |   |   |   \---common
+    |   |   |           ReporteProduccionViewer.tsx
+    |   |   |           ReportesProduccionToolbar.tsx
+    |   |   |           
     |   |   \---temporada
     |   |           TemporadaFormModal.tsx
     |   |           TemporadaTable.tsx
@@ -113,6 +119,10 @@ C:.
     |   |       useHuertasCombinadas.ts
     |   |       useInversiones.ts
     |   |       usePropietarios.ts
+    |   |       useReporte.ts
+    |   |       useReporteCosecha.ts
+    |   |       useReporteHuertaPerfil.ts
+    |   |       useReporteTemporada.ts
     |   |       useTemporadas.ts
     |   |       useVentas.ts
     |   |       
@@ -122,6 +132,9 @@ C:.
     |   |       Huertas.tsx
     |   |       Inversion.tsx
     |   |       Propietarios.tsx
+    |   |       ReporteCosecha.tsx
+    |   |       ReporteHuertaPerfil.tsx
+    |   |       ReporteTemporada.tsx
     |   |       Temporadas.tsx
     |   |       Venta.tsx
     |   |       
@@ -133,6 +146,7 @@ C:.
     |   |       huertaService.ts
     |   |       inversionService.ts
     |   |       propietarioService.ts
+    |   |       reportesProduccionService.ts
     |   |       temporadaService.ts
     |   |       ventaService.ts
     |   |       
@@ -143,6 +157,7 @@ C:.
     |   |       huertaTypes.d.ts
     |   |       inversionTypes.d.ts
     |   |       propietarioTypes.d.ts
+    |   |       reportesProduccionTypes.ts
     |   |       shared.ts
     |   |       temporadaTypes.d.ts
     |   |       ventaTypes.d.ts

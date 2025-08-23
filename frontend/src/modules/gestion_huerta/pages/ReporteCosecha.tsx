@@ -13,42 +13,47 @@ export default function ReporteCosecha() {
   const id = useMemo(() => Number(cosechaId), [cosechaId]);
 
   const [filters, setFilters] = useState<{ from?: string; to?: string; formato: FormatoReporte }>({
-    formato: 'json'
+    formato: 'json',
   });
   const { data, loading, error, refetch } = useReporteCosecha(id, filters.from, filters.to);
 
   const handleExport = async (formato: FormatoReporte) => {
     if (!id) return;
-    
     try {
       await reportesProduccionService.generarReporteCosecha({
         cosecha_id: id,
-        fecha_inicio: filters.from,
-        fecha_fin: filters.to,
-        formato
+        formato,
       });
     } catch (error) {
       console.error('Error al exportar reporte:', error);
     }
   };
 
+  const subtitle = data
+    ? `${data.metadata.entidad.nombre} · ${data.metadata.entidad.tipo.toUpperCase()}`
+    : undefined;
+
   return (
     <Box sx={{ p: 2 }}>
-      <Typography variant="h5" fontWeight={700} sx={{ mb: 2 }}>Reporte por Cosecha</Typography>
-      <ReportesProduccionToolbar 
-        from={filters.from} 
-        to={filters.to} 
+      <Typography variant="h5" fontWeight={700} sx={{ mb: 2 }}>
+        Reporte por Cosecha
+      </Typography>
+
+      <ReportesProduccionToolbar
+        from={filters.from}
+        to={filters.to}
         formato={filters.formato}
         loading={loading}
-        onChange={setFilters} 
+        onChange={setFilters}
         onRefresh={refetch}
         onExport={handleExport}
       />
+
       <Divider sx={{ my: 2 }} />
       {!id && <Alert severity="info">Proporcione un cosechaId en la URL.</Alert>}
       {loading && <CircularProgress size={24} />}
       {error && <Alert severity="error">{error}</Alert>}
-      {data && <ReporteProduccionViewer data={data} title="Reporte de Cosecha" />}
+      {data && <ReporteProduccionViewer data={data} title="Reporte de Cosecha" subtitle={subtitle} />}
     </Box>
   );
 }

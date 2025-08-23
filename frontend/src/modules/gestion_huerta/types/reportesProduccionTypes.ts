@@ -4,8 +4,6 @@ export type FormatoReporte = 'json' | 'pdf' | 'excel';
 
 export interface ReporteProduccionRequest {
   formato: FormatoReporte;
-  fecha_inicio?: string;
-  fecha_fin?: string;
 }
 
 export interface ReporteCosechaRequest extends ReporteProduccionRequest {

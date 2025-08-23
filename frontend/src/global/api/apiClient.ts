@@ -1,12 +1,13 @@
 import axios from 'axios';
 import authService from '../../modules/gestion_usuarios/services/authService';
 
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const REFRESH_URL = `${BASE_URL}/api/token/refresh/`;
+
 const apiClient = axios.create({
-  baseURL: 'http://localhost:8000',
+  baseURL: BASE_URL,
   withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  headers: { 'Content-Type': 'application/json' },
 });
 
 const forceLogout = () => {
@@ -14,38 +15,26 @@ const forceLogout = () => {
   window.location.href = '/login';
 };
 
-// Agrega el token automáticamente
 apiClient.interceptors.request.use(config => {
   const token = authService.getAccessToken();
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// Intenta refrescar token si hay 401
 apiClient.interceptors.response.use(
   response => response,
   async error => {
     const originalRequest = error.config;
-
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
         const refresh = authService.getRefreshToken();
-        if (!refresh) {
-          console.warn('No hay refresh token. Cerrando sesión.');
-          forceLogout();
-          return Promise.reject(error);
-        }
+        if (!refresh) { forceLogout(); return Promise.reject(error); }
 
-        const res = await axios.post('http://localhost:8000/api/token/refresh/', {
-          refresh,
-        });
-
+        const res = await axios.post(REFRESH_URL, { refresh });
         const newAccess = res.data.access;
 
-        // Persistir y propagar el nuevo access token
+        // Persistir y propagar
         localStorage.setItem('accessToken', newAccess);
         apiClient.defaults.headers.common['Authorization'] = `Bearer ${newAccess}`;
         originalRequest.headers.Authorization = `Bearer ${newAccess}`;
@@ -56,7 +45,6 @@ apiClient.interceptors.response.use(
         return Promise.reject(refreshError);
       }
     }
-
     return Promise.reject(error);
   }
 );

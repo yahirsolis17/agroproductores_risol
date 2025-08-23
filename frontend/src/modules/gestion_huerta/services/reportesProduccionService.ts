@@ -1,5 +1,6 @@
 // frontend/src/modules/gestion_huerta/services/reportesProduccionService.ts
 import apiClient from '../../../global/api/apiClient';
+import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
 import {
   ReporteCosechaRequest,
   ReporteTemporadaRequest,
@@ -9,34 +10,25 @@ import {
 
 const BASE = '/huerta/reportes-produccion';
 
-const handleResponse = async (response: Response): Promise<ReporteProduccionResponse> => {
-  const contentType = response.headers.get('content-type');
-  
-  if (contentType?.includes('application/json')) {
-    const data = await response.json();
-    return {
-      success: response.ok,
-      data: response.ok ? data : undefined,
-      message: data.message,
-      errors: data.errors
-    };
+/** Desencapsula el payload típico del backend (NotificationHandler) */
+const unwrapJson = (json: any) => {
+  if (!json) return json;
+  if (json.data?.reporte) return json.data.reporte;
+  if (json.reporte) return json.reporte;
+  if (json.data) return json.data;
+  return json;
+};
+
+const isJsonContent = (ct?: string) =>
+  !!ct && (ct.includes('application/json') || ct.includes('text/json'));
+
+const blobToJson = async (blob: Blob) => {
+  const text = await blob.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { message: text };
   }
-  
-  // Para PDF y Excel, retornamos el blob
-  if (contentType?.includes('application/pdf') || contentType?.includes('application/vnd.openxmlformats')) {
-    const blob = await response.blob();
-    return {
-      success: response.ok,
-      data: blob
-    };
-  }
-  
-  // Fallback para otros tipos de contenido
-  const text = await response.text();
-  return {
-    success: response.ok,
-    data: text
-  };
 };
 
 const downloadFile = (blob: Blob, filename: string) => {
@@ -50,142 +42,114 @@ const downloadFile = (blob: Blob, filename: string) => {
   window.URL.revokeObjectURL(url);
 };
 
+/** Post que espera blob y, si es éxito, descarga; si es JSON de error, lo interpreta */
+async function postBlobAndDownload(
+  endpoint: string,
+  payload: any,
+  filenameBase: string,
+  ext: 'pdf' | 'xlsx'
+): Promise<ReporteProduccionResponse> {
+  const resp = await apiClient.post(endpoint, payload, { responseType: 'blob' });
+  const contentType: string = resp.headers['content-type'] || '';
+
+  // Si el servidor devolvió JSON (posible error en blob)
+  if (isJsonContent(contentType)) {
+    const json = await blobToJson(resp.data as Blob);
+    try { handleBackendNotification(json); } catch {}
+    return {
+      success: false,
+      message: json?.message || json?.detail || 'Error al exportar',
+      errors: json?.errors
+    };
+  }
+
+  // Éxito: descargar
+  const blob = new Blob([resp.data], { type: contentType });
+  downloadFile(blob, `${filenameBase}.${ext}`);
+  return { success: true, data: blob };
+}
+
 export const reportesProduccionService = {
   async generarReporteCosecha(request: ReporteCosechaRequest): Promise<ReporteProduccionResponse> {
     try {
-      // Para JSON, usar apiClient normal
+      // JSON para render en pantalla (no descarga)
       if (request.formato === 'json') {
-        const response = await apiClient.post(`${BASE}/cosecha/`, request);
-        return {
-          success: true,
-          data: response.data
-        };
+        const resp = await apiClient.post(`${BASE}/cosecha/`, request);
+        try { handleBackendNotification(resp.data); } catch {}
+        const unwrapped = unwrapJson(resp.data);
+        return { success: true, data: unwrapped, message: resp.data?.message, errors: resp.data?.errors };
       }
 
-      // Para PDF/Excel, usar fetch con responseType blob
-      const authHeader = apiClient.defaults.headers.common['Authorization'];
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      
-      if (authHeader && typeof authHeader === 'string') {
-        headers['Authorization'] = authHeader;
+      // PDF / Excel → descarga directa con Axios blob
+      const ext: 'pdf' | 'xlsx' = request.formato === 'pdf' ? 'pdf' : 'xlsx';
+      return await postBlobAndDownload(
+        `${BASE}/cosecha/`,
+        request,
+        `reporte_cosecha_${request.cosecha_id}`,
+        ext
+      );
+    } catch (err: any) {
+      const ct = err?.response?.headers?.['content-type'] || '';
+      if (err?.response?.data && err.response.data instanceof Blob && isJsonContent(ct)) {
+        const json = await blobToJson(err.response.data);
+        try { handleBackendNotification(json); } catch {}
+        return { success: false, message: json?.message || 'Error al exportar', errors: json?.errors };
       }
-
-      const response = await fetch(`${apiClient.defaults.baseURL}${BASE}/cosecha/`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(request),
-      });
-
-      const result = await handleResponse(response);
-      
-      // Si es un archivo (PDF/Excel), descargarlo automáticamente
-      if (result.success && result.data instanceof Blob) {
-        const extension = request.formato === 'pdf' ? 'pdf' : 'xlsx';
-        const filename = `reporte_cosecha_${request.cosecha_id}.${extension}`;
-        downloadFile(result.data, filename);
-      }
-      
-      return result;
-    } catch (error) {
-      return {
-        success: false,
-        message: 'Error de conexión al generar el reporte',
-        errors: { general: ['Error de red'] }
-      };
+      return { success: false, message: 'Error de conexión al generar el reporte', errors: { general: ['Error de red'] } };
     }
   },
 
   async generarReporteTemporada(request: ReporteTemporadaRequest): Promise<ReporteProduccionResponse> {
     try {
-      // Para JSON, usar apiClient normal
       if (request.formato === 'json') {
-        const response = await apiClient.post(`${BASE}/temporada/`, request);
-        return {
-          success: true,
-          data: response.data
-        };
+        const resp = await apiClient.post(`${BASE}/temporada/`, request);
+        try { handleBackendNotification(resp.data); } catch {}
+        const unwrapped = unwrapJson(resp.data);
+        return { success: true, data: unwrapped, message: resp.data?.message, errors: resp.data?.errors };
       }
 
-      // Para PDF/Excel, usar fetch con responseType blob
-      const authHeader = apiClient.defaults.headers.common['Authorization'];
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      
-      if (authHeader && typeof authHeader === 'string') {
-        headers['Authorization'] = authHeader;
+      const ext: 'pdf' | 'xlsx' = request.formato === 'pdf' ? 'pdf' : 'xlsx';
+      return await postBlobAndDownload(
+        `${BASE}/temporada/`,
+        request,
+        `reporte_temporada_${request.temporada_id}`,
+        ext
+      );
+    } catch (err: any) {
+      const ct = err?.response?.headers?.['content-type'] || '';
+      if (err?.response?.data && err.response.data instanceof Blob && isJsonContent(ct)) {
+        const json = await blobToJson(err.response.data);
+        try { handleBackendNotification(json); } catch {}
+        return { success: false, message: json?.message || 'Error al exportar', errors: json?.errors };
       }
-
-      const response = await fetch(`${apiClient.defaults.baseURL}${BASE}/temporada/`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(request),
-      });
-
-      const result = await handleResponse(response);
-      
-      // Si es un archivo (PDF/Excel), descargarlo automáticamente
-      if (result.success && result.data instanceof Blob) {
-        const extension = request.formato === 'pdf' ? 'pdf' : 'xlsx';
-        const filename = `reporte_temporada_${request.temporada_id}.${extension}`;
-        downloadFile(result.data, filename);
-      }
-      
-      return result;
-    } catch (error) {
-      return {
-        success: false,
-        message: 'Error de conexión al generar el reporte',
-        errors: { general: ['Error de red'] }
-      };
+      return { success: false, message: 'Error de conexión al generar el reporte', errors: { general: ['Error de red'] } };
     }
   },
 
   async generarReportePerfilHuerta(request: ReportePerfilHuertaRequest): Promise<ReporteProduccionResponse> {
     try {
-      // Para JSON, usar apiClient normal
       if (request.formato === 'json') {
-        const response = await apiClient.post(`${BASE}/perfil-huerta/`, request);
-        return {
-          success: true,
-          data: response.data
-        };
+        const resp = await apiClient.post(`${BASE}/perfil-huerta/`, request);
+        try { handleBackendNotification(resp.data); } catch {}
+        const unwrapped = unwrapJson(resp.data);
+        return { success: true, data: unwrapped, message: resp.data?.message, errors: resp.data?.errors };
       }
 
-      // Para PDF/Excel, usar fetch con responseType blob
-      const authHeader = apiClient.defaults.headers.common['Authorization'];
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      
-      if (authHeader && typeof authHeader === 'string') {
-        headers['Authorization'] = authHeader;
+      const ext: 'pdf' | 'xlsx' = request.formato === 'pdf' ? 'pdf' : 'xlsx';
+      return await postBlobAndDownload(
+        `${BASE}/perfil-huerta/`,
+        request,
+        `reporte_perfil_huerta_${request.huerta_id}`,
+        ext
+      );
+    } catch (err: any) {
+      const ct = err?.response?.headers?.['content-type'] || '';
+      if (err?.response?.data && err.response.data instanceof Blob && isJsonContent(ct)) {
+        const json = await blobToJson(err.response.data);
+        try { handleBackendNotification(json); } catch {}
+        return { success: false, message: json?.message || 'Error al exportar', errors: json?.errors };
       }
-
-      const response = await fetch(`${apiClient.defaults.baseURL}${BASE}/perfil-huerta/`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(request),
-      });
-
-      const result = await handleResponse(response);
-      
-      // Si es un archivo (PDF/Excel), descargarlo automáticamente
-      if (result.success && result.data instanceof Blob) {
-        const extension = request.formato === 'pdf' ? 'pdf' : 'xlsx';
-        const filename = `reporte_perfil_huerta_${request.huerta_id}.${extension}`;
-        downloadFile(result.data, filename);
-      }
-      
-      return result;
-    } catch (error) {
-      return {
-        success: false,
-        message: 'Error de conexión al generar el reporte',
-        errors: { general: ['Error de red'] }
-      };
+      return { success: false, message: 'Error de conexión al generar el reporte', errors: { general: ['Error de red'] } };
     }
   },
 };
