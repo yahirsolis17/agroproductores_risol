@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from io import BytesIO
 from typing import Dict, Any, Iterable, List, Tuple, Optional
+from functools import partial
 
 from reportlab.lib import colors
 from reportlab.lib.colors import HexColor
@@ -92,10 +93,10 @@ def _pdf_doc(buffer: BytesIO) -> SimpleDocTemplate:
     return SimpleDocTemplate(
         buffer,
         pagesize=A4,
-        topMargin=0.5 * inch,
+        topMargin=1 * inch,
         leftMargin=0.5 * inch,
         rightMargin=0.5 * inch,
-        bottomMargin=0.5 * inch,
+        bottomMargin=0.75 * inch,
     )
 
 
@@ -107,14 +108,14 @@ def _pdf_styles():
         fontSize=16,
         spaceAfter=20,
         alignment=1,
-        textColor=colors.darkblue,
+        textColor=HexColor("#2e7d32"),
     )
     heading_style = ParagraphStyle(
         "CustomHeading",
         parent=styles["Heading2"],
         fontSize=12,
         spaceAfter=10,
-        textColor=colors.darkgreen,
+        textColor=HexColor("#0288d1"),
     )
     note_style = ParagraphStyle(
         "Note",
@@ -125,6 +126,21 @@ def _pdf_styles():
         spaceAfter=4,
     )
     return title_style, heading_style, note_style
+
+
+def _pdf_header_footer(canvas, doc, title: str):
+    canvas.saveState()
+    width, height = A4
+    canvas.setFillColor(HexColor("#2e7d32"))
+    canvas.rect(0, height - 50, width, 50, stroke=0, fill=1)
+    canvas.setFillColor(colors.white)
+    canvas.setFont("Helvetica-Bold", 14)
+    canvas.drawString(40, height - 30, title)
+    canvas.setFont("Helvetica", 9)
+    canvas.setFillColor(colors.grey)
+    canvas.drawString(40, 30, "Agroproductores Risol")
+    canvas.drawRightString(width - 40, 30, f"Página {doc.page}")
+    canvas.restoreState()
 
 
 def _ws_header(ws: Worksheet, title: str, merge_to_col: int = 6):
@@ -208,9 +224,6 @@ class ExportacionService:
 
         story: List[Any] = []
 
-        story.append(Paragraph("REPORTE DE PRODUCCIÓN - COSECHA INDIVIDUAL", title_style))
-        story.append(Spacer(1, 10))
-
         info = reporte_data.get("informacion_general", {}) or {}
         resumen = reporte_data.get("resumen_financiero", {}) or {}
 
@@ -254,7 +267,7 @@ class ExportacionService:
             ["Ganancia por Hectárea", f"${_money(resumen.get('ganancia_por_hectarea')):,.2f}"],
         ]
         res_table = Table(resumen_data, colWidths=[3 * inch, 2.2 * inch], repeatRows=1, hAlign="LEFT")
-        res_table.setStyle(_table_style_header(colors.darkblue))
+        res_table.setStyle(_table_style_header(HexColor("#2e7d32")))
         res_table.setStyle(_table_style_body())
         story.append(res_table)
         story.append(Spacer(1, 10))
@@ -288,7 +301,7 @@ class ExportacionService:
                     repeatRows=1,
                     splitByRow=True,
                 )
-                t.setStyle(_table_style_header(colors.darkgreen))
+                t.setStyle(_table_style_header(HexColor("#0288d1")))
                 t.setStyle(_table_style_body())
                 story.append(t)
                 if i < (len(body) - 1) // 800:
@@ -374,7 +387,8 @@ class ExportacionService:
             t.setStyle(_table_style_body())
             story.append(t)
 
-        doc.build(story)
+        header = partial(_pdf_header_footer, title="Reporte de Cosecha")
+        doc.build(story, onFirstPage=header, onLaterPages=header)
         buffer.seek(0)
         return buffer.getvalue()
 
@@ -508,9 +522,6 @@ class ExportacionService:
 
         story: List[Any] = []
 
-        story.append(Paragraph("REPORTE DE PRODUCCIÓN - TEMPORADA COMPLETA", title_style))
-        story.append(Spacer(1, 10))
-
         info = reporte_data.get("informacion_general", {}) or {}
         res = reporte_data.get("resumen_ejecutivo", {}) or {}
 
@@ -550,7 +561,7 @@ class ExportacionService:
             ["Cajas Totales", _safe_str(res.get("cajas_totales"))],
         ]
         t_res = Table(res_data, colWidths=[3 * inch, 2.2 * inch], repeatRows=1)
-        t_res.setStyle(_table_style_header(colors.darkblue))
+        t_res.setStyle(_table_style_header(HexColor("#2e7d32")))
         t_res.setStyle(_table_style_body())
         story.append(t_res)
         story.append(Spacer(1, 10))
@@ -582,13 +593,14 @@ class ExportacionService:
                     repeatRows=1,
                     splitByRow=True,
                 )
-                t.setStyle(_table_style_header(colors.darkgreen))
+                t.setStyle(_table_style_header(HexColor("#0288d1")))
                 t.setStyle(_table_style_body())
                 story.append(t)
                 if i < (len(body) - 1) // 800:
                     story.append(PageBreak())
 
-        doc.build(story)
+        header_fn = partial(_pdf_header_footer, title="Reporte de Temporada")
+        doc.build(story, onFirstPage=header_fn, onLaterPages=header_fn)
         buffer.seek(0)
         return buffer.getvalue()
 
@@ -683,9 +695,6 @@ class ExportacionService:
 
         story: List[Any] = []
 
-        story.append(Paragraph("PERFIL HISTÓRICO DE HUERTA", title_style))
-        story.append(Spacer(1, 10))
-
         info = reporte_data.get("informacion_general", {}) or {}
 
         story.append(Paragraph("INFORMACIÓN GENERAL", heading_style))
@@ -742,7 +751,7 @@ class ExportacionService:
                     repeatRows=1,
                     splitByRow=True,
                 )
-                t.setStyle(_table_style_header(colors.darkblue))
+                t.setStyle(_table_style_header(HexColor("#2e7d32")))
                 t.setStyle(_table_style_body())
                 story.append(t)
                 if i < (len(body) - 1) // 800:
@@ -769,7 +778,7 @@ class ExportacionService:
             ["Tendencia", _safe_str(ef.get("tendencia"))],
         ]
         t_ef = Table(ef_data, colWidths=[3 * inch, 3 * inch], repeatRows=1)
-        t_ef.setStyle(_table_style_header(colors.darkgreen))
+        t_ef.setStyle(_table_style_header(HexColor("#0288d1")))
         t_ef.setStyle(_table_style_body())
         story.append(t_ef)
 
@@ -788,7 +797,8 @@ class ExportacionService:
         t_pr.setStyle(_table_style_body())
         story.append(t_pr)
 
-        doc.build(story)
+        header_fn = partial(_pdf_header_footer, title="Perfil de Huerta")
+        doc.build(story, onFirstPage=header_fn, onLaterPages=header_fn)
         buffer.seek(0)
         return buffer.getvalue()
 
