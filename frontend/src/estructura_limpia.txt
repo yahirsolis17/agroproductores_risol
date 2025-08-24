@@ -119,9 +119,8 @@ C:.
     |   |       useHuertasCombinadas.ts
     |   |       useInversiones.ts
     |   |       usePropietarios.ts
-    |   |       useReporte.ts
     |   |       useReporteCosecha.ts
-    |   |       useReporteHuertaPerfil.ts
+    |   |       useReportePerfilHuerta.ts
     |   |       useReporteTemporada.ts
     |   |       useTemporadas.ts
     |   |       useVentas.ts

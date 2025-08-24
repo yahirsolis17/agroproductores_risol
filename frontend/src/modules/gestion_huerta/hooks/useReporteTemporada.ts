@@ -34,6 +34,14 @@ const toMonthSeries = (list: any[], xKey: string, yKey: string): SeriesDataPoint
     }))
     .filter((r) => r.fecha);
 
+const toSeriesAny = (arr: any[]): SeriesDataPoint[] =>
+  (arr || [])
+    .map(r => ({
+      fecha: String(r?.mes ?? r?.fecha ?? r?.x ?? ''),
+      valor: Number(r?.total ?? r?.valor ?? r?.y ?? 0)
+    }))
+    .filter(p => p.fecha);
+
 // --- Adaptador flexible: soporta dos formas de backend ---
 //  A) utils/reporting.py -> { kpis:[], tabla:{columns,rows} } + series_for_temporada()
 //  B) service “rico” -> { resumen_ejecutivo, series, comparativo_cosechas }
@@ -70,7 +78,6 @@ const adaptTemporadaToUI = (raw: any): ReporteProduccionData => {
     });
 
     // Series mensuales si las pasaron por separado (opcional)
-    // Algunas implementaciones devuelven un array de series con ids
     const rawSeries = Array.isArray(raw.series) ? raw.series : [];
     const inv_s = rawSeries.find((s: any) => s?.id === 'inv_mensuales');
     const ven_s = rawSeries.find((s: any) => s?.id === 'ventas_mensuales');
@@ -117,42 +124,44 @@ const adaptTemporadaToUI = (raw: any): ReporteProduccionData => {
 
   // -------- Opción B: servicio “rico”
   const resumen = raw.resumen_ejecutivo || {};
-  const series = raw.series || {};
-  const comp = raw.comparativo_cosechas || [];
+  const series  = raw.series || {};
+  const comp    = raw.comparativo_cosechas || [];
 
   const kpis: KPIData[] = [
     { label: 'Inversión Total', value: money(resumen.inversion_total), format: 'currency' },
-    { label: 'Ventas Totales', value: money(resumen.ventas_total), format: 'currency' },
-    { label: 'Gastos de Venta', value: money(resumen.gastos_venta), format: 'currency' },
-    { label: 'Ganancia Neta', value: money(resumen.ganancia_neta), format: 'currency' },
-    { label: 'ROI Temporada', value: pct(resumen.roi_porcentaje), format: 'percentage' },
-    { label: 'Productividad', value: num(resumen.productividad), format: 'number' },
-    { label: 'Cajas Totales', value: num(resumen.cajas_totales), format: 'number' },
+    { label: 'Ventas Totales',  value: money(resumen.ventas_totales ?? resumen.ventas_total), format: 'currency' },
+    { label: 'Gastos de Venta', value: money(resumen.total_gastos_venta ?? resumen.gastos_venta), format: 'currency' },
+    { label: 'Ganancia Neta',   value: money(resumen.ganancia_neta), format: 'currency' },
+    { label: 'ROI Temporada',   value: pct(resumen.roi_temporada ?? resumen.roi_porcentaje), format: 'percentage' },
+    { label: 'Productividad',   value: num(resumen.productividad), format: 'number' },
+    { label: 'Cajas Totales',   value: num(resumen.cajas_totales), format: 'number' },
   ];
 
-  const inversiones = toMonthSeries(series.inversiones_mensuales || [], 'mes', 'total');
-  const ventas = toMonthSeries(series.ventas_mensuales || [], 'mes', 'total');
-  const ganancias =
-    series.ganancias_mensuales
-      ? toMonthSeries(series.ganancias_mensuales, 'mes', 'total')
-      : (inversiones.length && ventas.length ? mergeByMonth(inversiones, ventas) : []);
+  const invRaw = series.inversiones_mensuales ?? series.inversiones ?? [];
+  const venRaw = series.ventas_mensuales     ?? series.ventas     ?? [];
+  const ganRaw = series.ganancias_mensuales  ?? series.ganancias  ?? [];
+
+  const inversiones = toSeriesAny(invRaw);
+  const ventas      = toSeriesAny(venRaw);
+  const ganancias   = ganRaw.length ? toSeriesAny(ganRaw)
+    : (inversiones.length && ventas.length ? mergeByMonth(inversiones, ventas) : []);
 
   const comparativo_cosechas: FilaComparativoCosecha[] = (comp || []).map((x: any) => ({
-    cosecha: String(x.cosecha || x.nombre || ''),
+    cosecha:  String(x.cosecha || x.nombre || ''),
     inversion: money(x.inversion || x.inversion_total),
-    ventas: money(x.ventas || x.ventas_total),
-    ganancia: money(x.ganancia || x.ganancia_neta),
-    roi: pct(x.roi || x.roi_porcentaje),
-    cajas: num(x.cajas || x.cajas_totales),
+    ventas:    money(x.ventas   || x.ventas_total),
+    ganancia:  money(x.ganancia || x.ganancia_neta),
+    roi:       pct(x.roi        || x.roi_porcentaje),
+    cajas:     num(x.cajas      || x.cajas_totales),
   }));
 
   const info = raw.informacion_general || {};
   const infoHuerta: InfoHuerta = {
     huerta_nombre: String(info.huerta_nombre || ''),
-    huerta_tipo: (info.huerta_tipo || '') as any,
-    propietario: String(info.propietario || ''),
-    ubicacion: String(info.ubicacion || ''),
-    hectareas: num(info.hectareas),
+    huerta_tipo:   (info.huerta_tipo || '') as any,
+    propietario:   String(info.propietario || ''),
+    ubicacion:     String(info.ubicacion || ''),
+    hectareas:     num(info.hectareas),
     temporada_año: info.temporada_año,
   };
 
@@ -163,7 +172,7 @@ const adaptTemporadaToUI = (raw: any): ReporteProduccionData => {
     metadata: {
       periodo: { inicio: raw?.metadata?.periodo?.inicio || '', fin: raw?.metadata?.periodo?.fin || '' },
       entidad: {
-        id: num(raw?.metadata?.entidad?.id ?? raw?.temporada_id ?? 0),
+        id: num(raw?.metadata?.entidad?.id ?? raw?.metadata?.temporada_id ?? raw?.temporada_id ?? 0),
         nombre: String(infoHuerta.huerta_nombre || 'Temporada'),
         tipo: 'temporada',
       },

@@ -37,6 +37,13 @@ const downloadFile = (blob: Blob, filename: string) => {
   window.URL.revokeObjectURL(url);
 };
 
+const getFilename = (cd?: string, fallback?: string) => {
+  if (!cd) return fallback;
+  // Soporta filename="..." y filename*=UTF-8''
+  const m = /filename\*?=(?:UTF-8''|")?([^\";]+)/i.exec(cd);
+  return m ? decodeURIComponent(m[1].replace(/"/g, '')) : fallback;
+};
+
 /** Post que espera blob y, si es éxito, descarga; si es JSON de error, lo interpreta */
 async function postBlobAndDownload(
   endpoint: string,
@@ -58,7 +65,9 @@ async function postBlobAndDownload(
   }
 
   const blob = new Blob([resp.data], { type: contentType });
-  downloadFile(blob, `${filenameBase}.${ext}`);
+  const cd = resp.headers['content-disposition'];
+  const fname = getFilename(cd, `${filenameBase}.${ext}`);
+  downloadFile(blob, fname || `${filenameBase}.${ext}`);
   return { success: true, data: blob };
 }
 
