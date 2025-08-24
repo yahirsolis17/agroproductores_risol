@@ -1,3 +1,5 @@
+// modules/gestion_huerta/services/reportesProduccionService.ts
+
 import apiClient from '../../../global/api/apiClient';
 import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
 import {
@@ -7,7 +9,8 @@ import {
   ReporteProduccionResponse
 } from '../types/reportesProduccionTypes';
 
-const BASE = '/huerta/reportes-produccion';
+// 🔁 Nueva base alineada al backend reestructurado
+const BASE = '/huerta/reportes';
 
 /** Desencapsula el payload típico del backend (NotificationHandler) */
 const unwrapJson = (json: any) => {

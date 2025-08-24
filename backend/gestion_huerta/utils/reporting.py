@@ -16,6 +16,11 @@ Funciones nuevas (PDF):
 - render_cosecha_pdf(cosecha_id: int) -> bytes
 - render_temporada_pdf(temporada_id: int) -> bytes
 - render_huerta_pdf(huerta_id: int) -> bytes
+
+Funciones nuevas (PDF desde datos, sin tocar DB):
+- render_cosecha_pdf_from_data(reporte_data: Dict[str, Any]) -> bytes
+- render_temporada_pdf_from_data(reporte_data: Dict[str, Any]) -> bytes
+- render_huerta_pdf_from_data(reporte_data: Dict[str, Any]) -> bytes
 """
 
 from __future__ import annotations
@@ -1058,7 +1063,7 @@ def _html_to_pdf_bytes(html: str) -> bytes:
 
 
 # =========================
-# API pública de PDF
+# API pública de PDF (DB)
 # =========================
 
 def render_cosecha_pdf(cosecha_id: int) -> bytes:
@@ -1082,4 +1087,261 @@ def render_temporada_pdf(temporada_id: int) -> bytes:
 def render_huerta_pdf(huerta_id: int) -> bytes:
     h = _resolver_huerta(huerta_id)
     html = _html_huerta(h)
+    return _html_to_pdf_bytes(html)
+
+
+# =========================
+# API pública de PDF (desde datos / single-source-of-truth)
+# =========================
+
+def _safe_get(d: Dict[str, Any], key: str, default: Any = "") -> Any:
+    try:
+        v = d.get(key)
+        return "" if v is None else v
+    except Exception:
+        return default
+
+def _periodo_from_info(info: Dict[str, Any]) -> str:
+    if _safe_get(info, "periodo"):
+        return str(info["periodo"])
+    fi, ff = _safe_get(info, "fecha_inicio", ""), _safe_get(info, "fecha_fin", "")
+    if fi or ff:
+        return f"{str(fi)[:10]} - {str(ff)[:10]}"
+    return "—"
+
+def render_cosecha_pdf_from_data(reporte_data: Dict[str, Any]) -> bytes:
+    info = (reporte_data or {}).get("informacion_general", {}) or {}
+    resumen = (reporte_data or {}).get("resumen_financiero", {}) or {}
+
+    # Badges
+    badges: List[str] = []
+    if _safe_get(info, "temporada_año"): badges.append(f"Temporada: {info['temporada_año']}")
+    if _safe_get(info, "huerta_nombre"): badges.append(f"Huerta: {info['huerta_nombre']}")
+    if _safe_get(info, "hectareas") not in (None, ""):
+        badges.append(f"Hectáreas: {info['hectareas']}")
+
+    # Info general
+    info_rows = [
+        ["Huerta:", f"{_safe_get(info,'huerta_nombre','—')} ({_safe_get(info,'huerta_tipo','—')})"],
+        ["Ubicación:", _safe_get(info,"ubicacion","—")],
+        ["Propietario:", _safe_get(info,"propietario","—")],
+        ["Temporada:", str(_safe_get(info,"temporada_año","—"))],
+        ["Cosecha:", _safe_get(info,"cosecha_nombre","—")],
+        ["Período:", _periodo_from_info(info)],
+        ["Estado:", _safe_get(info,"estado","—")],
+        ["Hectáreas:", f"{_safe_get(info,'hectareas','—')} ha" if _safe_get(info,"hectareas","")!="" else "—"],
+    ]
+    body: List[str] = []
+    body.append(_info_general_html(info_rows))
+
+    # KPIs (map a tarjetas)
+    kpis = [
+        {"id": "inv_total", "label": "Total Inversiones", "value": fmt_money(_safe_get(resumen,"total_inversiones",0))},
+        {"id": "ventas_total", "label": "Total Ventas", "value": fmt_money(_safe_get(resumen,"total_ventas",0))},
+        {"id": "gastos_venta", "label": "Gastos de Venta", "value": fmt_money(_safe_get(resumen,"total_gastos_venta",0))},
+        {"id": "ganancia_bruta", "label": "Ganancia Bruta", "value": fmt_money(_safe_get(resumen,"ganancia_bruta",0))},
+        {"id": "ganancia_neta", "label": "Ganancia Neta", "value": fmt_money(_safe_get(resumen,"ganancia_neta",0))},
+        {"id": "roi", "label": "ROI", "value": f"{Flt(_safe_get(resumen,'roi_porcentaje',0)):.1f}%"},
+        {"id": "ganancia_hectarea", "label": "Ganancia/Ha", "value": fmt_money(_safe_get(resumen,"ganancia_por_hectarea",0))},
+        {"id": "cajas_totales", "label": "Cajas Totales", "value": fmt_num(_safe_get(resumen,"cajas_totales",0))},
+        {"id": "precio_promedio_caja", "label": "Precio Prom. Caja", "value": fmt_money(_safe_get(resumen,"precio_promedio",0))},
+        {"id": "costo_unitario", "label": "Costo por Caja", "value": fmt_money(_safe_get(resumen,"costo_unitario",0))},
+        {"id": "margen_unitario", "label": "Margen por Caja", "value": fmt_money(_safe_get(resumen,"margen_unitario",0))},
+    ]
+    body.append('<h2 class="section-title">Indicadores Clave</h2>')
+    body.append(_kpi_cards_html([k for k in kpis if k["value"] not in ("$0.00","0")] or kpis))
+
+    # Distribución inversiones (analisis_categorias)
+    cats = (reporte_data or {}).get("analisis_categorias") or []
+    if cats:
+        dist = [{"name": _safe_get(c,"categoria","Sin categoría"), "value": Flt(_safe_get(c,"total",0))} for c in cats]
+        body.append(_dist_pie_like_html("Distribución de Inversiones por Categoría", dist))
+
+    # Tablas de detalle
+    invs = (reporte_data or {}).get("detalle_inversiones") or []
+    if invs:
+        tabla_inv = {
+            "columns": ["Fecha", "Categoría", "Insumos", "Mano de Obra", "Total"],
+            "rows": [[
+                str(_safe_get(i,"fecha",""))[:10],
+                _safe_get(i,"categoria","Sin categoría"),
+                fmt_money(_safe_get(i,"gastos_insumos",0)),
+                fmt_money(_safe_get(i,"gastos_mano_obra",0)),
+                fmt_money(_safe_get(i,"total", Flt(_safe_get(i,"gastos_insumos",0))+Flt(_safe_get(i,"gastos_mano_obra",0))))
+            ] for i in invs]
+        }
+    else:
+        tabla_inv = {"columns": [], "rows": []}
+
+    vtas = (reporte_data or {}).get("detalle_ventas") or []
+    if vtas:
+        tabla_ven = {
+            "columns": ["Fecha", "Variedad", "Cajas", "Precio/Caja", "Total"],
+            "rows": [[
+                str(_safe_get(v,"fecha",""))[:10],
+                _safe_get(v,"tipo_mango",""),
+                fmt_num(_safe_get(v,"num_cajas",0)),
+                fmt_money(_safe_get(v,"precio_por_caja",0)),
+                fmt_money(_safe_get(v,"total_venta", Flt(_safe_get(v,"num_cajas",0))*Flt(_safe_get(v,"precio_por_caja",0))))
+            ] for v in vtas]
+        }
+    else:
+        tabla_ven = {"columns": [], "rows": []}
+
+    body.append('<h2 class="section-title">Detalle</h2>')
+    if tabla_inv.get("rows"):
+        body.append(_table_html("Inversiones", tabla_inv, num_cols=[2,3,4], left_cols=[1]))
+    if tabla_ven.get("rows"):
+        body.append(_table_html("Ventas", tabla_ven, num_cols=[2,3,4], left_cols=[1]))
+
+    title = f"Reporte de Cosecha · {_safe_get(info,'cosecha_nombre','—')}"
+    html = _render_html_document(title=title, subtitle="Resumen financiero y operativo", meta_badges=badges, body_html="".join(body))
+    return _html_to_pdf_bytes(html)
+
+
+def render_temporada_pdf_from_data(reporte_data: Dict[str, Any]) -> bytes:
+    info = (reporte_data or {}).get("informacion_general", {}) or {}
+    resumen = (reporte_data or {}).get("resumen_ejecutivo", {}) or {}
+
+    badges: List[str] = []
+    if _safe_get(info, "año") or _safe_get(info, "temporada_año"):
+        badges.append(f"Año: {_safe_get(info,'año', _safe_get(info,'temporada_año','—'))}")
+    if _safe_get(info, "huerta_nombre"):
+        badges.append(f"Huerta: {info['huerta_nombre']}")
+
+    info_rows = [
+        ["Huerta:", f"{_safe_get(info,'huerta_nombre','—')} ({_safe_get(info,'huerta_tipo','—')})"],
+        ["Ubicación:", _safe_get(info,"ubicacion","—")],
+        ["Propietario:", _safe_get(info,"propietario","—")],
+        ["Temporada:", str(_safe_get(info,"año", _safe_get(info,"temporada_año","—")))],
+        ["Período:", _periodo_from_info(info)],
+        ["Estado:", _safe_get(info,"estado","—")],
+        ["Hectáreas:", f"{_safe_get(info,'hectareas','—')} ha" if _safe_get(info,"hectareas","")!="" else "—"],
+        ["Total Cosechas:", str(_safe_get(info,"total_cosechas", _safe_get(resumen,"cajas_totales","—")))],
+    ]
+    body: List[str] = []
+    body.append(_info_general_html(info_rows))
+
+    kpis = [
+        {"id": "inv_total", "label": "Inversión Total", "value": fmt_money(_safe_get(resumen,"inversion_total",0))},
+        {"id": "ventas_total", "label": "Ventas Totales", "value": fmt_money(_safe_get(resumen,"ventas_totales",0))},
+        {"id": "ganancia_neta", "label": "Ganancia Neta", "value": fmt_money(_safe_get(resumen,"ganancia_neta",0))},
+        {"id": "roi", "label": "ROI Temporada", "value": f"{Flt(_safe_get(resumen,'roi_temporada',0)):.1f}%"},
+        {"id": "productividad", "label": "Productividad", "value": f"{Flt(_safe_get(resumen,'productividad',0)):.1f} cajas/ha"},
+        {"id": "cajas_totales", "label": "Cajas Totales", "value": fmt_num(_safe_get(resumen,"cajas_totales",0))},
+    ]
+    body.append('<h2 class="section-title">Indicadores Clave</h2>')
+    body.append(_kpi_cards_html([k for k in kpis if k["value"] not in ("$0.00","0","0.0 cajas/ha")] or kpis))
+
+    # Analíticos si vienen
+    cats = (reporte_data or {}).get("analisis_categorias") or []
+    if cats:
+        dist = [{"name": _safe_get(c,"categoria","Sin categoría"), "value": Flt(_safe_get(c,"total",0))} for c in cats]
+        body.append(_dist_pie_like_html("Distribución de Inversiones", dist))
+
+    vars_ = (reporte_data or {}).get("analisis_variedades") or []
+    if vars_:
+        tbl = {
+            "columns": ["Variedad", "Cajas", "Precio Prom.", "Ingreso", "% Ingreso"],
+            "rows": [[
+                _safe_get(x,"variedad",""),
+                fmt_num(_safe_get(x,"total_cajas",0)),
+                fmt_money(_safe_get(x,"precio_promedio",0)),
+                fmt_money(_safe_get(x,"total_venta",0)),
+                f"{Flt(_safe_get(x,'porcentaje',0)):.1f}%"
+            ] for x in vars_]
+        }
+        body.append(_table_html("Ventas por Variedad", tbl, num_cols=[1,2,3], left_cols=[0]))
+
+    # Comparativa por cosecha
+    comp = (reporte_data or {}).get("comparativo_cosechas") or []
+    if comp:
+        tabla = {
+            "columns": ["Cosecha", "Inversión", "Ventas", "Ganancia", "ROI", "Cajas"],
+            "rows": [[
+                _safe_get(c,"nombre",""),
+                fmt_money(_safe_get(c,"inversion",0)),
+                fmt_money(_safe_get(c,"ventas",0)),
+                fmt_money(_safe_get(c,"ganancia",0)),
+                f"{Flt(_safe_get(c,'roi',0)):.1f}%",
+                fmt_num(_safe_get(c,"cajas",0))
+            ] for c in comp]
+        }
+        body.append('<h2 class="section-title">Comparativa por Cosecha</h2>')
+        body.append(_table_html("Resumen por Cosecha", tabla, num_cols=[1,2,3,4,5], left_cols=[0]))
+
+    title = f"Reporte de Temporada · {str(_safe_get(info,'año', _safe_get(info,'temporada_año','—')))}"
+    html = _render_html_document(title=title, subtitle="Consolidado por temporada", meta_badges=badges, body_html="".join(body))
+    return _html_to_pdf_bytes(html)
+
+
+def render_huerta_pdf_from_data(reporte_data: Dict[str, Any]) -> bytes:
+    info = (reporte_data or {}).get("informacion_general", {}) or {}
+    hist = (reporte_data or {}).get("resumen_historico", []) or []
+    eff = (reporte_data or {}).get("analisis_eficiencia", {}) or {}
+
+    badges: List[str] = []
+    if _safe_get(info, "huerta_nombre"): badges.append(f"Huerta: {info['huerta_nombre']}")
+    if _safe_get(info, "hectareas") not in (None, ""):
+        badges.append(f"Hectáreas: {info['hectareas']}")
+
+    info_rows = [
+        ["Huerta:", f"{_safe_get(info,'huerta_nombre','—')} ({_safe_get(info,'huerta_tipo','—')})"],
+        ["Ubicación:", _safe_get(info,"ubicacion","—")],
+        ["Propietario:", _safe_get(info,"propietario","—")],
+        ["Hectáreas:", f"{_safe_get(info,'hectareas','—')} ha" if _safe_get(info,"hectareas","")!="" else "—"],
+        ["Variedades:", _safe_get(info,"variedades","—")],
+        ["Años de Operación:", str(_safe_get(info,"años_operacion", "—"))],
+        ["Temporadas Analizadas:", str(_safe_get(info,"temporadas_analizadas", "—"))],
+    ]
+    body: List[str] = []
+    body.append(_info_general_html(info_rows))
+
+    # KPIs a partir de analisis_eficiencia
+    mejor = eff.get("mejor_temporada") or {}
+    peor = eff.get("peor_temporada") or {}
+    kpis = [
+        {"id": "mejor_temp", "label": "Mejor Temporada", "value": f"{_safe_get(mejor,'año','—')} (ROI {Flt(_safe_get(mejor,'roi',0)):.1f}%)" if mejor else "N/A"},
+        {"id": "peor_temp", "label": "Peor Temporada", "value": f"{_safe_get(peor,'año','—')} (ROI {Flt(_safe_get(peor,'roi',0)):.1f}%)" if peor else "N/A"},
+        {"id": "roi_prom", "label": "ROI Promedio Histórico", "value": f"{Flt(_safe_get(eff,'roi_promedio_historico',0)):.1f}%"},
+        {"id": "roi_var", "label": "Variabilidad ROI (desv.)", "value": f"±{Flt(_safe_get(eff,'variabilidad_roi',0)):.1f}%"},
+        {"id": "tendencia", "label": "Tendencia ROI", "value": _safe_get(eff,"tendencia","—")},
+    ]
+    body.append('<h2 class="section-title">Indicadores Históricos</h2>')
+    body.append(_kpi_cards_html(kpis))
+
+    # ROI anual (desde resumen_historico)
+    if hist:
+        roi_tbl = {"columns": ["Año", "ROI"], "rows": [[str(_safe_get(x,"año","")), f"{Flt(_safe_get(x,'roi',0)):.1f}%"] for x in hist]}
+        body.append(_table_html("ROI por Año", roi_tbl, num_cols=[1]))
+
+        ivg_tbl = {"columns": ["Año", "Inversión", "Ventas"], "rows": [[
+            str(_safe_get(x,"año","")), fmt_money(_safe_get(x,"inversion",0)), fmt_money(_safe_get(x,"ventas",0))
+        ] for x in hist]}
+        body.append(_table_html("Ingresos vs Inversiones por Año", ivg_tbl, num_cols=[1,2]))
+
+        prod_tbl = {"columns": ["Año", "Cajas/Ha"], "rows": [[
+            str(_safe_get(x,"año","")), f"{Flt(_safe_get(x,'productividad',0)):.1f}"
+        ] for x in hist]}
+        body.append(_table_html("Productividad (Cajas/Ha)", prod_tbl, num_cols=[1]))
+
+        resumen_tbl = {"columns": ["Año", "Inversión", "Ventas", "Ganancia", "ROI", "Cajas"], "rows": [[
+            str(_safe_get(x,"año","")), fmt_money(_safe_get(x,"inversion",0)), fmt_money(_safe_get(x,"ventas",0)),
+            fmt_money(_safe_get(x,"ganancia",0)), f"{Flt(_safe_get(x,'roi',0)):.1f}%", f"{fmt_num(_safe_get(x,'cajas',0))} cajas"
+        ] for x in hist]}
+        body.append('<h2 class="section-title">Últimos Años</h2>')
+        body.append(_table_html("Resumen por Año", resumen_tbl, num_cols=[1,2,3,4,5], left_cols=[0]))
+
+    # Si viniera una distribución histórica externa
+    dist_hist = (reporte_data or {}).get("analisis_categorias_historico") or []
+    if dist_hist:
+        dist = [{"name": _safe_get(c,"categoria","Sin categoría"), "value": Flt(_safe_get(c,"total",0))} for c in dist_hist]
+        body.append(_dist_pie_like_html("Distribución Histórica de Inversiones", dist))
+
+    html = _render_html_document(
+        title="Perfil de Huerta",
+        subtitle="Resumen histórico y métricas clave",
+        meta_badges=badges,
+        body_html="".join(body),
+    )
     return _html_to_pdf_bytes(html)

@@ -7,7 +7,7 @@ from gestion_huerta.views.huerta_views import (
     HuertaViewSet,
     HuertaRentadaViewSet,
     PropietarioViewSet,
-    HuertasCombinadasViewSet
+    HuertasCombinadasViewSet,
 )
 from gestion_huerta.views.inversiones_views import InversionHuertaViewSet
 from gestion_huerta.views.categoria_inversion_views import CategoriaInversionViewSet
@@ -16,11 +16,15 @@ from gestion_huerta.views.ventas_views import VentaViewSet
 from gestion_huerta.views.temporadas_views import TemporadaViewSet
 from gestion_huerta.views.registro_actividad import RegistroActividadViewSet
 
-# ⬇️ IMPORTA el ViewSet de reportes
-from gestion_huerta.views.reportes_produccion_views import ReportesProduccionViewSet
+# === IMPORTS de NUEVAS VISTAS DE REPORTES ===
+from gestion_huerta.views.reportes.cosecha_views import CosechaReportViewSet
+from gestion_huerta.views.reportes.temporada_views import TemporadaReportViewSet
+from gestion_huerta.views.reportes.perfil_huerta_views import PerfilHuertaReportViewSet
+from gestion_huerta.views.reportes.reportes_utils_views import ReportesUtilViewSet
 
 app_name = "gestion_huerta"
 
+# Router principal (resto de módulos)
 router = DefaultRouter()
 router.register(r"propietarios", PropietarioViewSet, basename="propietario")
 router.register(r"huertas", HuertaViewSet, basename="huerta")
@@ -33,9 +37,14 @@ router.register(r"temporadas", TemporadaViewSet, basename="temporada")
 router.register(r"actividad", RegistroActividadViewSet, basename="actividad")
 router.register(r"huertas-combinadas", HuertasCombinadasViewSet, basename="huertas-combinadas")
 
-# ⬇️ REGISTRA el módulo de reportes
-router.register(r"reportes-produccion", ReportesProduccionViewSet, basename="reportes-produccion")
+# Router de reportes (mismo prefijo '/reportes' con vistas separadas)
+reportes_router = DefaultRouter()
+reportes_router.register(r"reportes", CosechaReportViewSet, basename="reportes-cosecha")
+reportes_router.register(r"reportes", TemporadaReportViewSet, basename="reportes-temporada")
+reportes_router.register(r"reportes", PerfilHuertaReportViewSet, basename="reportes-perfil-huerta")
+reportes_router.register(r"reportes", ReportesUtilViewSet, basename="reportes-utils")
 
 urlpatterns = [
     path("", include(router.urls)),
+    path("", include(reportes_router.urls)),  # expone /reportes/cosecha, /reportes/temporada, /reportes/perfil-huerta, /reportes/estadisticas, etc.
 ]
