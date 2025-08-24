@@ -272,13 +272,20 @@ class ExportacionService:
         info = reporte_data.get("informacion_general", {}) or {}
         resumen = reporte_data.get("resumen_financiero", {}) or {}
 
-        # Información General
+        # Periodo (preferir campo 'periodo' si viene del backend)
+        fi = _first(info.get("fecha_inicio"))
+        ff = _first(info.get("fecha_fin"))
+        periodo_txt = _safe_str(info.get("periodo") or (f"{fi} - {ff}" if (fi or ff) else ""))
+
+        # Información General (orden solicitado)
         story.append(Paragraph("INFORMACIÓN GENERAL", heading_style))
         info_data = [
             ["Huerta:", f"{_safe_str(info.get('huerta_nombre'))} ({_safe_str(info.get('huerta_tipo'))})"],
+            ["Ubicación:", _safe_str(info.get("ubicacion"))],
             ["Propietario:", _safe_str(info.get("propietario"))],
             ["Temporada:", _safe_str(info.get("temporada_año"))],
             ["Cosecha:", _safe_str(info.get("cosecha_nombre"))],
+            ["Período:", periodo_txt],
             ["Estado:", _safe_str(info.get("estado"))],
             ["Hectáreas:", f"{_money(info.get('hectareas')):.2f} ha"],
         ]
@@ -466,13 +473,21 @@ class ExportacionService:
         info = reporte_data.get("informacion_general", {}) or {}
         resumen = reporte_data.get("resumen_financiero", {}) or {}
 
+        # Periodo (preferir 'periodo')
+        fi = _first(info.get("fecha_inicio"))
+        ff = _first(info.get("fecha_fin"))
+        periodo_txt = _safe_str(info.get("periodo") or (f"{fi} - {ff}" if (fi or ff) else ""))
+
         row = 3
         _ws_section_title(ws_resumen, row, "INFORMACIÓN GENERAL")
+        # Orden solicitado
         info_data = [
             ("Huerta", f"{_safe_str(info.get('huerta_nombre'))} ({_safe_str(info.get('huerta_tipo'))})"),
+            ("Ubicación", _safe_str(info.get("ubicacion"))),
             ("Propietario", _safe_str(info.get("propietario"))),
             ("Temporada", _safe_str(info.get("temporada_año"))),
             ("Cosecha", _safe_str(info.get("cosecha_nombre"))),
+            ("Período", periodo_txt),
             ("Estado", _safe_str(info.get("estado"))),
             ("Hectáreas", f"{_money(info.get('hectareas')):.2f} ha"),
         ]
@@ -571,14 +586,22 @@ class ExportacionService:
         info = reporte_data.get("informacion_general", {}) or {}
         res = reporte_data.get("resumen_ejecutivo", {}) or {}
 
+        # Periodo
+        fi = _first(info.get("fecha_inicio"))
+        ff = _first(info.get("fecha_fin"))
+        periodo_txt = _safe_str(info.get("periodo") or (f"{fi} - {ff}" if (fi or ff) else ""))
+
         story.append(Paragraph("INFORMACIÓN GENERAL", heading_style))
+        # Orden alineado (temporada no tiene 'cosecha_nombre')
         info_data = [
             ["Huerta:", f"{_safe_str(info.get('huerta_nombre'))} ({_safe_str(info.get('huerta_tipo'))})"],
+            ["Ubicación:", _safe_str(info.get("ubicacion"))],
             ["Propietario:", _safe_str(info.get("propietario"))],
             ["Temporada:", _safe_str(info.get("temporada_año"))],
-            ["Total Cosechas:", _safe_str(info.get("total_cosechas"))],
+            ["Período:", periodo_txt],
             ["Estado:", _safe_str(info.get("estado"))],
             ["Hectáreas:", f"{_money(info.get('hectareas')):.2f} ha"],
+            ["Total Cosechas:", _safe_str(info.get("total_cosechas"))],
         ]
         t_info = Table(info_data, colWidths=[2 * inch, 4 * inch])
         t_info.setStyle(
@@ -670,15 +693,21 @@ class ExportacionService:
         info = reporte_data.get("informacion_general", {}) or {}
         res = reporte_data.get("resumen_ejecutivo", {}) or {}
 
+        fi = _first(info.get("fecha_inicio"))
+        ff = _first(info.get("fecha_fin"))
+        periodo_txt = _safe_str(info.get("periodo") or (f"{fi} - {ff}" if (fi or ff) else ""))
+
         row = 3
         _ws_section_title(ws, row, "INFORMACIÓN GENERAL")
         info_rows = [
             ("Huerta", f"{_safe_str(info.get('huerta_nombre'))} ({_safe_str(info.get('huerta_tipo'))})"),
+            ("Ubicación", _safe_str(info.get("ubicacion"))),
             ("Propietario", _safe_str(info.get("propietario"))),
             ("Temporada", _safe_str(info.get("temporada_año"))),
-            ("Total Cosechas", _safe_str(info.get("total_cosechas"))),
+            ("Período", periodo_txt),
             ("Estado", _safe_str(info.get("estado"))),
             ("Hectáreas", f"{_money(info.get('hectareas')):.2f} ha"),
+            ("Total Cosechas", _safe_str(info.get("total_cosechas"))),
         ]
         for label, value in info_rows:
             row += 1

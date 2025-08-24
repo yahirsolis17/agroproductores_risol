@@ -51,7 +51,8 @@ import {
   KPIData,
   SeriesDataPoint,
   TablaInversion,
-  TablaVenta
+  TablaVenta,
+  FilaComparativoCosecha,
 } from '../../../types/reportesProduccionTypes';
 import { formatCurrency, formatNumber } from '../../../../../global/utils/formatters';
 import { parseLocalDateStrict } from '../../../../../global/utils/date';
@@ -611,7 +612,74 @@ const VentasTable: React.FC<{ ventas: TablaVenta[] }> = ({ ventas }) => {
       </TableContainer>
     </Paper>
   );
-}
+};
+
+// --------------------------
+// NUEVA: Tabla comparativo por cosecha (para temporadas)
+// --------------------------
+const ComparativoCosechasTable: React.FC<{ rows: FilaComparativoCosecha[] }> = ({ rows }) => {
+  const theme = useTheme();
+  const [order, setOrder] = useState<Order>('desc');
+  const [orderBy, setOrderBy] = useState<keyof FilaComparativoCosecha>('ganancia');
+
+  const handleRequestSort = (property: keyof FilaComparativoCosecha) => {
+    const isAsc = orderBy === property && order === 'asc';
+    setOrder(isAsc ? 'desc' : 'asc');
+    setOrderBy(property);
+  };
+
+  const sorted = useMemo(() => {
+    const comparator = getComparator<FilaComparativoCosecha>(order, orderBy);
+    return stableSort(rows, comparator);
+  }, [rows, order, orderBy]);
+
+  return (
+    <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 3, background: alpha(theme.palette.background.paper, 0.7) }}>
+      <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+        Comparativo por Cosecha
+      </Typography>
+      <TableContainer>
+        <Table size="medium" stickyHeader>
+          <TableHead>
+            <TableRow>
+              {[
+                { key: 'cosecha', label: 'Cosecha' },
+                { key: 'inversion', label: 'Inversión' },
+                { key: 'ventas', label: 'Ventas' },
+                { key: 'ganancia', label: 'Ganancia' },
+                { key: 'roi', label: 'ROI (%)' },
+                { key: 'cajas', label: 'Cajas' },
+              ].map((col) => (
+                <TableCell key={col.key as string} sortDirection={orderBy === col.key ? order : false}>
+                  <TableSortLabel
+                    active={orderBy === col.key}
+                    direction={orderBy === col.key ? order : 'asc'}
+                    onClick={() => handleRequestSort(col.key as keyof FilaComparativoCosecha)}
+                    sx={{ fontWeight: 600 }}
+                  >
+                    {col.label}
+                  </TableSortLabel>
+                </TableCell>
+              ))}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {sorted.map((r, idx) => (
+              <TableRow key={`${r.cosecha}-${idx}`} hover>
+                <TableCell>{r.cosecha}</TableCell>
+                <TableCell align="right">{formatCurrency(r.inversion)}</TableCell>
+                <TableCell align="right">{formatCurrency(r.ventas)}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600 }}>{formatCurrency(r.ganancia)}</TableCell>
+                <TableCell align="right">{formatNumber(r.roi)}</TableCell>
+                <TableCell align="right">{formatNumber(r.cajas)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Paper>
+  );
+};
 
 // --------------------------
 // Componente principal
@@ -1061,6 +1129,11 @@ export default function ReporteProduccionViewer({
             <InversionesTable inversiones={data.tablas.inversiones} />
           )}
           {data.tablas.ventas && data.tablas.ventas.length > 0 && <VentasTable ventas={data.tablas.ventas} />}
+
+          {/* NUEVO: Comparativo por cosecha (solo si viene) */}
+          {data.tablas.comparativo_cosechas && data.tablas.comparativo_cosechas.length > 0 && (
+            <ComparativoCosechasTable rows={data.tablas.comparativo_cosechas} />
+          )}
         </Box>
       )}
 

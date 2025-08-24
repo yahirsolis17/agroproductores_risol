@@ -22,14 +22,12 @@ from django.core.exceptions import ValidationError, PermissionDenied
 from django.core.cache import cache
 
 from gestion_huerta.services.reportes_produccion_service import ReportesProduccionService
-# ⚠️ Ahora importamos desde utils (coincide con la ruta del archivo que pediste)
 from gestion_huerta.services.exportacion_service import ExportacionService
 from gestion_huerta.utils.notification_handler import NotificationHandler
 from gestion_huerta.permissions import HasHuertaModulePermission
 
 from gestion_huerta.models import Cosecha, Temporada, InversionesHuerta, Venta
 from celery.result import AsyncResult
-from django.conf import settings
 
 
 def _as_int(value: Optional[object], field: str) -> int:
@@ -37,6 +35,13 @@ def _as_int(value: Optional[object], field: str) -> int:
         return int(value)
     except Exception:
         raise ValidationError({field: f"{field} debe ser entero válido"})
+
+
+def _truthy(v: object) -> bool:
+    if isinstance(v, bool):
+        return v
+    s = str(v).strip().lower()
+    return s in {"1", "true", "t", "yes", "y", "si", "sí"}
 
 
 class ReportesProduccionViewSet(viewsets.GenericViewSet):
@@ -68,10 +73,12 @@ class ReportesProduccionViewSet(viewsets.GenericViewSet):
         {
             "cosecha_id": int,              (obligatorio)
             "formato": "json|pdf|excel"     (opcional, default: json)
+            "force_refresh": bool           (opcional, default: false)
         }
         """
         cosecha_id_raw = request.data.get("cosecha_id")
         formato = (request.data.get("formato") or "json").strip().lower()
+        force_refresh = _truthy(request.data.get("force_refresh", False))
 
         if cosecha_id_raw is None:
             return NotificationHandler.generate_response(
@@ -89,23 +96,28 @@ class ReportesProduccionViewSet(viewsets.GenericViewSet):
 
         try:
             cosecha_id = _as_int(cosecha_id_raw, "cosecha_id")
-            # Siempre generamos en JSON y luego exportamos si aplica
+            # Siempre generamos en JSON (respetando force_refresh) y luego exportamos si aplica
             reporte_data = ReportesProduccionService.generar_reporte_cosecha(
-                cosecha_id=cosecha_id, usuario=request.user, formato="json"
+                cosecha_id=cosecha_id, usuario=request.user, formato="json", force_refresh=force_refresh
             )
 
             if formato == "pdf":
                 pdf = ExportacionService.generar_pdf_cosecha(reporte_data)
+                # Nombre de archivo más descriptivo si hay datos
+                info = (reporte_data or {}).get("informacion_general", {}) or {}
+                base = f"{info.get('temporada_año','')}_{info.get('cosecha_nombre','')}".strip("_") or f"{cosecha_id}"
                 resp = HttpResponse(pdf, content_type="application/pdf")
-                resp["Content-Disposition"] = f'attachment; filename="reporte_cosecha_{cosecha_id}.pdf"'
+                resp["Content-Disposition"] = f'attachment; filename="reporte_cosecha_{base}.pdf"'
                 return resp
 
             if formato == "excel":
                 excel = ExportacionService.generar_excel_cosecha(reporte_data)
+                info = (reporte_data or {}).get("informacion_general", {}) or {}
+                base = f"{info.get('temporada_año','')}_{info.get('cosecha_nombre','')}".strip("_") or f"{cosecha_id}"
                 resp = HttpResponse(
                     excel, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
-                resp["Content-Disposition"] = f'attachment; filename="reporte_cosecha_{cosecha_id}.xlsx"'
+                resp["Content-Disposition"] = f'attachment; filename="reporte_cosecha_{base}.xlsx"'
                 return resp
 
             # formato == json
@@ -142,10 +154,12 @@ class ReportesProduccionViewSet(viewsets.GenericViewSet):
         {
             "temporada_id": int,            (obligatorio)
             "formato": "json|pdf|excel"     (opcional, default: json)
+            "force_refresh": bool           (opcional, default: false)
         }
         """
         temporada_id_raw = request.data.get("temporada_id")
         formato = (request.data.get("formato") or "json").strip().lower()
+        force_refresh = _truthy(request.data.get("force_refresh", False))
 
         if temporada_id_raw is None:
             return NotificationHandler.generate_response(
@@ -164,21 +178,25 @@ class ReportesProduccionViewSet(viewsets.GenericViewSet):
         try:
             temporada_id = _as_int(temporada_id_raw, "temporada_id")
             reporte_data = ReportesProduccionService.generar_reporte_temporada(
-                temporada_id=temporada_id, usuario=request.user, formato="json"
+                temporada_id=temporada_id, usuario=request.user, formato="json", force_refresh=force_refresh
             )
 
             if formato == "pdf":
                 pdf = ExportacionService.generar_pdf_temporada(reporte_data)
+                info = (reporte_data or {}).get("informacion_general", {}) or {}
+                base = f"{info.get('temporada_año','')}_{info.get('huerta_nombre','')}".strip("_") or f"{temporada_id}"
                 resp = HttpResponse(pdf, content_type="application/pdf")
-                resp["Content-Disposition"] = f'attachment; filename="reporte_temporada_{temporada_id}.pdf"'
+                resp["Content-Disposition"] = f'attachment; filename="reporte_temporada_{base}.pdf"'
                 return resp
 
             if formato == "excel":
                 excel = ExportacionService.generar_excel_temporada(reporte_data)
+                info = (reporte_data or {}).get("informacion_general", {}) or {}
+                base = f"{info.get('temporada_año','')}_{info.get('huerta_nombre','')}".strip("_") or f"{temporada_id}"
                 resp = HttpResponse(
                     excel, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
-                resp["Content-Disposition"] = f'attachment; filename="reporte_temporada_{temporada_id}.xlsx"'
+                resp["Content-Disposition"] = f'attachment; filename="reporte_temporada_{base}.xlsx"'
                 return resp
 
             return NotificationHandler.generate_response(
@@ -216,12 +234,14 @@ class ReportesProduccionViewSet(viewsets.GenericViewSet):
             "huerta_rentada_id": int,       (opcional si se proporciona huerta_id)
             "años": int (1..10),            (opcional, default: 5)
             "formato": "json|pdf|excel"     (opcional, default: json)
+            "force_refresh": bool           (opcional, default: false)
         }
         """
         huerta_id = request.data.get("huerta_id")
         huerta_rentada_id = request.data.get("huerta_rentada_id")
         años_raw = request.data.get("años", 5)
         formato = (request.data.get("formato") or "json").strip().lower()
+        force_refresh = _truthy(request.data.get("force_refresh", False))
 
         # Validaciones rápidas
         if not huerta_id and not huerta_rentada_id:
@@ -265,11 +285,11 @@ class ReportesProduccionViewSet(viewsets.GenericViewSet):
                 usuario=request.user,
                 años=años,
                 formato="json",
+                force_refresh=force_refresh,
             )
 
             if formato == "pdf":
                 pdf = ExportacionService.generar_pdf_perfil_huerta(reporte_data)
-                # Nombre de archivo según origen
                 base = f"huerta_{hid}" if hid else f"huerta_rentada_{hrid}"
                 resp = HttpResponse(pdf, content_type="application/pdf")
                 resp["Content-Disposition"] = f'attachment; filename="perfil_{base}.pdf"'
@@ -310,9 +330,7 @@ class ReportesProduccionViewSet(viewsets.GenericViewSet):
     # ------------
     @action(detail=False, methods=["post"], url_path="limpiar-cache")
     def limpiar_cache(self, request):
-        """
-        Limpia el caché de reportes (útil cuando se cargan datos masivos y se quiere forzar regeneración).
-        """
+        """Limpia el caché de reportes."""
         try:
             cache.clear()
             return NotificationHandler.generate_response(
@@ -339,7 +357,6 @@ class ReportesProduccionViewSet(viewsets.GenericViewSet):
             ventas = Venta.objects.filter(is_active=True).count()
             inversiones = InversionesHuerta.objects.filter(is_active=True).count()
 
-            # Agregados (no críticos; si el modelo cambia no se rompe porque están en try)
             from django.db.models import Sum, F
             tot_ingreso = Venta.objects.filter(is_active=True).aggregate(v=Sum(F("num_cajas") * F("precio_por_caja")))["v"] or 0
             tot_inv = InversionesHuerta.objects.filter(is_active=True).aggregate(v=Sum(F("gastos_insumos") + F("gastos_mano_obra")))["v"] or 0

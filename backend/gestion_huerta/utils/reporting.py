@@ -88,6 +88,17 @@ def _nombre_propietario(origen) -> str:
         return ""
 
 
+def _now_iso() -> str:
+    return datetime.now().strftime("%Y-%m-%d %H:%M")
+
+
+def _date_only(dt) -> str:
+    try:
+        return dt.strftime("%Y-%m-%d")
+    except Exception:
+        return (str(dt) or "").split("T", 1)[0]
+
+
 # =========================
 # Aggregates/series de COSECHA
 # =========================
@@ -536,10 +547,6 @@ def _ensure_weasyprint():
         ) from exc
 
 
-def _now_iso() -> str:
-    return datetime.now().strftime("%Y-%m-%d %H:%M")
-
-
 def _badge(text: str) -> str:
     return f'<span class="badge">{html_escape(text)}</span>'
 
@@ -559,15 +566,22 @@ def _kpi_cards_html(kpis: List[Dict[str, str]]) -> str:
     return f'<section class="kpi-grid">{"".join(items)}</section>'
 
 
-def _table_html(title: str, table: Dict[str, Any]) -> str:
+def _table_html(title: str, table: Dict[str, Any], num_cols: Optional[List[int]] = None, left_cols: Optional[List[int]] = None) -> str:
+    num_cols = set(num_cols or [])
+    left_cols = set(left_cols or [])
     cols = table.get("columns", [])
     rows = table.get("rows", [])
-    thead = "".join(f"<th>{html_escape(str(c))}</th>" for c in cols)
+    thead = "".join(f"<th class='txt-left'>{html_escape(str(c))}</th>" for c in cols)
+
     trows = []
     for r in rows:
-        tds = "".join(f"<td>{html_escape(str(c))}</td>" for c in r)
-        trows.append(f"<tr>{tds}</tr>")
+        tds = []
+        for idx, c in enumerate(r):
+            cls = "num" if idx in num_cols else ("txt-left" if idx in left_cols else "")
+            tds.append(f"<td class='{cls}'>{html_escape(str(c))}</td>")
+        trows.append(f"<tr>{''.join(tds)}</tr>")
     tbody = "".join(trows)
+
     return f"""
     <section class="table-block">
       <h3 class="section-subtitle">{html_escape(title)}</h3>
@@ -761,6 +775,9 @@ def _base_css() -> str:
     .dist-fill {
       height: 100%; background: var(--grad);
     }
+    /* Alineación de números / texto */
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .txt-left { text-align: left; }
 
     /* Responsive (en PDF caben 4, pero por si se visualiza en HTML) */
     @media (max-width: 900px) {
@@ -804,40 +821,83 @@ def _render_html_document(title: str, subtitle: str, meta_badges: List[str], bod
     """
 
 
+def _info_general_html(pares: List[List[str]]) -> str:
+    rows = "".join(
+        f"<tr><th class='txt-left'>{html_escape(k)}</th><td>{html_escape(v)}</td></tr>"
+        for k, v in pares
+    )
+    return f"""
+    <section class="table-block">
+      <h2 class="section-title">INFORMACIÓN GENERAL</h2>
+      <table class="data-table">
+        <tbody>{rows}</tbody>
+      </table>
+    </section>
+    """
+
+
 def _html_cosecha(cosecha: Cosecha) -> str:
-    """Arma el HTML del reporte de cosecha con estilo."""
+    """Arma el HTML del reporte de cosecha con estilo y orden requerido."""
     data = aggregates_for_cosecha(cosecha.id)
     series = series_for_cosecha(cosecha.id)
 
     # Header info
     origen = cosecha.huerta or cosecha.huerta_rentada
+    huerta_nombre = getattr(origen, "nombre", "—") if origen else "—"
+    huerta_tipo = "Rentada" if getattr(cosecha, "huerta_rentada_id", None) else "Propia"
+    ubicacion = getattr(origen, "ubicacion", "") or "—"
+    propietario = _nombre_propietario(origen) or "—"
+    temporada_año = getattr(getattr(cosecha, "temporada", None), "año", "") or "—"
+    periodo = f"{_date_only(getattr(cosecha,'fecha_inicio', ''))} - {_date_only(getattr(cosecha,'fecha_fin',''))}"
+    estado = "Finalizada" if getattr(cosecha, "finalizada", False) else "Activa"
+    hectareas = getattr(origen, "hectareas", None)
+    hect_str = f"{hectareas} ha" if hectareas is not None else "—"
+
     badges = []
     if cosecha.temporada:
-        badges.append(f"Temporada: {cosecha.temporada.año}")
+        badges.append(f"Temporada: {temporada_año}")
     if origen:
-        badges.append(f"Huerta: {getattr(origen, 'nombre', '—')}")
-        hect = getattr(origen, "hectareas", None)
-        if hect is not None:
-            badges.append(f"Hectáreas: {hect}")
+        badges.append(f"Huerta: {huerta_nombre}")
+        if hectareas is not None:
+            badges.append(f"Hectáreas: {hectareas}")
 
     # Cuerpo
     body = []
+
+    # === Información General (orden exacto solicitado)
+    info_rows = [
+        ["Huerta:", f"{huerta_nombre} ({huerta_tipo})"],
+        ["Ubicación:", ubicacion],
+        ["Propietario:", propietario],
+        ["Temporada:", str(temporada_año)],
+        ["Cosecha:", cosecha.nombre or "—"],
+        ["Período:", periodo],
+        ["Estado:", estado],
+        ["Hectáreas:", hect_str],
+    ]
+    body.append(_info_general_html(info_rows))
+
+    # Indicadores
     body.append('<h2 class="section-title">Indicadores Clave</h2>')
     body.append(_kpi_cards_html(data.get("kpis", [])))
 
-    # Distribución de inversiones (pie-like)
+    # Distribución inversiones
     dist = next((s for s in series if s.get("id") == "dist_inversion"), None)
     if dist and isinstance(dist.get("data"), list) and dist["data"]:
         body.append(_dist_pie_like_html("Distribución de Inversiones por Categoría", dist["data"]))
 
-    # Tablas
+    # Tablas (alineaciones)
     tabla_inv = data.get("tabla_inversiones", {})
     tabla_ven = data.get("tabla_ventas", {})
+
     body.append('<h2 class="section-title">Detalle</h2>')
     if tabla_inv.get("rows"):
-        body.append(_table_html("Inversiones", tabla_inv))
+        # Fecha, Categoría, Insumos*, Mano de Obra*, Total*  (* numéricas)
+        body.append(_table_html("Inversiones", tabla_inv, num_cols=[2, 3, 4], left_cols=[1]))
+
     if tabla_ven.get("rows"):
-        body.append(_table_html("Ventas", tabla_ven))
+        # Fecha, Variedad, Cajas*, Precio/Caja*, Total*  (* numéricas)
+        body.append(_table_html("Ventas", tabla_ven, num_cols=[2, 3, 4], left_cols=[1]))
 
     return _render_html_document(
         title=f"Reporte de Cosecha · {cosecha.nombre}",
@@ -849,7 +909,7 @@ def _html_cosecha(cosecha: Cosecha) -> str:
 
 def _html_temporada(temp: Temporada) -> str:
     data = aggregates_for_temporada(temp.id)
-    series = series_for_temporada(temp.id)  # no graficamos imagen, pero mostramos distribución/series como tablas si quisieras
+    series = series_for_temporada(temp.id)  # series como tablas ligeras
 
     badges = []
     origen = temp.huerta or temp.huerta_rentada
@@ -858,10 +918,32 @@ def _html_temporada(temp: Temporada) -> str:
         badges.append(f"Huerta: {getattr(origen, 'nombre', '—')}")
 
     body = []
+
+    # Información General (orden consistente)
+    huerta_nombre = getattr(origen, "nombre", "—") if origen else "—"
+    huerta_tipo = "Rentada" if getattr(temp, "huerta_rentada_id", None) else "Propia"
+    ubicacion = getattr(origen, "ubicacion", "") or "—"
+    propietario = _nombre_propietario(origen) or "—"
+    periodo = f"{_date_only(getattr(temp,'fecha_inicio',''))} - {_date_only(getattr(temp,'fecha_fin',''))}"
+    estado = "Finalizada" if getattr(temp, "finalizada", False) else "Activa"
+    hectareas = getattr(origen, "hectareas", None)
+    hect_str = f"{hectareas} ha" if hectareas is not None else "—"
+    info_rows = [
+        ["Huerta:", f"{huerta_nombre} ({huerta_tipo})"],
+        ["Ubicación:", ubicacion],
+        ["Propietario:", propietario],
+        ["Temporada:", str(temp.año)],
+        ["Período:", periodo],
+        ["Estado:", estado],
+        ["Hectáreas:", hect_str],
+    ]
+    body.append(_info_general_html(info_rows))
+
+    # KPIs
     body.append('<h2 class="section-title">Indicadores Clave</h2>')
     body.append(_kpi_cards_html(data.get("kpis", [])))
 
-    # Secciones series (ejemplos en tablas ligeras)
+    # Series en tablas con alineación
     inv_m = next((s for s in series if s.get("id") == "inv_mensuales"), None)
     ven_m = next((s for s in series if s.get("id") == "ventas_mensuales"), None)
     dist = next((s for s in series if s.get("id") == "dist_inversion"), None)
@@ -869,11 +951,11 @@ def _html_temporada(temp: Temporada) -> str:
 
     if inv_m and inv_m.get("data"):
         tbl = {"columns": ["Mes", "Inversión"], "rows": [[x["x"], fmt_money(x["y"])] for x in inv_m["data"]]}
-        body.append(_table_html("Inversiones por Mes", tbl))
+        body.append(_table_html("Inversiones por Mes", tbl, num_cols=[1]))
 
     if ven_m and ven_m.get("data"):
         tbl = {"columns": ["Mes", "Ventas"], "rows": [[x["x"], fmt_money(x["y"])] for x in ven_m["data"]]}
-        body.append(_table_html("Ventas por Mes", tbl))
+        body.append(_table_html("Ventas por Mes", tbl, num_cols=[1]))
 
     if dist and dist.get("data"):
         body.append(_dist_pie_like_html("Distribución de Inversiones", dist["data"]))
@@ -886,13 +968,13 @@ def _html_temporada(temp: Temporada) -> str:
                 for x in var["data"]
             ],
         }
-        body.append(_table_html("Ventas por Variedad", tbl))
+        body.append(_table_html("Ventas por Variedad", tbl, num_cols=[1, 2, 3], left_cols=[0]))
 
     # Comparativa por cosecha
     tabla = data.get("tabla", {})
     if tabla.get("rows"):
         body.append('<h2 class="section-title">Comparativa por Cosecha</h2>')
-        body.append(_table_html("Resumen por Cosecha", tabla))
+        body.append(_table_html("Resumen por Cosecha", tabla, num_cols=[1, 2, 3, 4, 5], left_cols=[0]))
 
     return _render_html_document(
         title=f"Reporte de Temporada · {temp.año}",
@@ -913,27 +995,40 @@ def _html_huerta(h: Huerta | HuertaRentada) -> str:
         badges.append(f"Hectáreas: {hect}")
 
     body = []
+
+    # Información General (consistente)
+    huerta_tipo = "Rentada" if isinstance(h, HuertaRentada) else "Propia"
+    ubicacion = getattr(h, "ubicacion", "") or "—"
+    propietario = _nombre_propietario(h) or "—"
+    hect_str = f"{getattr(h,'hectareas',0)} ha"
+    info_rows = [
+        ["Huerta:", f"{getattr(h,'nombre','—')} ({huerta_tipo})"],
+        ["Ubicación:", ubicacion],
+        ["Propietario:", propietario],
+        ["Hectáreas:", hect_str],
+    ]
+    body.append(_info_general_html(info_rows))
+
     body.append('<h2 class="section-title">Indicadores Históricos</h2>')
     body.append(_kpi_cards_html(data.get("kpis", [])))
 
-    # Series simplificadas
     # ROI anual
     roi = next((s for s in series if s.get("id") == "roi_anual"), None)
     if roi and roi.get("data"):
         tbl = {"columns": ["Año", "ROI"], "rows": [[x["year"], f'{x["roi"]:.1f}%'] for x in roi["data"]]}
-        body.append(_table_html("ROI por Año", tbl))
+        body.append(_table_html("ROI por Año", tbl, num_cols=[1]))
 
     # Ingresos vs Inversiones
     ivg = next((s for s in series if s.get("id") == "ingresos_vs_gastos"), None)
     if ivg and ivg.get("data"):
         tbl = {"columns": ["Año", "Inversión", "Ventas"], "rows": [[x["year"], fmt_money(x["inversion"]), fmt_money(x["ventas"])] for x in ivg["data"]]}
-        body.append(_table_html("Ingresos vs Inversiones por Año", tbl))
+        body.append(_table_html("Ingresos vs Inversiones por Año", tbl, num_cols=[1, 2]))
 
     # Productividad
     prod = next((s for s in series if s.get("id") == "productividad"), None)
     if prod and prod.get("data"):
         tbl = {"columns": ["Año", "Cajas/Ha"], "rows": [[x["year"], f'{x["cajas_por_ha"]:.1f}'] for x in prod["data"]]}
-        body.append(_table_html("Productividad (Cajas/Ha)", tbl))
+        body.append(_table_html("Productividad (Cajas/Ha)", tbl, num_cols=[1]))
 
     # Distribución histórica de inversiones
     dist = next((s for s in series if s.get("id") == "dist_inversion_hist"), None)
@@ -944,7 +1039,7 @@ def _html_huerta(h: Huerta | HuertaRentada) -> str:
     tabla = data.get("tabla", {})
     if tabla.get("rows"):
         body.append('<h2 class="section-title">Últimos Años</h2>')
-        body.append(_table_html("Resumen por Año", tabla))
+        body.append(_table_html("Resumen por Año", tabla, num_cols=[1, 2, 3, 4, 5], left_cols=[0]))
 
     return _render_html_document(
         title="Perfil de Huerta",

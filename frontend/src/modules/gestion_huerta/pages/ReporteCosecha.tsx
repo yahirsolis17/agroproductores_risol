@@ -11,9 +11,7 @@ export default function ReporteCosecha() {
   const { cosechaId } = useParams<{ cosechaId: string }>();
   const id = useMemo(() => Number(cosechaId), [cosechaId]);
 
-  const [filters, setFilters] = useState<{ from?: string; to?: string; formato: FormatoReporte }>({
-    formato: 'json',
-  });
+  const [filters] = useState<{ from?: string; to?: string; formato: FormatoReporte }>({ formato: 'json' });
   const { data, loading, error, refetch } = useReporteCosecha(id, filters.from, filters.to);
 
   const handleExport = async (formato: FormatoReporte) => {
@@ -40,7 +38,6 @@ export default function ReporteCosecha() {
         to={filters.to}
         formato={filters.formato}
         loading={loading}
-        onChange={setFilters}
         onRefresh={refetch}
         onExport={handleExport}
       />
@@ -49,14 +46,15 @@ export default function ReporteCosecha() {
       {!id && <Alert severity="info">Proporcione un cosechaId en la URL.</Alert>}
       {loading && <CircularProgress size={24} />}
       {error && <Alert severity="error">{error}</Alert>}
-      {data && 
-      <ReporteProduccionViewer
-        data={data}
-        title="Reporte de Cosecha"
-        subtitle={subtitle}
-        onExport={() => handleExport(filters.formato)}
-      />
-      }
+      {data && (
+        <ReporteProduccionViewer
+          data={data}
+          title="Reporte de Cosecha"
+          subtitle={subtitle}
+          // dejamos el botón de export del header deshabilitado para evitar duplicar acción
+          onExport={undefined}
+        />
+      )}
     </Box>
   );
 }

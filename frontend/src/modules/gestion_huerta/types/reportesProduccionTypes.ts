@@ -41,7 +41,6 @@ export interface InfoHuerta {
   fecha_fin?: string;
 }
 
-// Tipos para los datos del reporte
 export interface KPIData {
   label: string;
   value: number | string;
@@ -53,7 +52,8 @@ export interface KPIData {
 }
 
 export interface SeriesDataPoint {
-  fecha: string;   // YYYY-MM-DD
+  /** YYYY-MM-DD o YYYY-MM (temporadas) */
+  fecha: string;
   valor: number;
   categoria?: string;
 }
@@ -75,6 +75,16 @@ export interface TablaVenta {
   comprador?: string;
 }
 
+/** Nueva: fila comparativa por cosecha (temporada) */
+export interface FilaComparativoCosecha {
+  cosecha: string;
+  inversion: number;
+  ventas: number;
+  ganancia: number;
+  roi: number;      // %
+  cajas: number;
+}
+
 export interface ReporteProduccionData {
   kpis: KPIData[];
   series: {
@@ -85,6 +95,8 @@ export interface ReporteProduccionData {
   tablas: {
     inversiones?: TablaInversion[];
     ventas?: TablaVenta[];
+    /** Nueva para temporadas */
+    comparativo_cosechas?: FilaComparativoCosecha[];
   };
   metadata: {
     periodo: {
@@ -98,6 +110,6 @@ export interface ReporteProduccionData {
     };
     generado_en: string;
     generado_por: string;
-    infoHuerta?: InfoHuerta; // ficha para cabecera
+    infoHuerta?: InfoHuerta;
   };
 }
