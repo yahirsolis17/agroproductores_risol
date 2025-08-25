@@ -93,7 +93,6 @@ const adaptTemporadaToUI = (raw: any): ReporteProduccionData => {
 
   // -------- Opción A: salida directa de utils/reporting.py
   if (Array.isArray(raw.kpis) || raw.tabla) {
-    // KPIs (inferimos formato por etiqueta/valor)
     const kpis: KPIData[] = (raw.kpis || []).map((k: any) => {
       const label = String(k?.label ?? k?.id ?? '');
       const value = k?.value;
@@ -108,7 +107,6 @@ const adaptTemporadaToUI = (raw: any): ReporteProduccionData => {
       return { label, value: parsed, format };
     });
 
-    // Series
     const rawSeries = Array.isArray(raw.series) ? raw.series : [];
     const inv_s = rawSeries.find((s: any) => s?.id === 'inv_mensuales');
     const ven_s = rawSeries.find((s: any) => s?.id === 'ventas_mensuales');
@@ -116,10 +114,8 @@ const adaptTemporadaToUI = (raw: any): ReporteProduccionData => {
     let ventas      = ven_s ? toMonthSeries(ven_s.data, 'x', 'y') : [];
     let ganancias   = inversiones.length && ventas.length ? mergeByMonth(inversiones, ventas) : [];
 
-    // Tabla comparativa por cosecha -> posible fallback para charts
     let comparativo_cosechas: FilaComparativoCosecha[] | undefined;
     if (raw?.tabla?.rows && Array.isArray(raw.tabla.rows)) {
-      // Esperadas: ["Cosecha", "Inversión", "Ventas", "Ganancia", "ROI", "Cajas"]
       comparativo_cosechas = raw.tabla.rows.map((r: any[]) => ({
         cosecha: String(r?.[0] ?? ''),
         inversion: money(r?.[1]),
@@ -133,7 +129,6 @@ const adaptTemporadaToUI = (raw: any): ReporteProduccionData => {
       }
     }
 
-    // Fallback: si no hay series, construimos por cosecha
     if (!inversiones.length && !ventas.length && !ganancias.length && (comparativo_cosechas?.length)) {
       const mk = (k: 'inversion' | 'ventas' | 'ganancia') =>
         comparativo_cosechas!.map((r) => ({ fecha: String(r.cosecha || ''), valor: Number((r as any)[k] || 0) }));
@@ -142,7 +137,6 @@ const adaptTemporadaToUI = (raw: any): ReporteProduccionData => {
       ganancias   = mk('ganancia');
     }
 
-    // Orden cronológico/coherente en eje X
     inversiones = _sortSeriesSmart(inversiones);
     ventas      = _sortSeriesSmart(ventas);
     ganancias   = _sortSeriesSmart(ganancias);
@@ -206,7 +200,6 @@ const adaptTemporadaToUI = (raw: any): ReporteProduccionData => {
     comparativo_cosechas = _sortComparativo(comparativo_cosechas);
   }
 
-  // Fallback: si no hay series y sí comparativo
   if (!inversiones.length && !ventas.length && !ganancias.length && comparativo_cosechas.length) {
     const mk = (k: 'inversion' | 'ventas' | 'ganancia') =>
       comparativo_cosechas.map((r) => ({ fecha: String(r.cosecha || ''), valor: Number((r as any)[k] || 0) }));
@@ -215,7 +208,6 @@ const adaptTemporadaToUI = (raw: any): ReporteProduccionData => {
     ganancias   = mk('ganancia');
   }
 
-  // Orden cronológico/coherente en eje X
   inversiones = _sortSeriesSmart(inversiones);
   ventas      = _sortSeriesSmart(ventas);
   ganancias   = _sortSeriesSmart(ganancias);
@@ -266,7 +258,6 @@ export const useReporteTemporada = (id?: number) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Evita condiciones de carrera al cambiar id o desmontar
   const reqIdRef = useRef(0);
   const mountedRef = useRef(true);
   useEffect(() => {

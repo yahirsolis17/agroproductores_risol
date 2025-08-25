@@ -19,3 +19,28 @@ export function formatPercent1(value: number): string {
   const n = Number.isFinite(value) ? value : 0;
   return `${n.toFixed(1)}%`;
 }
+
+/** ➕ Formato FULL para tooltip (sin notación compacta) */
+export const formatCurrencyFull = (
+  value: number | string,
+  {
+    locale = 'es-MX',
+    currency = 'MXN',
+    minimumFractionDigits = 2,
+    maximumFractionDigits = 2,
+  }: {
+    locale?: string;
+    currency?: string;
+    minimumFractionDigits?: number;
+    maximumFractionDigits?: number;
+  } = {}
+) => {
+  const n = Number(String(value ?? '').replace(/[^\d.-]/g, ''));
+  const safe = Number.isFinite(n) ? n : 0;
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency,
+    minimumFractionDigits,
+    maximumFractionDigits,
+  }).format(safe);
+};

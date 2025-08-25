@@ -1,3 +1,4 @@
+// frontend/src/modules/gestion_huerta/components/reportes/common/ReporteProduccionViewerTables.tsx
 import React, { useMemo, useState } from 'react';
 import {
   Paper,
@@ -11,11 +12,9 @@ import {
   TableSortLabel,
   Chip,
   Box,
-  keyframes,
-  alpha,
-  useTheme,
-  styled
+  TableFooter,
 } from '@mui/material';
+import { keyframes, alpha, useTheme, styled } from '@mui/material/styles';
 import { BarChart as BarChartIcon, TrendingUp } from '@mui/icons-material';
 import {
   TablaInversion,
@@ -119,7 +118,7 @@ const StyledTable = styled(Table)(({ theme }) => ({
     background: alpha(theme.palette.background.paper, 0.6),
     backdropFilter: 'blur(10px)',
     borderBottom: `2px solid ${alpha(theme.palette.primary.main, 0.3)}`,
-    padding: theme.spacing(1.5, 2),
+    padding: theme.spacing(1.5),
     '&:first-of-type': {
       borderTopLeftRadius: 12
     },
@@ -238,6 +237,11 @@ const InversionesTable: React.FC<{ inversiones: TablaInversion[] }> = ({ inversi
     return stableSort(inversiones, comparator);
   }, [inversiones, order, orderBy]);
 
+  const subtotal = useMemo(
+    () => inversiones.reduce((acc, it) => acc + Number(it?.monto || 0), 0),
+    [inversiones]
+  );
+
   const handleSort = (prop: keyof TablaInversion) => {
     const isAsc = orderBy === prop && order === 'asc';
     setOrder(isAsc ? 'desc' : 'asc');
@@ -328,8 +332,27 @@ const InversionesTable: React.FC<{ inversiones: TablaInversion[] }> = ({ inversi
               );
             })}
           </TableBody>
+
+          {/* Subtotal Inversiones */}
+          <TableFooter>
+            <TableRow>
+              <TableCell colSpan={3} align="right" sx={{ fontWeight: 700 }}>
+                Subtotal
+              </TableCell>
+              <TableCell align="right" sx={{ fontWeight: 700 }}>
+                {formatCurrency(subtotal)}
+              </TableCell>
+            </TableRow>
+          </TableFooter>
         </StyledTable>
       </StyledTableContainer>
+
+      {/* Aclaración de columnas */}
+      <Box sx={{ mt: 1 }}>
+        <Typography variant="caption" color="text.secondary">
+          * <strong>Monto</strong>: inversión/gasto registrado para la fecha y categoría indicada.
+        </Typography>
+      </Box>
     </Block>
   );
 };
@@ -349,6 +372,15 @@ const VentasTable: React.FC<{ ventas: TablaVenta[] }> = ({ ventas }) => {
         : getComparator<TablaVenta>(order, orderBy);
     return stableSort(ventas, comparator);
   }, [ventas, order, orderBy]);
+
+  const subtotalCantidad = useMemo(
+    () => ventas.reduce((acc, it) => acc + Number(it?.cantidad || 0), 0),
+    [ventas]
+  );
+  const subtotalTotal = useMemo(
+    () => ventas.reduce((acc, it) => acc + Number(it?.total || 0), 0),
+    [ventas]
+  );
 
   const handleSort = (prop: keyof TablaVenta) => {
     const isAsc = orderBy === prop && order === 'asc';
@@ -446,8 +478,32 @@ const VentasTable: React.FC<{ ventas: TablaVenta[] }> = ({ ventas }) => {
               );
             })}
           </TableBody>
+
+          {/* Subtotales Ventas */}
+          <TableFooter>
+            <TableRow>
+              <TableCell align="right" sx={{ fontWeight: 700 }}>
+                Subtotal
+              </TableCell>
+              <TableCell align="right" sx={{ fontWeight: 700 }}>
+                {formatNumber(subtotalCantidad)}
+              </TableCell>
+              <TableCell />
+              <TableCell align="right" sx={{ fontWeight: 700 }}>
+                {formatCurrency(subtotalTotal)}
+              </TableCell>
+            </TableRow>
+          </TableFooter>
         </StyledTable>
       </StyledTableContainer>
+
+      {/* Aclaración de columnas */}
+      <Box sx={{ mt: 1 }}>
+        <Typography variant="caption" color="text.secondary">
+          * <strong>Total (venta bruta)</strong> = Cantidad de Cajas × Precio por Caja.
+          La <em>Ganancia Neta</em> que ves en los reportes considera además los <strong>Gastos de venta</strong> e <strong>Inversiones</strong>.
+        </Typography>
+      </Box>
     </Block>
   );
 };

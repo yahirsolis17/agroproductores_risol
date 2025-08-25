@@ -670,8 +670,8 @@ class VentaSerializer(serializers.ModelSerializer):
         # (Opcional) evitar ganancia negativa
         if num_cajas is not None and precio_por_caja is not None and gasto is not None:
             total = (num_cajas or 0) * (precio_por_caja or 0)
-            if (total - gasto) < 0:
-                raise serializers.ValidationError({'gasto': 'La ganancia neta no puede ser negativa.'})
+            if (total - gasto) >= 0:
+                raise serializers.ValidationError({'gasto': 'Este gasto podría causar pérdidas.'})
 
         # Inyectar contexto resuelto
         data['cosecha']        = cosecha

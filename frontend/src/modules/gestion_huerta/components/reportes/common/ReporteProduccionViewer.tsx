@@ -1,5 +1,5 @@
 // frontend/src/modules/gestion_huerta/components/reportes/common/ReporteProduccionViewer.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Paper,
@@ -16,6 +16,10 @@ import {
   Card,
   CardContent,
   Grow,
+  Chip,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
 import { useTheme, styled, keyframes } from '@mui/material/styles';
 import {
@@ -32,6 +36,8 @@ import {
   Download,
   Refresh,
   KeyboardArrowUp,
+  ExpandMore,
+  InfoOutlined,
 } from '@mui/icons-material';
 
 // NUEVO: paneles separados
@@ -175,9 +181,6 @@ const FloatingActionButton = styled(Fab)(({ theme }) => ({
   },
 }));
 
-// --------------------------
-// Props y tipos locales
-// --------------------------
 interface Props {
   data?: ReporteProduccionData;
   loading?: boolean;
@@ -190,9 +193,6 @@ interface Props {
 
 type ViewMode = 'charts' | 'tables' | 'both';
 
-// --------------------------
-// KPI Card (se queda aquí)
-// --------------------------
 const KPICard: React.FC<{ kpi: KPIData; index: number }> = ({ kpi, index }) => {
   const theme = useTheme();
 
@@ -203,13 +203,20 @@ const KPICard: React.FC<{ kpi: KPIData; index: number }> = ({ kpi, index }) => {
       <TrendingDown color="error" sx={{ fontSize: 20 }} />
     ) : null;
 
+  const isProductividad = /productividad/i.test(kpi.label);
+
   return (
     <Grow in timeout={800} style={{ transitionDelay: `${index * 100}ms` }}>
       <StyledCard>
         <CardContent sx={{ position: 'relative', p: theme.spacing(3) }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-            <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 500 }}>
+            <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: 0.75 }}>
               {kpi.label}
+              {isProductividad && (
+                <Tooltip title="Cajas por hectárea (cajas/ha). Ayuda a comparar productividad entre huertas de distinto tamaño.">
+                  <InfoOutlined sx={{ fontSize: 18, color: theme.palette.info.main }} />
+                </Tooltip>
+              )}
             </Typography>
             {trendIcon}
           </Box>
@@ -229,9 +236,6 @@ const KPICard: React.FC<{ kpi: KPIData; index: number }> = ({ kpi, index }) => {
   );
 };
 
-// --------------------------
-// Componente principal
-// --------------------------
 export default function ReporteProduccionViewer({
   data,
   loading = false,
@@ -243,13 +247,7 @@ export default function ReporteProduccionViewer({
 }: Props) {
   const theme = useTheme();
   const [viewMode, setViewMode] = useState<ViewMode>('charts');
-  const [animated, setAnimated] = useState(false);
 
-  useEffect(() => {
-    if (!loading && data) setAnimated(true);
-  }, [loading, data]);
-
-  // Estados de carga / error / vacío
   if (loading) {
     return (
       <MainContainer>
@@ -313,10 +311,20 @@ export default function ReporteProduccionViewer({
     );
   }
 
-  // Render principal
+  // Helpers para el panel explicativo (se calculan en el Viewer, sin tocar el hook)
+  const getKpiVal = (re: RegExp) =>
+    Number(data.kpis?.find(k => re.test(k.label))?.value ?? 0);
+  const inversionTotal = getKpiVal(/invers/i);
+  const ventasTotales  = getKpiVal(/venta[s]? total/i);
+  const gastosVenta    = getKpiVal(/gastos?.*venta/i);
+  const ventasNetas    = ventasTotales - (Number.isFinite(gastosVenta) ? gastosVenta : 0);
+  const gananciaNetaKpi = getKpiVal(/ganancia\s*neta/i);
+  const gananciaNetaCalc = ventasNetas - inversionTotal;
+  const roiKpi = getKpiVal(/\broi\b|roi\s*temporada/i);
+  const roiCalc = inversionTotal ? (gananciaNetaCalc / inversionTotal) * 100 : 0;
+
   return (
     <MainContainer>
-      {/* Header */}
       <Box
         sx={{
           display: 'flex',
@@ -374,14 +382,12 @@ export default function ReporteProduccionViewer({
         </Box>
       </Box>
 
-      {/* Selector de vista */}
       <StyledTabs value={viewMode} onChange={(_, v) => setViewMode(v)} centered variant="fullWidth">
         <Tab icon={<ShowChart />} iconPosition="start" label="Gráficas" value="charts" />
         <Tab icon={<TableView />} iconPosition="start" label="Tablas" value="tables" />
         <Tab icon={<BarChartIcon />} iconPosition="start" label="Completo" value="both" />
       </StyledTabs>
 
-      {/* KPIs */}
       {(viewMode === 'charts' || viewMode === 'both') && data.kpis?.length ? (
         <Box sx={{ mb: 6 }}>
           <SectionTitle variant="h4" fontWeight="700">
@@ -405,15 +411,64 @@ export default function ReporteProduccionViewer({
               </Box>
             ))}
           </AnimatedGrid>
+
+          {/* Leyenda/indicadores de color para coincidir con ChartsPanel */}
+          <Box
+            sx={{
+              mt: 3,
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 1,
+              alignItems: 'center',
+            }}
+          >
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mr: 1 }}>
+              Leyenda:
+            </Typography>
+            <Chip size="small" label="Inversiones" sx={{ color: theme.palette.primary.main, borderColor: theme.palette.primary.main }} variant="outlined" />
+            <Chip size="small" label="Ventas" sx={{ color: theme.palette.secondary.main, borderColor: theme.palette.secondary.main }} variant="outlined" />
+            <Chip size="small" label="Ganancias" sx={{ color: theme.palette.success.main, borderColor: theme.palette.success.main }} variant="outlined" />
+            <Chip size="small" label="Pérdida (&lt; 0)" sx={{ color: theme.palette.error.main, borderColor: theme.palette.error.main }} variant="outlined" />
+          </Box>
+
+          {/* Panel explicativo: ¿Cómo se calculan? */}
+          <Box sx={{ mt: 2 }}>
+            <Accordion disableGutters>
+              <AccordionSummary expandIcon={<ExpandMore />}>
+                <Typography fontWeight={700}>¿Cómo se calculan?</Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Box sx={{ display: 'grid', gap: 1 }}>
+                  <Typography variant="body2">
+                    <strong>Ventas netas</strong> = Ventas totales − Gastos de venta = {formatCurrency(ventasTotales)} − {formatCurrency(gastosVenta)} = <strong>{formatCurrency(ventasNetas)}</strong>
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Ganancia neta</strong> = Ventas netas − Inversión total = {formatCurrency(ventasNetas)} − {formatCurrency(inversionTotal)} = <strong>{formatCurrency(gananciaNetaCalc)}</strong>
+                    {Number.isFinite(gananciaNetaKpi) && (
+                      <Typography component="span" variant="body2" color="text.secondary"> &nbsp;(KPI informado: {formatCurrency(gananciaNetaKpi)})</Typography>
+                    )}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>ROI</strong> = (Ganancia neta / Inversión total) × 100 = {formatCurrency(gananciaNetaCalc)} / {formatCurrency(inversionTotal)} × 100 =&nbsp;
+                    <strong>{formatNumber(roiCalc)}</strong>%
+                    {Number.isFinite(roiKpi) && (
+                      <Typography component="span" variant="body2" color="text.secondary"> &nbsp;(KPI informado: {formatNumber(roiKpi)}%)</Typography>
+                    )}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    <strong>Productividad</strong> = Cajas por hectárea (cajas/ha). Si tu huerta es más grande/pequeña, esta métrica permite comparar de forma justa.
+                  </Typography>
+                </Box>
+              </AccordionDetails>
+            </Accordion>
+          </Box>
         </Box>
       ) : null}
 
-      {/* Gráficas */}
       {(viewMode === 'charts' || viewMode === 'both') && (
-        <ChartsPanel series={data.series} animated={animated} />
+        <ChartsPanel series={data.series} />
       )}
 
-      {/* Tablas */}
       {(viewMode === 'tables' || viewMode === 'both') && (
         <Box>
           <SectionTitle variant="h4" fontWeight="700">
@@ -427,7 +482,6 @@ export default function ReporteProduccionViewer({
         </Box>
       )}
 
-      {/* Botón flotante volver arriba */}
       <Zoom in>
         <FloatingActionButton aria-label="Volver arriba" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
           <KeyboardArrowUp />

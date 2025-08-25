@@ -1,3 +1,4 @@
+// frontend/src/modules/gestion_huerta/hooks/useReportecosecha.ts
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { reportesProduccionService } from '../services/reportesProduccionService';
 import { ReporteProduccionData, InfoHuerta } from '../types/reportesProduccionTypes';
