@@ -8,7 +8,8 @@ from rest_framework.permissions import IsAuthenticated
 from django.http import HttpResponse
 from django.core.exceptions import ValidationError, PermissionDenied
 
-from gestion_huerta.services.reportes_produccion_service import ReportesProduccionService
+# NUEVO: usamos el servicio específico de reportes de cosecha
+from gestion_huerta.services.reportes.cosecha_service import generar_reporte_cosecha
 from gestion_huerta.services.exportacion_service import ExportacionService
 from gestion_huerta.utils.notification_handler import NotificationHandler
 from gestion_huerta.permissions import HasHuertaModulePermission
@@ -51,7 +52,8 @@ class CosechaReportViewSet(viewsets.GenericViewSet):
             )
         try:
             cosecha_id = _as_int(cosecha_id_raw, "cosecha_id")
-            reporte_data = ReportesProduccionService.generar_reporte_cosecha(
+            # Generamos SIEMPRE el JSON (contiene flags/explicativo/ui) y de ahí exportamos si se pidió
+            reporte_data = generar_reporte_cosecha(
                 cosecha_id=cosecha_id, usuario=request.user, formato="json", force_refresh=force_refresh
             )
 

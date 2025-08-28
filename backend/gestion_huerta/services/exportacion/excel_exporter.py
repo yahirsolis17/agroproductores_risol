@@ -146,6 +146,7 @@ class ExcelExporter:
             _woc(ws_ven, "Gasto",        font=header_font, fill=purple_fill),
             _woc(ws_ven, "Utilidad Neta",font=header_font, fill=purple_fill),
         ])
+        neg_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
         for v in reporte_data.get("detalle_ventas", []) or []:
             ingreso = _money(v.get("total_venta")); gasto = _money(v.get("gasto"))
             util = _money(v.get("ganancia_neta")) if "ganancia_neta" in v else (ingreso - gasto)
@@ -156,7 +157,7 @@ class ExcelExporter:
                 _woc(ws_ven, _money(v.get("precio_por_caja")),   number_format="#,##0.00"),
                 _woc(ws_ven, ingreso,                             number_format="#,##0.00"),
                 _woc(ws_ven, gasto,                               number_format="#,##0.00"),
-                _woc(ws_ven, util,                                number_format="#,##0.00"),
+                _woc(ws_ven, util,                                number_format="#,##0.00", fill=(neg_fill if util < 0 else None)),
             ])
         ws_ven.freeze_panes = "A2"
 
@@ -200,6 +201,8 @@ class ExcelExporter:
         res_rows = [
             ("Inversión Total", _money(res.get("inversion_total")), "#,##0.00"),
             ("Ventas Totales", _money(res.get("ventas_totales")), "#,##0.00"),
+            ("Gastos de Venta", _money(res.get("total_gastos_venta")), "#,##0.00"),
+            ("Ventas Netas", _money(res.get("ventas_netas")), "#,##0.00"),
             ("Ganancia Neta", _money(res.get("ganancia_neta")), "#,##0.00"),
             ("ROI Temporada (%)", _pct(res.get("roi_temporada")), "0.0"),
             ("Productividad (cajas/ha)", _money(res.get("productividad")), "#,##0.00"),

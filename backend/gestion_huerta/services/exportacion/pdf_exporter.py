@@ -159,6 +159,10 @@ class PDFExporter:
         story += [info_table, Spacer(1, 10)]
 
         story.append(Paragraph("RESUMEN FINANCIERO", heading_style))
+        flags = (reporte_data.get("flags") or {})
+        if flags.get("tiene_perdida"):
+            story.append(Paragraph("ALERTA: La cosecha presenta <b>ganancia neta negativa</b>.", note_style))
+
         resumen_data = [
             ["Concepto", "Monto"],
             ["Total Inversiones", f"${_money(resumen.get('total_inversiones')):,.2f}"],
@@ -173,6 +177,22 @@ class PDFExporter:
         res_table.setStyle(_table_style_header(HexColor("#2e7d32")))
         res_table.setStyle(_table_style_body())
         story += [res_table, Spacer(1, 10)]
+
+        # (Opcional) bloque explicativo si existe
+        exp = reporte_data.get("explicativo") or {}
+        if exp:
+            story.append(Paragraph("¿CÓMO SE CALCULAN?", heading_style))
+            exp_data = [
+                ["Ventas Brutas", f"${_money(exp.get('ventas_brutas')):,.2f}"],
+                ["Gastos de Venta", f"${_money(exp.get('gastos_venta')):,.2f}"],
+                ["Ventas Netas", f"${_money(exp.get('ventas_netas')):,.2f}"],
+                ["Inversión Total", f"${_money(exp.get('inversion_total')):,.2f}"],
+                ["Ganancia Neta", f"${_money(exp.get('ganancia_neta')):,.2f}"],
+                ["ROI", f"{_pct(exp.get('roi_porcentaje')):.1f}%"],
+            ]
+            t_exp = Table([["Concepto", "Valor"]] + exp_data, colWidths=[3 * inch, 2.2 * inch], repeatRows=1)
+            t_exp.setStyle(_table_style_header(HexColor("#455A64"))); t_exp.setStyle(_table_style_body())
+            story += [t_exp, Spacer(1, 10)]
 
         inv_headers = ["Fecha", "Categoría", "Insumos", "Mano Obra", "Total", "Descripción"]
         inv_rows: List[List[Any]] = [inv_headers]
@@ -227,6 +247,18 @@ class PDFExporter:
                 t.setStyle(_table_style_header(HexColor("#FF8C00")))
                 t.setStyle(_table_style_body())
                 t.setStyle(TableStyle([("ALIGN", (1,1), (1,-1), "LEFT")]))
+                # Pintar en rojo utilidad negativa (col 6)
+                styles = []
+                for ridx, row in enumerate(chunk, start=1):
+                    try:
+                        util_txt = row[6]
+                        util_val = float(str(util_txt).replace("$","").replace(",",""))
+                        if util_val < 0:
+                            styles.append(("TEXTCOLOR", (6, ridx), (6, ridx), colors.red))
+                    except Exception:
+                        pass
+                if styles:
+                    t.setStyle(TableStyle(styles))
                 story.append(t)
                 if i < (len(body) - 1) // 800: story.append(PageBreak())
 
@@ -302,10 +334,16 @@ class PDFExporter:
         story += [t_info, Spacer(1, 10)]
 
         story.append(Paragraph("RESUMEN EJECUTIVO", heading_style))
+        flags = (reporte_data.get("flags") or {})
+        if flags.get("tiene_perdida"):
+            story.append(Paragraph("ALERTA: La temporada presenta <b>ganancia neta negativa</b>.", note_style))
+
         res_data = [
             ["Concepto", "Valor"],
             ["Inversión Total", f"${_money(res.get('inversion_total')):,.2f}"],
             ["Ventas Totales", f"${_money(res.get('ventas_totales')):,.2f}"],
+            ["Gastos de Venta", f"${_money(res.get('total_gastos_venta')):,.2f}"],
+            ["Ventas Netas", f"${_money(res.get('ventas_netas')):,.2f}"],
             ["Ganancia Neta", f"${_money(res.get('ganancia_neta')):,.2f}"],
             ["ROI Temporada", f"{_pct(res.get('roi_temporada')):.1f}%"],
             ["Productividad", f"{_money(res.get('productividad')):.1f} cajas/ha"],
@@ -314,6 +352,22 @@ class PDFExporter:
         t_res = Table(res_data, colWidths=[3 * inch, 2.2 * inch], repeatRows=1)
         t_res.setStyle(_table_style_header(HexColor("#2e7d32"))); t_res.setStyle(_table_style_body())
         story += [t_res, Spacer(1, 10)]
+
+        # (Opcional) bloque explicativo si existe
+        exp = reporte_data.get("explicativo") or {}
+        if exp:
+            story.append(Paragraph("¿CÓMO SE CALCULAN?", heading_style))
+            exp_data = [
+                ["Ventas Brutas", f"${_money(exp.get('ventas_brutas')):,.2f}"],
+                ["Gastos de Venta", f"${_money(exp.get('gastos_venta')):,.2f}"],
+                ["Ventas Netas", f"${_money(exp.get('ventas_netas')):,.2f}"],
+                ["Inversión Total", f"${_money(exp.get('inversion_total')):,.2f}"],
+                ["Ganancia Neta", f"${_money(exp.get('ganancia_neta')):,.2f}"],
+                ["ROI", f"{_pct(exp.get('roi_porcentaje')):.1f}%"],
+            ]
+            t_exp = Table([["Concepto","Valor"]] + exp_data, colWidths=[3*inch, 2.2*inch], repeatRows=1)
+            t_exp.setStyle(_table_style_header(HexColor("#455A64"))); t_exp.setStyle(_table_style_body())
+            story += [t_exp, Spacer(1, 10)]
 
         story.append(Paragraph("COMPARATIVO POR COSECHA", heading_style))
         comp_headers = ["Cosecha", "Inversión", "Ventas", "Ganancia", "ROI", "Cajas"]

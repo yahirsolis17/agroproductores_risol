@@ -69,7 +69,7 @@ def _validar_permisos_cosecha(usuario, cosecha) -> bool:
         return True
     if hasattr(usuario, "has_perm") and usuario.has_perm("gestion_huerta.view_cosecha"):
         return True
-    return (cosecha.huerta_id is not None) or (cosecha.huerta_rentada_id is not None)
+    return False
 
 def _analizar_categorias_inversiones(inversiones_qs, total_inversiones: Decimal) -> List[Dict[str, Any]]:
     if total_inversiones <= 0:
@@ -286,6 +286,7 @@ def generar_reporte_cosecha(
                 "total_venta": Flt(ingreso),
                 "gasto": Flt(gasto),
                 "ganancia_neta": Flt(utilidad_neta_venta),
+                "tiene_perdida": bool(utilidad_neta_venta < 0),
             }
         )
 
@@ -322,6 +323,17 @@ def generar_reporte_cosecha(
             "ganancia_neta": Flt(ganancia_neta),
             "roi_porcentaje": Flt(roi),
             "ganancia_por_hectarea": Flt(ganancia_neta / hectareas) if hectareas > 0 else 0.0,
+        },
+        "explicativo": {
+            "ventas_brutas": Flt(total_ventas),
+            "gastos_venta": Flt(total_gastos_venta),
+            "ventas_netas": Flt(ganancia_bruta),
+            "inversion_total": Flt(total_inversiones),
+            "ganancia_neta": Flt(ganancia_neta),
+            "roi_porcentaje": Flt(roi),
+        },
+        "flags": {
+            "tiene_perdida": bool(ganancia_neta < 0),
         },
         "detalle_inversiones": detalle_inversiones,
         "detalle_ventas": detalle_ventas,

@@ -264,11 +264,17 @@ def generar_reporte_temporada(
         detalle_inversiones_all.extend(rep_c.get("detalle_inversiones", []))
         detalle_ventas_all.extend(rep_c.get("detalle_ventas", []))
 
-    ganancia_neta = total_ventas - total_gastos_venta - total_inversiones
+    ganancia_bruta = total_ventas - total_gastos_venta
+    ganancia_neta = ganancia_bruta - total_inversiones
     roi_temporada = (ganancia_neta / total_inversiones * Decimal(100)) if total_inversiones > 0 else Decimal(0)
 
-    todas_inversiones = InversionesHuerta.objects.filter(temporada=temporada, is_active=True).select_related("categoria")
-    todas_ventas = Venta.objects.filter(temporada=temporada, is_active=True)
+    # Robusto si InversionesHuerta/Venta no tienen FK directa a Temporada:
+    todas_inversiones = (
+        InversionesHuerta.objects
+        .filter(is_active=True, cosecha__temporada=temporada)
+        .select_related("categoria")
+    )
+    todas_ventas = Venta.objects.filter(is_active=True, cosecha__temporada=temporada)
 
     fi = _date_only(temporada.fecha_inicio)
     ff = _date_only(temporada.fecha_fin)
@@ -298,11 +304,23 @@ def generar_reporte_temporada(
         "resumen_ejecutivo": {
             "inversion_total": Flt(total_inversiones),
             "ventas_totales": Flt(total_ventas),
+            "ventas_netas": Flt(ganancia_bruta),
             "ganancia_neta": Flt(ganancia_neta),
             "roi_temporada": Flt(roi_temporada),
             "productividad": Flt(D(total_cajas) / hectareas) if hectareas > 0 else 0.0,
             "cajas_totales": total_cajas,
             "total_gastos_venta": Flt(total_gastos_venta),
+        },
+        "explicativo": {
+            "ventas_brutas": Flt(total_ventas),
+            "gastos_venta": Flt(total_gastos_venta),
+            "ventas_netas": Flt(ganancia_bruta),
+            "inversion_total": Flt(total_inversiones),
+            "ganancia_neta": Flt(ganancia_neta),
+            "roi_porcentaje": Flt(roi_temporada),
+        },
+        "flags": {
+            "tiene_perdida": bool(ganancia_neta < 0),
         },
         "comparativo_cosechas": cosechas_data,
         "analisis_categorias": _analizar_categorias_inversiones(todas_inversiones, total_inversiones),

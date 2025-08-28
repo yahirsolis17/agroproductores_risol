@@ -26,7 +26,7 @@ export default function ReporteTemporada() {
       <ReportesProduccionToolbar loading={loading} onRefresh={refetch} onExport={handleExport} />
 
       <Divider sx={{ my: 2 }} />
-      {!id && <Alert severity="info">Proporcione un temporadaId en la URL.</Alert>}
+      {!id && <Alert severity="info">Proporcione un ID de temporada en la URL.</Alert>}
       {loading && <CircularProgress size={24} />}
       {error && <Alert severity="error">{error}</Alert>}
       {data && (
@@ -34,7 +34,7 @@ export default function ReporteTemporada() {
           data={data}
           title="Reporte de Temporada"
           subtitle={data.metadata.infoHuerta?.huerta_nombre || String(data.metadata.entidad.nombre)}
-          onExport={() => handleExport('pdf')}
+          onExport={undefined}   // evitamos botón extra; la exportación vive en la toolbar
           onRefresh={refetch}
         />
       )}

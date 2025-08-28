@@ -1,8 +1,13 @@
+// frontend/src/modules/gestion_huerta/hooks/useReportePerfilHuerta.ts
 import { useCallback, useEffect, useState } from 'react';
 import { reportesProduccionService } from '../services/reportesProduccionService';
-import { ReporteProduccionData, KPIData, SeriesDataPoint } from '../types/reportesProduccionTypes';
+import {
+  ReporteProduccionData,
+  KPIData,
+  SeriesDataPoint,
+} from '../types/reportesProduccionTypes';
 
-const toNumber = (v: any) => {
+const toNumber = (v: unknown): number => {
   if (typeof v === 'number') return v;
   if (typeof v === 'string') {
     const s = v.replace(/[,$\s%]/g, '');
@@ -12,7 +17,26 @@ const toNumber = (v: any) => {
   return 0;
 };
 
-export const useReportePerfilHuerta = (huertaId?: number, huertaRentadaId?: number, años: number = 5) => {
+type AnyRecord = Record<string, unknown>;
+
+const getStr = (obj: AnyRecord | undefined, key: string, fallback = ''): string => {
+  const v = obj?.[key];
+  if (typeof v === 'string') return v;
+  if (v == null) return fallback;
+  try { return String(v); } catch { return fallback; }
+};
+
+const getNum = (obj: AnyRecord | undefined, key: string, fallback = 0): number => {
+  const v = obj?.[key];
+  const n = toNumber(v);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+export const useReportePerfilHuerta = (
+  huertaId?: number,
+  huertaRentadaId?: number,
+  años: number = 5
+) => {
   const [data, setData] = useState<ReporteProduccionData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,43 +59,68 @@ export const useReportePerfilHuerta = (huertaId?: number, huertaRentadaId?: numb
         return;
       }
 
-      const rep = resp.data || {};
-      // kpis desde "kpis" o desde métricas históricas
+      const rep = (resp.data || {}) as AnyRecord;
+      const repSeries = (rep.series ?? {}) as AnyRecord;
+      const infoHuertaRaw = (rep.infoHuerta ?? undefined) as AnyRecord | undefined;
+
+      // KPIs
       let kpis: KPIData[] = [];
       if (Array.isArray(rep.kpis)) {
-        kpis = rep.kpis.map((k: any) => ({
-          label: String(k.label ?? k.id ?? ''),
-          value: toNumber(k.value ?? 0),
-          format: String(k.value ?? '').includes('%') ? 'percentage' : 'number',
-        }));
+        kpis = (rep.kpis as AnyRecord[]).map((k): KPIData => {
+          const rawVal = (k as AnyRecord).value;
+          const numeric = toNumber(rawVal);
+          const valueStr = String(rawVal ?? '');
+          const isPct = valueStr.includes('%');
+          return {
+            label: String((k as AnyRecord).label ?? (k as AnyRecord).id ?? ''),
+            value: numeric,
+            format: isPct ? 'percentage' : 'number',
+          };
+        });
       }
 
-      // series (si el backend las devuelve en perfil; si no, omitimos y el viewer maneja vacío)
-      let series: { inversiones?: SeriesDataPoint[]; ventas?: SeriesDataPoint[]; ganancias?: SeriesDataPoint[] } = {};
-      if (rep.series) {
+      // Series (opcional según backend)
+      let series: {
+        inversiones?: SeriesDataPoint[];
+        ventas?: SeriesDataPoint[];
+        ganancias?: SeriesDataPoint[];
+      } = {};
+
+      const ivg = repSeries['ingresos_vs_gastos'];
+      if (Array.isArray(ivg)) {
         series = {
-          inversiones: (rep.series.ingresos_vs_gastos || []).map((x: any) => ({ fecha: `${x.year}-01-01`, valor: toNumber(x.inversion) })),
-          ventas: (rep.series.ingresos_vs_gastos || []).map((x: any) => ({ fecha: `${x.year}-01-01`, valor: toNumber(x.ventas) })),
+          inversiones: ivg.map((row: AnyRecord): SeriesDataPoint => ({
+            fecha: `${getNum(row, 'year', new Date().getFullYear())}-01-01`,
+            valor: toNumber(row['inversion']),
+          })),
+          ventas: ivg.map((row: AnyRecord): SeriesDataPoint => ({
+            fecha: `${getNum(row, 'year', new Date().getFullYear())}-01-01`,
+            valor: toNumber(row['ventas']),
+          })),
         };
       }
 
       setData({
         kpis,
         series,
-        tablas: {
-          // si viene una tabla resumida por año, no la mostramos aquí para mantener el viewer simple
-        },
+        tablas: {},
         metadata: {
           periodo: { inicio: '', fin: '' },
-          entidad: { id: Number(huertaId ?? huertaRentadaId), nombre: rep?.nombre || 'Huerta', tipo: 'huerta' },
-          generado_en: rep?.generado_en || new Date().toISOString(),
-          generado_por: rep?.generado_por || '',
+          entidad: {
+            id: Number(huertaId ?? huertaRentadaId),
+            nombre: getStr(rep, 'nombre', 'Huerta'),
+            tipo: 'huerta',
+          },
+          generado_en: getStr(rep, 'generado_en', new Date().toISOString()),
+          generado_por: getStr(rep, 'generado_por', ''),
           infoHuerta: {
-            huerta_nombre: rep?.infoHuerta?.huerta_nombre || rep?.nombre || 'Huerta',
+            huerta_nombre:
+              getStr(infoHuertaRaw, 'huerta_nombre') ||
+              getStr(rep, 'nombre', 'Huerta'),
             huerta_tipo: huertaRentadaId ? 'Rentada' : 'Propia',
-            propietario: rep?.infoHuerta?.propietario || '',
-            ubicacion: rep?.infoHuerta?.ubicacion || '',
-            hectareas: toNumber(rep?.infoHuerta?.hectareas || rep?.hectareas || 0),
+            propietario: getStr(infoHuertaRaw, 'propietario', ''),
+            ubicacion: getStr(infoHuertaRaw, 'ubicacion', ''),
+            hectareas: getNum(infoHuertaRaw, 'hectareas', getNum(rep, 'hectareas', 0)),
           },
         },
       });

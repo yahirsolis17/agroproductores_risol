@@ -8,7 +8,8 @@ from rest_framework.permissions import IsAuthenticated
 from django.http import HttpResponse
 from django.core.exceptions import ValidationError, PermissionDenied
 
-from gestion_huerta.services.reportes_produccion_service import ReportesProduccionService
+# NUEVO: usamos el servicio específico de perfil de huerta
+from gestion_huerta.services.reportes.perfil_huerta_service import generar_perfil_huerta
 from gestion_huerta.services.exportacion_service import ExportacionService
 from gestion_huerta.utils.notification_handler import NotificationHandler
 from gestion_huerta.permissions import HasHuertaModulePermission
@@ -72,7 +73,8 @@ class PerfilHuertaReportViewSet(viewsets.GenericViewSet):
             hid = _as_int(huerta_id, "huerta_id") if huerta_id is not None else None
             hrid = _as_int(huerta_rentada_id, "huerta_rentada_id") if huerta_rentada_id is not None else None
 
-            reporte_data = ReportesProduccionService.generar_perfil_huerta(
+            # Generamos SIEMPRE el JSON (con nuevos campos) y exportamos si aplica
+            reporte_data = generar_perfil_huerta(
                 huerta_id=hid,
                 huerta_rentada_id=hrid,
                 usuario=request.user,

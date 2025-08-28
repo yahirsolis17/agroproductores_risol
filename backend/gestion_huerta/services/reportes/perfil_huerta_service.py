@@ -31,7 +31,7 @@ def D(x: Any) -> Decimal:
 
 def Flt(x: Any) -> float:
     try:
-        return float(Decimal(str(x)))
+        return float(D(x).quantize(TWOPLACES, rounding=ROUND_HALF_UP))
     except Exception:
         return 0.0
 
@@ -206,12 +206,13 @@ def generar_perfil_huerta(
                 "roi": rep_t["resumen_ejecutivo"]["roi_temporada"],
                 "productividad": rep_t["resumen_ejecutivo"]["productividad"],
                 "cosechas_count": rep_t["informacion_general"]["total_cosechas"],
+                "tiene_perdida": bool(Decimal(str(rep_t["resumen_ejecutivo"]["ganancia_neta"])) < 0),
             }
         )
         suma_roi += Decimal(str(rep_t["resumen_ejecutivo"]["roi_temporada"]))
         total_años_validos += 1
 
-    roi_promedio = suma_roi / (Decimal(str(total_años_validos)) or Decimal("1"))
+    roi_promedio = (suma_roi / Decimal(str(total_años_validos))) if total_años_validos > 0 else Decimal("0")
     tendencias = _calcular_tendencias(datos_historicos)
     analisis_eficiencia = _analizar_eficiencia_historica(datos_historicos, roi_promedio)
     proyecciones = _generar_proyecciones(datos_historicos)

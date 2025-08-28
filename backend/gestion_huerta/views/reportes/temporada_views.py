@@ -8,7 +8,8 @@ from rest_framework.permissions import IsAuthenticated
 from django.http import HttpResponse
 from django.core.exceptions import ValidationError, PermissionDenied
 
-from gestion_huerta.services.reportes_produccion_service import ReportesProduccionService
+# NUEVO: usamos el servicio específico de reportes de temporada
+from gestion_huerta.services.reportes.temporada_service import generar_reporte_temporada
 from gestion_huerta.services.exportacion_service import ExportacionService
 from gestion_huerta.utils.notification_handler import NotificationHandler
 from gestion_huerta.permissions import HasHuertaModulePermission
@@ -51,7 +52,8 @@ class TemporadaReportViewSet(viewsets.GenericViewSet):
             )
         try:
             temporada_id = _as_int(temporada_id_raw, "temporada_id")
-            reporte_data = ReportesProduccionService.generar_reporte_temporada(
+            # Generamos SIEMPRE el JSON y exportamos si aplica (con campos nuevos)
+            reporte_data = generar_reporte_temporada(
                 temporada_id=temporada_id, usuario=request.user, formato="json", force_refresh=force_refresh
             )
 

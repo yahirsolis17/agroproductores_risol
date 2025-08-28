@@ -1,4 +1,3 @@
-// frontend/src/modules/gestion_huerta/hooks/useReporteTemporada.ts
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { reportesProduccionService } from '../services/reportesProduccionService';
 import {
@@ -72,10 +71,7 @@ const _sortSeriesSmart = (arr: SeriesDataPoint[]) =>
   });
 
 /** -----------------------
- * Adaptador flexible:
- *   A) utils/reporting.py  -> { kpis, tabla:{columns,rows}, series:[...] }
- *   B) servicio “rico”     -> { resumen_ejecutivo, series:{}, comparativo_cosechas:[] }
- * Con fallbacks para graficar aunque el backend no mande series.
+ * Adaptador flexible (A/B)
  * ------------------------ */
 const adaptTemporadaToUI = (raw: any): ReporteProduccionData => {
   const empty: ReporteProduccionData = {
@@ -114,7 +110,8 @@ const adaptTemporadaToUI = (raw: any): ReporteProduccionData => {
     let ventas      = ven_s ? toMonthSeries(ven_s.data, 'x', 'y') : [];
     let ganancias   = inversiones.length && ventas.length ? mergeByMonth(inversiones, ventas) : [];
 
-    let comparativo_cosechas: FilaComparativoCosecha[] | undefined;
+    // ⚠️ Ahora SIEMPRE es array (no undefined)
+    let comparativo_cosechas: FilaComparativoCosecha[] = [];
     if (raw?.tabla?.rows && Array.isArray(raw.tabla.rows)) {
       comparativo_cosechas = raw.tabla.rows.map((r: any[]) => ({
         cosecha: String(r?.[0] ?? ''),
@@ -129,9 +126,9 @@ const adaptTemporadaToUI = (raw: any): ReporteProduccionData => {
       }
     }
 
-    if (!inversiones.length && !ventas.length && !ganancias.length && (comparativo_cosechas?.length)) {
+    if (!inversiones.length && !ventas.length && !ganancias.length && comparativo_cosechas.length) {
       const mk = (k: 'inversion' | 'ventas' | 'ganancia') =>
-        comparativo_cosechas!.map((r) => ({ fecha: String(r.cosecha || ''), valor: Number((r as any)[k] || 0) }));
+        comparativo_cosechas.map((r) => ({ fecha: String(r.cosecha || ''), valor: Number((r as any)[k] || 0) }));
       inversiones = mk('inversion');
       ventas      = mk('ventas');
       ganancias   = mk('ganancia');
@@ -167,7 +164,18 @@ const adaptTemporadaToUI = (raw: any): ReporteProduccionData => {
   // -------- Opción B: servicio “rico”
   const resumen = raw.resumen_ejecutivo || {};
   const series  = raw.series || {};
-  const comp    = raw.comparativo_cosechas || [];
+  // ⚠️ Siempre array
+  let comparativo_cosechas: FilaComparativoCosecha[] = (raw.comparativo_cosechas || []).map((x: any) => ({
+    cosecha:  String(x.cosecha || x.nombre || ''),
+    inversion: money(x.inversion || x.inversion_total),
+    ventas:    money(x.ventas   || x.ventas_total),
+    ganancia:  money(x.ganancia || x.ganancia_neta),
+    roi:       pct(x.roi        || x.roi_porcentaje),
+    cajas:     num(x.cajas      || x.cajas_totales),
+  }));
+  if (comparativo_cosechas.length) {
+    comparativo_cosechas = _sortComparativo(comparativo_cosechas);
+  }
 
   const kpis: KPIData[] = [
     { label: 'Inversión Total', value: money(resumen.inversion_total), format: 'currency' },
@@ -187,18 +195,6 @@ const adaptTemporadaToUI = (raw: any): ReporteProduccionData => {
   let ventas      = toSeriesAny(venRaw);
   let ganancias   = ganRaw.length ? toSeriesAny(ganRaw)
     : (inversiones.length && ventas.length ? mergeByMonth(inversiones, ventas) : []);
-
-  let comparativo_cosechas: FilaComparativoCosecha[] = (comp || []).map((x: any) => ({
-    cosecha:  String(x.cosecha || x.nombre || ''),
-    inversion: money(x.inversion || x.inversion_total),
-    ventas:    money(x.ventas   || x.ventas_total),
-    ganancia:  money(x.ganancia || x.ganancia_neta),
-    roi:       pct(x.roi        || x.roi_porcentaje),
-    cajas:     num(x.cajas      || x.cajas_totales),
-  }));
-  if (comparativo_cosechas.length) {
-    comparativo_cosechas = _sortComparativo(comparativo_cosechas);
-  }
 
   if (!inversiones.length && !ventas.length && !ganancias.length && comparativo_cosechas.length) {
     const mk = (k: 'inversion' | 'ventas' | 'ganancia') =>

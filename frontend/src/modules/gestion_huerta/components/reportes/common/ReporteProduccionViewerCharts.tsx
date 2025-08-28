@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Box, Paper, Typography, IconButton, Tooltip, Stack, Chip, keyframes, alpha, useTheme, styled } from '@mui/material';
+import { Box, Paper, Typography, IconButton, Tooltip, Stack, Chip } from '@mui/material';
+import { keyframes, alpha, useTheme, styled } from '@mui/material/styles';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip as RechartsTooltip, Legend, ResponsiveContainer, AreaChart, Area,
@@ -373,8 +374,8 @@ export default function ChartsPanel({ series, animated = true }: Props) {
                 stroke={color}
                 fill={`url(#grad-${key})`}
                 strokeWidth={2.8}
-                dot={{ r: 4, fill: color, strokeWidth: 2, stroke: theme.palette.background.paper }}
-                activeDot={{ r: 6, fill: color, stroke: theme.palette.background.paper, strokeWidth: 2 }}
+                dot={{ r: 4, fill: color, strokeWidth: 2, stroke: useTheme().palette.background.paper }}
+                activeDot={{ r: 6, fill: color, stroke: useTheme().palette.background.paper, strokeWidth: 2 }}
                 {...anim}
               />
             </AreaChart>
@@ -403,8 +404,8 @@ export default function ChartsPanel({ series, animated = true }: Props) {
               <RechartsTooltip
                 contentStyle={{
                   borderRadius: 12,
-                  background: alpha(theme.palette.background.default, 0.95),
-                  border: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
+                  background: alpha(useTheme().palette.background.default, 0.95),
+                  border: `1px solid ${alpha(useTheme().palette.divider, 0.2)}`,
                   backdropFilter: 'blur(10px)',
                   boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
                 }}
@@ -421,13 +422,25 @@ export default function ChartsPanel({ series, animated = true }: Props) {
             <LineChart data={data} margin={{ top: 20, right: 28, left: 12, bottom: 20 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
               <XAxis dataKey="x" tick={xTick} axisLine={false} tickLine={false} />
-              <YAxis tickFormatter={axFmt} tick={yTick} axisLine={false} tickLine={false} domain={getDomainForSingle(data, key)} ticks={buildTicks(...getDomainForSingle(data, key))} />
+              <YAxis
+                tickFormatter={axFmt}
+                tick={yTick}
+                axisLine={false}
+                tickLine={false}
+                domain={getDomainForSingle(data, key)}
+                ticks={buildTicks(...getDomainForSingle(data, key))}
+              />
               <ReferenceLine y={0} stroke={alpha(theme.palette.text.secondary, 0.35)} strokeDasharray="4 4" />
               <RechartsTooltip content={<CustomTooltip />} />
               <Legend iconSize={12} iconType="circle" wrapperStyle={{ paddingTop: 10 }} />
-              <Line type="monotone" dataKey={key} name={title} stroke={color} strokeWidth={3}
-                dot={{ r: 4, fill: color, strokeWidth: 2, stroke: theme.palette.background.paper }}
-                activeDot={{ r: 6, fill: color, stroke: theme.palette.background.paper, strokeWidth: 2 }}
+              <Line
+                type="monotone"
+                dataKey={key}
+                name={title}
+                stroke={color}
+                strokeWidth={3}
+                dot={{ r: 4, fill: color, strokeWidth: 2, stroke: useTheme().palette.background.paper }}
+                activeDot={{ r: 6, fill: color, stroke: useTheme().palette.background.paper, strokeWidth: 2 }}
                 {...anim}
               />
             </LineChart>
@@ -480,9 +493,9 @@ export default function ChartsPanel({ series, animated = true }: Props) {
             <RechartsTooltip content={<CustomTooltip />} />
             <Legend iconSize={12} iconType="circle" wrapperStyle={{ paddingTop: 10 }} />
             <Area type="monotone" dataKey="inv" name="Inversiones" stroke={c1} fill="url(#grad-inv)" strokeWidth={2.8}
-              dot={{ r: 4, fill: c1, strokeWidth: 2, stroke: theme.palette.background.paper }} {...anim} />
+              dot={{ r: 4, fill: c1, strokeWidth: 2, stroke: useTheme().palette.background.paper }} {...anim} />
             <Area type="monotone" dataKey="ven" name="Ventas" stroke={c2} fill="url(#grad-ven)" strokeWidth={2.8}
-              dot={{ r: 4, fill: c2, strokeWidth: 2, stroke: theme.palette.background.paper }} {...anim} />
+              dot={{ r: 4, fill: c2, strokeWidth: 2, stroke: useTheme().palette.background.paper }} {...anim} />
           </AreaChart>
         </ResponsiveContainer>
       );
@@ -498,11 +511,11 @@ export default function ChartsPanel({ series, animated = true }: Props) {
           <RechartsTooltip content={<CustomTooltip />} />
           <Legend iconSize={12} iconType="circle" wrapperStyle={{ paddingTop: 10 }} />
           <Line type="monotone" dataKey="inv" name="Inversiones" stroke={c1} strokeWidth={3}
-            dot={{ r: 4, fill: c1, strokeWidth: 2, stroke: theme.palette.background.paper }}
-            activeDot={{ r: 6, fill: c1, stroke: theme.palette.background.paper, strokeWidth: 2 }} {...anim} />
+            dot={{ r: 4, fill: c1, strokeWidth: 2, stroke: useTheme().palette.background.paper }}
+            activeDot={{ r: 6, fill: c1, stroke: useTheme().palette.background.paper, strokeWidth: 2 }} {...anim} />
           <Line type="monotone" dataKey="ven" name="Ventas" stroke={c2} strokeWidth={3}
-            dot={{ r: 4, fill: c2, strokeWidth: 2, stroke: theme.palette.background.paper }}
-            activeDot={{ r: 6, fill: c2, stroke: theme.palette.background.paper, strokeWidth: 2 }} {...anim} />
+            dot={{ r: 4, fill: c2, strokeWidth: 2, stroke: useTheme().palette.background.paper }}
+            activeDot={{ r: 6, fill: c2, stroke: useTheme().palette.background.paper, strokeWidth: 2 }} {...anim} />
         </LineChart>
       </ResponsiveContainer>
     );

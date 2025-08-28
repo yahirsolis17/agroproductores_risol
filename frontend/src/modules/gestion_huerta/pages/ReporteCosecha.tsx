@@ -43,7 +43,7 @@ export default function ReporteCosecha() {
       />
 
       <Divider sx={{ my: 2 }} />
-      {!id && <Alert severity="info">Proporcione un cosechaId en la URL.</Alert>}
+      {!id && <Alert severity="info">Proporcione un ID de cosecha en la URL.</Alert>}
       {loading && <CircularProgress size={24} />}
       {error && <Alert severity="error">{error}</Alert>}
       {data && (
@@ -51,8 +51,7 @@ export default function ReporteCosecha() {
           data={data}
           title="Reporte de Cosecha"
           subtitle={subtitle}
-          // dejamos el botón de export del header deshabilitado para evitar duplicar acción
-          onExport={undefined}
+          onExport={undefined}  // export via toolbar
         />
       )}
     </Box>

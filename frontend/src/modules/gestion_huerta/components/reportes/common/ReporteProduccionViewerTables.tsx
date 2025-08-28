@@ -1,4 +1,3 @@
-// frontend/src/modules/gestion_huerta/components/reportes/common/ReporteProduccionViewerTables.tsx
 import React, { useMemo, useState } from 'react';
 import {
   Paper,
@@ -41,12 +40,6 @@ const fadeIn = keyframes`
 const slideIn = keyframes`
   from { transform: translateX(-10px); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
-`;
-
-const pulse = keyframes`
-  0% { transform: scale(1); }
-  50% { transform: scale(1.02); }
-  100% { transform: scale(1); }
 `;
 
 const glow = keyframes`
@@ -513,7 +506,10 @@ const ComparativoCosechasTable: React.FC<{ rows: FilaComparativoCosecha[] }> = (
   const [order, setOrder] = useState<Order>('desc');
   const [orderBy, setOrderBy] = useState<keyof FilaComparativoCosecha>('ganancia');
 
-  const sorted = useMemo(() => stableSort(rows, getComparator<FilaComparativoCosecha>(order, orderBy)), [rows, order, orderBy]);
+  const sorted = useMemo(
+    () => stableSort(rows, getComparator<FilaComparativoCosecha>(order, orderBy)),
+    [rows, order, orderBy]
+  );
 
   const handleSort = (prop: keyof FilaComparativoCosecha) => {
     const isAsc = orderBy === prop && order === 'asc';
