@@ -1,5 +1,20 @@
 import { toast } from 'react-toastify';
 
+// Debounce para evitar notificaciones duplicadas (especialmente en dev con StrictMode)
+let _lastNotif: { key?: string; message?: string; ts: number } | null = null;
+const NOTIF_DEDUP_WINDOW_MS = 1000; // 1s
+
+function shouldSuppressDuplicate(key?: string, message?: string) {
+  const now = Date.now();
+  if (_lastNotif && now - _lastNotif.ts < NOTIF_DEDUP_WINDOW_MS) {
+    if (_lastNotif.key === key && _lastNotif.message === message) {
+      return true;
+    }
+  }
+  _lastNotif = { key, message, ts: now };
+  return false;
+}
+
 const SILENT_NOTIFICATION_KEYS = ['no_notification', 'silent_response', 'data_processed_success'];
 
 // ⛔ Claves que NO deben provocar redirect automático
@@ -24,6 +39,9 @@ export function handleBackendNotification(response: any) {
     }
     return;
   }
+
+  // Debounce duplicados recientes
+  if (shouldSuppressDuplicate(key, message)) return;
 
   // Toasts
   switch (type) {
