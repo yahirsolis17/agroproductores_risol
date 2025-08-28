@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import { Box, Typography, Divider, Alert, CircularProgress } from '@mui/material';
+import { Box, Divider, Alert, CircularProgress } from '@mui/material';
 import ReportesProduccionToolbar from '../components/reportes/ReportesProduccionToolbar';
 import ReporteProduccionViewer from '../components/reportes/ReporteProduccionViewer';
 import { reportesProduccionService } from '../services/reportesProduccionService';
@@ -19,9 +19,6 @@ export default function ReporteTemporada() {
 
   return (
     <Box sx={{ p: 2 }}>
-      <Typography variant="h5" fontWeight={700} sx={{ mb: 2 }}>
-        Reporte por Temporada
-      </Typography>
 
       <ReportesProduccionToolbar loading={loading} onRefresh={refetch} onExport={handleExport} />
 
@@ -33,9 +30,7 @@ export default function ReporteTemporada() {
         <ReporteProduccionViewer
           data={data}
           title="Reporte de Temporada"
-          subtitle={data.metadata.infoHuerta?.huerta_nombre || String(data.metadata.entidad.nombre)}
-          onExport={undefined}   // evitamos botón extra; la exportación vive en la toolbar
-          onRefresh={refetch}
+
         />
       )}
     </Box>

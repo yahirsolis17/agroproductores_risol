@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Box, Typography, Divider, Alert, CircularProgress } from '@mui/material';
+import { Box, Divider, Alert, CircularProgress } from '@mui/material';
 import ReportesProduccionToolbar from '../components/reportes/ReportesProduccionToolbar';
 import ReporteProduccionViewer from '../components/reportes/ReporteProduccionViewer';
 import { useReporteCosecha } from '../hooks/useReporteCosecha';
@@ -23,16 +23,8 @@ export default function ReporteCosecha() {
     }
   };
 
-  const subtitle =
-    data
-      ? `${data.metadata.infoHuerta?.huerta_nombre || data.metadata.entidad.nombre} · ${data.metadata.entidad.tipo.toUpperCase()}`
-      : undefined;
-
   return (
     <Box sx={{ p: 2 }}>
-      <Typography variant="h5" fontWeight={700} sx={{ mb: 2 }}>
-        Reporte por Cosecha
-      </Typography>
 
       <ReportesProduccionToolbar
         from={filters.from}
@@ -51,9 +43,7 @@ export default function ReporteCosecha() {
         <ReporteProduccionViewer
           data={data}
           title="Reporte de Cosecha"
-          subtitle={subtitle}
-          onExport={undefined}  // export via toolbar
-          onRefresh={refetch}
+
         />
       )}
     </Box>

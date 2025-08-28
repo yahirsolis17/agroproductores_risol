@@ -35,7 +35,6 @@ import {
   ShowChart,
   TableView,
   BarChart as BarChartIcon,
-  Download,
   Refresh,
   KeyboardArrowUp,
   ExpandMore,
@@ -54,17 +53,6 @@ import GlosarioFinanzasModal from './common/GlosarioFinanzasModal';
 // --------------------------
 // Animaciones y estilos
 // --------------------------
-const floatAnimation = keyframes`
-  0% { transform: translateY(0px); }
-  50% { transform: translateY(-8px); }
-  100% { transform: translateY(0px); }
-`;
-
-const glowAnimation = keyframes`
-  0% { box-shadow: 0 0 5px rgba(0, 150, 136, 0.5); }
-  50% { box-shadow: 0 0 20px rgba(0, 150, 136, 0.8); }
-  100% { box-shadow: 0 0 5px rgba(0, 150, 136, 0.5); }
-`;
 
 const fadeInScale = keyframes`
   0% { opacity: 0; transform: scale(0.95); }
@@ -180,6 +168,32 @@ const FloatingActionButton = styled(Fab)(({ theme }) => ({
   },
 }));
 
+// Bloque compacto de información de cabecera (no invasivo)
+const HeaderInfoBlock = styled(Box)(({ theme }) => ({
+  display: 'grid',
+  gridTemplateColumns: 'auto 1fr',
+  columnGap: theme.spacing(2),
+  rowGap: 4,
+  padding: theme.spacing(1.5, 2),
+  marginTop: theme.spacing(1),
+  marginBottom: theme.spacing(2),
+  borderRadius: 12,
+  border: `1px solid ${alpha(theme.palette.divider, 0.12)}`,
+  background: alpha(theme.palette.mode === 'dark' ? theme.palette.background.paper : '#ffffff', 0.85),
+}));
+
+const InfoLabel = styled(Typography)(({ theme }) => ({
+  fontWeight: 700,
+  color: theme.palette.text.secondary,
+  fontSize: 12,
+}));
+
+const InfoValue = styled(Typography)(({ theme }) => ({
+  fontWeight: 600,
+  color: theme.palette.text.primary,
+  fontSize: 13,
+}));
+
 interface Props {
   data?: ReporteProduccionData;
   loading?: boolean;
@@ -250,7 +264,6 @@ export default function ReporteProduccionViewer({
   title,
   subtitle,
   onRefresh,
-  onExport,
 }: Props) {
   const theme = useTheme();
   const [viewMode, setViewMode] = useState<ViewMode>('charts');
@@ -347,11 +360,46 @@ export default function ReporteProduccionViewer({
           <Typography variant="h2" component="h1" gutterBottom fontWeight="800" color="primary">
             {title}
           </Typography>
-          {subtitle && (
-            <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
-              {subtitle}
-            </Typography>
-          )}
+        {subtitle && (
+          <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+            {subtitle}
+          </Typography>
+        )}
+
+        {/* Cabecera compacta de datos de huerta (no invasiva) */}
+        {!!data?.metadata?.infoHuerta && (
+          <HeaderInfoBlock>
+            {(() => {
+              const info = data.metadata.infoHuerta as any;
+              const tipo = data.metadata?.entidad?.tipo;
+              const formatHa = (n?: number | string) => {
+                const v = typeof n === 'number' ? n : Number(n ?? 0);
+                return Number.isFinite(v) ? `${v.toFixed(2)} ha` : '';
+              };
+              const periodo = (() => {
+                const fi = info.fecha_inicio || data.metadata?.periodo?.inicio || '';
+                const ff = info.fecha_fin || data.metadata?.periodo?.fin || '';
+                return `${fi || ''} - ${ff || ''}`.trim();
+              })();
+              const temporada = (info.temporada_año ?? info['temporada_a��o'] ?? '') as any;
+              const rows: Array<[string, string]> = [
+                ['Huerta:', `${info.huerta_nombre || ''} (${info.huerta_tipo || ''})`],
+                ['Ubicación:', info.ubicacion || ''],
+                ['Propietario:', info.propietario || ''],
+                ['Temporada:', String(temporada || '')],
+              ];
+              if (tipo === 'cosecha') rows.push(['Cosecha:', info.cosecha_nombre || '']);
+              rows.push(['Período:', periodo]);
+              rows.push(['Hectáreas:', formatHa(info.hectareas)]);
+              return rows.map(([k, v], idx) => (
+                <React.Fragment key={`${k}-${idx}`}>
+                  <InfoLabel>{k}</InfoLabel>
+                  <InfoValue>{v}</InfoValue>
+                </React.Fragment>
+              ));
+            })()}
+          </HeaderInfoBlock>
+        )}
           {/* Accesos rápidos de ayuda */}
           <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
             <Tooltip title="Ver glosario financiero">
@@ -395,38 +443,6 @@ export default function ReporteProduccionViewer({
         </Box>
 
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Tooltip title="Actualizar datos">
-            <span>
-              <IconButton
-                onClick={onRefresh}
-                color="primary"
-                size="large"
-                disabled={!onRefresh}
-                sx={{
-                  background: alpha(theme.palette.primary.main, 0.1),
-                  '&:hover': { background: alpha(theme.palette.primary.main, 0.2) },
-                }}
-              >
-                <Refresh />
-              </IconButton>
-            </span>
-          </Tooltip>
-          <Tooltip title="Exportar reporte">
-            <span>
-              <IconButton
-                onClick={onExport}
-                color="primary"
-                size="large"
-                disabled={!onExport}
-                sx={{
-                  background: alpha(theme.palette.primary.main, 0.1),
-                  '&:hover': { background: alpha(theme.palette.primary.main, 0.2) },
-                }}
-              >
-                <Download />
-              </IconButton>
-            </span>
-          </Tooltip>
         </Box>
       </Box>
 
