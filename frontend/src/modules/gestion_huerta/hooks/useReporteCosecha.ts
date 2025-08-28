@@ -101,6 +101,8 @@ const adaptCosechaToUI = (reporte: any, filtroFrom?: string, filtroTo?: string):
           cantidad: Number(x.num_cajas || 0),
           precio_unitario: Number(x.precio_por_caja || 0),
           total: Number(x.total_venta || 0),
+          /** NUEVO: mapeo de gastos de venta por registro */
+          gasto: Number(x.gasto || 0),
           comprador: '',
         })),
   };

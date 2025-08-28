@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { Box, Typography, Divider, Alert, CircularProgress } from '@mui/material';
-import ReportesProduccionToolbar from '../components/reportes/common/ReportesProduccionToolbar';
-import ReporteProduccionViewer from '../components/reportes/common/ReporteProduccionViewer';
+import ReportesProduccionToolbar from '../components/reportes/ReportesProduccionToolbar';
+import ReporteProduccionViewer from '../components/reportes/ReporteProduccionViewer';
 import { reportesProduccionService } from '../services/reportesProduccionService';
 import { useReporteTemporada } from '../hooks/useReporteTemporada';
 import { FormatoReporte } from '../types/reportesProduccionTypes';

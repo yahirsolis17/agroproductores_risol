@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { Box, Typography, Divider, Alert, CircularProgress } from '@mui/material';
-import ReportesProduccionToolbar from '../components/reportes/common/ReportesProduccionToolbar';
-import ReporteProduccionViewer from '../components/reportes/common/ReporteProduccionViewer';
+import ReportesProduccionToolbar from '../components/reportes/ReportesProduccionToolbar';
+import ReporteProduccionViewer from '../components/reportes/ReporteProduccionViewer';
 import { reportesProduccionService } from '../services/reportesProduccionService';
 import { useReportePerfilHuerta } from '../hooks/useReportePerfilHuerta';
 import { FormatoReporte } from '../types/reportesProduccionTypes';
@@ -54,6 +54,7 @@ export default function ReportePerfilHuerta() {
           title="Perfil de Huerta"
           subtitle={data.metadata.infoHuerta?.huerta_nombre}
           onExport={undefined}
+          onRefresh={refetch} 
         />
       )}
     </Box>

@@ -52,12 +52,13 @@ const _numFromLabel = (s: string) => {
   const m = String(s).match(/(\d+)(?!.*\d)/);
   return m ? Number(m[1]) : Number.MAX_SAFE_INTEGER;
 };
+/** NUEVO: descendente (más reciente arriba: 6,5,4,...,1) */
 const _sortComparativo = (rows: FilaComparativoCosecha[]) =>
   [...rows].sort((a, b) => {
     const na = _numFromLabel(a.cosecha);
     const nb = _numFromLabel(b.cosecha);
-    if (na !== nb) return na - nb;
-    return a.cosecha.localeCompare(b.cosecha);
+    if (na !== nb) return nb - na; // descendente
+    return b.cosecha.localeCompare(a.cosecha);
   });
 
 const _sortSeriesSmart = (arr: SeriesDataPoint[]) =>
@@ -110,17 +111,20 @@ const adaptTemporadaToUI = (raw: any): ReporteProduccionData => {
     let ventas      = ven_s ? toMonthSeries(ven_s.data, 'x', 'y') : [];
     let ganancias   = inversiones.length && ventas.length ? mergeByMonth(inversiones, ventas) : [];
 
-    // ⚠️ Ahora SIEMPRE es array (no undefined)
+    // ⚠️ Siempre array; ahora incluimos gastos_venta (derivado si falta)
     let comparativo_cosechas: FilaComparativoCosecha[] = [];
     if (raw?.tabla?.rows && Array.isArray(raw.tabla.rows)) {
-      comparativo_cosechas = raw.tabla.rows.map((r: any[]) => ({
-        cosecha: String(r?.[0] ?? ''),
-        inversion: money(r?.[1]),
-        ventas: money(r?.[2]),
-        ganancia: money(r?.[3]),
-        roi: pct(r?.[4]),
-        cajas: num(String(r?.[5] ?? '').replace(/[^\d.-]/g, '')),
-      }));
+      comparativo_cosechas = raw.tabla.rows.map((r: any[]) => {
+        const cosecha   = String(r?.[0] ?? '');
+        const inversion = money(r?.[1]);
+        const ventas    = money(r?.[2]);
+        const ganancia  = money(r?.[3]); // asumimos neta
+        const roi       = pct(r?.[4]);
+        const cajas     = num(String(r?.[5] ?? '').replace(/[^\d.-]/g, ''));
+        // Derivar gastos si no vienen explícitos: ventas - inversion - ganancia_neta
+        const gastos_venta = Math.max(0, ventas - inversion - ganancia);
+        return { cosecha, inversion, ventas, gastos_venta, ganancia, roi, cajas };
+      });
       if (comparativo_cosechas.length) {
         comparativo_cosechas = _sortComparativo(comparativo_cosechas);
       }
@@ -164,15 +168,23 @@ const adaptTemporadaToUI = (raw: any): ReporteProduccionData => {
   // -------- Opción B: servicio “rico”
   const resumen = raw.resumen_ejecutivo || {};
   const series  = raw.series || {};
-  // ⚠️ Siempre array
-  let comparativo_cosechas: FilaComparativoCosecha[] = (raw.comparativo_cosechas || []).map((x: any) => ({
-    cosecha:  String(x.cosecha || x.nombre || ''),
-    inversion: money(x.inversion || x.inversion_total),
-    ventas:    money(x.ventas   || x.ventas_total),
-    ganancia:  money(x.ganancia || x.ganancia_neta),
-    roi:       pct(x.roi        || x.roi_porcentaje),
-    cajas:     num(x.cajas      || x.cajas_totales),
-  }));
+  // ⚠️ Siempre array; incluir gastos_venta si existe o derivarlo
+  let comparativo_cosechas: FilaComparativoCosecha[] = (raw.comparativo_cosechas || []).map((x: any) => {
+    const inversion = money(x.inversion || x.inversion_total);
+    const ventas    = money(x.ventas   || x.ventas_total);
+    const ganancia  = money(x.ganancia || x.ganancia_neta);
+    const gastos    = money(x.gastos_venta ?? x.gasto_venta ?? x.gastos);
+    const gastos_venta = gastos || Math.max(0, ventas - inversion - ganancia);
+    return {
+      cosecha:  String(x.cosecha || x.nombre || ''),
+      inversion,
+      ventas,
+      gastos_venta,
+      ganancia,
+      roi:       pct(x.roi || x.roi_porcentaje),
+      cajas:     num(x.cajas || x.cajas_totales),
+    };
+  });
   if (comparativo_cosechas.length) {
     comparativo_cosechas = _sortComparativo(comparativo_cosechas);
   }

@@ -761,4 +761,9 @@ NOTIFICATION_MESSAGES = {
 },
 
 
+"reporte_generado_exitosamente": {
+    "message": "El reporte se generó exitosamente.",
+    "type": "success"
+}
+    
 }

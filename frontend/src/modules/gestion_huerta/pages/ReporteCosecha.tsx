@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Box, Typography, Divider, Alert, CircularProgress } from '@mui/material';
-import ReportesProduccionToolbar from '../components/reportes/common/ReportesProduccionToolbar';
-import ReporteProduccionViewer from '../components/reportes/common/ReporteProduccionViewer';
+import ReportesProduccionToolbar from '../components/reportes/ReportesProduccionToolbar';
+import ReporteProduccionViewer from '../components/reportes/ReporteProduccionViewer';
 import { useReporteCosecha } from '../hooks/useReporteCosecha';
 import { reportesProduccionService } from '../services/reportesProduccionService';
 import { FormatoReporte } from '../types/reportesProduccionTypes';
@@ -18,14 +18,15 @@ export default function ReporteCosecha() {
     if (!id) return;
     try {
       await reportesProduccionService.generarReporteCosecha({ cosecha_id: id, formato });
-    } catch (error) {
-      console.error('Error al exportar reporte:', error);
+    } catch (err) {
+      console.error('Error al exportar reporte:', err);
     }
   };
 
-  const subtitle = data
-    ? `${data.metadata.entidad.nombre} · ${data.metadata.entidad.tipo.toUpperCase()}`
-    : undefined;
+  const subtitle =
+    data
+      ? `${data.metadata.infoHuerta?.huerta_nombre || data.metadata.entidad.nombre} · ${data.metadata.entidad.tipo.toUpperCase()}`
+      : undefined;
 
   return (
     <Box sx={{ p: 2 }}>
@@ -52,6 +53,7 @@ export default function ReporteCosecha() {
           title="Reporte de Cosecha"
           subtitle={subtitle}
           onExport={undefined}  // export via toolbar
+          onRefresh={refetch}
         />
       )}
     </Box>

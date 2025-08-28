@@ -63,41 +63,52 @@ export const useReportePerfilHuerta = (
       const repSeries = (rep.series ?? {}) as AnyRecord;
       const infoHuertaRaw = (rep.infoHuerta ?? undefined) as AnyRecord | undefined;
 
-      // KPIs
+      // KPIs: detecta formato (currency/percentage) por label o valor
       let kpis: KPIData[] = [];
       if (Array.isArray(rep.kpis)) {
         kpis = (rep.kpis as AnyRecord[]).map((k): KPIData => {
           const rawVal = (k as AnyRecord).value;
           const numeric = toNumber(rawVal);
           const valueStr = String(rawVal ?? '');
-          const isPct = valueStr.includes('%');
+          const labelStr = String((k as AnyRecord).label ?? (k as AnyRecord).id ?? '');
+          const isPct = valueStr.includes('%') || /roi|porcentaje/i.test(labelStr);
+          const isCurrency = /\$|inversi|venta|gananc|gasto/i.test(labelStr);
           return {
-            label: String((k as AnyRecord).label ?? (k as AnyRecord).id ?? ''),
+            label: labelStr,
             value: numeric,
-            format: isPct ? 'percentage' : 'number',
+            format: isPct ? 'percentage' : isCurrency ? 'currency' : 'number',
           };
         });
       }
 
-      // Series (opcional según backend)
+      // Series (opcional según backend) + cálculo de GANANCIAS
       let series: {
         inversiones?: SeriesDataPoint[];
         ventas?: SeriesDataPoint[];
         ganancias?: SeriesDataPoint[];
       } = {};
 
-      const ivg = repSeries['ingresos_vs_gastos'];
+      const ivg = repSeries['ingresos_vs_gastos'] as AnyRecord[] | undefined;
       if (Array.isArray(ivg)) {
-        series = {
-          inversiones: ivg.map((row: AnyRecord): SeriesDataPoint => ({
-            fecha: `${getNum(row, 'year', new Date().getFullYear())}-01-01`,
-            valor: toNumber(row['inversion']),
-          })),
-          ventas: ivg.map((row: AnyRecord): SeriesDataPoint => ({
-            fecha: `${getNum(row, 'year', new Date().getFullYear())}-01-01`,
-            valor: toNumber(row['ventas']),
-          })),
-        };
+        const yearOr = (row: AnyRecord) => `${getNum(row, 'year', new Date().getFullYear())}-01-01`;
+        const inv = ivg.map((row): SeriesDataPoint => ({
+          fecha: yearOr(row),
+          valor: toNumber(row['inversion']),
+        }));
+        const ven = ivg.map((row): SeriesDataPoint => ({
+          fecha: yearOr(row),
+          valor: toNumber(row['ventas']),
+        }));
+        // ganancias = ventas - inversiones por año
+        const map = new Map<string, { inv?: number; ven?: number }>();
+        inv.forEach((p) => map.set(p.fecha, { ...(map.get(p.fecha) || {}), inv: p.valor }));
+        ven.forEach((p) => map.set(p.fecha, { ...(map.get(p.fecha) || {}), ven: p.valor }));
+        const gan: SeriesDataPoint[] = Array.from(map.entries()).map(([fecha, v]) => ({
+          fecha,
+          valor: (v.ven || 0) - (v.inv || 0),
+        }));
+
+        series = { inversiones: inv, ventas: ven, ganancias: gan };
       }
 
       setData({

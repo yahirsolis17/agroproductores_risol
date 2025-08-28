@@ -72,14 +72,19 @@ export interface TablaVenta {
   cantidad: number;
   precio_unitario: number;
   total: number;
+  /** NUEVO: gasto por venta (gastos de venta) */
+  gasto?: number;
   comprador?: string;
 }
 
-/** Nueva: fila comparativa por cosecha (temporada) */
+/** Comparativo por cosecha (para temporada) */
 export interface FilaComparativoCosecha {
   cosecha: string;
   inversion: number;
   ventas: number;
+  /** NUEVO: gastos de venta por cosecha (si backend no lo manda, se puede derivar) */
+  gastos_venta?: number;
+  /** En algunos backends viene “ganancia” ya neta */
   ganancia: number;
   roi: number;      // %
   cajas: number;
@@ -95,7 +100,7 @@ export interface ReporteProduccionData {
   tablas: {
     inversiones?: TablaInversion[];
     ventas?: TablaVenta[];
-    /** Nueva para temporadas */
+    /** Para temporadas */
     comparativo_cosechas?: FilaComparativoCosecha[];
   };
   metadata: {
