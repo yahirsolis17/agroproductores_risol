@@ -1,5 +1,5 @@
 // frontend/src/modules/gestion_huerta/components/reportes/ReporteProduccionViewer.tsx
-import React, { useState } from 'react';
+import React, { useState, Suspense, lazy } from 'react';
 import {
   Box,
   Paper,
@@ -43,9 +43,9 @@ import {
   HelpOutline,
 } from '@mui/icons-material';
 
-// Paneles
-import ChartsPanel from './ReporteProduccionViewerCharts';
-import TablesPanel from './ReporteProduccionViewerTables';
+// Paneles (lazy) para reducir carga inicial y mejorar fluidez
+const ChartsPanel = lazy(() => import('./ReporteProduccionViewerCharts'));
+const TablesPanel = lazy(() => import('./ReporteProduccionViewerTables'));
 
 // Componentes auxiliares
 import DesgloseGananciaCard from './common/DesgloseGananciaCard';
@@ -74,18 +74,14 @@ const fadeInScale = keyframes`
 const MainContainer = styled(Paper)(({ theme }) => ({
   background:
     theme.palette.mode === 'dark'
-      ? `linear-gradient(160deg, ${alpha(theme.palette.background.default, 0.95)} 0%, ${alpha(
-          theme.palette.background.paper,
-          0.98
-        )} 100%)`
-      : `linear-gradient(160deg, ${alpha('#f8fafc', 0.95)} 0%, ${alpha('#ffffff', 0.98)} 100%)`,
-  backdropFilter: 'blur(12px)',
+      ? alpha(theme.palette.background.paper, 0.9)
+      : alpha('#ffffff', 0.98),
   borderRadius: '24px',
   padding: theme.spacing(4),
   margin: theme.spacing(2),
-  boxShadow: '0 20px 40px rgba(0,0,0,0.1), 0 10px 20px rgba(0,0,0,0.06)',
-  border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-  animation: `${fadeInScale} 0.6s ease-out`,
+  boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
+  border: `1px solid ${alpha(theme.palette.divider, 0.06)}`,
+  animation: `${fadeInScale} 0.4s ease-out`,
   position: 'relative',
   overflow: 'hidden',
   '&::before': {
@@ -112,16 +108,14 @@ const StyledCard = styled(Card)(({ theme }) => ({
           theme.palette.secondary.light,
           0.15
         )} 100%)`,
-  backdropFilter: 'blur(10px)',
   borderRadius: '20px',
   transition: 'all 0.3s ease-in-out',
   border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-  animation: `${fadeInScale} 0.5s ease-out`,
+  animation: `${fadeInScale} 0.3s ease-out`,
   '&:hover': {
-    transform: 'translateY(-8px) scale(1.02)',
-    boxShadow: '0 15px 30px rgba(0,0,0,0.12)',
-    borderColor: alpha(theme.palette.primary.main, 0.4),
-    animation: `${glowAnimation} 2s infinite ease-in-out, ${floatAnimation} 3s infinite ease-in-out`,
+    transform: 'translateY(-6px) scale(1.01)',
+    boxShadow: '0 12px 24px rgba(0,0,0,0.12)',
+    borderColor: alpha(theme.palette.primary.main, 0.3),
   },
 }));
 
@@ -181,10 +175,8 @@ const FloatingActionButton = styled(Fab)(({ theme }) => ({
   right: theme.spacing(3),
   background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
   color: 'white',
-  animation: `${floatAnimation} 4s infinite ease-in-out`,
   '&:hover': {
     background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.secondary.dark})`,
-    animation: `${glowAnimation} 2s infinite ease-in-out`,
   },
 }));
 
@@ -541,7 +533,9 @@ export default function ReporteProduccionViewer({
       ) : null}
 
       {(viewMode === 'charts' || viewMode === 'both') && (
-        <ChartsPanel series={data.series} />
+        <Suspense fallback={<CircularProgress size={24} />}>
+          <ChartsPanel series={data.series} />
+        </Suspense>
       )}
 
       {(viewMode === 'tables' || viewMode === 'both') && (
@@ -549,11 +543,13 @@ export default function ReporteProduccionViewer({
           <SectionTitle variant="h4" fontWeight="700">
             Detalles Tabulares
           </SectionTitle>
-          <TablesPanel
-            inversiones={data.tablas?.inversiones}
-            ventas={data.tablas?.ventas}
-            comparativo_cosechas={data.tablas?.comparativo_cosechas}
-          />
+          <Suspense fallback={<CircularProgress size={24} />}>
+            <TablesPanel
+              inversiones={data.tablas?.inversiones}
+              ventas={data.tablas?.ventas}
+              comparativo_cosechas={data.tablas?.comparativo_cosechas}
+            />
+          </Suspense>
         </Box>
       )}
 

@@ -217,11 +217,11 @@ def aggregates_for_temporada(temporada_id: int) -> Dict[str, Any]:
         raise ValueError("Temporada no encontrada")
 
     inv_tot = (
-        InversionesHuerta.objects.filter(is_active=True, temporada=temp)
+        InversionesHuerta.objects.filter(is_active=True, cosecha__temporada=temp)
         .aggregate(total=Sum(F("gastos_insumos") + F("gastos_mano_obra")))
     )
     ventas_tot = (
-        Venta.objects.filter(is_active=True, temporada=temp)
+        Venta.objects.filter(is_active=True, cosecha__temporada=temp)
         .aggregate(
             ingreso=Sum(F("num_cajas") * F("precio_por_caja")),
             gasto_ventas=Sum("gasto"),
@@ -303,7 +303,7 @@ def series_for_temporada(temporada_id: int) -> List[Dict[str, Any]]:
 
     # Inversiones por mes
     inv_mensuales = (
-        InversionesHuerta.objects.filter(is_active=True, temporada=temp)
+        InversionesHuerta.objects.filter(is_active=True, cosecha__temporada=temp)
         .annotate(mes=TruncMonth("fecha"))
         .values("mes")
         .annotate(total=Sum(F("gastos_insumos") + F("gastos_mano_obra")))
@@ -313,7 +313,7 @@ def series_for_temporada(temporada_id: int) -> List[Dict[str, Any]]:
 
     # Ventas por mes
     ventas_mens = (
-        Venta.objects.filter(is_active=True, temporada=temp)
+        Venta.objects.filter(is_active=True, cosecha__temporada=temp)
         .annotate(mes=TruncMonth("fecha_venta"))
         .values("mes")
         .annotate(total=Sum(F("num_cajas") * F("precio_por_caja")))
@@ -323,7 +323,7 @@ def series_for_temporada(temporada_id: int) -> List[Dict[str, Any]]:
 
     # Distribución inversiones por categoría (pie)
     dist_inv = (
-        InversionesHuerta.objects.filter(is_active=True, temporada=temp)
+        InversionesHuerta.objects.filter(is_active=True, cosecha__temporada=temp)
         .values("categoria__nombre")
         .annotate(total=Sum(F("gastos_insumos") + F("gastos_mano_obra")))
     )
@@ -331,7 +331,7 @@ def series_for_temporada(temporada_id: int) -> List[Dict[str, Any]]:
 
     # Variedades (barras)
     var_stats = (
-        Venta.objects.filter(is_active=True, temporada=temp)
+        Venta.objects.filter(is_active=True, cosecha__temporada=temp)
         .values("tipo_mango")
         .annotate(cajas=Sum("num_cajas"), ingreso=Sum(F("num_cajas") * F("precio_por_caja")))
     )

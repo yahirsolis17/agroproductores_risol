@@ -1,5 +1,5 @@
 // frontend/src/modules/gestion_huerta/components/reportes/common/ReporteProduccionViewerCharts.tsx
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, memo } from 'react';
 import { Box, Paper, Typography, IconButton, Tooltip, Stack, Chip } from '@mui/material';
 import { keyframes, alpha, useTheme, styled } from '@mui/material/styles';
 import {
@@ -34,9 +34,6 @@ const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 `;
-const pulse = keyframes`0%{transform:scale(1)}50%{transform:scale(1.02)}100%{transform:scale(1)}`;
-const glow = keyframes`0%{box-shadow:0 0 5px rgba(0,0,0,.1)}50%{box-shadow:0 0 20px rgba(0,0,0,.15)}100%{box-shadow:0 0 5px rgba(0,0,0,.1)}`;
-const gradientShift = keyframes`0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}`;
 
 // Estilos
 const ChartContainer = styled(Paper, { shouldForwardProp: (p) => p !== 'delay' })<{delay?:number}>(({ theme, delay=0 }) => ({
@@ -46,22 +43,23 @@ const ChartContainer = styled(Paper, { shouldForwardProp: (p) => p !== 'delay' }
     ? `linear-gradient(145deg, ${alpha(theme.palette.background.paper, 0.9)} 0%, ${alpha(theme.palette.background.paper, 0.95)} 100%)`
     : `linear-gradient(145deg, ${alpha('#ffffff', 0.95)} 0%, ${alpha('#f8f9fa', 0.98)} 100%)`,
   backgroundSize: '200% 200%',
-  boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
-  transition: 'all .4s cubic-bezier(.175,.885,.32,1.1)',
+  boxShadow: '0 8px 24px rgba(0,0,0,0.06)',
+  transition: 'transform .25s ease, box-shadow .25s ease',
   border: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
   overflow: 'hidden',
   position: 'relative',
-  animation: `${fadeIn} .6s ease-out ${delay}ms both, ${glow} 3s ease-in-out infinite`,
+  animation: `${fadeIn} .4s ease-out ${delay}ms both`,
   '&::before': {
     content: '""',
     position: 'absolute',
     top: 0, left: 0, right: 0, height: 4,
     background: `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
     backgroundSize: '200% 200%',
-    animation: `${gradientShift} 4s ease infinite`,
+    // Evita animación infinita para mejorar rendimiento
+    // animation: `${gradientShift} 6s ease infinite`,
     opacity: .8, borderRadius: '4px 4px 0 0'
   },
-  '&:hover': { boxShadow: '0 15px 45px rgba(0,0,0,.15)', transform: 'translateY(-6px)' }
+  '&:hover': { boxShadow: '0 12px 28px rgba(0,0,0,.1)', transform: 'translateY(-4px)' }
 }));
 
 const ChartTitle = styled(Typography)(({ theme }) => ({
@@ -91,7 +89,8 @@ const SelectorContainer = styled(Box)(({ theme }) => ({
   borderRadius: 16,
   background: alpha(theme.palette.background.paper, 0.7),
   border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-  backdropFilter: 'blur(10px)',
+  // Evitar blur para mejorar performance
+  // backdropFilter: 'blur(10px)',
   boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
   animation: `${fadeIn} .5s ease-out 200ms both`
 }));
@@ -137,7 +136,7 @@ const usePrepared = (input?: SeriesDataPoint[]) =>
   );
 
 // Tooltip full
-const CustomTooltip: React.FC<{ active?: boolean; payload?: Array<{ value: number; name: string; color: string }>; label?: string }> = ({
+const CustomTooltip: React.FC<{ active?: boolean; payload?: Array<{ value: number; name: string; color: string }>; label?: string }> = memo(({
   active, payload, label,
 }) => {
   const theme = useTheme();
@@ -171,7 +170,7 @@ const CustomTooltip: React.FC<{ active?: boolean; payload?: Array<{ value: numbe
       ))}
     </Paper>
   );
-};
+});
 
 const ChartSelector: React.FC<{
   chartType: ChartType;
@@ -179,7 +178,7 @@ const ChartSelector: React.FC<{
   compare: boolean;
   onToggleCompare: () => void;
   hasDual: boolean;
-}> = ({ chartType, onChartTypeChange, compare, onToggleCompare, hasDual }) => {
+}> = memo(({ chartType, onChartTypeChange, compare, onToggleCompare, hasDual }) => {
   const items = [
     { type: 'line' as ChartType, icon: <ShowChart />, label: 'Línea' },
     { type: 'bar' as ChartType, icon: <BarChartIcon />, label: 'Barras' },
@@ -205,13 +204,13 @@ const ChartSelector: React.FC<{
             color={compare ? 'primary' : 'default'}
             variant={compare ? 'filled' : 'outlined'}
             onClick={hasDual ? onToggleCompare : undefined}
-            sx={{ cursor: hasDual ? 'pointer' : 'not-allowed', opacity: hasDual ? 1 : 0.5, animation: compare ? `${pulse} 2s infinite` : 'none' }}
+            sx={{ cursor: hasDual ? 'pointer' : 'not-allowed', opacity: hasDual ? 1 : 0.5 }}
           />
         </span>
       </Tooltip>
     </Stack>
   );
-};
+});
 
 export default function ChartsPanel({ series, animated = true }: Props) {
   const theme = useTheme();

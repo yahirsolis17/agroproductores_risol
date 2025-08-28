@@ -191,36 +191,44 @@ def generar_reporte_cosecha(
     usuario,
     formato: str = "json",
     force_refresh: bool = False,
+    cosecha_inst: Optional[Cosecha] = None,
 ) -> Dict[str, Any]:
-    cache_key = generate_cache_key("cosecha", {"cosecha_id": cosecha_id, "formato": formato})
+    # Cache por usuario para evitar fugas de datos entre usuarios con distintos permisos
+    cache_key = generate_cache_key(
+        "cosecha",
+        {"cosecha_id": cosecha_id, "formato": formato, "uid": getattr(usuario, "id", None)},
+    )
     if not force_refresh:
         cached = cache.get(cache_key)
         if cached:
             return cached
 
-    try:
-        cosecha = (
-            Cosecha.objects.select_related(
-                "temporada__huerta__propietario",
-                "temporada__huerta_rentada__propietario",
-                "huerta",
-                "huerta_rentada",
-                "temporada",
+    if cosecha_inst is not None:
+        cosecha = cosecha_inst
+    else:
+        try:
+            cosecha = (
+                Cosecha.objects.select_related(
+                    "temporada__huerta__propietario",
+                    "temporada__huerta_rentada__propietario",
+                    "huerta",
+                    "huerta_rentada",
+                    "temporada",
+                )
+                .prefetch_related(
+                    Prefetch(
+                        "inversiones",
+                        queryset=InversionesHuerta.objects.filter(is_active=True).select_related("categoria"),
+                    ),
+                    Prefetch(
+                        "ventas",
+                        queryset=Venta.objects.filter(is_active=True),
+                    ),
+                )
+                .get(id=cosecha_id)
             )
-            .prefetch_related(
-                Prefetch(
-                    "inversiones",
-                    queryset=InversionesHuerta.objects.filter(is_active=True).select_related("categoria"),
-                ),
-                Prefetch(
-                    "ventas",
-                    queryset=Venta.objects.filter(is_active=True),
-                ),
-            )
-            .get(id=cosecha_id)
-        )
-    except Cosecha.DoesNotExist:
-        raise ValidationError("Cosecha no encontrada")
+        except Cosecha.DoesNotExist:
+            raise ValidationError("Cosecha no encontrada")
 
     if not _validar_permisos_cosecha(usuario, cosecha):
         raise PermissionDenied("Sin permisos para generar este reporte")

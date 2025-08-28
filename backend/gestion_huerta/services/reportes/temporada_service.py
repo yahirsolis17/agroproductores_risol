@@ -188,36 +188,43 @@ def generar_reporte_temporada(
     usuario,
     formato: str = "json",
     force_refresh: bool = False,
+    temporada_inst: Optional[Temporada] = None,
 ) -> Dict[str, Any]:
-    cache_key = generate_cache_key("temporada", {"temporada_id": temporada_id, "formato": formato})
+    # Cache por usuario
+    cache_key = generate_cache_key(
+        "temporada", {"temporada_id": temporada_id, "formato": formato, "uid": getattr(usuario, "id", None)}
+    )
     if not force_refresh:
         cached = cache.get(cache_key)
         if cached:
             return cached
 
-    try:
-        temporada = (
-            Temporada.objects.select_related(
-                "huerta__propietario", "huerta_rentada__propietario", "huerta", "huerta_rentada"
-            )
-            .prefetch_related(
-                Prefetch(
-                    "cosechas",
-                    queryset=Cosecha.objects.filter(is_active=True)
-                    .select_related("huerta", "huerta_rentada", "temporada")
-                    .prefetch_related(
-                        Prefetch(
-                            "inversiones",
-                            queryset=InversionesHuerta.objects.filter(is_active=True).select_related("categoria"),
-                        ),
-                        Prefetch("ventas", queryset=Venta.objects.filter(is_active=True)),
-                    ),
+    if temporada_inst is not None:
+        temporada = temporada_inst
+    else:
+        try:
+            temporada = (
+                Temporada.objects.select_related(
+                    "huerta__propietario", "huerta_rentada__propietario", "huerta", "huerta_rentada"
                 )
+                .prefetch_related(
+                    Prefetch(
+                        "cosechas",
+                        queryset=Cosecha.objects.filter(is_active=True)
+                        .select_related("huerta", "huerta_rentada", "temporada")
+                        .prefetch_related(
+                            Prefetch(
+                                "inversiones",
+                                queryset=InversionesHuerta.objects.filter(is_active=True).select_related("categoria"),
+                            ),
+                            Prefetch("ventas", queryset=Venta.objects.filter(is_active=True)),
+                        ),
+                    )
+                )
+                .get(id=temporada_id)
             )
-            .get(id=temporada_id)
-        )
-    except Temporada.DoesNotExist:
-        raise ValidationError("Temporada no encontrada")
+        except Temporada.DoesNotExist:
+            raise ValidationError("Temporada no encontrada")
 
     if not _validar_permisos_temporada(usuario, temporada):
         raise PermissionDenied("Sin permisos para generar este reporte")
@@ -238,7 +245,8 @@ def generar_reporte_temporada(
     detalle_ventas_all: List[Dict[str, Any]] = []
 
     for c in cosechas:
-        rep_c = generar_reporte_cosecha(c.id, usuario, "json", force_refresh=force_refresh)
+        # Reutiliza la instancia de cosecha prefeteada para evitar roundtrips
+        rep_c = generar_reporte_cosecha(c.id, usuario, "json", force_refresh=force_refresh, cosecha_inst=c)
         inv_c = D(rep_c["resumen_financiero"]["total_inversiones"])
         ven_c = D(rep_c["resumen_financiero"]["total_ventas"])
         gas_c = D(rep_c["resumen_financiero"]["total_gastos_venta"])

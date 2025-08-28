@@ -1,0 +1,4 @@
+/* Mejora de UX: scroll suave global */
+html {
+  scroll-behavior: smooth;
+}

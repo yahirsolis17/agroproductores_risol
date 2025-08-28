@@ -93,12 +93,12 @@ const Block = styled(Paper, { shouldForwardProp: (prop) => prop !== 'delay' })<{
           )} 100%)`
         : `linear-gradient(145deg, ${alpha('#ffffff', 0.95)} 0%, ${alpha('#f8f9fa', 0.98)} 100%)`,
     backgroundSize: '200% 200%',
-    boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
-    transition: 'all .4s cubic-bezier(.175,.885,.32,1.1)',
+    boxShadow: '0 8px 24px rgba(0,0,0,0.06)',
+    transition: 'transform .25s ease, box-shadow .25s ease',
     border: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
     overflow: 'hidden',
     position: 'relative',
-    animation: `${fadeIn} .6s ease-out ${delay}ms both, ${glow} 3s ease-in-out infinite`,
+    animation: `${fadeIn} .4s ease-out ${delay}ms both`,
     '&::before': {
       content: '""',
       position: 'absolute',
@@ -108,7 +108,8 @@ const Block = styled(Paper, { shouldForwardProp: (prop) => prop !== 'delay' })<{
       height: 4,
       background: `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
       backgroundSize: '200% 200%',
-      animation: `${gradientShift} 4s ease infinite`,
+      // Evita animación infinita para mejorar rendimiento
+      // animation: `${gradientShift} 6s ease infinite`,
       opacity: 0.8,
       borderRadius: '4px 4px 0 0',
     },
@@ -128,8 +129,7 @@ const StyledTable = styled(Table)(({ theme }) => ({
   '& .MuiTableCell-head': {
     fontWeight: 700,
     fontSize: '0.9rem',
-    background: alpha(theme.palette.background.paper, 0.8),
-    backdropFilter: 'blur(10px)',
+    background: alpha(theme.palette.background.paper, 0.95),
     borderBottom: `2px solid ${alpha(theme.palette.primary.main, 0.2)}`,
     padding: theme.spacing(1.5),
     '&:first-of-type': { borderTopLeftRadius: 12 },
@@ -138,8 +138,7 @@ const StyledTable = styled(Table)(({ theme }) => ({
   '& .MuiTableCell-body': {
     padding: theme.spacing(1.5, 2),
     borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-    transition: 'all .2s ease',
-    animation: `${slideIn} .3s ease-out`,
+    transition: 'background-color .2s ease, color .2s ease',
   },
   '& .MuiTableRow-root': {
     transition: 'all .2s ease',

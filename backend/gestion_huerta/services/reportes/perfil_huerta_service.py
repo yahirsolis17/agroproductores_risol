@@ -170,6 +170,17 @@ def generar_perfil_huerta(
         "perfil_huerta",
         {"huerta_id": huerta_id, "huerta_rentada_id": huerta_rentada_id, "años": años, "formato": formato},
     )
+    # Cache por usuario: rehacer clave incluyendo uid del solicitante
+    cache_key = generate_cache_key(
+        "perfil_huerta",
+        {
+            "huerta_id": huerta_id,
+            "huerta_rentada_id": huerta_rentada_id,
+            "años": años,
+            "formato": formato,
+            "uid": getattr(usuario, "id", None),
+        },
+    )
     if not force_refresh:
         cached = cache.get(cache_key)
         if cached:
@@ -196,7 +207,9 @@ def generar_perfil_huerta(
     suma_roi = Decimal("0")
     total_años_validos = 0
     for temporada in temporadas:
-        rep_t = generar_reporte_temporada(temporada.id, usuario, "json", force_refresh=force_refresh)
+        rep_t = generar_reporte_temporada(
+            temporada.id, usuario, "json", force_refresh=force_refresh, temporada_inst=temporada
+        )
         datos_historicos.append(
             {
                 "año": getattr(temporada, "año", None),

@@ -13,13 +13,13 @@ function useQuery() {
 }
 
 export default function ReportePerfilHuerta() {
-  const { id } = useParams<{ id: string }>();
+  const { huertaId: huertaIdParam } = useParams<{ huertaId: string }>();
   const query = useQuery();
   const isRentada = query.get('rentada') === '1';
   const años = Number(query.get('anios') || '5');
 
-  const huertaId = !isRentada ? Number(id) : undefined;
-  const huertaRentadaId = isRentada ? Number(id) : undefined;
+  const huertaId = !isRentada ? Number(huertaIdParam) : undefined;
+  const huertaRentadaId = isRentada ? Number(huertaIdParam) : undefined;
 
   const { data, loading, error, refetch } = useReportePerfilHuerta(huertaId, huertaRentadaId, años);
 
@@ -45,7 +45,7 @@ export default function ReportePerfilHuerta() {
       />
 
       <Divider sx={{ my: 2 }} />
-      {!id && <Alert severity="info">Proporcione un id de huerta en la URL.</Alert>}
+      {!huertaIdParam && <Alert severity="info">Proporcione un id de huerta en la URL.</Alert>}
       {loading && <CircularProgress size={24} />}
       {error && <Alert severity="error">{error}</Alert>}
       {data && (
