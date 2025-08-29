@@ -12,7 +12,6 @@ import {
   IconButton,
   Avatar,
   Paper,
-  Grid,
   LinearProgress,
   useTheme
 } from '@mui/material';
@@ -94,10 +93,34 @@ const KpiIndicator = styled(Box)(({ theme }) => ({
   marginTop: theme.spacing(0.5),
 }));
 
-const ProgressBarWithLabel = ({ value, max, positive }) => {
+const RowFlex: React.FC<{
+  left: React.ReactNode;
+  right?: React.ReactNode;
+  alignTop?: boolean;
+}> = ({ left, right, alignTop = false }) => (
+  <Box
+    sx={{
+      display: 'flex',
+      flexDirection: { xs: 'column', sm: 'row' },
+      alignItems: { xs: alignTop ? 'flex-start' : 'center', sm: alignTop ? 'flex-start' : 'center' },
+      justifyContent: 'space-between',
+      gap: 1.5,
+      py: 1,
+    }}
+  >
+    <Box sx={{ flex: 1, minWidth: 0 }}>{left}</Box>
+    {right != null && (
+      <Box sx={{ flexShrink: 0, minWidth: { xs: '100%', sm: 200 }, textAlign: { xs: 'left', sm: 'right' } }}>
+        {right}
+      </Box>
+    )}
+  </Box>
+);
+
+const ProgressBarWithLabel = ({ value, max, positive }: { value: number; max: number; positive: boolean }) => {
   const theme = useTheme();
-  const percentage = Math.min(100, Math.max(0, (Math.abs(value) / Math.abs(max)) * 100));
-  
+  const percentage = Math.min(100, Math.max(0, (Math.abs(value) / Math.abs(max || 1)) * 100));
+
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
       <Box sx={{ width: '100%', mr: 1 }}>
@@ -198,7 +221,7 @@ const DesgloseGananciaCard: React.FC<Props> = ({
               size="small"
               color="primary"
               disabled={!onOpenGlosario}
-              sx={{ 
+              sx={{
                 backgroundColor: alpha(theme.palette.primary.main, 0.1),
                 '&:hover': {
                   backgroundColor: alpha(theme.palette.primary.main, 0.2),
@@ -221,55 +244,52 @@ const DesgloseGananciaCard: React.FC<Props> = ({
             </Avatar>
             <Typography variant="h6" fontWeight={600}>Ventas Netas</Typography>
           </Box>
-          
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={6}>
+
+          <RowFlex
+            left={
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <ShoppingCart color="primary" sx={{ mr: 1 }} />
                 <Typography variant="body1" fontWeight={500}>
                   Ventas Totales
                 </Typography>
               </Box>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <ValueHighlight>
-                {formatCurrency(ventasTotales)}
-              </ValueHighlight>
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <LocalOffer color="error" sx={{ mr: 1 }} />
-                <Typography variant="body1" fontWeight={500}>
-                  Gastos de Venta
-                </Typography>
+            }
+            right={<ValueHighlight>{formatCurrency(ventasTotales)}</ValueHighlight>}
+          />
+
+          <RowFlex
+            alignTop
+            left={
+              <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <LocalOffer color="error" sx={{ mr: 1 }} />
+                  <Typography variant="body1" fontWeight={500}>
+                    Gastos de Venta
+                  </Typography>
+                </Box>
+                <ProgressBarWithLabel value={gastosVenta} max={ventasTotales} positive={false} />
               </Box>
-              <ProgressBarWithLabel value={gastosVenta} max={ventasTotales} positive={false} />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <ValueHighlight sx={{ color: 'error.main' }}>
-                -{formatCurrency(gastosVenta)}
-              </ValueHighlight>
-            </Grid>
-            
-            <Grid item xs={12}>
-              <Divider sx={{ my: 1.5 }} />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
+            }
+            right={<ValueHighlight sx={{ color: 'error.main' }}>-{formatCurrency(gastosVenta)}</ValueHighlight>}
+          />
+
+          <Divider sx={{ my: 1.5 }} />
+
+          <RowFlex
+            left={
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <Inventory color="success" sx={{ mr: 1 }} />
                 <Typography variant="body1" fontWeight={600}>
                   Ventas Netas
                 </Typography>
               </Box>
-            </Grid>
-            <Grid item xs={12} sm={6}>
+            }
+            right={
               <ValueHighlight sx={{ color: 'success.main', fontSize: '1.6rem' }}>
                 {formatCurrency(netas)}
               </ValueHighlight>
-            </Grid>
-          </Grid>
+            }
+          />
         </SectionPaper>
 
         {/* Paso 2: Ganancia Neta */}
@@ -280,81 +300,80 @@ const DesgloseGananciaCard: React.FC<Props> = ({
             </Avatar>
             <Typography variant="h6" fontWeight={600}>Ganancia Neta</Typography>
           </Box>
-          
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={6}>
+
+          <RowFlex
+            left={
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <Inventory color="success" sx={{ mr: 1 }} />
                 <Typography variant="body1" fontWeight={500}>
                   Ventas Netas
                 </Typography>
               </Box>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <ValueHighlight sx={{ color: 'success.main' }}>
-                {formatCurrency(netas)}
-              </ValueHighlight>
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <ShoppingCart color="error" sx={{ mr: 1 }} />
-                <Typography variant="body1" fontWeight={500}>
-                  Inversión Total
-                </Typography>
+            }
+            right={<ValueHighlight sx={{ color: 'success.main' }}>{formatCurrency(netas)}</ValueHighlight>}
+          />
+
+          <RowFlex
+            alignTop
+            left={
+              <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <ShoppingCart color="error" sx={{ mr: 1 }} />
+                  <Typography variant="body1" fontWeight={500}>
+                    Inversión Total
+                  </Typography>
+                </Box>
+                <ProgressBarWithLabel value={inversionTotal} max={netas} positive={false} />
               </Box>
-              <ProgressBarWithLabel value={inversionTotal} max={netas} positive={false} />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <ValueHighlight sx={{ color: 'error.main' }}>
-                -{formatCurrency(inversionTotal)}
-              </ValueHighlight>
-            </Grid>
-            
-            <Grid item xs={12}>
-              <Divider sx={{ my: 1.5 }} />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
+            }
+            right={<ValueHighlight sx={{ color: 'error.main' }}>-{formatCurrency(inversionTotal)}</ValueHighlight>}
+          />
+
+          <Divider sx={{ my: 1.5 }} />
+
+          <RowFlex
+            left={
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <EmojiEvents 
-                  sx={{ 
+                <EmojiEvents
+                  sx={{
                     mr: 1,
                     color: isPositive ? 'success.main' : 'error.main'
-                  }} 
+                  }}
                 />
-                <Typography variant="body1" fontWeight={700}>
-                  Ganancia Neta
-                </Typography>
+                <Box>
+                  <Typography variant="body1" fontWeight={700}>
+                    Ganancia Neta
+                  </Typography>
+                  {typeof gananciaNetaKpi === 'number' && (
+                    <KpiIndicator>Meta: {formatCurrency(gananciaNetaKpi)}</KpiIndicator>
+                  )}
+                </Box>
               </Box>
-              {typeof gananciaNetaKpi === 'number' && (
-                <KpiIndicator>
-                  Meta: {formatCurrency(gananciaNetaKpi)}
-                </KpiIndicator>
-              )}
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <ValueHighlight 
-                sx={{ 
+            }
+            right={
+              <ValueHighlight
+                sx={{
                   color: isPositive ? 'success.main' : 'error.main',
                   fontSize: '2rem'
                 }}
               >
                 {formatCurrency(ganancia)}
               </ValueHighlight>
-            </Grid>
-          </Grid>
+            }
+          />
         </SectionPaper>
 
-        {/* ROI Section */}
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center', 
+        {/* ROI */}
+        <Box sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
           mt: 2,
           p: 2,
           borderRadius: 3,
-          backgroundColor: alpha(isPositive ? theme.palette.success.main : theme.palette.error.main, 0.1)
+          backgroundColor: alpha(isPositive ? theme.palette.success.main : theme.palette.error.main, 0.1),
+          flexDirection: { xs: 'column', sm: 'row' },
+          gap: 1.5,
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <Calculate sx={{ mr: 1, color: isPositive ? 'success.main' : 'error.main' }} />
@@ -363,15 +382,15 @@ const DesgloseGananciaCard: React.FC<Props> = ({
                 Retorno de Inversión (ROI)
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Cada $1 invertido generó ${(roi/100).toFixed(2)}
+                Cada $1 invertido generó ${(roi / 100).toFixed(2)}
               </Typography>
             </Box>
           </Box>
-          
-          <Box sx={{ textAlign: 'right' }}>
-            <Typography 
-              variant="h5" 
-              fontWeight={800} 
+
+          <Box sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
+            <Typography
+              variant="h5"
+              fontWeight={800}
               color={isPositive ? 'success.main' : 'error.main'}
             >
               {formatNumber(roi)}%

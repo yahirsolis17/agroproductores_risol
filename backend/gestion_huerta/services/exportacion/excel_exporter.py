@@ -3,9 +3,10 @@ from __future__ import annotations
 
 from io import BytesIO
 from typing import Dict, Any, List, Optional
+from datetime import datetime
 
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Border, Side
+from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.cell.cell import WriteOnlyCell
 
@@ -13,12 +14,16 @@ from openpyxl.cell.cell import WriteOnlyCell
 # Utilidades Excel (write_only-safe)
 # =========================
 def _money(x: Any) -> float:
-    try: return float(x or 0)
-    except Exception: return 0.0
+    try:
+        return float(x or 0)
+    except Exception:
+        return 0.0
 
 def _pct(x: Any) -> float:
-    try: return float(x or 0)
-    except Exception: return 0.0
+    try:
+        return float(x or 0)
+    except Exception:
+        return 0.0
 
 def _safe_str(x: Any) -> str:
     return "" if x is None else str(x)
@@ -26,21 +31,38 @@ def _safe_str(x: Any) -> str:
 def _first(s: str, n: int = 10) -> str:
     return _safe_str(s)[:n] if s else ""
 
-def _woc(ws: Worksheet, value, font: Optional[Font] = None, fill: Optional[PatternFill] = None, number_format: Optional[str] = None):
+def _woc(
+    ws: Worksheet,
+    value,
+    font: Optional[Font] = None,
+    fill: Optional[PatternFill] = None,
+    number_format: Optional[str] = None,
+    alignment: Optional[Alignment] = None,
+):
     c = WriteOnlyCell(ws, value=value)
-    if font: c.font = font
-    if fill: c.fill = fill
-    if number_format: c.number_format = number_format
+    if font:
+        c.font = font
+    if fill:
+        c.fill = fill
+    if number_format:
+        c.number_format = number_format
+    if alignment:
+        c.alignment = alignment
     return c
 
 def _ws_header(ws: Worksheet, title: str, merge_to_col: int = 6):
+    """
+    Escribe el título en A1 con soporte para write_only.
+    En write_only no se puede mergear, así que emulamos con celdas vacías.
+    """
     is_write_only = getattr(ws.parent, "write_only", False)
     if is_write_only:
         title_cell = _woc(ws, title, font=Font(bold=True, size=16))
         pad = [WriteOnlyCell(ws, value="") for _ in range(max(0, merge_to_col - 1))]
         ws.append([title_cell] + pad)
     else:
-        ws["A1"] = title; ws["A1"].font = Font(bold=True, size=16)
+        ws["A1"] = title
+        ws["A1"].font = Font(bold=True, size=16)
         if merge_to_col and merge_to_col > 1:
             end_col_letter = chr(ord("A") + merge_to_col - 1)
             ws.merge_cells(f"A1:{end_col_letter}1")
@@ -63,6 +85,24 @@ def _apply_border(ws: Worksheet, cell_range: str):
         for cell in row:
             cell.border = border
 
+def _set_column_widths(ws: Worksheet, widths: List[float]):
+    """
+    Ajusta anchos de columnas A.. según la lista widths (en caracteres).
+    Es compatible con write_only.
+    """
+    for i, w in enumerate(widths, start=1):
+        col_letter = chr(ord("A") + i - 1)
+        ws.column_dimensions[col_letter].width = w
+
+def _add_metadata_sheet(wb: Workbook, reporte_data: Dict[str, Any], titulo: str):
+    ws_meta = wb.create_sheet("Metadata")
+    ws_meta.append(["Título", titulo])
+    ws_meta.append(["Generado", datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+    meta = (reporte_data or {}).get("metadata", {}) or {}
+    for k, v in meta.items():
+        ws_meta.append([_safe_str(k), _safe_str(v)])
+    _set_column_widths(ws_meta, [24, 60])
+
 # =========================
 # Exportador Excel por entidad
 # =========================
@@ -75,6 +115,7 @@ class ExcelExporter:
         blue_fill   = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
         purple_fill = PatternFill(start_color="7030A0", end_color="7030A0", fill_type="solid")
 
+        # Resumen
         ws_resumen = wb.create_sheet("Resumen")
         _ws_header(ws_resumen, "REPORTE DE PRODUCCIÓN - COSECHA INDIVIDUAL", merge_to_col=6)
 
@@ -115,7 +156,9 @@ class ExcelExporter:
             ws_resumen.append([_woc(ws_resumen, label, font=Font(bold=True)), _woc(ws_resumen, value, number_format=fmt)])
 
         ws_resumen.freeze_panes = "A4"
+        _set_column_widths(ws_resumen, [24, 60, 16, 16, 16, 16])
 
+        # Inversiones
         ws_inv = wb.create_sheet("Inversiones")
         ws_inv.append([
             _woc(ws_inv, "Fecha",      font=header_font, fill=blue_fill),
@@ -135,7 +178,9 @@ class ExcelExporter:
                 _woc(ws_inv, _safe_str(inv.get("descripcion"))),
             ])
         ws_inv.freeze_panes = "A2"
+        _set_column_widths(ws_inv, [12, 24, 14, 14, 14, 48])
 
+        # Ventas
         ws_ven = wb.create_sheet("Ventas")
         ws_ven.append([
             _woc(ws_ven, "Fecha",        font=header_font, fill=purple_fill),
@@ -160,8 +205,14 @@ class ExcelExporter:
                 _woc(ws_ven, util,                                number_format="#,##0.00", fill=(neg_fill if util < 0 else None)),
             ])
         ws_ven.freeze_panes = "A2"
+        _set_column_widths(ws_ven, [12, 24, 10, 14, 14, 14, 16])
 
-        buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
+        # Metadata
+        _add_metadata_sheet(wb, reporte_data, "REPORTE DE PRODUCCIÓN - COSECHA INDIVIDUAL")
+
+        buffer = BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
         return buffer.getvalue()
 
     @staticmethod
@@ -211,7 +262,9 @@ class ExcelExporter:
         for label, value, fmt in res_rows:
             ws.append([_woc(ws, label, font=Font(bold=True)), _woc(ws, value, number_format=fmt)])
         ws.freeze_panes = "A4"
+        _set_column_widths(ws, [28, 24, 24, 24, 24, 18, 26, 16])
 
+        # Comparativo
         ws_comp = wb.create_sheet("Comparativo Cosechas")
         ws_comp.append([
             _woc(ws_comp, "Cosecha",  font=header_font, fill=blue_fill),
@@ -231,8 +284,14 @@ class ExcelExporter:
                 _woc(ws_comp, _money(c.get("cajas")),     number_format="0"),
             ])
         ws_comp.freeze_panes = "A2"
+        _set_column_widths(ws_comp, [28, 18, 18, 18, 12, 12])
 
-        buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
+        # Metadata
+        _add_metadata_sheet(wb, reporte_data, "REPORTE DE PRODUCCIÓN - TEMPORADA COMPLETA")
+
+        buffer = BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
         return buffer.getvalue()
 
     @staticmethod
@@ -284,7 +343,9 @@ class ExcelExporter:
                 _woc(ws, _safe_str(d.get("cosechas_count"))),
             ])
         ws.freeze_panes = "A5"
+        _set_column_widths(ws, [10, 16, 16, 16, 12, 18, 12])
 
+        # Proyecciones
         pr = reporte_data.get("proyecciones") or {}
         ws2 = wb.create_sheet("Proyecciones")
         _ws_header(ws2, "Proyecciones")
@@ -294,6 +355,12 @@ class ExcelExporter:
         ws2.append([_woc(ws2, "Recomendaciones"), _woc(ws2, ", ".join([_safe_str(x) for x in (pr.get("recomendaciones") or [])]) or "-")])
         ws2.append([_woc(ws2, "Alertas"), _woc(ws2, ", ".join([_safe_str(x) for x in (pr.get("alertas") or [])]) or "-")])
         ws2.freeze_panes = "A3"
+        _set_column_widths(ws2, [36, 48])
 
-        buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
+        # Metadata
+        _add_metadata_sheet(wb, reporte_data, "PERFIL HISTÓRICO DE HUERTA")
+
+        buffer = BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
         return buffer.getvalue()

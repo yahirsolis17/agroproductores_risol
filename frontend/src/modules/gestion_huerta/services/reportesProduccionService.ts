@@ -77,8 +77,9 @@ async function postBlobAndDownload(
 export const reportesProduccionService = {
   async generarReporteCosecha(request: ReporteCosechaRequest): Promise<ReporteProduccionResponse> {
     try {
+      const payload = { ...request }; // incluye force_refresh si vino
       if (request.formato === 'json') {
-        const resp = await apiClient.post(`${BASE}/cosecha/`, request);
+        const resp = await apiClient.post(`${BASE}/cosecha/`, payload);
         try { handleBackendNotification(resp.data); } catch {}
         const unwrapped = unwrapJson(resp.data);
         return { success: true, data: unwrapped, message: resp.data?.message, errors: resp.data?.errors };
@@ -87,7 +88,7 @@ export const reportesProduccionService = {
       const ext: 'pdf' | 'xlsx' = request.formato === 'pdf' ? 'pdf' : 'xlsx';
       return await postBlobAndDownload(
         `${BASE}/cosecha/`,
-        request,
+        payload,
         `reporte_cosecha_${request.cosecha_id}`,
         ext
       );
@@ -104,8 +105,9 @@ export const reportesProduccionService = {
 
   async generarReporteTemporada(request: ReporteTemporadaRequest): Promise<ReporteProduccionResponse> {
     try {
+      const payload = { ...request }; // incluye force_refresh si vino
       if (request.formato === 'json') {
-        const resp = await apiClient.post(`${BASE}/temporada/`, request);
+        const resp = await apiClient.post(`${BASE}/temporada/`, payload);
         try { handleBackendNotification(resp.data); } catch {}
         const unwrapped = unwrapJson(resp.data);
         return { success: true, data: unwrapped, message: resp.data?.message, errors: resp.data?.errors };
@@ -114,7 +116,7 @@ export const reportesProduccionService = {
       const ext: 'pdf' | 'xlsx' = request.formato === 'pdf' ? 'pdf' : 'xlsx';
       return await postBlobAndDownload(
         `${BASE}/temporada/`,
-        request,
+        payload,
         `reporte_temporada_${request.temporada_id}`,
         ext
       );
@@ -136,6 +138,7 @@ export const reportesProduccionService = {
         formato: request.formato,
         años: request.años ?? 5,
       };
+      if (request.force_refresh !== undefined) payload.force_refresh = request.force_refresh;
       if (request.huerta_id) payload.huerta_id = request.huerta_id;
       if (request.huerta_rentada_id) payload.huerta_rentada_id = request.huerta_rentada_id;
 

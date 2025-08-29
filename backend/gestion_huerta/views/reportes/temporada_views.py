@@ -44,10 +44,10 @@ class TemporadaReportViewSet(viewsets.GenericViewSet):
                 data={"errors": {"temporada_id": "ID de temporada requerido"}},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
-        if formato not in {"json", "pdf", "excel"}:
+        if formato not in {"json", "pdf", "excel", "xlsx"}:
             return NotificationHandler.generate_response(
                 message_key="validation_error",
-                data={"errors": {"formato": "Formato debe ser json, pdf o excel"}},
+                data={"errors": {"formato": "Formato debe ser json, pdf o excel/xlsx"}},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
         try:
@@ -65,7 +65,7 @@ class TemporadaReportViewSet(viewsets.GenericViewSet):
                 resp["Content-Disposition"] = f'attachment; filename="reporte_temporada_{base}.pdf"'
                 return resp
 
-            if formato == "excel":
+            if formato in {"excel", "xlsx"}:
                 excel = ExportacionService.generar_excel_temporada(reporte_data)
                 info = (reporte_data or {}).get("informacion_general", {}) or {}
                 base = f"{info.get('temporada_año','')}_{info.get('huerta_nombre','')}".strip("_") or f"{temporada_id}"

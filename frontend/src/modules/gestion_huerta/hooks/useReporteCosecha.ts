@@ -1,3 +1,4 @@
+// useReporteCosecha.ts
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { reportesProduccionService } from '../services/reportesProduccionService';
 import { ReporteProduccionData, InfoHuerta, KPIData, SeriesDataPoint } from '../types/reportesProduccionTypes';

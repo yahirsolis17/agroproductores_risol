@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+// reportehuertaperfil.tsx
+import { useMemo, useCallback } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { Box, Typography, Divider, Alert, CircularProgress } from '@mui/material';
 import ReportesProduccionToolbar from '../components/reportes/ReportesProduccionToolbar';
@@ -23,14 +24,14 @@ export default function ReportePerfilHuerta() {
 
   const { data, loading, error, refetch } = useReportePerfilHuerta(huertaId, huertaRentadaId, años);
 
-  const handleExport = async (formato: FormatoReporte) => {
+  const handleExport = useCallback(async (formato: FormatoReporte) => {
     await reportesProduccionService.generarReportePerfilHuerta({
       formato,
       huerta_id: huertaId,
       huerta_rentada_id: huertaRentadaId,
       años,
     });
-  };
+  }, [huertaId, huertaRentadaId, años]);
 
   return (
     <Box sx={{ p: 2 }}>
@@ -52,9 +53,8 @@ export default function ReportePerfilHuerta() {
         <ReporteProduccionViewer
           data={data}
           title="Perfil de Huerta"
-          subtitle={data.metadata.infoHuerta?.huerta_nombre}
-          onExport={undefined}
-          onRefresh={refetch} 
+          subtitle={data.metadata?.infoHuerta?.huerta_nombre}
+          onRefresh={refetch}
         />
       )}
     </Box>

@@ -1,7 +1,10 @@
+// reportesproducciontypes.ts
 export type FormatoReporte = 'json' | 'pdf' | 'excel';
 
 export interface ReporteProduccionRequest {
   formato: FormatoReporte;
+  /** Opcional: fuerza recálculo de cache en backend */
+  force_refresh?: boolean;
 }
 
 export interface ReporteCosechaRequest extends ReporteProduccionRequest {

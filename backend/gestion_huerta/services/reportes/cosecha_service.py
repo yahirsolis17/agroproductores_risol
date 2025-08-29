@@ -1,4 +1,28 @@
 # -*- coding: utf-8 -*-
+"""
+Servicio de Reportes: COSECHA
+--------------------------------
+Responsabilidad
+- Construir el reporte financiero/operativo de una cosecha (JSON) listo para UI y exportación (PDF/Excel).
+
+Incluye
+- Resumen financiero (ventas/inversiones/gastos, utilidad, ROI).
+- Detalle de inversiones y ventas, análisis por categorías/variedades.
+- Métricas de rendimiento (cajas totales, precio/caja, costo/margen por caja).
+- Validación de integridad (consistencia entre resumen y detalle).
+- Cache multiusuario con aislamiento por UID.
+- Estructura `ui` (kpis/series/tablas) para frontend.
+
+Reglas de negocio
+- ROI = ganancia_neta / total_inversiones * 100; si no hay inversiones, ROI = 0.
+- Ganancia bruta = ventas - gastos_venta; ganancia neta = bruta - inversiones.
+- Fechas normalizadas a YYYY-MM-DD. Tolerancia de ±5m para `fecha_generacion`.
+- Permisos: superuser/staff o permiso `gestion_huerta.view_cosecha`.
+  > Recomendación: si tu modelo lo permite, complementar con pertenencia del recurso (owner).
+
+Compatibilidad
+- Mantiene shape esperado por exportadores `ExcelExporter`/`PDFExporter`.
+"""
 from __future__ import annotations
 
 from decimal import Decimal, ROUND_HALF_UP
@@ -22,6 +46,7 @@ from gestion_huerta.utils.cache_keys import (
 TWOPLACES = Decimal("0.01")
 
 def D(x: Any) -> Decimal:
+    """Convierte a Decimal seguro (None→0)."""
     try:
         if x is None:
             return Decimal("0")
@@ -30,21 +55,25 @@ def D(x: Any) -> Decimal:
         return Decimal("0")
 
 def Flt(x: Any) -> float:
+    """Decimal→float redondeado a 2 decimales (ROUND_HALF_UP)."""
     try:
         return float(D(x).quantize(TWOPLACES, rounding=ROUND_HALF_UP))
     except Exception:
         return 0.0
 
 def I(x: Any) -> int:
+    """Entero seguro."""
     try:
         return int(D(x))
     except Exception:
         return 0
 
 def safe_str(x: Any) -> str:
+    """String seguro."""
     return "" if x is None else str(x)
 
 def _date_only(dt) -> Optional[str]:
+    """Normaliza fecha a YYYY-MM-DD (acepta date/datetime/string)."""
     if not dt:
         return None
     try:
@@ -54,6 +83,7 @@ def _date_only(dt) -> Optional[str]:
         return s.split("T", 1)[0] if s else None
 
 def _group_by_date(items: List[Dict[str, Any]], date_key: str, value_key: str) -> List[Dict[str, Any]]:
+    """Agrupa lista de dicts por fecha y suma el `value_key`."""
     bucket: Dict[str, Decimal] = {}
     for it in items:
         f = it.get(date_key)
@@ -65,6 +95,12 @@ def _group_by_date(items: List[Dict[str, Any]], date_key: str, value_key: str) -
 
 # ========= Permisos / análisis / validación =========
 def _validar_permisos_cosecha(usuario, cosecha) -> bool:
+    """
+    Permite ver reporte si:
+    - superuser/staff, o
+    - tiene permiso `gestion_huerta.view_cosecha`.
+    Nota: si es necesario, agregar verificación de pertenencia (owner) a la huerta.
+    """
     if getattr(usuario, "is_superuser", False) or getattr(usuario, "is_staff", False):
         return True
     if hasattr(usuario, "has_perm") and usuario.has_perm("gestion_huerta.view_cosecha"):
@@ -72,6 +108,7 @@ def _validar_permisos_cosecha(usuario, cosecha) -> bool:
     return False
 
 def _analizar_categorias_inversiones(inversiones_qs, total_inversiones: Decimal) -> List[Dict[str, Any]]:
+    """Agrega inversiones por categoría (solo si total_inversiones>0)."""
     if total_inversiones <= 0:
         return []
     acc: Dict[str, Decimal] = {}
@@ -86,6 +123,7 @@ def _analizar_categorias_inversiones(inversiones_qs, total_inversiones: Decimal)
     return out
 
 def _analizar_variedades_ventas(ventas_qs, total_ventas: Decimal) -> List[Dict[str, Any]]:
+    """Agrega ventas por variedad (solo si total_ventas>0)."""
     if total_ventas <= 0:
         return []
     acc: Dict[str, Dict[str, Any]] = {}
@@ -112,6 +150,7 @@ def _analizar_variedades_ventas(ventas_qs, total_ventas: Decimal) -> List[Dict[s
     return sorted(out, key=lambda x: x["total_venta"], reverse=True)
 
 def _build_ui_from_cosecha(rep: Dict[str, Any]) -> Dict[str, Any]:
+    """Construye estructura `ui` (KPIs, series, tablas) consumible por frontend."""
     rf = rep.get("resumen_financiero", {}) or {}
     det_inv = rep.get("detalle_inversiones", []) or []
     det_ven = rep.get("detalle_ventas", []) or []
@@ -158,6 +197,11 @@ def _build_ui_from_cosecha(rep: Dict[str, Any]) -> Dict[str, Any]:
     return {"kpis": kpis, "series": {"inversiones": series_inv, "ventas": series_ven, "ganancias": series_gan}, "tablas": tablas}
 
 def _validar_integridad_reporte(reporte_data: Dict[str, Any]) -> bool:
+    """
+    Valida consistencia del reporte:
+    - Sumas de detalle = totales en resumen (±0.01).
+    - `fecha_generacion` no puede estar >5 minutos en el futuro.
+    """
     try:
         meta = reporte_data.get("metadata", {}) or {}
         tipo = meta.get("tipo")
@@ -193,6 +237,20 @@ def generar_reporte_cosecha(
     force_refresh: bool = False,
     cosecha_inst: Optional[Cosecha] = None,
 ) -> Dict[str, Any]:
+    """
+    Genera el reporte completo de una cosecha (JSON).
+    Cachea por (cosecha_id, formato, uid). Aísla datos por permisos del solicitante.
+
+    Args:
+      - cosecha_id: ID de la cosecha.
+      - usuario: request.user (usado para permisos y cache).
+      - formato: siempre "json" aquí (export usa este JSON).
+      - force_refresh: ignora cache si True.
+      - cosecha_inst: instancia precargada (opcional).
+
+    Returns:
+      dict con `metadata`, `informacion_general`, `resumen_financiero`, `detalle_*`, `analisis_*`, `metricas_rendimiento`, `flags`, `ui`.
+    """
     # Cache por usuario para evitar fugas de datos entre usuarios con distintos permisos
     cache_key = generate_cache_key(
         "cosecha",
@@ -236,6 +294,7 @@ def generar_reporte_cosecha(
     origen = cosecha.huerta or cosecha.huerta_rentada
     origen_nombre = safe_str(getattr(origen, "nombre", None) or safe_str(origen)) if origen else "N/A"
     ubicacion = safe_str(getattr(origen, "ubicacion", "")) if origen else ""
+    # Nota: si `propietario` es objeto, ideal mapear a propietario.nombre si existe.
     hectareas = D(getattr(origen, "hectareas", 0))
 
     inv_qs = cosecha.inversiones.all()
@@ -363,6 +422,11 @@ def generar_reporte_cosecha(
     return reporte
 
 def exportar_cosecha(cosecha_id: int, usuario, formato: str) -> bytes:
+    """
+    Exporta una cosecha en el formato solicitado:
+      - pdf -> PDFExporter.generar_pdf_cosecha(JSON)
+      - excel/xlsx -> ExcelExporter.generar_excel_cosecha(JSON)
+    """
     rep = generar_reporte_cosecha(cosecha_id, usuario, "json", force_refresh=True)
     if formato.lower() == "pdf":
         return ExportacionService.generar_pdf_cosecha(rep)

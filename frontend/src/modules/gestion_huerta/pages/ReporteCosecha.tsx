@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+// reportecosecha.tsx
+import { useMemo, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { Box, Divider, Alert, CircularProgress } from '@mui/material';
+import { Box, Divider, Alert, CircularProgress, Typography } from '@mui/material';
 import ReportesProduccionToolbar from '../components/reportes/ReportesProduccionToolbar';
 import ReporteProduccionViewer from '../components/reportes/ReporteProduccionViewer';
 import { useReporteCosecha } from '../hooks/useReporteCosecha';
@@ -14,17 +15,16 @@ export default function ReporteCosecha() {
   const [filters] = useState<{ from?: string; to?: string; formato: FormatoReporte }>({ formato: 'json' });
   const { data, loading, error, refetch } = useReporteCosecha(id, filters.from, filters.to);
 
-  const handleExport = async (formato: FormatoReporte) => {
+  const handleExport = useCallback(async (formato: FormatoReporte) => {
     if (!id) return;
-    try {
-      await reportesProduccionService.generarReporteCosecha({ cosecha_id: id, formato });
-    } catch (err) {
-      console.error('Error al exportar reporte:', err);
-    }
-  };
+    await reportesProduccionService.generarReporteCosecha({ cosecha_id: id, formato });
+  }, [id]);
 
   return (
     <Box sx={{ p: 2 }}>
+      <Typography variant="h5" fontWeight={700} sx={{ mb: 2 }}>
+        Reporte de Cosecha
+      </Typography>
 
       <ReportesProduccionToolbar
         from={filters.from}
@@ -43,7 +43,6 @@ export default function ReporteCosecha() {
         <ReporteProduccionViewer
           data={data}
           title="Reporte de Cosecha"
-
         />
       )}
     </Box>

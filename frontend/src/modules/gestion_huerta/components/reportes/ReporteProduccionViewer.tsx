@@ -16,7 +16,6 @@ import {
   Card,
   CardContent,
   Grow,
-  Chip,
   Accordion,
   AccordionSummary,
   AccordionDetails,
@@ -505,13 +504,6 @@ export default function ReporteProduccionViewer({
               alignItems: 'center',
             }}
           >
-            <Typography variant="subtitle2" color="text.secondary" sx={{ mr: 1 }}>
-              Leyenda:
-            </Typography>
-            <Chip size="small" label="Inversiones" sx={{ color: theme.palette.primary.main, borderColor: theme.palette.primary.main }} variant="outlined" />
-            <Chip size="small" label="Ventas" sx={{ color: theme.palette.secondary.main, borderColor: theme.palette.secondary.main }} variant="outlined" />
-            <Chip size="small" label="Ganancias" sx={{ color: theme.palette.success.main, borderColor: theme.palette.success.main }} variant="outlined" />
-            <Chip size="small" label="Pérdida (< 0)" sx={{ color: theme.palette.error.main, borderColor: theme.palette.error.main }} variant="outlined" />
           </Box>
 
           {/* Panel explicativo adicional */}

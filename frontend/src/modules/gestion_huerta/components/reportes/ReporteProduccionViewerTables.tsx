@@ -56,16 +56,6 @@ const slideIn = keyframes`
   from { transform: translateX(-10px); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
 `;
-const glow = keyframes`
-  0% { box-shadow: 0 0 5px rgba(0,0,0,0.1); }
-  50% { box-shadow: 0 0 20px rgba(0,0,0,0.15); }
-  100% { box-shadow: 0 0 5px rgba(0,0,0,0.1); }
-`;
-const gradientShift = keyframes`
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-`;
 
 /* ================= Estilos ================= */
 const SummaryCard = styled(Card)(({ theme }) => ({

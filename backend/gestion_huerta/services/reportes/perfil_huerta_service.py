@@ -1,4 +1,24 @@
 # -*- coding: utf-8 -*-
+"""
+Servicio de Reportes: PERFIL DE HUERTA
+--------------------------------------
+Responsabilidad
+- Generar la foto histórica de una huerta (propia o rentada) sobre N temporadas recientes.
+- Consolidar KPIs: ROI promedio, variabilidad, tendencias, proyecciones.
+
+Reglas de negocio
+- Temporadas fuente: `is_active=True`, ordenadas por año (desc), tomando las N últimas.
+- Tendencias: CAGR simple entre primer y último año válidos (ventas/ganancia/productividad).
+- Proyecciones: promedio móvil de 3 años (si hay ≥2), alertas por ROI bajo y tendencia decreciente.
+
+Cache/Permisos
+- Cache por (huerta_id|huerta_rentada_id, años, formato, uid).
+- Permisos: superuser/staff o `gestion_huerta.view_huerta`.
+  > Recomendación: complementar con pertenencia (owner) si aplica.
+
+Compatibilidad
+- Salida preparada para exportadores (PDF/Excel) y frontend (ui.kpis/series).
+"""
 from __future__ import annotations
 
 from decimal import Decimal, ROUND_HALF_UP
@@ -22,6 +42,7 @@ from gestion_huerta.utils.cache_keys import (
 TWOPLACES = Decimal("0.01")
 
 def D(x: Any) -> Decimal:
+    """Decimal seguro (None→0)."""
     try:
         if x is None:
             return Decimal("0")
@@ -30,6 +51,7 @@ def D(x: Any) -> Decimal:
         return Decimal("0")
 
 def Flt(x: Any) -> float:
+    """Decimal→float con redondeo HALF_UP a 2 decimales."""
     try:
         return float(D(x).quantize(TWOPLACES, rounding=ROUND_HALF_UP))
     except Exception:
@@ -39,11 +61,17 @@ def safe_str(x: Any) -> str:
     return "" if x is None else str(x)
 
 def _validar_permisos_huerta(usuario, huerta) -> bool:
+    """Permite ver reporte si superuser/staff o `has_perm('gestion_huerta.view_huerta')`."""
     if getattr(usuario, "is_superuser", False) or getattr(usuario, "is_staff", False):
         return True
     return hasattr(usuario, "has_perm") and usuario.has_perm("gestion_huerta.view_huerta")
 
 def _calcular_tendencias(datos_historicos: List[Dict[str, Any]]) -> Dict[str, float]:
+    """
+    Calcula tendencias interanuales aproximadas:
+    - CAGR de ventas, ganancia y productividad (entre primer y último año).
+    - Mejora de ROI promedio por año (pendiente simple).
+    """
     if len(datos_historicos) < 2:
         return {
             "crecimiento_ventas_anual": 0.0,
@@ -69,6 +97,11 @@ def _calcular_tendencias(datos_historicos: List[Dict[str, Any]]) -> Dict[str, fl
     }
 
 def _analizar_eficiencia_historica(datos_historicos: List[Dict[str, Any]], roi_promedio: Decimal) -> Dict[str, Any]:
+    """
+    Eficiencia histórica:
+    - Mejor/peor temporada por ROI.
+    - ROI promedio histórico, desviación tipo, y tendencia (pendiente de ROI).
+    """
     if not datos_historicos:
         return {
             "mejor_temporada": {"año": None, "roi": 0.0},
@@ -87,6 +120,7 @@ def _analizar_eficiencia_historica(datos_historicos: List[Dict[str, Any]], roi_p
         var = sum((x - prom) ** 2 for x in rois) / len(rois)
         std = var ** 0.5
 
+    # Tendencia (pendiente simple sobre índice temporal)
     n = len(rois)
     sx = sum(range(n))
     sy = sum(rois)
@@ -105,6 +139,11 @@ def _analizar_eficiencia_historica(datos_historicos: List[Dict[str, Any]], roi_p
     }
 
 def _generar_proyecciones(datos_historicos: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Proyecciones heurísticas:
+    - Promedio de ventas y ROI en los últimos ~3 años.
+    - Reglas simples de recomendación/alerta según valores recientes.
+    """
     if len(datos_historicos) < 2:
         return {
             "proyeccion_proxima_temporada": 0,
@@ -141,6 +180,7 @@ def _generar_proyecciones(datos_historicos: List[Dict[str, Any]]) -> Dict[str, A
     }
 
 def _validar_integridad_reporte(reporte_data: Dict[str, Any]) -> bool:
+    """Valida `fecha_generacion` (no >5 minutos en el futuro)."""
     try:
         meta = reporte_data.get("metadata", {}) or {}
         fecha_str = meta.get("fecha_generacion")
@@ -163,14 +203,20 @@ def generar_perfil_huerta(
     formato: str = "json",
     force_refresh: bool = False,
 ) -> Dict[str, Any]:
+    """
+    Genera el perfil histórico de una huerta (propia o rentada) sobre las últimas `años` temporadas activas.
+
+    Args:
+      - huerta_id | huerta_rentada_id: uno de los dos obligatorio.
+      - usuario: request.user (permisos + cache namespacing).
+      - años: número de temporadas a considerar (por defecto 5).
+      - formato: "json" (exportadores consumen este JSON).
+      - force_refresh: ignora cache si True.
+    """
     if not huerta_id and not huerta_rentada_id:
         raise ValidationError("Debe especificar huerta_id o huerta_rentada_id")
 
-    cache_key = generate_cache_key(
-        "perfil_huerta",
-        {"huerta_id": huerta_id, "huerta_rentada_id": huerta_rentada_id, "años": años, "formato": formato},
-    )
-    # Cache por usuario: rehacer clave incluyendo uid del solicitante
+    # Cache por usuario (uid) para evitar fugas de datos
     cache_key = generate_cache_key(
         "perfil_huerta",
         {
@@ -186,7 +232,7 @@ def generar_perfil_huerta(
         if cached:
             return cached
 
-    # Resolver origen y temporadas
+    # Resolver origen y temporadas (últimos N años activos)
     if huerta_id:
         try:
             origen = Huerta.objects.select_related("propietario").get(id=huerta_id)
@@ -230,6 +276,7 @@ def generar_perfil_huerta(
     analisis_eficiencia = _analizar_eficiencia_historica(datos_historicos, roi_promedio)
     proyecciones = _generar_proyecciones(datos_historicos)
 
+    # Nota: 'años_operacion' hoy refleja años analizados. Si quieres antigüedad real, usar: max(año)-min(año)+1.
     reporte: Dict[str, Any] = {
         "metadata": {
             "tipo": "perfil_huerta",
@@ -244,7 +291,7 @@ def generar_perfil_huerta(
             "huerta_nombre": safe_str(getattr(origen, "nombre", safe_str(origen))),
             "huerta_tipo": "Rentada" if huerta_rentada_id else "Propia",
             "ubicacion": safe_str(getattr(origen, "ubicacion", "")),
-            "propietario": safe_str(getattr(origen, "propietario", "")),
+            "propietario": safe_str(getattr(origen, "propietario", "")),  # ideal mapear a .nombre si es obj
             "hectareas": float(getattr(origen, "hectareas", 0.0)),
             "variedades": safe_str(getattr(origen, "variedades", "")),
             "años_operacion": total_años_validos,
@@ -281,6 +328,11 @@ def exportar_perfil_huerta(
     formato: str,
     años: int = 5,
 ) -> bytes:
+    """
+    Exporta el perfil de huerta:
+      - pdf -> PDFExporter.generar_pdf_perfil_huerta(JSON)
+      - excel/xlsx -> ExcelExporter.generar_excel_perfil_huerta(JSON)
+    """
     rep = generar_perfil_huerta(huerta_id, huerta_rentada_id, usuario, años=años, formato="json", force_refresh=True)
     if formato.lower() == "pdf":
         return ExportacionService.generar_pdf_perfil_huerta(rep)

@@ -7,8 +7,8 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from django.http import HttpResponse
 from django.core.exceptions import ValidationError, PermissionDenied
+from django.utils.text import slugify  # <-- NUEVO
 
-# NUEVO: usamos el servicio específico de reportes de cosecha
 from gestion_huerta.services.reportes.cosecha_service import generar_reporte_cosecha
 from gestion_huerta.services.exportacion_service import ExportacionService
 from gestion_huerta.utils.notification_handler import NotificationHandler
@@ -21,13 +21,15 @@ def _as_int(value: Optional[object], field: str) -> int:
     except Exception:
         raise ValidationError({field: f"{field} debe ser entero válido"})
 
-
 def _truthy(v: object) -> bool:
     if isinstance(v, bool):
         return v
     s = str(v).strip().lower()
     return s in {"1", "true", "t", "yes", "y", "si", "sí"}
 
+def _safe_filename(prefix: str, base: str, ext: str) -> str:  # <-- NUEVO
+    name = slugify(str(base))[:80] or "reporte"
+    return f'{prefix}_{name}.{ext}'
 
 class CosechaReportViewSet(viewsets.GenericViewSet):
     permission_classes = [IsAuthenticated, HasHuertaModulePermission]
@@ -52,27 +54,27 @@ class CosechaReportViewSet(viewsets.GenericViewSet):
             )
         try:
             cosecha_id = _as_int(cosecha_id_raw, "cosecha_id")
-            # Generamos SIEMPRE el JSON (contiene flags/explicativo/ui) y de ahí exportamos si se pidió
             reporte_data = generar_reporte_cosecha(
                 cosecha_id=cosecha_id, usuario=request.user, formato="json", force_refresh=force_refresh
             )
 
+            info = (reporte_data or {}).get("informacion_general", {}) or {}
+            base = f"{info.get('temporada_año','')}_{info.get('cosecha_nombre','')}".strip("_") or f"{cosecha_id}"
+
             if formato == "pdf":
                 pdf = ExportacionService.generar_pdf_cosecha(reporte_data)
-                info = (reporte_data or {}).get("informacion_general", {}) or {}
-                base = f"{info.get('temporada_año','')}_{info.get('cosecha_nombre','')}".strip("_") or f"{cosecha_id}"
                 resp = HttpResponse(pdf, content_type="application/pdf")
-                resp["Content-Disposition"] = f'attachment; filename="reporte_cosecha_{base}.pdf"'
+                resp["Content-Disposition"] = f'attachment; filename="{_safe_filename("reporte_cosecha", base, "pdf")}"'
+                resp["X-Content-Type-Options"] = "nosniff"   # <-- NUEVO
                 return resp
 
             if formato == "excel":
                 excel = ExportacionService.generar_excel_cosecha(reporte_data)
-                info = (reporte_data or {}).get("informacion_general", {}) or {}
-                base = f"{info.get('temporada_año','')}_{info.get('cosecha_nombre','')}".strip("_") or f"{cosecha_id}"
                 resp = HttpResponse(
                     excel, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
-                resp["Content-Disposition"] = f'attachment; filename="reporte_cosecha_{base}.xlsx"'
+                resp["Content-Disposition"] = f'attachment; filename="{_safe_filename("reporte_cosecha", base, "xlsx")}"'
+                resp["X-Content-Type-Options"] = "nosniff"   # <-- NUEVO
                 return resp
 
             return NotificationHandler.generate_response(

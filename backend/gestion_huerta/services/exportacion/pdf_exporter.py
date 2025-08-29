@@ -1,5 +1,3 @@
-# services/exportacion/pdf_exporter.py
-
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
@@ -14,29 +12,24 @@ from reportlab.lib.colors import HexColor, Color
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import inch, mm
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak, Image
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.graphics.shapes import Drawing, Rect, Line
-from reportlab.graphics.charts.barcharts import VerticalBarChart
-from reportlab.graphics.charts.piecharts import Pie
-from reportlab.graphics.charts.legends import Legend
 
 logger = logging.getLogger(__name__)
 
 # =========================
-# Marca / Tipografías / Paleta - ACTUALIZADA
+# Marca / Tipografías / Paleta
 # =========================
-BRAND_PRIMARY = HexColor("#1a472a")      # Verde oscuro elegante
-BRAND_SECONDARY = HexColor("#2e6b87")    # Azul profesional
-BRAND_ACCENT = HexColor("#d4af37")       # Dorado para acentos
-BRAND_LIGHT = HexColor("#f8f9fa")        # Fondo claro
-BRAND_GREY = HexColor("#495057")         # Texto gris oscuro
-BRAND_SUCCESS = HexColor("#28a745")      # Verde éxito
-BRAND_WARNING = HexColor("#ffc107")      # Amarillo advertencia
-BRAND_DANGER = HexColor("#dc3545")       # Rojo peligro
+BRAND_PRIMARY = HexColor("#1a472a")
+BRAND_SECONDARY = HexColor("#2e6b87")
+BRAND_ACCENT = HexColor("#d4af37")
+BRAND_LIGHT = HexColor("#f8f9fa")
+BRAND_GREY = HexColor("#495057")
+BRAND_SUCCESS = HexColor("#28a745")
+BRAND_WARNING = HexColor("#ffc107")
+BRAND_DANGER = HexColor("#dc3545")
 
-# Degradados para tablas
 GRADIENT_LIGHT = HexColor("#e9ecef")
 GRADIENT_DARK = HexColor("#dee2e6")
 
@@ -49,8 +42,7 @@ def _register_brand_fonts():
     global _FONTS_READY, _FONT_REGULAR, _FONT_BOLD, _FONT_LIGHT
     if _FONTS_READY:
         return
-        
-    # Intentar cargar fuentes más profesionales
+
     candidates = [
         ("Roboto", "Roboto-Regular.ttf"),
         ("OpenSans", "OpenSans-Regular.ttf"),
@@ -74,7 +66,7 @@ def _register_brand_fonts():
         ("Lato-Light", "Lato-Light.ttf"),
         ("Montserrat-Light", "Montserrat-Light.ttf"),
     ]
-    
+
     common_paths = [
         "/usr/share/fonts/truetype/",
         "/usr/share/fonts/truetype/dejavu/",
@@ -83,7 +75,7 @@ def _register_brand_fonts():
         "/Library/Fonts/",
         "/System/Library/Fonts/",
     ]
-    
+
     def try_register(name: str, filename: str) -> bool:
         for base in common_paths:
             path = base + filename
@@ -94,31 +86,28 @@ def _register_brand_fonts():
                 continue
         return False
 
-    # Registrar fuentes regulares
     ok_reg = False
     for name, file in candidates:
         if try_register(name, file):
             _FONT_REGULAR = name
             ok_reg = True
             break
-            
-    # Registrar fuentes en negrita
+
     ok_bold = False
     for name, file in bold_candidates:
         if try_register(name, file):
             _FONT_BOLD = name
             ok_bold = True
             break
-            
-    # Registrar fuentes ligeras
+
     ok_light = False
     for name, file in light_candidates:
         if try_register(name, file):
             _FONT_LIGHT = name
             ok_light = True
             break
-            
-    _FONTS_READY = ok_reg or ok_bold  # No es crítico si no se encuentran las fuentes personalizadas
+
+    _FONTS_READY = ok_reg or ok_bold
 
 def _font_regular():
     return _FONT_REGULAR
@@ -130,15 +119,19 @@ def _font_light():
     return _FONT_LIGHT
 
 # =========================
-# Utilidades PDF - MEJORADAS
+# Utilidades PDF
 # =========================
 def _money(x: Any) -> float:
-    try: return float(x or 0)
-    except Exception: return 0.0
+    try:
+        return float(x or 0)
+    except Exception:
+        return 0.0
 
 def _pct(x: Any) -> float:
-    try: return float(x or 0)
-    except Exception: return 0.0
+    try:
+        return float(x or 0)
+    except Exception:
+        return 0.0
 
 def _safe_str(x: Any) -> str:
     return "" if x is None else str(x)
@@ -179,132 +172,122 @@ def _table_style_body(zebra=(colors.white, BRAND_LIGHT), text_color=BRAND_GREY) 
 
 def _pdf_doc(buffer: BytesIO) -> SimpleDocTemplate:
     return SimpleDocTemplate(
-        buffer, pagesize=A4,
+        buffer,
+        pagesize=A4,
         topMargin=0.5 * inch, leftMargin=0.4 * inch, rightMargin=0.4 * inch, bottomMargin=0.5 * inch,
     )
 
 def _pdf_styles():
     styles = getSampleStyleSheet()
     _register_brand_fonts()
-    
-    # Estilos modernizados
+
     title_style = ParagraphStyle(
-        "CustomTitle", 
-        parent=styles["Heading1"], 
-        fontName=_font_bold(), 
-        fontSize=18, 
-        spaceAfter=20, 
-        alignment=1, 
+        "CustomTitle",
+        parent=styles["Heading1"],
+        fontName=_font_bold(),
+        fontSize=18,
+        spaceAfter=20,
+        alignment=1,
         textColor=BRAND_PRIMARY,
-        spaceBefore=10
+        spaceBefore=10,
     )
-    
+
     heading_style = ParagraphStyle(
-        "CustomHeading", 
-        parent=styles["Heading2"], 
-        fontName=_font_bold(), 
-        fontSize=14, 
-        spaceAfter=12, 
+        "CustomHeading",
+        parent=styles["Heading2"],
+        fontName=_font_bold(),
+        fontSize=14,
+        spaceAfter=12,
         textColor=BRAND_SECONDARY,
         spaceBefore=15,
         borderPadding=(5, 5, 5, 5),
-        leftIndent=0
+        leftIndent=0,
     )
-    
+
     subtitle_style = ParagraphStyle(
-        "Subtitle", 
-        parent=styles["Heading3"], 
-        fontName=_font_regular(), 
-        fontSize=11, 
-        spaceAfter=8, 
+        "Subtitle",
+        parent=styles["Heading3"],
+        fontName=_font_regular(),
+        fontSize=11,
+        spaceAfter=8,
         textColor=BRAND_GREY,
-        alignment=0
+        alignment=0,
     )
-    
+
     note_style = ParagraphStyle(
-        "Note", 
-        parent=styles["Normal"], 
-        fontName=_font_regular(), 
-        fontSize=9, 
-        textColor=BRAND_GREY, 
-        spaceBefore=4, 
+        "Note",
+        parent=styles["Normal"],
+        fontName=_font_regular(),
+        fontSize=9,
+        textColor=BRAND_GREY,
+        spaceBefore=4,
         spaceAfter=4,
         backColor=HexColor("#f8f9fa"),
         borderColor=HexColor("#dee2e6"),
         borderWidth=1,
-        borderPadding=5
+        borderPadding=5,
     )
-    
+
     highlight_style = ParagraphStyle(
-        "Highlight", 
-        parent=styles["Normal"], 
-        fontName=_font_bold(), 
-        fontSize=10, 
+        "Highlight",
+        parent=styles["Normal"],
+        fontName=_font_bold(),
+        fontSize=10,
         textColor=BRAND_ACCENT,
-        spaceAfter=6
+        spaceAfter=6,
     )
-    
+
     return title_style, heading_style, subtitle_style, note_style, highlight_style
 
 def _pdf_header_footer(canvas, doc, title: str, subtitle: str = ""):
     canvas.saveState()
     width, height = A4
-    
-    # Fondo de encabezado con degradado
+
+    # Header band
     canvas.setFillColor(BRAND_PRIMARY)
     canvas.rect(0, height - 70, width, 70, stroke=0, fill=1)
-    
-    # Línea decorativa
+
+    # Separator
     canvas.setStrokeColor(BRAND_ACCENT)
     canvas.setLineWidth(2)
     canvas.line(40, height - 70, width - 40, height - 70)
-    
-    # Título
+
+    # Title
     canvas.setFillColor(colors.white)
     _register_brand_fonts()
     canvas.setFont(_font_bold(), 16)
     canvas.drawString(40, height - 35, title)
-    
-    # Subtítulo
+
     if subtitle:
         canvas.setFont(_font_light(), 12)
         canvas.drawString(40, height - 55, subtitle)
-    
-    # Fecha de generación
+
+    # Footer meta
     canvas.setFont(_font_regular(), 8)
     canvas.setFillColor(HexColor("#adb5bd"))
     fecha = datetime.now().strftime("%d/%m/%Y %H:%M")
     canvas.drawString(40, 25, f"Generado el: {fecha}")
-    
-    # Pie de página
+
     canvas.setFillColor(BRAND_GREY)
     canvas.drawString(40, 15, "Agroproductores Risol - Confidencial")
-    canvas.drawRightString(width - 40, 15, f"Página {doc.page}")
-    
-    # Línea inferior
+
+    # Página X
+    try:
+        page_num = canvas.getPageNumber()
+    except Exception:
+        page_num = 1
+    canvas.drawRightString(width - 40, 15, f"Página {page_num}")
+
+    # Bottom line
     canvas.setStrokeColor(GRADIENT_DARK)
     canvas.setLineWidth(0.5)
     canvas.line(40, 40, width - 40, 40)
-    
+
     canvas.restoreState()
 
-def _create_two_tone_header(title: str, subtitle: str = "") -> Drawing:
-    """Crea un encabezado con dos tonos para las secciones"""
-    d = Drawing(500, 50)
-    
-    # Fondo con dos tonos
-    d.add(Rect(0, 0, 500, 30, fill=1, stroke=0, fillColor=BRAND_PRIMARY))
-    d.add(Rect(0, 30, 500, 20, fill=1, stroke=0, fillColor=BRAND_LIGHT))
-    
-    # Línea decorativa
-    d.add(Line(0, 30, 500, 30, strokeColor=BRAND_ACCENT, strokeWidth=1.5))
-    
-    return d
-
 def _add_value_box(story, label: str, value: str, value_color: Color = BRAND_SECONDARY):
-    """Añade una caja de valor destacado"""
     data = [[label.upper(), value]]
-    t = Table(data, colWidths=[2.5*inch, 1.5*inch])
+    t = Table(data, colWidths=[2.5 * inch, 1.5 * inch])
     t.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (0, 0), BRAND_LIGHT),
         ("BACKGROUND", (1, 0), (1, 0), HexColor("#f8f9fa")),
@@ -324,9 +307,6 @@ def _add_value_box(story, label: str, value: str, value_color: Color = BRAND_SEC
     story.append(t)
     story.append(Spacer(1, 5))
 
-# ===================================================
-# Integración opcional con WeasyPrint (reporting.py)
-# ===================================================
 def _try_weasy_from_reporting(kind: str, reporte_data: Dict[str, Any]) -> Optional[bytes]:
     try:
         from gestion_huerta.utils import reporting as rep  # type: ignore
@@ -334,7 +314,6 @@ def _try_weasy_from_reporting(kind: str, reporte_data: Dict[str, Any]) -> Option
         return None
     meta = (reporte_data or {}).get("metadata", {}) or {}
     try:
-        # 1) Prioriza funciones que rinden desde datos (una sola fuente de verdad)
         if kind == "cosecha" and hasattr(rep, "render_cosecha_pdf_from_data"):
             return rep.render_cosecha_pdf_from_data(reporte_data)
         if kind == "temporada" and hasattr(rep, "render_temporada_pdf_from_data"):
@@ -342,59 +321,80 @@ def _try_weasy_from_reporting(kind: str, reporte_data: Dict[str, Any]) -> Option
         if kind == "perfil_huerta" and hasattr(rep, "render_huerta_pdf_from_data"):
             return rep.render_huerta_pdf_from_data(reporte_data)
 
-        # 2) Fallback legacy por ID (compatibilidad hacia atrás)
         if kind == "cosecha" and meta.get("cosecha_id"):
             return rep.render_cosecha_pdf(int(meta["cosecha_id"]))
         if kind == "temporada" and meta.get("temporada_id"):
             return rep.render_temporada_pdf(int(meta["temporada_id"]))
         if kind == "perfil_huerta":
             hid = meta.get("huerta_id") or meta.get("huerta_rentada_id")
-            if hid: return rep.render_huerta_pdf(int(hid))
+            if hid:
+                return rep.render_huerta_pdf(int(hid))
         return None
     except Exception as e:
         logger.debug("WeasyPrint fallback (%s) -> ReportLab. Motivo: %s", kind, e)
         return None
 
+# ===== Helpers de resaltado negativo
+def _styles_for_negative_column(body_chunk: List[List[Any]], col_index: int, parse_pct: bool = False):
+    """
+    Devuelve estilos para pintar en rojo valores negativos de la columna col_index.
+    body_chunk son filas ya formateadas (strings tipo '$1,234.50' o '12.3%').
+    """
+    styles = []
+    for ridx, row in enumerate(body_chunk, start=1):
+        try:
+            raw = str(row[col_index])
+            if parse_pct:
+                val = float(raw.replace("%", "").replace(" ", ""))
+            else:
+                val = float(raw.replace("$", "").replace(",", "").replace(" ", ""))
+            if val < 0:
+                styles.append(("TEXTCOLOR", (col_index, ridx), (col_index, ridx), BRAND_DANGER))
+                styles.append(("FONTNAME", (col_index, ridx), (col_index, ridx), _font_bold()))
+        except Exception:
+            continue
+    return styles
+
 # =========================
-# Exportador PDF por entidad - DISEÑO MEJORADO
+# Exportador PDF por entidad
 # =========================
 class PDFExporter:
     @staticmethod
     def generar_pdf_cosecha(reporte_data: Dict[str, Any]) -> bytes:
         weasy = _try_weasy_from_reporting("cosecha", reporte_data)
-        if weasy: return weasy
+        if weasy:
+            return weasy
 
         buffer = BytesIO()
         doc = _pdf_doc(buffer)
         title_style, heading_style, subtitle_style, note_style, highlight_style = _pdf_styles()
         story: List[Any] = []
-        
+
         # Portada
         story.append(Spacer(1, 2 * inch))
         story.append(Paragraph("REPORTE DE COSECHA", title_style))
         story.append(Spacer(1, 0.2 * inch))
-        
+
         info = reporte_data.get("informacion_general", {}) or {}
         huerta_nombre = _safe_str(info.get("huerta_nombre"))
         temporada = _safe_str(info.get("temporada_año"))
         cosecha_nombre = _safe_str(info.get("cosecha_nombre"))
-        
+
         story.append(Paragraph(f"{huerta_nombre} | {temporada}", subtitle_style))
         story.append(Paragraph(f"{cosecha_nombre}", subtitle_style))
         story.append(Spacer(1, 0.5 * inch))
-        
+
         fi = _first(info.get("fecha_inicio")); ff = _first(info.get("fecha_fin"))
         periodo_txt = _safe_str(info.get("periodo") or (f"{fi} - {ff}" if (fi or ff) else ""))
-        
+
         story.append(Paragraph(f"Período: {periodo_txt}", ParagraphStyle(
             "Detail", parent=subtitle_style, fontSize=10, textColor=BRAND_GREY
         )))
-        
+
         story.append(PageBreak())
-        
+
         # Información general
         story.append(Paragraph("INFORMACIÓN GENERAL", heading_style))
-        
         info_data = [
             ["Huerta:", f"{_safe_str(info.get('huerta_nombre'))} ({_safe_str(info.get('huerta_tipo'))})"],
             ["Ubicación:", _safe_str(info.get("ubicacion"))],
@@ -405,9 +405,9 @@ class PDFExporter:
             ["Estado:", _safe_str(info.get("estado"))],
             ["Hectáreas:", f"{_money(info.get('hectareas')):.2f} ha"],
         ]
-        
-        info_table = Table(info_data, colWidths=[2 * inch, 4 * inch], hAlign="LEFT")
-        info_table.setStyle(TableStyle([
+        from reportlab.platypus import Table
+        t_info = Table(info_data, colWidths=[2 * inch, 4 * inch], hAlign="LEFT")
+        t_info.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (0, -1), BRAND_LIGHT),
             ("TEXTCOLOR", (0, 0), (0, -1), BRAND_GREY),
             ("TEXTCOLOR", (1, 0), (1, -1), BRAND_SECONDARY),
@@ -422,12 +422,12 @@ class PDFExporter:
             ("RIGHTPADDING", (0, 0), (-1, -1), 12),
             ("GRID", (0, 0), (-1, -1), 0.5, HexColor("#dee2e6")),
         ]))
-        story += [info_table, Spacer(1, 15)]
+        story += [t_info, Spacer(1, 15)]
 
         # Resumen financiero
         story.append(Paragraph("RESUMEN FINANCIERO", heading_style))
         resumen = reporte_data.get("resumen_financiero", {}) or {}
-        
+
         flags = (reporte_data.get("flags") or {})
         if flags.get("tiene_perdida"):
             alert_style = ParagraphStyle(
@@ -436,22 +436,22 @@ class PDFExporter:
             story.append(Paragraph("ALERTA: La cosecha presenta <b>ganancia neta negativa</b>.", alert_style))
             story.append(Spacer(1, 10))
 
-        # Cajas de valores destacados
         ganancia_neta = _money(resumen.get('ganancia_neta'))
         roi = _pct(resumen.get('roi_porcentaje'))
-        
+
         _add_value_box(story, "Inversión Total", f"${_money(resumen.get('total_inversiones')):,.2f}", BRAND_SECONDARY)
         _add_value_box(story, "Ventas Totales", f"${_money(resumen.get('total_ventas')):,.2f}", BRAND_SUCCESS)
-        _add_value_box(story, "Ganancia Neta", f"${ganancia_neta:,.2f}", 
-                      BRAND_DANGER if ganancia_neta < 0 else BRAND_SUCCESS)
-        _add_value_box(story, "ROI", f"{roi:.1f}%", 
-                      BRAND_DANGER if roi < 0 else BRAND_SUCCESS)
+        _add_value_box(story, "Ganancia Neta", f"${ganancia_neta:,.2f}",
+                       BRAND_DANGER if ganancia_neta < 0 else BRAND_SUCCESS)
+        _add_value_box(story, "ROI", f"{roi:.1f}%",
+                       BRAND_DANGER if roi < 0 else BRAND_SUCCESS)
         _add_value_box(story, "Ganancia por Hectárea", f"${_money(resumen.get('ganancia_por_hectarea')):,.2f}",
-                      BRAND_DANGER if _money(resumen.get('ganancia_por_hectarea')) < 0 else BRAND_SUCCESS)
-        
+                       BRAND_DANGER if _money(resumen.get('ganancia_por_hectarea')) < 0 else BRAND_SUCCESS)
+
         story.append(Spacer(1, 15))
 
         # Detalle de inversiones
+        story.append(Paragraph("DETALLE DE INVERSIONES", heading_style))
         inv_headers = ["Fecha", "Categoría", "Insumos", "Mano Obra", "Total", "Descripción"]
         inv_rows: List[List[Any]] = [inv_headers]
         for inv in reporte_data.get("detalle_inversiones", []) or []:
@@ -463,31 +463,30 @@ class PDFExporter:
                 f"${_money(inv.get('total')):,.2f}",
                 _safe_str(inv.get("descripcion")),
             ])
-            
-        story.append(Paragraph("DETALLE DE INVERSIONES", heading_style))
         if len(inv_rows) == 1:
             story.append(Paragraph("Sin inversiones registradas.", note_style))
         else:
             header, body = inv_rows[0], inv_rows[1:]
-            for i, chunk in enumerate(_chunk_rows(body, 20)):  # Menos filas por página para mejor legibilidad
+            for i, chunk in enumerate(_chunk_rows(body, 20)):
                 t = Table([header] + chunk,
                           colWidths=[0.9*inch, 1.4*inch, 1.0*inch, 1.0*inch, 1.0*inch, 1.7*inch],
                           repeatRows=1, splitByRow=True)
                 t.setStyle(_table_style_header(BRAND_SECONDARY))
                 t.setStyle(_table_style_body())
                 t.setStyle(TableStyle([
-                    ("ALIGN", (1,1), (1,-1), "LEFT"), 
+                    ("ALIGN", (1,1), (1,-1), "LEFT"),
                     ("ALIGN", (5,1), (5,-1), "LEFT"),
                     ("FONTNAME", (5,1), (5,-1), _font_regular()),
                     ("FONTSIZE", (5,1), (5,-1), 8),
                 ]))
                 story.append(t)
-                if i < (len(body) - 1) // 20: 
+                if i < (len(body) - 1) // 20:
                     story.append(PageBreak())
                 else:
                     story.append(Spacer(1, 10))
-        
+
         # Detalle de ventas
+        story.append(Paragraph("DETALLE DE VENTAS", heading_style))
         ven_headers = ["Fecha", "Variedad", "Cajas", "Precio/Caja", "Total", "Gasto", "Utilidad Neta"]
         ven_rows: List[List[Any]] = [ven_headers]
         for v in reporte_data.get("detalle_ventas", []) or []:
@@ -502,8 +501,6 @@ class PDFExporter:
                 f"${gasto:,.2f}",
                 f"${util:,.2f}",
             ])
-            
-        story.append(Paragraph("DETALLE DE VENTAS", heading_style))
         if len(ven_rows) == 1:
             story.append(Paragraph("Sin ventas registradas.", note_style))
         else:
@@ -515,21 +512,12 @@ class PDFExporter:
                 t.setStyle(_table_style_header(BRAND_ACCENT, colors.white))
                 t.setStyle(_table_style_body())
                 t.setStyle(TableStyle([("ALIGN", (1,1), (1,-1), "LEFT")]))
-                # Pintar en rojo utilidad negativa (col 6)
-                styles = []
-                for ridx, row in enumerate(chunk, start=1):
-                    try:
-                        util_txt = row[6]
-                        util_val = float(str(util_txt).replace("$","").replace(",",""))
-                        if util_val < 0:
-                            styles.append(("TEXTCOLOR", (6, ridx), (6, ridx), BRAND_DANGER))
-                            styles.append(("FONTNAME", (6, ridx), (6, ridx), _font_bold()))
-                    except Exception:
-                        pass
-                if styles:
-                    t.setStyle(TableStyle(styles))
+                # utilidad negativa (col 6)
+                neg_styles = _styles_for_negative_column(chunk, col_index=6, parse_pct=False)
+                if neg_styles:
+                    t.setStyle(TableStyle(neg_styles))
                 story.append(t)
-                if i < (len(body) - 1) // 20: 
+                if i < (len(body) - 1) // 20:
                     story.append(PageBreak())
                 else:
                     story.append(Spacer(1, 10))
@@ -573,34 +561,35 @@ class PDFExporter:
     @staticmethod
     def generar_pdf_temporada(reporte_data: Dict[str, Any]) -> bytes:
         weasy = _try_weasy_from_reporting("temporada", reporte_data)
-        if weasy: return weasy
+        if weasy:
+            return weasy
 
         buffer = BytesIO()
         doc = _pdf_doc(buffer)
         title_style, heading_style, subtitle_style, note_style, highlight_style = _pdf_styles()
         story: List[Any] = []
-        
+
         # Portada
         story.append(Spacer(1, 2 * inch))
         story.append(Paragraph("REPORTE DE TEMPORADA", title_style))
         story.append(Spacer(1, 0.2 * inch))
-        
+
         info = reporte_data.get("informacion_general", {}) or {}
         huerta_nombre = _safe_str(info.get("huerta_nombre"))
         temporada = _safe_str(info.get("temporada_año"))
-        
+
         story.append(Paragraph(f"{huerta_nombre} | {temporada}", subtitle_style))
         story.append(Spacer(1, 0.5 * inch))
-        
+
         fi = _first(info.get("fecha_inicio")); ff = _first(info.get("fecha_fin"))
         periodo_txt = _safe_str(info.get("periodo") or (f"{fi} - {ff}" if (fi or ff) else ""))
-        
+
         story.append(Paragraph(f"Período: {periodo_txt}", ParagraphStyle(
             "Detail", parent=subtitle_style, fontSize=10, textColor=BRAND_GREY
         )))
-        
+
         story.append(PageBreak())
-        
+
         # Información general
         story.append(Paragraph("INFORMACIÓN GENERAL", heading_style))
         info_data = [
@@ -613,6 +602,7 @@ class PDFExporter:
             ["Hectáreas:", f"{_money(info.get('hectareas')):.2f} ha"],
             ["Total Cosechas:", _safe_str(info.get("total_cosechas"))],
         ]
+        from reportlab.platypus import Table
         t_info = Table(info_data, colWidths=[2 * inch, 4 * inch])
         t_info.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (0, -1), BRAND_LIGHT),
@@ -634,7 +624,7 @@ class PDFExporter:
         # Resumen ejecutivo
         story.append(Paragraph("RESUMEN EJECUTIVO", heading_style))
         res = reporte_data.get("resumen_ejecutivo", {}) or {}
-        
+
         flags = (reporte_data.get("flags") or {})
         if flags.get("tiene_perdida"):
             alert_style = ParagraphStyle(
@@ -642,19 +632,18 @@ class PDFExporter:
             )
             story.append(Paragraph("ALERTA: La temporada presenta <b>ganancia neta negativa</b>.", alert_style))
             story.append(Spacer(1, 10))
-            
-        # Cajas de valores destacados
+
         ganancia_neta = _money(res.get('ganancia_neta'))
         roi = _pct(res.get('roi_temporada'))
-        
+
         _add_value_box(story, "Inversión Total", f"${_money(res.get('inversion_total')):,.2f}", BRAND_SECONDARY)
         _add_value_box(story, "Ventas Totales", f"${_money(res.get('ventas_totales')):,.2f}", BRAND_SUCCESS)
-        _add_value_box(story, "Ganancia Neta", f"${ganancia_neta:,.2f}", 
-                      BRAND_DANGER if ganancia_neta < 0 else BRAND_SUCCESS)
-        _add_value_box(story, "ROI Temporada", f"{roi:.1f}%", 
-                      BRAND_DANGER if roi < 0 else BRAND_SUCCESS)
+        _add_value_box(story, "Ganancia Neta", f"${ganancia_neta:,.2f}",
+                       BRAND_DANGER if ganancia_neta < 0 else BRAND_SUCCESS)
+        _add_value_box(story, "ROI Temporada", f"{roi:.1f}%",
+                       BRAND_DANGER if roi < 0 else BRAND_SUCCESS)
         _add_value_box(story, "Productividad", f"{_money(res.get('productividad')):.1f} cajas/ha", BRAND_SECONDARY)
-        
+
         story.append(Spacer(1, 15))
 
         # Comparativo por cosecha
@@ -681,21 +670,12 @@ class PDFExporter:
                 t.setStyle(_table_style_header(BRAND_SECONDARY))
                 t.setStyle(_table_style_body())
                 t.setStyle(TableStyle([("ALIGN", (0,1), (0,-1), "LEFT")]))
-                # Resaltar ROI negativo
-                styles = []
-                for ridx, row in enumerate(chunk, start=1):
-                    try:
-                        roi_txt = row[4]
-                        roi_val = float(str(roi_txt).replace("%",""))
-                        if roi_val < 0:
-                            styles.append(("TEXTCOLOR", (4, ridx), (4, ridx), BRAND_DANGER))
-                            styles.append(("FONTNAME", (4, ridx), (4, ridx), _font_bold()))
-                    except Exception:
-                        pass
-                if styles:
-                    t.setStyle(TableStyle(styles))
+                # ROI negativo (col 4)
+                neg_styles = _styles_for_negative_column(chunk, col_index=4, parse_pct=True)
+                if neg_styles:
+                    t.setStyle(TableStyle(neg_styles))
                 story.append(t)
-                if i < (len(body) - 1) // 20: 
+                if i < (len(body) - 1) // 20:
                     story.append(PageBreak())
                 else:
                     story.append(Spacer(1, 10))
@@ -708,32 +688,33 @@ class PDFExporter:
     @staticmethod
     def generar_pdf_perfil_huerta(reporte_data: Dict[str, Any]) -> bytes:
         weasy = _try_weasy_from_reporting("perfil_huerta", reporte_data)
-        if weasy: return weasy
+        if weasy:
+            return weasy
 
         buffer = BytesIO()
         doc = _pdf_doc(buffer)
         title_style, heading_style, subtitle_style, note_style, highlight_style = _pdf_styles()
         story: List[Any] = []
-        
+
         # Portada
         story.append(Spacer(1, 2 * inch))
         story.append(Paragraph("PERFIL DE HUERTA", title_style))
         story.append(Spacer(1, 0.2 * inch))
-        
+
         info = reporte_data.get("informacion_general", {}) or {}
         huerta_nombre = _safe_str(info.get("huerta_nombre"))
         huerta_tipo = _safe_str(info.get("huerta_tipo"))
-        
+
         story.append(Paragraph(f"{huerta_nombre} | {huerta_tipo}", subtitle_style))
         story.append(Spacer(1, 0.5 * inch))
-        
+
         ubicacion = _safe_str(info.get("ubicacion"))
         story.append(Paragraph(f"Ubicación: {ubicacion}", ParagraphStyle(
             "Detail", parent=subtitle_style, fontSize=10, textColor=BRAND_GREY
         )))
-        
+
         story.append(PageBreak())
-        
+
         # Información general
         story.append(Paragraph("INFORMACIÓN GENERAL", heading_style))
         info_data = [
@@ -745,6 +726,7 @@ class PDFExporter:
             ["Años de Operación:", _safe_str(info.get("años_operacion"))],
             ["Temporadas Analizadas:", _safe_str(info.get("temporadas_analizadas"))],
         ]
+        from reportlab.platypus import Table
         t_info = Table(info_data, colWidths=[2 * inch, 4 * inch])
         t_info.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (0, -1), BRAND_LIGHT),
@@ -787,21 +769,12 @@ class PDFExporter:
                           repeatRows=1, splitByRow=True)
                 t.setStyle(_table_style_header(BRAND_SECONDARY))
                 t.setStyle(_table_style_body())
-                # Resaltar ROI negativo
-                styles = []
-                for ridx, row in enumerate(chunk, start=1):
-                    try:
-                        roi_txt = row[4]
-                        roi_val = float(str(roi_txt).replace("%",""))
-                        if roi_val < 0:
-                            styles.append(("TEXTCOLOR", (4, ridx), (4, ridx), BRAND_DANGER))
-                            styles.append(("FONTNAME", (4, ridx), (4, ridx), _font_bold()))
-                    except Exception:
-                        pass
-                if styles:
-                    t.setStyle(TableStyle(styles))
+                # ROI negativo (col 4)
+                neg_styles = _styles_for_negative_column(chunk, col_index=4, parse_pct=True)
+                if neg_styles:
+                    t.setStyle(TableStyle(neg_styles))
                 story.append(t)
-                if i < (len(body) - 1) // 15: 
+                if i < (len(body) - 1) // 15:
                     story.append(PageBreak())
                 else:
                     story.append(Spacer(1, 15))

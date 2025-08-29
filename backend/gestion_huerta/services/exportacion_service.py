@@ -1,6 +1,12 @@
 # -*- coding: utf-8 -*-
+"""
+ExportacionService
+------------------
+Fachada del módulo de exportación que preserva la API estable y delega
+en los exportadores concretos (PDF/Excel) por entidad.
+"""
 from __future__ import annotations
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 from gestion_huerta.services.exportacion.pdf_exporter import PDFExporter
 from gestion_huerta.services.exportacion.excel_exporter import ExcelExporter

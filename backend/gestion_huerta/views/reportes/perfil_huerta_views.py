@@ -62,10 +62,10 @@ class PerfilHuertaReportViewSet(viewsets.GenericViewSet):
                 data={"errors": {"años": "Años debe ser entero entre 1 y 10"}},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
-        if formato not in {"json", "pdf", "excel"}:
+        if formato not in {"json", "pdf", "excel", "xlsx"}:
             return NotificationHandler.generate_response(
                 message_key="validation_error",
-                data={"errors": {"formato": "Formato debe ser json, pdf o excel"}},
+                data={"errors": {"formato": "Formato debe ser json, pdf o excel/xlsx"}},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -90,7 +90,7 @@ class PerfilHuertaReportViewSet(viewsets.GenericViewSet):
                 resp["Content-Disposition"] = f'attachment; filename="perfil_{base}.pdf"'
                 return resp
 
-            if formato == "excel":
+            if formato in {"excel", "xlsx"}:
                 excel = ExportacionService.generar_excel_perfil_huerta(reporte_data)
                 base = f"huerta_{hid}" if hid else f"huerta_rentada_{hrid}"
                 resp = HttpResponse(

@@ -1,3 +1,4 @@
+// frontend/src/modules/gestion_huerta/components/reportes/common/GlosarioFinanzasModal.tsx
 import React from 'react';
 import {
   Dialog,

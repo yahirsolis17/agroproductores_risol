@@ -1112,6 +1112,8 @@ def _periodo_from_info(info: Dict[str, Any]) -> str:
 def render_cosecha_pdf_from_data(reporte_data: Dict[str, Any]) -> bytes:
     info = (reporte_data or {}).get("informacion_general", {}) or {}
     resumen = (reporte_data or {}).get("resumen_financiero", {}) or {}
+    metricas = (reporte_data or {}).get("metricas_rendimiento", {}) or {}  # <-- NUEVO
+    flags = (reporte_data or {}).get("flags", {}) or {}                    # <-- opcional (alerta)
 
     # Badges
     badges: List[str] = []
@@ -1134,7 +1136,7 @@ def render_cosecha_pdf_from_data(reporte_data: Dict[str, Any]) -> bytes:
     body: List[str] = []
     body.append(_info_general_html(info_rows))
 
-    # KPIs (map a tarjetas)
+    # KPIs (usar metricas_rendimiento; fallback a resumen si aplica)
     kpis = [
         {"id": "inv_total", "label": "Total Inversiones", "value": fmt_money(_safe_get(resumen,"total_inversiones",0))},
         {"id": "ventas_total", "label": "Total Ventas", "value": fmt_money(_safe_get(resumen,"total_ventas",0))},
@@ -1143,13 +1145,18 @@ def render_cosecha_pdf_from_data(reporte_data: Dict[str, Any]) -> bytes:
         {"id": "ganancia_neta", "label": "Ganancia Neta", "value": fmt_money(_safe_get(resumen,"ganancia_neta",0))},
         {"id": "roi", "label": "ROI", "value": f"{Flt(_safe_get(resumen,'roi_porcentaje',0)):.1f}%"},
         {"id": "ganancia_hectarea", "label": "Ganancia/Ha", "value": fmt_money(_safe_get(resumen,"ganancia_por_hectarea",0))},
-        {"id": "cajas_totales", "label": "Cajas Totales", "value": fmt_num(_safe_get(resumen,"cajas_totales",0))},
-        {"id": "precio_promedio_caja", "label": "Precio Prom. Caja", "value": fmt_money(_safe_get(resumen,"precio_promedio",0))},
-        {"id": "costo_unitario", "label": "Costo por Caja", "value": fmt_money(_safe_get(resumen,"costo_unitario",0))},
-        {"id": "margen_unitario", "label": "Margen por Caja", "value": fmt_money(_safe_get(resumen,"margen_unitario",0))},
+        # >>> de metricas_rendimiento <<<
+        {"id": "cajas_totales", "label": "Cajas Totales", "value": fmt_num(_safe_get(metricas,"cajas_totales",0))},
+        {"id": "precio_promedio_caja", "label": "Precio Prom. Caja", "value": fmt_money(_safe_get(metricas,"precio_promedio_caja", _safe_get(resumen,"precio_promedio",0)))},
+        {"id": "costo_unitario", "label": "Costo por Caja", "value": fmt_money(_safe_get(metricas,"costo_por_caja", _safe_get(resumen,"costo_unitario",0)))},
+        {"id": "margen_unitario", "label": "Margen por Caja", "value": fmt_money(_safe_get(metricas,"margen_por_caja", _safe_get(resumen,"margen_unitario",0)))},
     ]
     body.append('<h2 class="section-title">Indicadores Clave</h2>')
     body.append(_kpi_cards_html([k for k in kpis if k["value"] not in ("$0.00","0")] or kpis))
+
+    # (Opcional) alerta si hay pérdida neta
+    if bool(_safe_get(flags, "tiene_perdida", False)):
+        body.append('<div style="margin:8px 0 0;color:#b91c1c;font-weight:700;">ALERTA: Ganancia neta negativa</div>')
 
     # Distribución inversiones (analisis_categorias)
     cats = (reporte_data or {}).get("analisis_categorias") or []
@@ -1197,6 +1204,7 @@ def render_cosecha_pdf_from_data(reporte_data: Dict[str, Any]) -> bytes:
     title = f"Reporte de Cosecha · {_safe_get(info,'cosecha_nombre','—')}"
     html = _render_html_document(title=title, subtitle="Resumen financiero y operativo", meta_badges=badges, body_html="".join(body))
     return _html_to_pdf_bytes(html)
+
 
 
 def render_temporada_pdf_from_data(reporte_data: Dict[str, Any]) -> bytes:

@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+// reportetemporada.tsx
+import { useMemo, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Box, Divider, Alert, CircularProgress } from '@mui/material';
 import ReportesProduccionToolbar from '../components/reportes/ReportesProduccionToolbar';
@@ -12,10 +13,10 @@ export default function ReporteTemporada() {
   const id = useMemo(() => Number(temporadaId), [temporadaId]);
   const { data, loading, error, refetch } = useReporteTemporada(id);
 
-  const handleExport = async (formato: FormatoReporte) => {
+  const handleExport = useCallback(async (formato: FormatoReporte) => {
     if (!id) return;
     await reportesProduccionService.generarReporteTemporada({ temporada_id: id, formato });
-  };
+  }, [id]);
 
   return (
     <Box sx={{ p: 2 }}>
@@ -30,7 +31,6 @@ export default function ReporteTemporada() {
         <ReporteProduccionViewer
           data={data}
           title="Reporte de Temporada"
-
         />
       )}
     </Box>

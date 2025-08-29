@@ -1,4 +1,23 @@
 # -*- coding: utf-8 -*-
+"""
+Servicio de Reportes: TEMPORADA
+--------------------------------
+Responsabilidad
+- Consolidar todas las cosechas de una temporada en un reporte único (JSON) listo para UI y exportación (PDF/Excel).
+
+Incluye
+- Resumen ejecutivo (inversión, ventas, gastos, utilidad, ROI, productividad, cajas).
+- Comparativo por cosecha y análisis global por categorías/variedades.
+- Métricas de eficiencia por hectárea y por caja.
+- Cache por solicitante (aislado por UID) y validación de integridad temporal.
+
+Reglas de negocio
+- ROI temporada = ganancia_neta / inversión_total * 100; si inversión_total==0 → ROI=0.
+- Ganancia bruta = ventas_totales - gastos_venta; ganancia neta = bruta - inversión_total.
+- Fechas normalizadas (YYYY-MM-DD); `fecha_generacion` no debe estar >5 min en el futuro.
+- Permisos: superuser/staff o `gestion_huerta.view_temporada`.
+  (Sugerencia: agregar verificación de pertenencia a la huerta si el modelo lo permite).
+"""
 from __future__ import annotations
 
 from decimal import Decimal, ROUND_HALF_UP
@@ -12,19 +31,18 @@ from django.utils import timezone
 
 from gestion_huerta.models import Temporada, Cosecha, InversionesHuerta, Venta
 from gestion_huerta.services.exportacion_service import ExportacionService
-from gestion_huerta.services.reportes.cosecha_service import (
-    generar_reporte_cosecha, D as D_c, Flt as Flt_c, I as I_c, safe_str as safe_str_c
-)
+from gestion_huerta.services.reportes.cosecha_service import generar_reporte_cosecha
 from gestion_huerta.utils.cache_keys import (
     REPORTES_CACHE_TIMEOUT,
     REPORTES_CACHE_VERSION,
     generate_cache_key,
 )
 
-# ========= Utilidades locales (copiadas para consistencia) =========
+# ========= Utilidades locales (consistentes con otros servicios) =========
 TWOPLACES = Decimal("0.01")
 
 def D(x: Any) -> Decimal:
+    """Convierte a Decimal seguro (None→0)."""
     try:
         if x is None:
             return Decimal("0")
@@ -33,21 +51,25 @@ def D(x: Any) -> Decimal:
         return Decimal("0")
 
 def Flt(x: Any) -> float:
+    """Decimal→float con redondeo HALF_UP (2 decimales)."""
     try:
         return float(D(x).quantize(TWOPLACES, rounding=ROUND_HALF_UP))
     except Exception:
         return 0.0
 
 def I(x: Any) -> int:
+    """Entero seguro."""
     try:
         return int(D(x))
     except Exception:
         return 0
 
 def safe_str(x: Any) -> str:
+    """String seguro."""
     return "" if x is None else str(x)
 
 def _date_only(dt) -> Optional[str]:
+    """Normaliza fecha a YYYY-MM-DD (acepta date/datetime/string)."""
     if not dt:
         return None
     try:
@@ -57,6 +79,7 @@ def _date_only(dt) -> Optional[str]:
         return s.split("T", 1)[0] if s else None
 
 def _group_by_date(items: List[Dict[str, Any]], date_key: str, value_key: str) -> List[Dict[str, Any]]:
+    """Agrupa lista de dicts por fecha y suma `value_key`."""
     bucket: Dict[str, Decimal] = {}
     for it in items:
         f = it.get(date_key)
@@ -67,11 +90,13 @@ def _group_by_date(items: List[Dict[str, Any]], date_key: str, value_key: str) -
     return [{"fecha": k, "valor": Flt(v)} for k, v in sorted(bucket.items())]
 
 def _validar_permisos_temporada(usuario, temporada) -> bool:
+    """Permite ver si superuser/staff o `has_perm('gestion_huerta.view_temporada')`."""
     if getattr(usuario, "is_superuser", False) or getattr(usuario, "is_staff", False):
         return True
     return hasattr(usuario, "has_perm") and usuario.has_perm("gestion_huerta.view_temporada")
 
 def _analizar_categorias_inversiones(inversiones_qs, total_inversiones: Decimal) -> List[Dict[str, Any]]:
+    """Agrega inversiones por categoría (solo si total_inversiones>0)."""
     if total_inversiones <= 0:
         return []
     acc: Dict[str, Decimal] = {}
@@ -86,6 +111,7 @@ def _analizar_categorias_inversiones(inversiones_qs, total_inversiones: Decimal)
     return out
 
 def _analizar_variedades_ventas(ventas_qs, total_ventas: Decimal) -> List[Dict[str, Any]]:
+    """Agrega ventas por variedad (solo si total_ventas>0)."""
     if total_ventas <= 0:
         return []
     acc: Dict[str, Dict[str, Any]] = {}
@@ -116,6 +142,7 @@ def _build_ui_from_temporada(
     detalle_inversiones_all: List[Dict[str, Any]],
     detalle_ventas_all: List[Dict[str, Any]],
 ) -> Dict[str, Any]:
+    """Construye estructura `ui` (KPIs, series, tablas) para frontend."""
     re = rep.get("resumen_ejecutivo", {}) or {}
     kpis = [
         {"label": "Inversión Total", "value": re.get("inversion_total", 0.0), "format": "currency"},
@@ -123,7 +150,7 @@ def _build_ui_from_temporada(
         {"label": "Ganancia Neta", "value": re.get("ganancia_neta", 0.0), "format": "currency"},
         {"label": "ROI Temporada", "value": re.get("roi_temporada", 0.0), "format": "percentage"},
         {"label": "Productividad (cajas/ha)", "value": re.get("productividad", 0.0), "format": "number"},
-        {"label": "Cajas Totales", "value": rep.get("resumen_ejecutivo", {}).get("cajas_totales", 0), "format": "number"},
+        {"label": "Cajas Totales", "value": re.get("cajas_totales", 0), "format": "number"},
     ]
     series_inv = _group_by_date(detalle_inversiones_all, "fecha", "total")
     series_ven = _group_by_date(detalle_ventas_all, "fecha", "total_venta")
@@ -168,8 +195,8 @@ def _build_ui_from_temporada(
     return {"kpis": kpis, "series": {"inversiones": series_inv, "ventas": series_ven, "ganancias": series_gan}, "tablas": tablas}
 
 def _validar_integridad_reporte(reporte_data: Dict[str, Any]) -> bool:
+    """Valida solo `fecha_generacion` (no >5 min en el futuro) para reportes de temporada."""
     try:
-        # Para temporada aplicamos solo validaciones generales de fecha
         meta = reporte_data.get("metadata", {}) or {}
         fecha_str = meta.get("fecha_generacion")
         if fecha_str:
@@ -190,7 +217,10 @@ def generar_reporte_temporada(
     force_refresh: bool = False,
     temporada_inst: Optional[Temporada] = None,
 ) -> Dict[str, Any]:
-    # Cache por usuario
+    """
+    Genera el reporte agregado de la temporada (JSON) sumando sus cosechas.
+    Cachea por (temporada_id, formato, uid). Reutiliza cosechas prefeteadas para evitar roundtrips.
+    """
     cache_key = generate_cache_key(
         "temporada", {"temporada_id": temporada_id, "formato": formato, "uid": getattr(usuario, "id", None)}
     )
@@ -349,6 +379,11 @@ def generar_reporte_temporada(
     return reporte
 
 def exportar_temporada(temporada_id: int, usuario, formato: str) -> bytes:
+    """
+    Exporta una temporada:
+      - pdf -> PDFExporter.generar_pdf_temporada(JSON)
+      - excel/xlsx -> ExcelExporter.generar_excel_temporada(JSON)
+    """
     rep = generar_reporte_temporada(temporada_id, usuario, "json", force_refresh=True)
     if formato.lower() == "pdf":
         return ExportacionService.generar_pdf_temporada(rep)
