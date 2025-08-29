@@ -77,9 +77,7 @@ MIDDLEWARE = [
 
     # Middlewares personalizados
     # 'agroproductores_risol.middlewares.ip_restriction',
-    'agroproductores_risol.middlewares.security.BlockInactiveUserMiddleware',
-    'agroproductores_risol.middlewares.security.PreventBackAfterLogoutMiddleware',
-    'agroproductores_risol.middlewares.security.RoleBasedRedirectMiddleware',
+
 ]
 
 ROOT_URLCONF = 'agroproductores_risol.urls'

@@ -14,13 +14,11 @@ from gestion_huerta.views.categoria_inversion_views import CategoriaInversionVie
 from gestion_huerta.views.cosechas_views import CosechaViewSet
 from gestion_huerta.views.ventas_views import VentaViewSet
 from gestion_huerta.views.temporadas_views import TemporadaViewSet
-from gestion_huerta.views.registro_actividad import RegistroActividadViewSet
 
 # === IMPORTS de NUEVAS VISTAS DE REPORTES ===
 from gestion_huerta.views.reportes.cosecha_views import CosechaReportViewSet
 from gestion_huerta.views.reportes.temporada_views import TemporadaReportViewSet
 from gestion_huerta.views.reportes.perfil_huerta_views import PerfilHuertaReportViewSet
-from gestion_huerta.views.reportes.reportes_utils_views import ReportesUtilViewSet
 
 app_name = "gestion_huerta"
 
@@ -34,7 +32,6 @@ router.register(r"categorias-inversion", CategoriaInversionViewSet, basename="ca
 router.register(r"inversiones", InversionHuertaViewSet, basename="inversion")
 router.register(r"ventas", VentaViewSet, basename="venta")
 router.register(r"temporadas", TemporadaViewSet, basename="temporada")
-router.register(r"actividad", RegistroActividadViewSet, basename="actividad")
 router.register(r"huertas-combinadas", HuertasCombinadasViewSet, basename="huertas-combinadas")
 
 # Router de reportes (mismo prefijo '/reportes' con vistas separadas)
@@ -42,7 +39,6 @@ reportes_router = DefaultRouter()
 reportes_router.register(r"reportes", CosechaReportViewSet, basename="reportes-cosecha")
 reportes_router.register(r"reportes", TemporadaReportViewSet, basename="reportes-temporada")
 reportes_router.register(r"reportes", PerfilHuertaReportViewSet, basename="reportes-perfil-huerta")
-reportes_router.register(r"reportes", ReportesUtilViewSet, basename="reportes-utils")
 
 urlpatterns = [
     path("", include(router.urls)),
