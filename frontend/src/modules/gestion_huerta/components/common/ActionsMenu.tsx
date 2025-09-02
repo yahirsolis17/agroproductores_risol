@@ -7,6 +7,7 @@ import {
   Tooltip,
   ListItemIcon,
   ListItemText,
+  Divider,
 } from '@mui/material';
 import { shallowEqual, useSelector } from 'react-redux';
 import type { RootState } from '../../../../global/store/store';
@@ -21,6 +22,7 @@ import DoneAllIcon from '@mui/icons-material/DoneAll';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import AgricultureIcon from '@mui/icons-material/Agriculture';
 import AssessmentIcon from '@mui/icons-material/Assessment';
+import PaidIcon from '@mui/icons-material/Paid';
 
 type Perm = string | string[] | undefined;
 
@@ -48,6 +50,10 @@ interface ActionsMenuProps {
   // Navegar a cosechas
   onCosechas?: () => void;
   permCosechas?: Perm;
+
+  // Ver finanzas
+  onVerFinanzas?: () => void;
+  permVerFinanzas?: Perm;
 
   // 👉 NUEVOS: reportes
   onReporteCosecha?: () => void;
@@ -80,6 +86,8 @@ const ActionsMenu: React.FC<ActionsMenuProps> = ({
   permTemporadas,
   onCosechas,
   permCosechas,
+  onVerFinanzas,
+  permVerFinanzas,
 
   // reportes
   onReporteCosecha,
@@ -195,6 +203,40 @@ const ActionsMenu: React.FC<ActionsMenuProps> = ({
           })()
         )}
 
+        {/* Ver Finanzas (disponible con permiso, sin importar archivo) */}
+        {onVerFinanzas && (
+          (() => {
+            const allowed = hasPerm(permVerFinanzas);
+            return (
+              <Tooltip title={allowed ? '' : 'No tienes permiso'} disableHoverListener={allowed}>
+                <span style={{ display: 'block' }}>
+                  <MenuItem disabled={!allowed} onClick={() => handle(onVerFinanzas)}>
+                    <ListItemIcon>
+                      <PaidIcon fontSize="small" />
+                    </ListItemIcon>
+                    <ListItemText primary="Ver finanzas" />
+                  </MenuItem>
+                </span>
+              </Tooltip>
+            );
+          })()
+        )}
+
+        {(
+          (
+            (!hideFinalize && !isArchived && onFinalize) ||
+            (!hideTemporadas && !isArchived && onTemporadas) ||
+            (!isArchived && onCosechas) ||
+            onVerFinanzas
+          ) && (
+            (!isArchived && onReporteCosecha) ||
+            (!isArchived && onReporteTemporada) ||
+            (!isArchived && onReporteHuerta)
+          )
+        ) && (
+          <Divider component="li" sx={{ my: 0.5 }} />
+        )}
+
         {/* ====== REPORTES ====== */}
         {/* Reporte de Cosecha */}
         {!isArchived && onReporteCosecha && (
@@ -245,6 +287,22 @@ const ActionsMenu: React.FC<ActionsMenuProps> = ({
               </Tooltip>
             );
           })()
+        )}
+
+        {(
+          (
+            (!hideFinalize && !isArchived && onFinalize) ||
+            (!hideTemporadas && !isArchived && onTemporadas) ||
+            (!isArchived && onCosechas) ||
+            onVerFinanzas ||
+            (!isArchived && (onReporteCosecha || onReporteTemporada || onReporteHuerta))
+          ) && (
+            (!hideEdit && !isArchived && onEdit) ||
+            (!hideArchiveToggle && onArchiveOrRestore) ||
+            (!hideDelete && isArchived && onDelete)
+          )
+        ) && (
+          <Divider component="li" sx={{ my: 0.5 }} />
         )}
 
         {/* Editar */}

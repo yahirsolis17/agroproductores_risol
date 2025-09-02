@@ -4,7 +4,7 @@ import { Chip, Box } from '@mui/material';
 import { TableLayout, Column } from '../../../../components/common/TableLayout';
 import { Cosecha } from '../../types/cosechaTypes';
 import ActionsMenu from '../common/ActionsMenu';
-import { PermissionButton } from '../../../../components/common/PermissionButton';
+ 
 
 // Formato de fecha seguro (evita desfases por zona horaria)
 const formatPretty = (iso: string | null) => {
@@ -103,6 +103,9 @@ const CosechaTable: React.FC<Props> = ({
             onArchiveOrRestore={() => (isArchived ? onRestore(c) : onArchive(c))}
             onDelete={isArchived ? () => onDelete(c) : undefined}
             onReporteCosecha={onReporteCosecha ? () => onReporteCosecha(c) : undefined}
+            // Integrado: Ver finanzas dentro del menú
+            onVerFinanzas={() => onVerFinanzas(c)}
+            permVerFinanzas="view_inversioneshuerta"
             /* 👇 permisos necesarios (solo añadidos; nada más cambia) */
             permEdit="change_cosecha"
             permArchiveOrRestore={['archive_cosecha', 'restore_cosecha']}
@@ -110,15 +113,7 @@ const CosechaTable: React.FC<Props> = ({
             permFinalize={['finalize_cosecha', 'change_cosecha']}
             permReporteCosecha="view_cosecha"
           />
-          <PermissionButton
-            perm="view_inversioneshuerta"
-            variant="outlined"
-            size="small"
-            onClick={() => onVerFinanzas(c)}
-            sx={{ textTransform: 'none' }}
-          >
-            Ver Finanzas
-          </PermissionButton>
+          
         </Box>
       );
     }}
