@@ -276,10 +276,10 @@ const CategoriaAutocomplete: React.FC<Props> = ({
           />
         )}
         renderOption={(props, option) => {
-          const anyOpt = option as any;
+          const añopt = option as any;
 
           // Opción "nueva categoría"
-          if (anyOpt.id === -1) {
+          if (añopt.id === -1) {
             return (
               <li
                 {...props}

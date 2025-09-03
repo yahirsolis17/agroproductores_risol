@@ -20,10 +20,10 @@ class Migration(migrations.Migration):
         ),
         migrations.RemoveConstraint(
             model_name='temporada',
-            name='uniq_temporada_anio_huerta',
+            name='uniq_temporada_año_huerta',
         ),
         migrations.RemoveConstraint(
             model_name='temporada',
-            name='uniq_temporada_anio_huerta_rentada',
+            name='uniq_temporada_año_huerta_rentada',
         ),
     ]

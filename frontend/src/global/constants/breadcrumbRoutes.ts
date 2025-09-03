@@ -54,7 +54,7 @@ export const breadcrumbRoutes = {
     huertaName: string,
     año: number,
     temporadaId: number,
-    opts?: { tipo?: 'propia' | 'rentada'; propietario?: string }
+    opts?: { tipo?: 'propia' | 'rentada'; propietario?: string; cosechaNombre?: string }
   ): Crumb[] => [
     {
       label: `Huertas – ${huertaName}`,
@@ -118,7 +118,7 @@ export const breadcrumbRoutes = {
     año: number,
     temporadaId: number,
     cosechaId: number,
-    opts?: { tipo?: 'propia' | 'rentada'; propietario?: string }
+    opts?: { tipo?: 'propia' | 'rentada'; propietario?: string; cosechaNombre?: string }
   ): Crumb[] => [
     {
       label: `Huertas – ${huertaName}`,
@@ -143,7 +143,12 @@ export const breadcrumbRoutes = {
         propietario: opts?.propietario,
       })}`,
     },
-    { label: `Reporte de Cosecha #${cosechaId}`, path: '' },
+    {
+      label: opts?.cosechaNombre
+        ? `Reporte de Cosecha: ${opts.cosechaNombre}`
+        : `Reporte de Cosecha #${cosechaId}`,
+      path: ''
+    },
   ],
 
   /** Reporte de Temporada */

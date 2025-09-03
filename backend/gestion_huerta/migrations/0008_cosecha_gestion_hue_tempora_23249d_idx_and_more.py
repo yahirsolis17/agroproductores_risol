@@ -48,10 +48,10 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='temporada',
-            constraint=models.UniqueConstraint(condition=models.Q(('huerta__isnull', False)), fields=('año', 'huerta'), name='uniq_temporada_anio_huerta'),
+            constraint=models.UniqueConstraint(condition=models.Q(('huerta__isnull', False)), fields=('año', 'huerta'), name='uniq_temporada_año_huerta'),
         ),
         migrations.AddConstraint(
             model_name='temporada',
-            constraint=models.UniqueConstraint(condition=models.Q(('huerta_rentada__isnull', False)), fields=('año', 'huerta_rentada'), name='uniq_temporada_anio_huerta_rentada'),
+            constraint=models.UniqueConstraint(condition=models.Q(('huerta_rentada__isnull', False)), fields=('año', 'huerta_rentada'), name='uniq_temporada_año_huerta_rentada'),
         ),
     ]

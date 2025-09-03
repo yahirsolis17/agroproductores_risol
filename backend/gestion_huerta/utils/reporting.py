@@ -471,33 +471,33 @@ def series_for_huerta(huerta_id: int) -> List[Dict[str, Any]]:
     """Series históricas para huerta (ingresos vs inversiones, ROI anual, productividad, etc.)."""
     huerta = _resolver_huerta(huerta_id)
 
-    inv_por_anio = (
+    inv_por_año = (
         InversionesHuerta.objects.filter(is_active=True)
         .filter(Q(huerta=huerta) | Q(huerta_rentada=huerta) | Q(temporada__huerta=huerta) | Q(temporada__huerta_rentada=huerta))
         .values("temporada__año")
         .annotate(total_inv=Sum(F("gastos_insumos") + F("gastos_mano_obra")))
     )
-    ventas_por_anio = (
+    ventas_por_año = (
         Venta.objects.filter(is_active=True)
         .filter(Q(huerta=huerta) | Q(huerta_rentada=huerta) | Q(temporada__huerta=huerta) | Q(temporada__huerta_rentada=huerta))
         .values("temporada__año")
         .annotate(total_ventas=Sum(F("num_cajas") * F("precio_por_caja")))
     )
-    data_ingresos = {item["temporada__año"]: Flt(item["total_ventas"] or 0) for item in ventas_por_anio}
-    data_gastos = {item["temporada__año"]: Flt(item["total_inv"] or 0) for item in inv_por_anio}
-    anios = sorted(set(list(data_ingresos.keys()) + list(data_gastos.keys())))
-    data_line = [{"year": str(year), "inversion": data_gastos.get(year, 0.0), "ventas": data_ingresos.get(year, 0.0)} for year in anios]
+    data_ingresos = {item["temporada__año"]: Flt(item["total_ventas"] or 0) for item in ventas_por_año}
+    data_gastos = {item["temporada__año"]: Flt(item["total_inv"] or 0) for item in inv_por_año}
+    años = sorted(set(list(data_ingresos.keys()) + list(data_gastos.keys())))
+    data_line = [{"year": str(year), "inversion": data_gastos.get(year, 0.0), "ventas": data_ingresos.get(year, 0.0)} for year in años]
 
     # ROI por año
-    roi_por_anio = []
-    for year in anios:
+    roi_por_año = []
+    for year in años:
         inv = data_gastos.get(year, 0.0)
         ventas = data_ingresos.get(year, 0.0)
         roi = ((ventas - inv) / inv * 100.0) if inv > 0 else 0.0
-        roi_por_anio.append({"year": str(year), "roi": round(roi, 1)})
+        roi_por_año.append({"year": str(year), "roi": round(roi, 1)})
 
     # Cajas por hectárea (productividad)
-    cajas_por_anio = (
+    cajas_por_año = (
         Venta.objects.filter(is_active=True)
         .filter(Q(huerta=huerta) | Q(huerta_rentada=huerta) | Q(temporada__huerta=huerta) | Q(temporada__huerta_rentada=huerta))
         .values("temporada__año")
@@ -505,7 +505,7 @@ def series_for_huerta(huerta_id: int) -> List[Dict[str, Any]]:
     )
     hectareas = Flt(getattr(huerta, "hectareas", 0))
     data_prod = []
-    for item in cajas_por_anio:
+    for item in cajas_por_año:
         year = item["temporada__año"]
         cajas = int(item["total_cajas"] or 0)
         prod = (cajas / hectareas) if hectareas > 0 else 0.0
@@ -532,7 +532,7 @@ def series_for_huerta(huerta_id: int) -> List[Dict[str, Any]]:
 
     return [
         {"id": "ingresos_vs_gastos", "label": "Ingresos vs Inversiones por Año", "type": "line", "data": data_line},
-        {"id": "roi_anual", "label": "ROI por Año", "type": "bar", "data": roi_por_anio},
+        {"id": "roi_anual", "label": "ROI por Año", "type": "bar", "data": roi_por_año},
         {"id": "productividad", "label": "Cajas por Ha por Año", "type": "area", "data": data_prod},
         {"id": "dist_inversion_hist", "label": "Distribución Hist. Inversiones", "type": "pie", "data": data_pie},
         {"id": "estacionalidad", "label": "Estacionalidad de Ventas", "type": "line", "data": data_mes},

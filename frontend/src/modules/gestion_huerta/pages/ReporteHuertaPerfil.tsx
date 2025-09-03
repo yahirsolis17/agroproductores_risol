@@ -1,5 +1,5 @@
 // reportehuertaperfil.tsx
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useEffect } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { Box, Typography, Divider, Alert, CircularProgress } from '@mui/material';
 import ReportesProduccionToolbar from '../components/reportes/ReportesProduccionToolbar';
@@ -7,6 +7,9 @@ import ReporteProduccionViewer from '../components/reportes/ReporteProduccionVie
 import { reportesProduccionService } from '../services/reportesProduccionService';
 import { useReportePerfilHuerta } from '../hooks/useReportePerfilHuerta';
 import { FormatoReporte } from '../types/reportesProduccionTypes';
+import { useDispatch } from 'react-redux';
+import { setBreadcrumbs, clearBreadcrumbs } from '../../../global/store/breadcrumbsSlice';
+import { breadcrumbRoutes } from '../../../global/constants/breadcrumbRoutes';
 
 function useQuery() {
   const { search } = useLocation();
@@ -17,21 +20,36 @@ export default function ReportePerfilHuerta() {
   const { huertaId: huertaIdParam } = useParams<{ huertaId: string }>();
   const query = useQuery();
   const isRentada = query.get('rentada') === '1';
-  const años = Number(query.get('anios') || '5');
+  const años = Number(query.get('años') || '5');
 
   const huertaId = !isRentada ? Number(huertaIdParam) : undefined;
   const huertaRentadaId = isRentada ? Number(huertaIdParam) : undefined;
 
   const { data, loading, error, refetch } = useReportePerfilHuerta(huertaId, huertaRentadaId, años);
 
+  const dispatch = useDispatch();
+
   const handleExport = useCallback(async (formato: FormatoReporte) => {
     await reportesProduccionService.generarReportePerfilHuerta({
       formato,
       huerta_id: huertaId,
       huerta_rentada_id: huertaRentadaId,
-      años,
+      // años omitido (opcional en backend)
     });
-  }, [huertaId, huertaRentadaId, años]);
+  }, [huertaId, huertaRentadaId]);
+
+  // Breadcrumbs: Huerta seleccionada / Reporte de Huerta (perfil)
+  useEffect(() => {
+    const id = Number(huertaIdParam);
+    const nameFromQS = query.get('huerta_nombre') || undefined;
+    const nameFromData = data?.metadata?.infoHuerta?.huerta_nombre || undefined;
+    const huertaName = nameFromQS || nameFromData || (id ? `#${id}` : 'Huerta');
+
+    if (id) {
+      dispatch(setBreadcrumbs(breadcrumbRoutes.reporteHuertaPerfil(id, huertaName)));
+    }
+    return () => { dispatch(clearBreadcrumbs()); };
+  }, [dispatch, huertaIdParam, query, data?.metadata?.infoHuerta?.huerta_nombre]);
 
   return (
     <Box sx={{ p: 2 }}>

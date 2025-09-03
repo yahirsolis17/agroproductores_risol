@@ -144,8 +144,8 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         if self.action in ['archivar', 'restaurar', 'retrieve', 'destroy', 'finalizar', 'update', 'partial_update']:
             return qs
 
-        # Filtro por año (acepta 'año' y alias 'anio')
-        year = params.get("año") or params.get("anio")
+        # Filtro por año (acepta 'año' y alias 'año')
+        year = params.get("año") or params.get("año")
         if year:
             qs = qs.filter(año=year)
 
