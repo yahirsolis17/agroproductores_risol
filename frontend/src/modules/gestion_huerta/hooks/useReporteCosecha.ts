@@ -26,6 +26,9 @@ const toSeriesAny = (arr: any[]): SeriesDataPoint[] =>
     }))
     .filter((p) => !!p.fecha);
 
+const sortISO = (arr: SeriesDataPoint[]) =>
+  [...arr].sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+
 // ---- Adaptador: backend (reporte.cosecha) -> contrato UI (ReporteProduccionData) ----
 const adaptCosechaToUI = (reporte: any, filtroFrom?: string, filtroTo?: string): ReporteProduccionData => {
   if (!reporte || typeof reporte !== 'object') {
@@ -76,10 +79,13 @@ const adaptCosechaToUI = (reporte: any, filtroFrom?: string, filtroTo?: string):
   }
 
   if (!series.inversiones?.length && !series.ventas?.length && !series.ganancias?.length) {
+    const inv = sumByDate(detalleInv, 'fecha', 'total');
+    const ven = sumByDate(detalleVen, 'fecha', 'total_venta');
+    const gan = sumByDate(detalleVen, 'fecha', 'ganancia_neta');
     series = {
-      inversiones: sumByDate(detalleInv, 'fecha', 'total'),
-      ventas: sumByDate(detalleVen, 'fecha', 'total_venta'),
-      ganancias: sumByDate(detalleVen, 'fecha', 'ganancia_neta'),
+      inversiones: sortISO(inv),
+      ventas:      sortISO(ven),
+      ganancias:   sortISO(gan),
     };
   }
 

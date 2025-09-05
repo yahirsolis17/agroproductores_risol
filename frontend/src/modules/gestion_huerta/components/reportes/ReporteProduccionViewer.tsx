@@ -27,6 +27,7 @@ import {
   ReporteProduccionData,
   KPIData,
 } from '../../types/reportesProduccionTypes';
+import { formatDateLongEs } from '../../../../global/utils/date';
 import { formatCurrency, formatNumber } from '../../../../global/utils/formatters';
 import {
   TrendingUp,
@@ -378,7 +379,10 @@ export default function ReporteProduccionViewer({
               const periodo = (() => {
                 const fi = info.fecha_inicio || data.metadata?.periodo?.inicio || '';
                 const ff = info.fecha_fin || data.metadata?.periodo?.fin || '';
-                return `${fi || ''} - ${ff || ''}`.trim();
+                const fiFmt = fi ? formatDateLongEs(fi) : '';
+                const ffFmt = ff ? formatDateLongEs(ff) : '';
+                if (fiFmt && ffFmt) return `${fiFmt} - ${ffFmt}`;
+                return fiFmt || ffFmt || '';
               })();
               const temporada = (info.temporada_año ?? info['temporada_a��o'] ?? '') as any;
               const rows: Array<[string, string]> = [
@@ -556,6 +560,7 @@ export default function ReporteProduccionViewer({
               inversiones={data.tablas?.inversiones}
               ventas={data.tablas?.ventas}
               comparativo_cosechas={data.tablas?.comparativo_cosechas}
+              resumen_historico={data.tablas?.resumen_historico}
             />
           </Suspense>
         </Box>

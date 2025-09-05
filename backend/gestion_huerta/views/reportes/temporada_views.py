@@ -7,8 +7,8 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from django.http import HttpResponse
 from django.core.exceptions import ValidationError, PermissionDenied
+from django.utils.text import slugify  # NUEVO: para nombres de archivo seguros
 
-# NUEVO: usamos el servicio específico de reportes de temporada
 from gestion_huerta.services.reportes.temporada_service import generar_reporte_temporada
 from gestion_huerta.services.exportacion_service import ExportacionService
 from gestion_huerta.utils.notification_handler import NotificationHandler
@@ -50,29 +50,37 @@ class TemporadaReportViewSet(viewsets.GenericViewSet):
                 data={"errors": {"formato": "Formato debe ser json, pdf o excel/xlsx"}},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
+
         try:
             temporada_id = _as_int(temporada_id_raw, "temporada_id")
-            # Generamos SIEMPRE el JSON y exportamos si aplica (con campos nuevos)
+
+            # Generar SIEMPRE JSON y exportar si aplica
             reporte_data = generar_reporte_temporada(
-                temporada_id=temporada_id, usuario=request.user, formato="json", force_refresh=force_refresh
+                temporada_id=temporada_id,
+                usuario=request.user,
+                formato="json",
+                force_refresh=force_refresh,
             )
+
+            info = (reporte_data or {}).get("informacion_general", {}) or {}
+            raw_base = f"{info.get('temporada_año','')}_{info.get('huerta_nombre','')}".strip("_") or f"{temporada_id}"
+            base = slugify(raw_base)[:80] or "reporte"
 
             if formato == "pdf":
                 pdf = ExportacionService.generar_pdf_temporada(reporte_data)
-                info = (reporte_data or {}).get("informacion_general", {}) or {}
-                base = f"{info.get('temporada_año','')}_{info.get('huerta_nombre','')}".strip("_") or f"{temporada_id}"
                 resp = HttpResponse(pdf, content_type="application/pdf")
                 resp["Content-Disposition"] = f'attachment; filename="reporte_temporada_{base}.pdf"'
+                resp["X-Content-Type-Options"] = "nosniff"
                 return resp
 
             if formato in {"excel", "xlsx"}:
                 excel = ExportacionService.generar_excel_temporada(reporte_data)
-                info = (reporte_data or {}).get("informacion_general", {}) or {}
-                base = f"{info.get('temporada_año','')}_{info.get('huerta_nombre','')}".strip("_") or f"{temporada_id}"
                 resp = HttpResponse(
-                    excel, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    excel,
+                    content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 )
                 resp["Content-Disposition"] = f'attachment; filename="reporte_temporada_{base}.xlsx"'
+                resp["X-Content-Type-Options"] = "nosniff"
                 return resp
 
             return NotificationHandler.generate_response(
@@ -80,9 +88,11 @@ class TemporadaReportViewSet(viewsets.GenericViewSet):
                 data={"reporte": reporte_data},
                 status_code=status.HTTP_200_OK,
             )
+
         except PermissionDenied:
             return NotificationHandler.generate_response(
-                message_key="permission_denied", status_code=status.HTTP_403_FORBIDDEN
+                message_key="permission_denied",
+                status_code=status.HTTP_403_FORBIDDEN,
             )
         except ValidationError as e:
             return NotificationHandler.generate_response(
@@ -92,5 +102,7 @@ class TemporadaReportViewSet(viewsets.GenericViewSet):
             )
         except Exception as e:
             return NotificationHandler.generate_response(
-                message_key="server_error", data={"error": str(e)}, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+                message_key="server_error",
+                data={"error": str(e)},
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

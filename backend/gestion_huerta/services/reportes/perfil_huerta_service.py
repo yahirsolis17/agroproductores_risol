@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 Servicio de Reportes: PERFIL DE HUERTA
 --------------------------------------
@@ -205,13 +205,6 @@ def generar_perfil_huerta(
 ) -> Dict[str, Any]:
     """
     Genera el perfil histórico de una huerta (propia o rentada) sobre las últimas `años` temporadas activas.
-
-    Args:
-      - huerta_id | huerta_rentada_id: uno de los dos obligatorio.
-      - usuario: request.user (permisos + cache namespacing).
-      - años: número de temporadas a considerar (por defecto 5).
-      - formato: "json" (exportadores consumen este JSON).
-      - force_refresh: ignora cache si True.
     """
     if not huerta_id and not huerta_rentada_id:
         raise ValidationError("Debe especificar huerta_id o huerta_rentada_id")
@@ -276,7 +269,6 @@ def generar_perfil_huerta(
     analisis_eficiencia = _analizar_eficiencia_historica(datos_historicos, roi_promedio)
     proyecciones = _generar_proyecciones(datos_historicos)
 
-    # Nota: 'años_operacion' hoy refleja años analizados. Si quieres antigüedad real, usar: max(año)-min(año)+1.
     reporte: Dict[str, Any] = {
         "metadata": {
             "tipo": "perfil_huerta",
@@ -291,7 +283,7 @@ def generar_perfil_huerta(
             "huerta_nombre": safe_str(getattr(origen, "nombre", safe_str(origen))),
             "huerta_tipo": "Rentada" if huerta_rentada_id else "Propia",
             "ubicacion": safe_str(getattr(origen, "ubicacion", "")),
-            "propietario": safe_str(getattr(origen, "propietario", "")),  # ideal mapear a .nombre si es obj
+            "propietario": safe_str(getattr(origen, "propietario", "")),
             "hectareas": float(getattr(origen, "hectareas", 0.0)),
             "variedades": safe_str(getattr(origen, "variedades", "")),
             "años_operacion": total_años_validos,
@@ -316,6 +308,32 @@ def generar_perfil_huerta(
         },
         "tablas": {"comparativo_cosechas": [], "inversiones": [], "ventas": []},
     }
+
+    # Serie de inversiones (derivada de resumen_historico)
+    try:
+        serie_inv = [
+            {"fecha": str(d["año"]), "valor": float(d.get("inversion") or 0.0)}
+            for d in sorted(datos_historicos, key=lambda x: x["año"])
+        ]
+        reporte["ui"]["series"]["inversiones"] = serie_inv
+    except Exception:
+        pass
+
+    # KPIs estándar multi-año
+    try:
+        suma_inv = sum(float((d.get("inversion") or 0)) for d in datos_historicos)
+        suma_ven = sum(float((d.get("ventas") or 0)) for d in datos_historicos)
+        suma_gan = sum(float((d.get("ganancia") or 0)) for d in datos_historicos)
+        gastos_venta = max(0.0, suma_ven - suma_inv - suma_gan)
+        extra_kpis = [
+            {"label": "Inversión Total", "value": suma_inv, "format": "currency"},
+            {"label": "Ventas Totales", "value": suma_ven, "format": "currency"},
+            {"label": "Gastos de Venta", "value": gastos_venta, "format": "currency"},
+            {"label": "Ganancia Neta", "value": suma_gan, "format": "currency"},
+        ]
+        reporte["ui"]["kpis"] = extra_kpis + (reporte.get("ui", {}).get("kpis", []) or [])
+    except Exception:
+        pass
 
     _validar_integridad_reporte(reporte)
     cache.set(cache_key, reporte, REPORTES_CACHE_TIMEOUT)

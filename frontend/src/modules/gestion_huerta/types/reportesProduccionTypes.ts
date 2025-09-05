@@ -1,5 +1,5 @@
-// reportesproducciontypes.ts
-export type FormatoReporte = 'json' | 'pdf' | 'excel';
+// reportesProduccionTypes.ts
+export type FormatoReporte = 'json' | 'pdf' | 'excel' | 'xlsx';
 
 export interface ReporteProduccionRequest {
   formato: FormatoReporte;
@@ -80,6 +80,18 @@ export interface TablaVenta {
   comprador?: string;
 }
 
+/** Resumen histórico por año (Perfil de Huerta) */
+// Nota: en backend viene como "año". Normalizamos en el service a "anio".
+export interface FilaResumenHistorico {
+  anio: string | number; // año (normalizado)
+  inversion: number;
+  ventas: number;
+  ganancia: number;
+  roi: number;            // %
+  productividad: number;  // cajas/ha
+  cosechas_count: number; // # cosechas en ese año
+}
+
 /** Comparativo por cosecha (para temporada) */
 export interface FilaComparativoCosecha {
   cosecha: string;
@@ -105,6 +117,8 @@ export interface ReporteProduccionData {
     ventas?: TablaVenta[];
     /** Para temporadas */
     comparativo_cosechas?: FilaComparativoCosecha[];
+    /** Para perfil de huerta */
+    resumen_historico?: FilaResumenHistorico[];
   };
   metadata: {
     periodo: {

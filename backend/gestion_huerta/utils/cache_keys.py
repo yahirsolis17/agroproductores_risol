@@ -23,9 +23,9 @@ import os
 from typing import Dict, Any
 
 # Config centralizada de cache para reportes (parametrizable por variables de entorno)
-# Defaults conservadores; ajusta en producción vía envs.
-REPORTES_CACHE_TIMEOUT: int = int(os.getenv("REPORTES_CACHE_TIMEOUT", "10"))  # segundos
-REPORTES_CACHE_VERSION: str = os.getenv("REPORTES_CACHE_VERSION", "1.3.2")
+# Defaults más realistas para reportes (ajusta en producción vía envs).
+REPORTES_CACHE_TIMEOUT: int = int(os.getenv("REPORTES_CACHE_TIMEOUT", "300"))  # segundos
+REPORTES_CACHE_VERSION: str = os.getenv("REPORTES_CACHE_VERSION", "1.3.3")
 
 def generate_cache_key(tipo: str, parametros: Dict[str, Any], version: str = REPORTES_CACHE_VERSION) -> str:
     """

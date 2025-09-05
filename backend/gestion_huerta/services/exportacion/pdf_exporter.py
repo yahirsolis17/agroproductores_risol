@@ -405,7 +405,6 @@ class PDFExporter:
             ["Estado:", _safe_str(info.get("estado"))],
             ["Hectáreas:", f"{_money(info.get('hectareas')):.2f} ha"],
         ]
-        from reportlab.platypus import Table
         t_info = Table(info_data, colWidths=[2 * inch, 4 * inch], hAlign="LEFT")
         t_info.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (0, -1), BRAND_LIGHT),
@@ -602,7 +601,6 @@ class PDFExporter:
             ["Hectáreas:", f"{_money(info.get('hectareas')):.2f} ha"],
             ["Total Cosechas:", _safe_str(info.get("total_cosechas"))],
         ]
-        from reportlab.platypus import Table
         t_info = Table(info_data, colWidths=[2 * inch, 4 * inch])
         t_info.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (0, -1), BRAND_LIGHT),
@@ -726,7 +724,6 @@ class PDFExporter:
             ["Años de Operación:", _safe_str(info.get("años_operacion"))],
             ["Temporadas Analizadas:", _safe_str(info.get("temporadas_analizadas"))],
         ]
-        from reportlab.platypus import Table
         t_info = Table(info_data, colWidths=[2 * inch, 4 * inch])
         t_info.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (0, -1), BRAND_LIGHT),

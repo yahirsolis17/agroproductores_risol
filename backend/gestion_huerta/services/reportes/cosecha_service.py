@@ -217,7 +217,6 @@ def _validar_integridad_reporte(reporte_data: Dict[str, Any]) -> bool:
                 total_rep_ven = Flt(rf.get("total_ventas"))
                 if abs(total_calc_ven - total_rep_ven) > 0.01:
                     raise ValidationError("Inconsistencia en totales de ventas")
-        # Fecha de generación (no >5 minutos en el futuro)
         fecha_str = meta.get("fecha_generacion")
         if fecha_str:
             if fecha_str.endswith("Z"):
@@ -240,18 +239,7 @@ def generar_reporte_cosecha(
     """
     Genera el reporte completo de una cosecha (JSON).
     Cachea por (cosecha_id, formato, uid). Aísla datos por permisos del solicitante.
-
-    Args:
-      - cosecha_id: ID de la cosecha.
-      - usuario: request.user (usado para permisos y cache).
-      - formato: siempre "json" aquí (export usa este JSON).
-      - force_refresh: ignora cache si True.
-      - cosecha_inst: instancia precargada (opcional).
-
-    Returns:
-      dict con `metadata`, `informacion_general`, `resumen_financiero`, `detalle_*`, `analisis_*`, `metricas_rendimiento`, `flags`, `ui`.
     """
-    # Cache por usuario para evitar fugas de datos entre usuarios con distintos permisos
     cache_key = generate_cache_key(
         "cosecha",
         {"cosecha_id": cosecha_id, "formato": formato, "uid": getattr(usuario, "id", None)},
@@ -294,7 +282,6 @@ def generar_reporte_cosecha(
     origen = cosecha.huerta or cosecha.huerta_rentada
     origen_nombre = safe_str(getattr(origen, "nombre", None) or safe_str(origen)) if origen else "N/A"
     ubicacion = safe_str(getattr(origen, "ubicacion", "")) if origen else ""
-    # Nota: si `propietario` es objeto, ideal mapear a propietario.nombre si existe.
     hectareas = D(getattr(origen, "hectareas", 0))
 
     inv_qs = cosecha.inversiones.all()

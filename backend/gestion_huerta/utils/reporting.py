@@ -1,5 +1,4 @@
-﻿# backend/gestion_huerta/utils/reporting.py
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 Punto único para construir el contrato de reportes para el front
 y, adicionalmente, para renderizar PDFs con estilo tipo dashboard.
@@ -34,6 +33,7 @@ import base64
 from django.db.models import Sum, F, Q
 from django.db.models.functions import TruncMonth
 from django.utils.html import escape as html_escape
+from django.utils import timezone
 
 from gestion_huerta.models import (
     Cosecha,
@@ -94,7 +94,7 @@ def _nombre_propietario(origen) -> str:
 
 
 def _now_iso() -> str:
-    return datetime.now().strftime("%Y-%m-%d %H:%M")
+    return timezone.now().strftime("%Y-%m-%d %H:%M")
 
 
 def _date_only(dt) -> str:
@@ -481,19 +481,25 @@ def series_for_huerta(huerta_id: int) -> List[Dict[str, Any]]:
         Venta.objects.filter(is_active=True)
         .filter(Q(huerta=huerta) | Q(huerta_rentada=huerta) | Q(temporada__huerta=huerta) | Q(temporada__huerta_rentada=huerta))
         .values("temporada__año")
-        .annotate(total_ventas=Sum(F("num_cajas") * F("precio_por_caja")))
+        .annotate(
+            total_ventas=Sum(F("num_cajas") * F("precio_por_caja")),
+            total_gasto_ventas=Sum("gasto"),
+        )
     )
     data_ingresos = {item["temporada__año"]: Flt(item["total_ventas"] or 0) for item in ventas_por_año}
+    data_gasto_ventas = {item["temporada__año"]: Flt(item["total_gasto_ventas"] or 0) for item in ventas_por_año}
     data_gastos = {item["temporada__año"]: Flt(item["total_inv"] or 0) for item in inv_por_año}
     años = sorted(set(list(data_ingresos.keys()) + list(data_gastos.keys())))
+
     data_line = [{"year": str(year), "inversion": data_gastos.get(year, 0.0), "ventas": data_ingresos.get(year, 0.0)} for year in años]
 
-    # ROI por año
+    # ROI por año (coherente con temporada/cosecha: resta gastos de venta)
     roi_por_año = []
     for year in años:
         inv = data_gastos.get(year, 0.0)
         ventas = data_ingresos.get(year, 0.0)
-        roi = ((ventas - inv) / inv * 100.0) if inv > 0 else 0.0
+        gastos_v = data_gasto_ventas.get(year, 0.0)
+        roi = ((ventas - gastos_v - inv) / inv * 100.0) if inv > 0 else 0.0
         roi_por_año.append({"year": str(year), "roi": round(roi, 1)})
 
     # Cajas por hectárea (productividad)
@@ -520,22 +526,29 @@ def series_for_huerta(huerta_id: int) -> List[Dict[str, Any]]:
     )
     data_pie = [{"name": cat["categoria__nombre"] or "Sin categoría", "value": Flt(cat["total"])} for cat in dist_cat]
 
-    # Estacionalidad (ingreso por mes consolidado)
+    # Estacionalidad (ingreso y cajas por mes consolidado)
     ventas_por_mes = (
         Venta.objects.filter(is_active=True)
         .filter(Q(huerta=huerta) | Q(huerta_rentada=huerta) | Q(temporada__huerta=huerta) | Q(temporada__huerta_rentada=huerta))
         .annotate(mes=TruncMonth("fecha_venta"))
         .values("mes")
-        .annotate(total=Sum(F("num_cajas") * F("precio_por_caja")))
+        .annotate(
+            ingreso=Sum(F("num_cajas") * F("precio_por_caja")),
+            cajas=Sum("num_cajas"),
+        )
     )
-    data_mes = [{"mes": item["mes"].strftime("%m"), "ingreso": Flt(item["total"])} for item in ventas_por_mes]
+    data_mes = [{
+        "mes": item["mes"].strftime("%m"),
+        "ingreso": Flt(item["ingreso"]),
+        "cajas": int(item["cajas"] or 0),
+    } for item in ventas_por_mes]
 
     return [
         {"id": "ingresos_vs_gastos", "label": "Ingresos vs Inversiones por Año", "type": "line", "data": data_line},
         {"id": "roi_anual", "label": "ROI por Año", "type": "bar", "data": roi_por_año},
         {"id": "productividad", "label": "Cajas por Ha por Año", "type": "area", "data": data_prod},
         {"id": "dist_inversion_hist", "label": "Distribución Hist. Inversiones", "type": "pie", "data": data_pie},
-        {"id": "estacionalidad", "label": "Estacionalidad de Ventas", "type": "line", "data": data_mes},
+        {"id": "estacionalidad", "label": "Estacionalidad (Cajas y Ventas)", "type": "line", "data": data_mes},
     ]
 
 
@@ -755,6 +768,7 @@ def _base_css() -> str:
       overflow: hidden;
       font-size: 12px;
       background: #fff;
+      page-break-inside: avoid;
     }
     .data-table thead th {
       background: #f1f5f9;
@@ -783,6 +797,11 @@ def _base_css() -> str:
     /* Alineación de números / texto */
     .num { text-align: right; font-variant-numeric: tabular-nums; }
     .txt-left { text-align: left; }
+
+    /* Evitar cortes feos en tablas al paginar */
+    .table-block, .data-table, .data-table tr, .data-table td, .data-table th {
+      page-break-inside: avoid;
+    }
 
     /* Responsive (en PDF caben 4, pero por si se visualiza en HTML) */
     @media (max-width: 900px) {

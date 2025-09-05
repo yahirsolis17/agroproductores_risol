@@ -10,6 +10,7 @@ import { FormatoReporte } from '../types/reportesProduccionTypes';
 import { useDispatch } from 'react-redux';
 import { setBreadcrumbs, clearBreadcrumbs } from '../../../global/store/breadcrumbsSlice';
 import { breadcrumbRoutes } from '../../../global/constants/breadcrumbRoutes';
+import { parseLocalDateStrict } from '../../../global/utils/date';
 
 export default function ReporteCosecha() {
   const { cosechaId } = useParams<{ cosechaId: string }>();
@@ -34,7 +35,7 @@ export default function ReporteCosecha() {
     const cosechaNombre = qs.get('cosecha_nombre') || data?.metadata?.infoHuerta?.cosecha_nombre || undefined;
     const añoFromQS = Number(qs.get('año') || '');
     const añoFromData = data?.metadata?.periodo?.inicio
-      ? new Date(data.metadata.periodo.inicio).getFullYear()
+      ? parseLocalDateStrict(data.metadata.periodo.inicio).getFullYear()
       : undefined;
     const año = añoFromQS || añoFromData;
     const tipo = (qs.get('tipo') as 'propia' | 'rentada' | null) || undefined;

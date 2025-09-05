@@ -3,6 +3,7 @@ import React from 'react';
 import { Box, Chip } from '@mui/material';
 import { TableLayout, Column } from '../../../../components/common/TableLayout';
 import ActionsMenu from '../common/ActionsMenu';
+import { parseLocalDateStrict, formatDateLongEs } from '../../../../global/utils/date';
 import { InversionHuerta } from '../../types/inversionTypes';
 
 const money = (n: number | string) => {
@@ -52,8 +53,8 @@ interface Props {
 }
 
 const fmtFechaLarga = (iso: string) => {
-  const d = new Date(iso + 'T00:00:00'); // evita desfase
-  return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
+  const d = parseLocalDateStrict(iso);
+  return formatDateLongEs(d);
 };
 
 const columns = (map?: Record<number,string>): Column<InversionHuerta>[] => [

@@ -6,7 +6,8 @@ import {
   ReporteCosechaRequest,
   ReporteTemporadaRequest,
   ReportePerfilHuertaRequest,
-  ReporteProduccionResponse
+  ReporteProduccionResponse,
+  FilaResumenHistorico,
 } from '../types/reportesProduccionTypes';
 
 // 🔁 Nueva base alineada al backend reestructurado
@@ -45,6 +46,64 @@ const getFilename = (cd?: string, fallback?: string) => {
   // Soporta filename="..." y filename*=UTF-8''
   const m = /filename\*?=(?:UTF-8''|")?([^\";]+)/i.exec(cd);
   return m ? decodeURIComponent(m[1].replace(/"/g, '')) : fallback;
+};
+
+/** Normaliza el perfil: año→anio y sanea codificaciones raras */
+const normalizePerfilHuertaResponse = (rep: any) => {
+  if (!rep || typeof rep !== 'object') return rep;
+
+  // La fuente exacta suele venir como objeto de reporte (no envuelto)
+  // Buscamos "resumen_historico" (top-level) o dentro de "ui.tablas"
+  const histPaths = [
+    ['resumen_historico'],
+    ['ui', 'tablas', 'resumen_historico'],
+  ];
+
+  const normalizeArray = (arr: any[]) => {
+    if (!Array.isArray(arr)) return arr;
+    const out: FilaResumenHistorico[] = arr.map((row: any) => {
+      // soportar "año", "anio" o claves mal codificadas (por si acaso)
+      const anio =
+        row?.anio ??
+        row?.año ??
+        row?.['a\u00F1o'] ?? // 'año' unicode
+        row?.['a\uFFFD\uFFFDo'] ?? // por si vienen bytes mal decodificados
+        row?.['aï¿½ï¿½o'] ??
+        row?.['a��o'] ??
+        row?.['ano']; // fallback final (no ideal)
+      return {
+        anio: anio as any,
+        inversion: Number(row?.inversion ?? 0),
+        ventas: Number(row?.ventas ?? 0),
+        ganancia: Number(row?.ganancia ?? 0),
+        roi: Number(row?.roi ?? 0),
+        productividad: Number(row?.productividad ?? 0),
+        cosechas_count: Number(row?.cosechas_count ?? 0),
+      };
+    });
+    return out;
+  };
+
+  for (const p of histPaths) {
+    let node: any = rep;
+    for (const key of p) {
+      node = node?.[key];
+      if (node === undefined) break;
+    }
+    if (node !== undefined) {
+      const fixed = normalizeArray(node);
+      // re-asigna en la misma ruta
+      if (p.length === 1) {
+        (rep as any)[p[0]] = fixed;
+      } else if (p.length === 3) {
+        rep.ui = rep.ui || {};
+        rep.ui.tablas = rep.ui.tablas || {};
+        rep.ui.tablas.resumen_historico = fixed;
+      }
+    }
+  }
+
+  return rep;
 };
 
 /** Post que espera blob y, si es éxito, descarga; si es JSON de error, lo interpreta */
@@ -146,7 +205,9 @@ export const reportesProduccionService = {
         const resp = await apiClient.post(`${BASE}/perfil-huerta/`, payload);
         try { handleBackendNotification(resp.data); } catch {}
         const unwrapped = unwrapJson(resp.data);
-        return { success: true, data: unwrapped, message: resp.data?.message, errors: resp.data?.errors };
+        // 🔧 Normalizar año→anio para calzar con tus tipos y componentes
+        const normalized = normalizePerfilHuertaResponse(unwrapped);
+        return { success: true, data: normalized, message: resp.data?.message, errors: resp.data?.errors };
       }
 
       const ext: 'pdf' | 'xlsx' = request.formato === 'pdf' ? 'pdf' : 'xlsx';

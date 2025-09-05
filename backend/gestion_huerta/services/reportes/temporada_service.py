@@ -275,7 +275,6 @@ def generar_reporte_temporada(
     detalle_ventas_all: List[Dict[str, Any]] = []
 
     for c in cosechas:
-        # Reutiliza la instancia de cosecha prefeteada para evitar roundtrips
         rep_c = generar_reporte_cosecha(c.id, usuario, "json", force_refresh=force_refresh, cosecha_inst=c)
         inv_c = D(rep_c["resumen_financiero"]["total_inversiones"])
         ven_c = D(rep_c["resumen_financiero"]["total_ventas"])

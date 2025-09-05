@@ -35,14 +35,16 @@ import {
   TablaInversion,
   TablaVenta,
   FilaComparativoCosecha,
+  FilaResumenHistorico,
 } from '../../types/reportesProduccionTypes';
-import { parseLocalDateStrict } from '../../../../global/utils/date';
+import { parseLocalDateStrict, formatDateLongEs } from '../../../../global/utils/date';
 import { formatCurrency, formatNumber } from '../../../../global/utils/formatters';
 
 interface Props {
   inversiones?: TablaInversion[];
   ventas?: TablaVenta[];
   comparativo_cosechas?: FilaComparativoCosecha[];
+  resumen_historico?: FilaResumenHistorico[];
 }
 
 type Order = 'asc' | 'desc';
@@ -329,8 +331,7 @@ const InversionesTable: React.FC<{ inversiones: TablaInversion[] }> = ({ inversi
             <TableBody>
               {rows.map((inv, index) => {
                 const d = parseLocalDateStrict(inv.fecha);
-                const fecha =
-                  d instanceof Date && !isNaN(d.getTime()) ? new Intl.DateTimeFormat('es-MX').format(d) : inv.fecha;
+                const fecha = d instanceof Date && !isNaN(d.getTime()) ? formatDateLongEs(d) : inv.fecha;
                 return (
                   <TableRow key={inv.id} hover sx={{ animation: `${slideIn} .3s ease-out ${index * 50}ms both` }}>
                     <TableCell>{fecha}</TableCell>
@@ -521,8 +522,7 @@ const VentasTable: React.FC<{ ventas: TablaVenta[] }> = ({ ventas }) => {
             <TableBody>
               {rows.map((v, index) => {
                 const d = parseLocalDateStrict(v.fecha);
-                const fecha =
-                  d instanceof Date && !isNaN(d.getTime()) ? new Intl.DateTimeFormat('es-MX').format(d) : v.fecha;
+                const fecha = d instanceof Date && !isNaN(d.getTime()) ? formatDateLongEs(d) : v.fecha;
                 return (
                   <TableRow key={v.id} hover sx={{ animation: `${slideIn} .3s ease-out ${index * 50}ms both` }}>
                     <TableCell>{fecha}</TableCell>
@@ -848,12 +848,65 @@ const ComparativoCosechasTable: React.FC<{ rows: FilaComparativoCosecha[] }> = (
 /* =========================================================
    Panel
    ========================================================= */
-export default function TablesPanel({ inversiones, ventas, comparativo_cosechas }: Props) {
+export default function TablesPanel({ inversiones, ventas, comparativo_cosechas, resumen_historico }: Props) {
   return (
     <>
+      {/** Resumen histórico (Perfil de Huerta) */}
+      {!!resumen_historico?.length && (
+        <ResumenHistoricoTable rows={resumen_historico} />
+      )}
       {!!inversiones?.length && <InversionesTable inversiones={inversiones} />}
       {!!ventas?.length && <VentasTable ventas={ventas} />}
       {!!comparativo_cosechas?.length && <ComparativoCosechasTable rows={comparativo_cosechas} />}
     </>
   );
 }
+
+/* ================= Resumen Histórico (Perfil de Huerta) ================= */
+const ResumenHistoricoTable: React.FC<{ rows: FilaResumenHistorico[] }> = ({ rows }) => {
+  const theme = useTheme();
+  return (
+    <Block delay={100}>
+      <CardHeader
+        avatar={
+          <Avatar sx={{ bgcolor: alpha(theme.palette.primary.main, 0.12), width: 48, height: 48 }}>
+            <Inventory sx={{ color: theme.palette.primary.main }} />
+          </Avatar>
+        }
+        title={<TableTitle variant="h5">Resumen Histórico (Últimos Años)</TableTitle>}
+        subheader="Inversión, ventas, ganancia, ROI, productividad y # cosechas por año"
+        sx={{ pb: 2 }}
+      />
+      <CardContent sx={{ pt: 0 }}>
+        <StyledTableContainer>
+          <StyledTable size="medium" stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell>Año</TableCell>
+                <TableCell align="right">Ventas</TableCell>
+                <TableCell align="right">Inversión</TableCell>
+                <TableCell align="right">Ganancia</TableCell>
+                <TableCell align="right">ROI</TableCell>
+                <TableCell align="right">Productividad (cajas/ha)</TableCell>
+                <TableCell align="right"># Cosechas</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {rows.map((r, idx) => (
+                <TableRow key={`${r.anio}-${idx}`} hover>
+                  <TableCell>{r.anio}</TableCell>
+                  <TableCell align="right">{formatCurrency(r.ventas)}</TableCell>
+                  <TableCell align="right">{formatCurrency(r.inversion)}</TableCell>
+                  <TableCell align="right">{formatCurrency(r.ganancia)}</TableCell>
+                  <TableCell align="right">{formatNumber(r.roi)}%</TableCell>
+                  <TableCell align="right">{formatNumber(r.productividad)}</TableCell>
+                  <TableCell align="right">{formatNumber(r.cosechas_count)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </StyledTable>
+        </StyledTableContainer>
+      </CardContent>
+    </Block>
+  );
+};

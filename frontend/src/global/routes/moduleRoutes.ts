@@ -91,6 +91,6 @@ export const moduleRoutes: ModuleRoute[] = [
     path: '/reportes/huerta/:huertaId/perfil',
     module: 'gestion_huerta',
     allowedRoles: ['admin', 'usuario'],
-    element: lazyRoute(() => import('../../modules/gestion_huerta/pages/ReporteHuertaPerfil')),
+    element: lazyRoute(() => import('../../modules/gestion_huerta/pages/PerfilHuerta')),
   },
 ];

@@ -47,29 +47,40 @@ const toSeriesAny = (arr: any[]): SeriesDataPoint[] =>
     .filter((p) => !!p.fecha);
 
 /** -----------------------
- * Ordenamiento inteligente (cosecha 1 -> 2 -> ... y fechas)
+ * Ordenamiento inteligente
  * ------------------------ */
-const _numFromLabel = (s: string) => {
-  const m = String(s).match(/(\d+)(?!.*\d)/);
-  return m ? Number(m[1]) : Number.MAX_SAFE_INTEGER;
-};
-/** NUEVO: descendente (más reciente arriba: 6,5,4,...,1) */
-const _sortComparativo = (rows: FilaComparativoCosecha[]) =>
-  [...rows].sort((a, b) => {
-    const na = _numFromLabel(a.cosecha);
-    const nb = _numFromLabel(b.cosecha);
-    if (na !== nb) return nb - na; // descendente
-    return b.cosecha.localeCompare(a.cosecha);
-  });
-
-const _sortSeriesSmart = (arr: SeriesDataPoint[]) =>
-  [...arr].sort((a, b) => {
+const _sortISOIfPossible = (arr: SeriesDataPoint[]) => {
+  const iso = /^\d{4}-\d{2}(-\d{2})?$/; // YYYY-MM o YYYY-MM-DD
+  const allISO = arr.every(a => iso.test(String(a.fecha || '')));
+  if (allISO) {
+    return [...arr].sort((a, b) => String(a.fecha).localeCompare(String(b.fecha))); // asc
+  }
+  // Heurístico alterno por número al final del label
+  const _numFromLabel = (s: string) => {
+    const m = String(s).match(/(\d+)(?!.*\d)/);
+    return m ? Number(m[1]) : Number.MAX_SAFE_INTEGER;
+  };
+  return [...arr].sort((a, b) => {
     const na = _numFromLabel(a.fecha);
     const nb = _numFromLabel(b.fecha);
     if (na !== Number.MAX_SAFE_INTEGER || nb !== Number.MAX_SAFE_INTEGER) {
       if (na !== nb) return na - nb;
     }
     return String(a.fecha).localeCompare(String(b.fecha));
+  });
+};
+
+/** Comparativo: descendente (más reciente arriba: 6,5,4,...,1) */
+const _numFromLabelEnd = (s: string) => {
+  const m = String(s).match(/(\d+)(?!.*\d)/);
+  return m ? Number(m[1]) : Number.MAX_SAFE_INTEGER;
+};
+const _sortComparativo = (rows: FilaComparativoCosecha[]) =>
+  [...rows].sort((a, b) => {
+    const na = _numFromLabelEnd(a.cosecha);
+    const nb = _numFromLabelEnd(b.cosecha);
+    if (na !== nb) return nb - na; // descendente
+    return b.cosecha.localeCompare(a.cosecha);
   });
 
 /** -----------------------
@@ -122,7 +133,6 @@ const adaptTemporadaToUI = (raw: any): ReporteProduccionData => {
         const ganancia  = money(r?.[3]); // asumimos neta
         const roi       = pct(r?.[4]);
         const cajas     = num(String(r?.[5] ?? '').replace(/[^\d.-]/g, ''));
-        // Derivar gastos si no vienen explícitos: ventas - inversion - ganancia_neta
         const gastos_venta = Math.max(0, ventas - inversion - ganancia);
         return { cosecha, inversion, ventas, gastos_venta, ganancia, roi, cajas };
       });
@@ -139,9 +149,9 @@ const adaptTemporadaToUI = (raw: any): ReporteProduccionData => {
       ganancias   = mk('ganancia');
     }
 
-    inversiones = _sortSeriesSmart(inversiones);
-    ventas      = _sortSeriesSmart(ventas);
-    ganancias   = _sortSeriesSmart(ganancias);
+    inversiones = _sortISOIfPossible(inversiones);
+    ventas      = _sortISOIfPossible(ventas);
+    ganancias   = _sortISOIfPossible(ganancias);
 
     const infoHuerta: InfoHuerta | undefined = raw?.infoHuerta || raw?.metadata?.infoHuerta;
 
@@ -169,7 +179,6 @@ const adaptTemporadaToUI = (raw: any): ReporteProduccionData => {
   // -------- Opción B: servicio “rico”
   const resumen = raw.resumen_ejecutivo || {};
   const series  = raw.series || {};
-  // ⚠️ Siempre array; incluir gastos_venta si existe o derivarlo
   let comparativo_cosechas: FilaComparativoCosecha[] = (raw.comparativo_cosechas || []).map((x: any) => {
     const inversion = money(x.inversion || x.inversion_total);
     const ventas    = money(x.ventas   || x.ventas_total);
@@ -217,9 +226,9 @@ const adaptTemporadaToUI = (raw: any): ReporteProduccionData => {
     ganancias   = mk('ganancia');
   }
 
-  inversiones = _sortSeriesSmart(inversiones);
-  ventas      = _sortSeriesSmart(ventas);
-  ganancias   = _sortSeriesSmart(ganancias);
+  inversiones = _sortISOIfPossible(inversiones);
+  ventas      = _sortISOIfPossible(ventas);
+  ganancias   = _sortISOIfPossible(ganancias);
 
   const info = raw.informacion_general || {};
   const infoHuerta: InfoHuerta = {
