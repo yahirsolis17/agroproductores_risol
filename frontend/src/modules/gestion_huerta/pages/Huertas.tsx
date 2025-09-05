@@ -280,7 +280,18 @@ const Huertas: React.FC = () => {
             onDelete={askDelete}
             onArchive={h => handleArchiveOrRestore(h, false)}
             onRestore={h => handleArchiveOrRestore(h, true)}
-            onTemporadas={h => navigate(`/temporadas?huerta_id=${h.id}&tipo=${isRentada(h) ? 'rentada' : 'propia'}`)}
+            onTemporadas={h => {
+              const params = new URLSearchParams({
+                huerta_id: String(h.id),
+                tipo: isRentada(h) ? 'rentada' : 'propia',
+              });
+              if ((h as any).nombre) params.set('huerta_nombre', (h as any).nombre);
+              const p = (h as any).propietario_detalle;
+              if (p && (p.nombre || p.apellidos)) {
+                params.set('propietario', `${p.nombre || ''} ${p.apellidos || ''}`.trim());
+              }
+              navigate(`/temporadas?${params.toString()}`);
+            }}
             onReporteHuerta={h => {
               const params = new URLSearchParams({
                 tipo: isRentada(h) ? 'rentada' : 'propia',

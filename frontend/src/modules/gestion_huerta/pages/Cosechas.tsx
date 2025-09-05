@@ -239,6 +239,12 @@ useEffect(() => {
       año: String(tempInfo.año),
     });
     if (tempInfo.huerta_nombre) params.set('huerta_nombre', tempInfo.huerta_nombre);
+    // Propagar tipo y propietario desde la URL para conservar el contexto al volver
+    const tipoFromUrl = searchParams.get('tipo');
+    if (tipoFromUrl) params.set('tipo', tipoFromUrl);
+    const propietarioFromUrl = searchParams.get('propietario');
+    if (propietarioFromUrl) params.set('propietario', propietarioFromUrl);
+    if (c.nombre) params.set('cosecha_nombre', c.nombre);
     navigate(`/reportes/cosecha/${c.id}?${params.toString()}`);
   };
 

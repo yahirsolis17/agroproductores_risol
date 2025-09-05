@@ -38,7 +38,7 @@ export default function ReporteCosecha() {
       : undefined;
     const año = añoFromQS || añoFromData;
     const tipo = (qs.get('tipo') as 'propia' | 'rentada' | null) || undefined;
-    const propietario = qs.get('propietario') || undefined;
+    const propietario = qs.get('propietario') || data?.metadata?.infoHuerta?.propietario || undefined;
 
     if (huertaId && temporadaId && id && año) {
       dispatch(setBreadcrumbs(
