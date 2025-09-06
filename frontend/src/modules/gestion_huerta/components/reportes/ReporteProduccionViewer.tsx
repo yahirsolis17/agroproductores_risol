@@ -391,8 +391,10 @@ export default function ReporteProduccionViewer({
                 ['Propietario:', info.propietario || ''],
                 ['Temporada:', String(temporada || '')],
               ];
-              if (tipo === 'cosecha') rows.push(['Cosecha:', info.cosecha_nombre || '']);
-              rows.push(['Período:', periodo]);
+              if (tipo === 'cosecha') {
+                rows.push(['Cosecha:', info.cosecha_nombre || '']);
+                rows.push(['Período:', periodo]);
+              }
               rows.push(['Hectáreas:', formatHa(info.hectareas)]);
               return rows.map(([k, v], idx) => (
                 <React.Fragment key={`${k}-${idx}`}>

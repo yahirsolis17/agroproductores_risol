@@ -6,6 +6,10 @@ from typing import Dict, Any, List, Optional
 from functools import partial
 import logging
 from datetime import datetime
+try:
+    from django.utils import timezone
+except Exception:
+    timezone = None  # type: ignore
 
 from reportlab.lib import colors
 from reportlab.lib.colors import HexColor, Color
@@ -239,6 +243,41 @@ def _pdf_styles():
 
     return title_style, heading_style, subtitle_style, note_style, highlight_style
 
+def _local_now_str() -> str:
+    try:
+        if timezone is not None:
+            return timezone.localtime(timezone.now()).strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        pass
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+def _append_metadata_section(story: List[Any], reporte_data: Dict[str, Any], heading_style, subtitle_style):
+    info = (reporte_data.get("informacion_general") or {})
+    meta_rows = [
+        ["Generado:", _local_now_str()],
+        ["Huerta:", f"{_safe_str(info.get('huerta_nombre'))} ({_safe_str(info.get('huerta_tipo'))})"],
+        ["Ubicación:", _safe_str(info.get("ubicacion"))],
+        ["Propietario:", _safe_str(info.get("propietario"))],
+    ]
+    story.append(Paragraph("INFORMACIÓN DEL REPORTE", heading_style))
+    t_meta = Table(meta_rows, colWidths=[2*inch, 4*inch])
+    t_meta.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (0, -1), BRAND_LIGHT),
+        ("TEXTCOLOR", (0, 0), (0, -1), BRAND_GREY),
+        ("TEXTCOLOR", (1, 0), (1, -1), BRAND_SECONDARY),
+        ("ALIGN", (0, 0), (0, -1), "LEFT"),
+        ("ALIGN", (1, 0), (1, -1), "LEFT"),
+        ("FONTNAME", (0, 0), (0, -1), _font_bold()),
+        ("FONTNAME", (1, 0), (1, -1), _font_regular()),
+        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("LEFTPADDING", (0, 0), (-1, -1), 12),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 12),
+        ("GRID", (0, 0), (-1, -1), 0.5, HexColor("#dee2e6")),
+    ]))
+    story += [t_meta, Spacer(1, 12)]
+
 def _pdf_header_footer(canvas, doc, title: str, subtitle: str = ""):
     canvas.saveState()
     width, height = A4
@@ -385,6 +424,7 @@ class PDFExporter:
         story.append(Spacer(1, 0.5 * inch))
 
         fi = _first(info.get("fecha_inicio")); ff = _first(info.get("fecha_fin"))
+        # Omitir Período en temporada (solo aplica a reportes de cosecha)
         periodo_txt = _safe_str(info.get("periodo") or (f"{fi} - {ff}" if (fi or ff) else ""))
 
         story.append(Paragraph(f"Período: {periodo_txt}", ParagraphStyle(
@@ -421,7 +461,8 @@ class PDFExporter:
             ("RIGHTPADDING", (0, 0), (-1, -1), 12),
             ("GRID", (0, 0), (-1, -1), 0.5, HexColor("#dee2e6")),
         ]))
-        story += [t_info, Spacer(1, 15)]
+        story += [t_info, Spacer(1, 10)]
+        _append_metadata_section(story, reporte_data, heading_style, subtitle_style)
 
         # Resumen financiero
         story.append(Paragraph("RESUMEN FINANCIERO", heading_style))
@@ -601,6 +642,8 @@ class PDFExporter:
             ["Hectáreas:", f"{_money(info.get('hectareas')):.2f} ha"],
             ["Total Cosechas:", _safe_str(info.get("total_cosechas"))],
         ]
+        # Remueve fila 'Período' en reportes de temporada
+        info_data = [r for r in info_data if not (isinstance(r, list) and str(r[0]).strip().lower().startswith('per'))]
         t_info = Table(info_data, colWidths=[2 * inch, 4 * inch])
         t_info.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (0, -1), BRAND_LIGHT),
@@ -617,7 +660,8 @@ class PDFExporter:
             ("RIGHTPADDING", (0, 0), (-1, -1), 12),
             ("GRID", (0, 0), (-1, -1), 0.5, HexColor("#dee2e6")),
         ]))
-        story += [t_info, Spacer(1, 15)]
+        story += [t_info, Spacer(1, 10)]
+        _append_metadata_section(story, reporte_data, heading_style, subtitle_style)
 
         # Resumen ejecutivo
         story.append(Paragraph("RESUMEN EJECUTIVO", heading_style))
@@ -740,7 +784,8 @@ class PDFExporter:
             ("RIGHTPADDING", (0, 0), (-1, -1), 12),
             ("GRID", (0, 0), (-1, -1), 0.5, HexColor("#dee2e6")),
         ]))
-        story += [t_info, Spacer(1, 15)]
+        story += [t_info, Spacer(1, 10)]
+        _append_metadata_section(story, reporte_data, heading_style, subtitle_style)
 
         # Resumen histórico
         story.append(Paragraph("RESUMEN HISTÓRICO", heading_style))

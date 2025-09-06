@@ -8,6 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.http import HttpResponse
 from django.core.exceptions import ValidationError, PermissionDenied
 from django.utils.text import slugify  # ya se estaba usando para filename
+from django.utils import timezone
 
 from gestion_huerta.services.reportes.cosecha_service import generar_reporte_cosecha
 from gestion_huerta.services.exportacion_service import ExportacionService
@@ -76,7 +77,7 @@ class CosechaReportViewSet(viewsets.GenericViewSet):
             if formato == "pdf":
                 pdf = ExportacionService.generar_pdf_cosecha(reporte_data)
                 resp = HttpResponse(pdf, content_type="application/pdf")
-                resp["Content-Disposition"] = f'attachment; filename="{_safe_filename("reporte_cosecha", base, "pdf")}"'
+                resp["Content-Disposition"] = f'attachment; filename="{_safe_filename("reporte_cosecha", f"{base}_{timezone.localtime(timezone.now()).strftime('%Y-%m-%d')}", "pdf")}"'
                 resp["X-Content-Type-Options"] = "nosniff"
                 return resp
 
@@ -86,7 +87,7 @@ class CosechaReportViewSet(viewsets.GenericViewSet):
                     excel,
                     content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 )
-                resp["Content-Disposition"] = f'attachment; filename="{_safe_filename("reporte_cosecha", base, "xlsx")}"'
+                resp["Content-Disposition"] = f'attachment; filename="{_safe_filename("reporte_cosecha", f"{base}_{timezone.localtime(timezone.now()).strftime('%Y-%m-%d')}", "xlsx")}"'
                 resp["X-Content-Type-Options"] = "nosniff"
                 return resp
 

@@ -120,15 +120,25 @@ def _analizar_eficiencia_historica(datos_historicos: List[Dict[str, Any]], roi_p
         var = sum((x - prom) ** 2 for x in rois) / len(rois)
         std = var ** 0.5
 
-    # Tendencia (pendiente simple sobre índice temporal)
-    n = len(rois)
-    sx = sum(range(n))
-    sy = sum(rois)
-    sxy = sum(i * r for i, r in enumerate(rois))
-    sx2 = sum(i * i for i in range(n))
-    denom = (n * sx2 - sx * sx)
-    pend = (n * sxy - sx * sy) / denom if denom else 0.0
-    tendencia = "Creciente" if pend > 0.5 else ("Decreciente" if pend < -0.5 else "Estable")
+    # Tendencia: comparar ROI inicial vs. final (robusto a negativos)
+    # Si ROI final > ROI inicial => "Creciente"; si menor => "Decreciente"; si similar => "Estable".
+    try:
+        primeros_ordenados = sorted(datos_historicos, key=lambda x: x["año"])  # 'año' ya normalizado arriba
+    except Exception:
+        primeros_ordenados = datos_historicos
+    if primeros_ordenados:
+        roi_ini = Flt(primeros_ordenados[0].get("roi"))
+        roi_fin = Flt(primeros_ordenados[-1].get("roi"))
+        delta = roi_fin - roi_ini
+        eps = 0.01  # tolerancia mínima para ruido
+        if delta > eps:
+            tendencia = "Creciente"
+        elif delta < -eps:
+            tendencia = "Decreciente"
+        else:
+            tendencia = "Estable"
+    else:
+        tendencia = "Estable"
 
     return {
         "mejor_temporada": {"año": mejor["año"], "roi": Flt(mejor["roi"])},
@@ -272,12 +282,18 @@ def generar_perfil_huerta(
     reporte: Dict[str, Any] = {
         "metadata": {
             "tipo": "perfil_huerta",
-            "fecha_generacion": timezone.now().isoformat(),
+            # Fecha local a zona configurada, sin microsegundos
+            "fecha_generacion": timezone.localtime(timezone.now()).isoformat(timespec="seconds"),
             "generado_por": getattr(usuario, "username", safe_str(usuario)),
             "huerta_id": huerta_id,
             "huerta_rentada_id": huerta_rentada_id,
             "años_analizados": total_años_validos,
-            "version": REPORTES_CACHE_VERSION,
+            # Se evita incluir 'version' para no confundir al usuario final
+            "entidad": {
+                "id": huerta_id or huerta_rentada_id,
+                "nombre": safe_str(getattr(origen, "nombre", safe_str(origen))),
+                "tipo": "perfil_huerta",
+            },
         },
         "informacion_general": {
             "huerta_nombre": safe_str(getattr(origen, "nombre", safe_str(origen))),

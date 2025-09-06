@@ -320,10 +320,21 @@ def generar_reporte_temporada(
     reporte: Dict[str, Any] = {
         "metadata": {
             "tipo": "temporada",
-            "fecha_generacion": timezone.now().isoformat(),
+            # Fecha local (zona de settings) sin microsegundos
+            "fecha_generacion": timezone.localtime(timezone.now()).isoformat(timespec="seconds"),
             "generado_por": getattr(usuario, "username", safe_str(usuario)),
-            "temporada_id": temporada.id,
-            "version": REPORTES_CACHE_VERSION,
+            # Se elimina temporada_id/version y se agrega bloque entidad para el frontend
+            "entidad": {"id": temporada.id, "nombre": origen_nombre, "tipo": "temporada"},
+            "infoHuerta": {
+                "huerta_nombre": origen_nombre,
+                "huerta_tipo": "Rentada" if temporada.huerta_rentada_id else "Propia",
+                "ubicacion": ubicacion,
+                "propietario": safe_str(getattr(origen, "propietario", "")) if origen else "N/A",
+                "hectareas": Flt(hectareas),
+                "temporada_año": getattr(temporada, "año", None),
+                "fecha_inicio": fi,
+                "fecha_fin": ff,
+            },
         },
         "informacion_general": {
             "huerta_nombre": origen_nombre,

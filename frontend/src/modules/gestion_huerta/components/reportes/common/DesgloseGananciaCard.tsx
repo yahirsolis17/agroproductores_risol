@@ -49,6 +49,7 @@ interface Props {
   subtitle?: string;
   dense?: boolean;
   onOpenGlosario?: () => void;
+  showBars?: boolean; // permite ocultar barras de progreso si se requiere
 }
 
 const CardRoot = styled(Card)(({ theme }) => ({
@@ -160,6 +161,7 @@ const DesgloseGananciaCard: React.FC<Props> = ({
   subtitle,
   dense = false,
   onOpenGlosario,
+  showBars = true,
 }) => {
   const theme = useTheme();
 
@@ -267,7 +269,9 @@ const DesgloseGananciaCard: React.FC<Props> = ({
                     Gastos de Venta
                   </Typography>
                 </Box>
-                <ProgressBarWithLabel value={gastosVenta} max={ventasTotales} positive={false} />
+                {showBars && (
+                  <ProgressBarWithLabel value={gastosVenta} max={ventasTotales} positive={false} />
+                )}
               </Box>
             }
             right={<ValueHighlight sx={{ color: 'error.main' }}>-{formatCurrency(gastosVenta)}</ValueHighlight>}
@@ -323,7 +327,9 @@ const DesgloseGananciaCard: React.FC<Props> = ({
                     Inversión Total
                   </Typography>
                 </Box>
-                <ProgressBarWithLabel value={inversionTotal} max={netas} positive={false} />
+                {showBars && (
+                  <ProgressBarWithLabel value={inversionTotal} max={netas} positive={false} />
+                )}
               </Box>
             }
             right={<ValueHighlight sx={{ color: 'error.main' }}>-{formatCurrency(inversionTotal)}</ValueHighlight>}

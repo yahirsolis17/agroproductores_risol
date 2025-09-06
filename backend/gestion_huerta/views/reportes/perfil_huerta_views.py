@@ -8,6 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.http import HttpResponse
 from django.core.exceptions import ValidationError, PermissionDenied
 from django.utils.text import slugify  # NUEVO: para nombres de archivo seguros
+from django.utils import timezone
 
 # Servicio específico de perfil de huerta
 from gestion_huerta.services.reportes.perfil_huerta_service import generar_perfil_huerta
@@ -91,7 +92,8 @@ class PerfilHuertaReportViewSet(viewsets.GenericViewSet):
                 base_name = info.get("huertaNombre") or (f"huerta_{hid}" if hid else f"huerta_rentada_{hrid}")
                 base = slugify(str(base_name))[:80] or "perfil"
                 resp = HttpResponse(pdf, content_type="application/pdf")
-                resp["Content-Disposition"] = f'attachment; filename="perfil_{base}.pdf"'
+                fecha = timezone.localtime(timezone.now()).strftime("%Y-%m-%d")
+                resp["Content-Disposition"] = f'attachment; filename="perfil_huerta_{base}_{fecha}.pdf"'
                 resp["X-Content-Type-Options"] = "nosniff"
                 return resp
 
@@ -104,7 +106,8 @@ class PerfilHuertaReportViewSet(viewsets.GenericViewSet):
                     excel,
                     content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 )
-                resp["Content-Disposition"] = f'attachment; filename="perfil_{base}.xlsx"'
+                fecha = timezone.localtime(timezone.now()).strftime("%Y-%m-%d")
+                resp["Content-Disposition"] = f'attachment; filename="perfil_huerta_{base}_{fecha}.xlsx"'
                 resp["X-Content-Type-Options"] = "nosniff"
                 return resp
 

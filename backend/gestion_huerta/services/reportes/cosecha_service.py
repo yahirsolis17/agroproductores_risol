@@ -351,10 +351,12 @@ def generar_reporte_cosecha(
     reporte: Dict[str, Any] = {
         "metadata": {
             "tipo": "cosecha",
-            "fecha_generacion": timezone.now().isoformat(),
+            # Fecha local a zona configurada, sin microsegundos
+            "fecha_generacion": timezone.localtime(timezone.now()).isoformat(timespec="seconds"),
             "generado_por": getattr(usuario, "username", safe_str(usuario)),
             "cosecha_id": cosecha.id,
-            "version": REPORTES_CACHE_VERSION,
+            # Se evita incluir 'version' para no confundir al usuario final
+            "entidad": {"id": cosecha.id, "nombre": safe_str(cosecha.nombre), "tipo": "cosecha"},
         },
         "informacion_general": {
             "huerta_nombre": origen_nombre,
