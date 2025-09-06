@@ -568,7 +568,10 @@ class PDFExporter:
             story.append(Paragraph("ANÁLISIS DE CATEGORÍAS (Inversiones)", heading_style))
             data = [["Categoría", "Total", "%"]]
             for c in cats:
-                data.append([_safe_str(c.get("categoria")), f"${_money(c.get('total')):,.2f}", f"{_pct(c.get('porcentaje')):.1f}%"])
+                # aceptar 'monto' o 'total', y 'porcentaje' como número (0-100)
+                total_val = _money(c.get("monto") if "monto" in c else c.get("total"))
+                pct_val = _pct(c.get("porcentaje"))
+                data.append([_safe_str(c.get("categoria")), f"${total_val:,.2f}", f"{pct_val:.1f}%"])
             t = Table(data, colWidths=[3.0*inch, 1.6*inch, 0.9*inch], repeatRows=1)
             t.setStyle(_table_style_header(BRAND_SECONDARY))
             t.setStyle(_table_style_body())
@@ -581,12 +584,16 @@ class PDFExporter:
             story.append(Paragraph("ANÁLISIS DE VARIEDADES (Ventas)", heading_style))
             data = [["Variedad", "Cajas", "Precio Prom.", "Total", "%"]]
             for r in vars_:
+                cajas = int(r.get("cajas") if "cajas" in r else (r.get("total_cajas") or 0))
+                precio_prom = _money(r.get("precio_prom") if "precio_prom" in r else r.get("precio_promedio"))
+                total_v = _money(r.get("total") if "total" in r else r.get("total_venta"))
+                pct_v = _pct(r.get("porcentaje"))
                 data.append([
                     _safe_str(r.get("variedad")),
-                    str(int(r.get("total_cajas") or 0)),
-                    f"${_money(r.get('precio_promedio')):,.2f}",
-                    f"${_money(r.get('total_venta')):,.2f}",
-                    f"{_pct(r.get('porcentaje')):.1f}%",
+                    str(cajas),
+                    f"${precio_prom:,.2f}",
+                    f"${total_v:,.2f}",
+                    f"{pct_v:.1f}%",
                 ])
             t = Table(data, colWidths=[2.0*inch, 0.9*inch, 1.2*inch, 1.6*inch, 0.8*inch], repeatRows=1)
             t.setStyle(_table_style_header(BRAND_ACCENT, colors.white))
@@ -622,7 +629,6 @@ class PDFExporter:
         story.append(Spacer(1, 0.5 * inch))
 
         # 🚫 Omitir Período en Temporada (no se imprime en portada)
-        # (La tabla de información general también lo filtra más abajo)
 
         story.append(PageBreak())
 

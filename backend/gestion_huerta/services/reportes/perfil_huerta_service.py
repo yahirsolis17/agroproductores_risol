@@ -140,7 +140,7 @@ def _analizar_eficiencia_historica(datos_historicos: List[Dict[str, Any]], roi_p
         tendencia = "Estable"
 
     return {
-        "mejor_temporada": {"año": mejores_ordenados[-1]["año"] if False else mejor["año"], "roi": Flt(mejor["roi"])},  # keep structure
+        "mejor_temporada": {"año": mejor["año"], "roi": Flt(mejor["roi"])},
         "peor_temporada": {"año": peor["año"], "roi": Flt(peor["roi"])},
         "roi_promedio_historico": Flt(roi_promedio),
         "variabilidad_roi": round(std, 2),
@@ -267,7 +267,7 @@ def generar_perfil_huerta(
                 "roi": rep_t["resumen_ejecutivo"]["roi_temporada"],
                 "productividad": rep_t["resumen_ejecutivo"]["productividad"],
                 "cosechas_count": rep_t["informacion_general"]["total_cosechas"],
-                "cajas": rep_t["resumen_ejecutivo"].get("cajas_totales", 0),  # <-- añadido para PDF desde datos
+                "cajas": rep_t["resumen_ejecutivo"].get("cajas_totales", 0),
                 "tiene_perdida": bool(Decimal(str(rep_t["resumen_ejecutivo"]["ganancia_neta"])) < 0),
             }
         )
@@ -288,7 +288,6 @@ def generar_perfil_huerta(
             "huerta_id": huerta_id,
             "huerta_rentada_id": huerta_rentada_id,
             "años_analizados": total_años_validos,
-            # Se evita incluir 'version' para no confundir al usuario final
             "entidad": {
                 "id": huerta_id or huerta_rentada_id,
                 "nombre": safe_str(getattr(origen, "nombre", safe_str(origen))),
@@ -335,7 +334,7 @@ def generar_perfil_huerta(
     except Exception:
         pass
 
-    # KPIs estándar multi-año
+    # KPIs estándar multi-año (sumados)
     try:
         suma_inv = sum(float((d.get("inversion") or 0)) for d in datos_historicos)
         suma_ven = sum(float((d.get("ventas") or 0)) for d in datos_historicos)

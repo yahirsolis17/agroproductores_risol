@@ -1,7 +1,12 @@
 // useReporteCosecha.ts
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { reportesProduccionService } from '../services/reportesProduccionService';
-import { ReporteProduccionData, InfoHuerta, KPIData, SeriesDataPoint } from '../types/reportesProduccionTypes';
+import {
+  ReporteProduccionData,
+  InfoHuerta,
+  KPIData,
+  SeriesDataPoint,
+} from '../types/reportesProduccionTypes';
 
 // ---- Helpers de agregación (fallback solo si backend NO manda ui.series) ----
 const sumByDate = (items: any[], dateKey: string, valueKey: string) => {
@@ -56,11 +61,13 @@ const adaptCosechaToUI = (reporte: any, filtroFrom?: string, filtroTo?: string):
   // ---- 1) Priorizar kpis/series de backend (ui) ----
   let kpis: KPIData[] = Array.isArray(ui.kpis) ? ui.kpis : [];
   let series: { inversiones?: SeriesDataPoint[]; ventas?: SeriesDataPoint[]; ganancias?: SeriesDataPoint[] } =
-    typeof ui.series === 'object' ? {
-      inversiones: toSeriesAny(ui.series?.inversiones || []),
-      ventas: toSeriesAny(ui.series?.ventas || []),
-      ganancias: toSeriesAny(ui.series?.ganancias || []),
-    } : {};
+    typeof ui.series === 'object'
+      ? {
+          inversiones: toSeriesAny(ui.series?.inversiones || []),
+          ventas: toSeriesAny(ui.series?.ventas || []),
+          ganancias: toSeriesAny(ui.series?.ganancias || []),
+        }
+      : {};
 
   // ---- 2) Fallback si backend no mandó ui ----
   if (!kpis.length) {
@@ -84,52 +91,83 @@ const adaptCosechaToUI = (reporte: any, filtroFrom?: string, filtroTo?: string):
     const gan = sumByDate(detalleVen, 'fecha', 'ganancia_neta');
     series = {
       inversiones: sortISO(inv),
-      ventas:      sortISO(ven),
-      ganancias:   sortISO(gan),
+      ventas: sortISO(ven),
+      ganancias: sortISO(gan),
     };
   }
 
   // ---- Tablas (si ui no las manda, usamos detalle) ----
+  const tablasBase = {
+    inversiones:
+      Array.isArray(ui?.tablas?.inversiones) && ui.tablas.inversiones.length
+        ? ui.tablas.inversiones
+        : detalleInv.map((x: any) => ({
+            id: Number(x.id ?? 0),
+            categoria: x.categoria || 'Sin categoría',
+            descripcion: x.descripcion || '',
+            monto: Number(x.total || 0),
+            fecha: x.fecha || '',
+          })),
+    ventas:
+      Array.isArray(ui?.tablas?.ventas) && ui.tablas.ventas.length
+        ? ui.tablas.ventas
+        : detalleVen.map((x: any) => ({
+            id: Number(x.id ?? 0),
+            fecha: x.fecha || '',
+            cantidad: Number(x.num_cajas || 0),
+            precio_unitario: Number(x.precio_por_caja || 0),
+            total: Number(x.total_venta || 0),
+            /** NUEVO: mapeo de gastos de venta por registro */
+            gasto: Number(x.gasto || 0),
+            comprador: '',
+          })),
+  };
+
+  // ---- NUEVO: Análisis por Categoría (Inversiones) y por Variedad (Ventas) ----
+  const analisisCategoriasUi = Array.isArray(ui?.tablas?.analisis_categorias) ? ui.tablas.analisis_categorias : null;
+  const analisisVariedadesUi = Array.isArray(ui?.tablas?.analisis_variedades) ? ui.tablas.analisis_variedades : null;
+
+  const analisisCategoriasRaw = Array.isArray(reporte?.analisis_categorias) ? reporte.analisis_categorias : [];
+  const analisisVariedadesRaw = Array.isArray(reporte?.analisis_variedades) ? reporte.analisis_variedades : [];
+
   const tablas = {
-    inversiones: Array.isArray(ui?.tablas?.inversiones) && ui.tablas.inversiones.length
-      ? ui.tablas.inversiones
-      : detalleInv.map((x: any) => ({
-          id: Number(x.id ?? 0),
-          categoria: x.categoria || 'Sin categoría',
-          descripcion: x.descripcion || '',
-          monto: Number(x.total || 0),
-          fecha: x.fecha || '',
+    ...tablasBase,
+    analisis_categorias: analisisCategoriasUi
+      ? analisisCategoriasUi
+      : analisisCategoriasRaw.map((x: any) => ({
+          categoria: String(x.categoria ?? 'Sin categoría'),
+          monto: Number(x.total ?? x.monto ?? 0),
+          porcentaje: Number(x.porcentaje ?? 0),
         })),
-    ventas: Array.isArray(ui?.tablas?.ventas) && ui.tablas.ventas.length
-      ? ui.tablas.ventas
-      : detalleVen.map((x: any) => ({
-          id: Number(x.id ?? 0),
-          fecha: x.fecha || '',
-          cantidad: Number(x.num_cajas || 0),
-          precio_unitario: Number(x.precio_por_caja || 0),
-          total: Number(x.total_venta || 0),
-          /** NUEVO: mapeo de gastos de venta por registro */
-          gasto: Number(x.gasto || 0),
-          comprador: '',
+    analisis_variedades: analisisVariedadesUi
+      ? analisisVariedadesUi
+      : analisisVariedadesRaw.map((x: any) => ({
+          variedad: String(x.variedad ?? 'Sin variedad'),
+          cajas: Number(x.total_cajas ?? x.cajas ?? 0),
+          precio_prom: Number(x.precio_promedio ?? x.precio_prom ?? 0),
+          total: Number(x.total_venta ?? x.total ?? 0),
+          porcentaje: Number(x.porcentaje ?? 0),
         })),
   };
 
-  // Periodo
-  const periodoInicio = info.fecha_inicio || filtroFrom || '';
-  const periodoFin = info.fecha_fin || filtroTo || '';
+  // Periodo (priorizar metadata.periodo si viene)
+  const periodoInicio =
+    (meta?.periodo && (meta.periodo.inicio || meta.periodo.start)) || info.fecha_inicio || filtroFrom || '';
+  const periodoFin = (meta?.periodo && (meta.periodo.fin || meta.periodo.end)) || info.fecha_fin || filtroTo || '';
 
-  // Ficha de huerta (para cabecera)
+  // Ficha de huerta (para cabecera) - priorizar meta.infoHuerta si existe
+  const infoHuertaSource: any = meta?.infoHuerta || info;
   const infoHuerta: InfoHuerta = {
-    huerta_nombre: String(info.huerta_nombre || ''),
-    huerta_tipo: (info.huerta_tipo || '') as any,
-    propietario: String(info.propietario || ''),
-    ubicacion: String(info.ubicacion || ''),
-    hectareas: Number(info.hectareas || 0),
-    temporada_año: info.temporada_año,
-    cosecha_nombre: String(info.cosecha_nombre || ''),
-    estado: String(info.estado || ''),
-    fecha_inicio: info.fecha_inicio || '',
-    fecha_fin: info.fecha_fin || '',
+    huerta_nombre: String(infoHuertaSource.huerta_nombre || ''),
+    huerta_tipo: (infoHuertaSource.huerta_tipo || '') as any,
+    propietario: String(infoHuertaSource.propietario || ''),
+    ubicacion: String(infoHuertaSource.ubicacion || ''),
+    hectareas: Number(infoHuertaSource.hectareas || 0),
+    temporada_año: infoHuertaSource.temporada_año,
+    cosecha_nombre: String(infoHuertaSource.cosecha_nombre || ''),
+    estado: String(infoHuertaSource.estado || ''),
+    fecha_inicio: infoHuertaSource.fecha_inicio || '',
+    fecha_fin: infoHuertaSource.fecha_fin || '',
   };
 
   // QA silenciosa (si seguimos usando detalle)
@@ -158,7 +196,7 @@ const adaptCosechaToUI = (reporte: any, filtroFrom?: string, filtroTo?: string):
         nombre: String(info.cosecha_nombre || info.huerta_nombre || 'Cosecha'),
         tipo: 'cosecha',
       },
-      generado_en: meta.fecha_generacion || new Date().toISOString(),
+      generado_en: meta.generado_en || meta.fecha_generacion || new Date().toISOString(),
       generado_por: meta.generado_por || '',
       infoHuerta,
     },
@@ -193,7 +231,9 @@ export const useReporteCosecha = (id?: number, from?: string, to?: string) => {
     }
   }, [id, from, to]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const totals = useMemo(() => {
     if (!data) return null;

@@ -26,7 +26,7 @@ from datetime import datetime, timedelta
 
 from django.core.cache import cache
 from django.core.exceptions import ValidationError, PermissionDenied
-from django.db.models import Prefetch, Sum, F
+from django.db.models import Prefetch
 from django.utils import timezone
 
 from gestion_huerta.models import Temporada, Cosecha, InversionesHuerta, Venta
@@ -177,6 +177,8 @@ def _build_ui_from_temporada(
                 "cantidad": it.get("num_cajas"),
                 "precio_unitario": it.get("precio_por_caja"),
                 "total": it.get("total_venta"),
+                # ⬅ agregado para que el frontend muestre la columna Gasto
+                "gasto": it.get("gasto"),
             }
             for it in detalle_ventas_all
         ],
@@ -185,6 +187,8 @@ def _build_ui_from_temporada(
                 "cosecha": row.get("nombre"),
                 "inversion": row.get("inversion"),
                 "ventas": row.get("ventas"),
+                # ⬅ agregado: gastos de venta por cosecha
+                "gastos_venta": row.get("gastos_venta"),
                 "ganancia": row.get("ganancia"),
                 "roi": row.get("roi"),
                 "cajas": row.get("cajas"),
@@ -288,6 +292,8 @@ def generar_reporte_temporada(
                 "nombre": safe_str(c.nombre),
                 "inversion": Flt(inv_c),
                 "ventas": Flt(ven_c),
+                # ⬅ agregado: gastos de venta por cosecha
+                "gastos_venta": Flt(gas_c),
                 "ganancia": Flt(gan_c),
                 "roi": Flt(roi_c),
                 "cajas": cajas_c,

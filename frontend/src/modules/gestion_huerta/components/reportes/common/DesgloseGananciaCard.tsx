@@ -230,7 +230,7 @@ const DesgloseGananciaCard: React.FC<Props> = ({
                 </Typography>
               </Box>
             }
-            right={<ValueHighlight>{formatCurrency(ventasTotales)}</ValueHighlight>}
+            right={<ValueHighlight sx={{ color: 'success.main', fontSize: '1.6rem' }}>{formatCurrency(ventasTotales)}</ValueHighlight>}
           />
 
           <RowFlex

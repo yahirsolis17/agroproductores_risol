@@ -80,6 +80,22 @@ export interface TablaVenta {
   comprador?: string;
 }
 
+/** NUEVO: análisis por categoría (inversiones) */
+export interface AnalisisCategoria {
+  categoria: string;
+  monto: number;
+  porcentaje: number;
+}
+
+/** NUEVO: análisis por variedad (ventas) */
+export interface AnalisisVariedad {
+  variedad: string;
+  cajas: number;
+  precio_prom: number;
+  total: number;
+  porcentaje: number;
+}
+
 /** Resumen histórico por año (Perfil de Huerta) */
 // Nota: en backend viene como "año". Normalizamos en el service a "anio".
 export interface FilaResumenHistorico {
@@ -119,6 +135,9 @@ export interface ReporteProduccionData {
     comparativo_cosechas?: FilaComparativoCosecha[];
     /** Para perfil de huerta */
     resumen_historico?: FilaResumenHistorico[];
+    /** NUEVO: para cosecha/temporada */
+    analisis_categorias?: AnalisisCategoria[];
+    analisis_variedades?: AnalisisVariedad[];
   };
   metadata: {
     periodo: {

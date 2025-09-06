@@ -18,7 +18,6 @@ Reglas de negocio
 - Ganancia bruta = ventas - gastos_venta; ganancia neta = bruta - inversiones.
 - Fechas normalizadas a YYYY-MM-DD. Tolerancia de ±5m para `fecha_generacion`.
 - Permisos: superuser/staff o permiso `gestion_huerta.view_cosecha`.
-  > Recomendación: si tu modelo lo permite, complementar con pertenencia del recurso (owner).
 
 Compatibilidad
 - Mantiene shape esperado por exportadores `ExcelExporter`/`PDFExporter`.
@@ -38,7 +37,7 @@ from gestion_huerta.models import Cosecha, InversionesHuerta, Venta
 from gestion_huerta.services.exportacion_service import ExportacionService
 from gestion_huerta.utils.cache_keys import (
     REPORTES_CACHE_TIMEOUT,
-    REPORTES_CACHE_VERSION,
+    REPORTES_CACHE_VERSION,  # noqa: F401 (mantenemos compatibilidad de import)
     generate_cache_key,
 )
 
@@ -99,7 +98,6 @@ def _validar_permisos_cosecha(usuario, cosecha) -> bool:
     Permite ver reporte si:
     - superuser/staff, o
     - tiene permiso `gestion_huerta.view_cosecha`.
-    Nota: si es necesario, agregar verificación de pertenencia (owner) a la huerta.
     """
     if getattr(usuario, "is_superuser", False) or getattr(usuario, "is_staff", False):
         return True
@@ -155,6 +153,8 @@ def _build_ui_from_cosecha(rep: Dict[str, Any]) -> Dict[str, Any]:
     det_inv = rep.get("detalle_inversiones", []) or []
     det_ven = rep.get("detalle_ventas", []) or []
     met = rep.get("metricas_rendimiento", {}) or {}
+    ac = rep.get("analisis_categorias", []) or []
+    av = rep.get("analisis_variedades", []) or []
 
     kpis = [
         {"label": "Inversión Total", "value": rf.get("total_inversiones", 0.0), "format": "currency"},
@@ -164,6 +164,7 @@ def _build_ui_from_cosecha(rep: Dict[str, Any]) -> Dict[str, Any]:
         {"label": "ROI", "value": rf.get("roi_porcentaje", 0.0), "format": "percentage"},
         {"label": "Cajas Totales", "value": met.get("cajas_totales", 0), "format": "number"},
     ]
+
     series_inv = _group_by_date(det_inv, "fecha", "total")
     series_ven = _group_by_date(det_ven, "fecha", "total_venta")
     series_gan = _group_by_date(
@@ -171,6 +172,7 @@ def _build_ui_from_cosecha(rep: Dict[str, Any]) -> Dict[str, Any]:
         "fecha",
         "valor",
     )
+
     tablas = {
         "inversiones": [
             {
@@ -189,12 +191,33 @@ def _build_ui_from_cosecha(rep: Dict[str, Any]) -> Dict[str, Any]:
                 "cantidad": it.get("num_cajas"),
                 "precio_unitario": it.get("precio_por_caja"),
                 "total": it.get("total_venta"),
+                "gasto": it.get("gasto"),  # NUEVO: gasto por venta para UI
             }
             for it in det_ven
         ],
         "comparativo_cosechas": [],
+        # NUEVO: bloques de análisis alineados con types del frontend
+        "analisis_categorias": [
+            {"categoria": x.get("categoria"), "monto": x.get("total"), "porcentaje": x.get("porcentaje")}
+            for x in ac
+        ],
+        "analisis_variedades": [
+            {
+                "variedad": x.get("variedad"),
+                "cajas": x.get("total_cajas"),
+                "precio_prom": x.get("precio_promedio"),
+                "total": x.get("total_venta"),
+                "porcentaje": x.get("porcentaje"),
+            }
+            for x in av
+        ],
     }
-    return {"kpis": kpis, "series": {"inversiones": series_inv, "ventas": series_ven, "ganancias": series_gan}, "tablas": tablas}
+
+    return {
+        "kpis": kpis,
+        "series": {"inversiones": series_inv, "ventas": series_ven, "ganancias": series_gan},
+        "tablas": tablas,
+    }
 
 def _validar_integridad_reporte(reporte_data: Dict[str, Any]) -> bool:
     """
@@ -351,12 +374,24 @@ def generar_reporte_cosecha(
     reporte: Dict[str, Any] = {
         "metadata": {
             "tipo": "cosecha",
-            # Fecha local a zona configurada, sin microsegundos
             "fecha_generacion": timezone.localtime(timezone.now()).isoformat(timespec="seconds"),
             "generado_por": getattr(usuario, "username", safe_str(usuario)),
+            "generado_en": timezone.localtime(timezone.now()).isoformat(timespec="seconds"),  # alias amigable
             "cosecha_id": cosecha.id,
-            # Se evita incluir 'version' para no confundir al usuario final
             "entidad": {"id": cosecha.id, "nombre": safe_str(cosecha.nombre), "tipo": "cosecha"},
+            "periodo": {"inicio": fi, "fin": ff},
+            "infoHuerta": {
+                "huerta_nombre": origen_nombre,
+                "huerta_tipo": "Rentada" if cosecha.huerta_rentada_id else "Propia",
+                "propietario": safe_str(getattr(origen, "propietario", "")) if origen else "N/A",
+                "ubicacion": ubicacion,
+                "hectareas": Flt(hectareas),
+                "temporada_año": getattr(cosecha.temporada, "año", None),
+                "cosecha_nombre": safe_str(cosecha.nombre),
+                "estado": "Finalizada" if getattr(cosecha, "finalizada", False) else "Activa",
+                "fecha_inicio": fi,
+                "fecha_fin": ff,
+            },
         },
         "informacion_general": {
             "huerta_nombre": origen_nombre,

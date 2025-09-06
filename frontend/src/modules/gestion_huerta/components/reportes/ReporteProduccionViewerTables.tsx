@@ -36,6 +36,8 @@ import {
   TablaVenta,
   FilaComparativoCosecha,
   FilaResumenHistorico,
+  AnalisisCategoria,
+  AnalisisVariedad,
 } from '../../types/reportesProduccionTypes';
 import { parseLocalDateStrict, formatDateLongEs } from '../../../../global/utils/date';
 import { formatCurrency, formatNumber } from '../../../../global/utils/formatters';
@@ -45,6 +47,9 @@ interface Props {
   ventas?: TablaVenta[];
   comparativo_cosechas?: FilaComparativoCosecha[];
   resumen_historico?: FilaResumenHistorico[];
+  /** NUEVO: análisis calculados por backend */
+  analisis_categorias?: AnalisisCategoria[];
+  analisis_variedades?: AnalisisVariedad[];
 }
 
 type Order = 'asc' | 'desc';
@@ -100,8 +105,6 @@ const Block = styled(Paper, { shouldForwardProp: (prop) => prop !== 'delay' })<{
       height: 4,
       background: `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
       backgroundSize: '200% 200%',
-      // Evita animación infinita para mejorar rendimiento
-      // animation: `${gradientShift} 6s ease infinite`,
       opacity: 0.8,
       borderRadius: '4px 4px 0 0',
     },
@@ -406,6 +409,7 @@ const VentasTable: React.FC<{ ventas: TablaVenta[] }> = ({ ventas }) => {
     setOrderBy(prop);
   };
 
+  // ⚠️ Usado por tarjeta de resumen (evita TS6133)
   const precioPromedio = useMemo(() => (subtotalCantidad === 0 ? 0 : subtotalTotal / subtotalCantidad), [
     subtotalCantidad,
     subtotalTotal,
@@ -431,6 +435,7 @@ const VentasTable: React.FC<{ ventas: TablaVenta[] }> = ({ ventas }) => {
         sx={{ pb: 2 }}
       />
 
+      {/* Tarjetas de resumen (usa precioPromedio) */}
       <Box sx={{ px: 3, pb: 2 }}>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
           <Box sx={{ width: { xs: '100%', sm: 'calc(33.333% - 16px)' } }}>
@@ -556,9 +561,7 @@ const VentasTable: React.FC<{ ventas: TablaVenta[] }> = ({ ventas }) => {
 
             <TableFooter>
               <TableRow>
-                <TableCell align="right" sx={{ fontWeight: 700, fontSize: '1.1rem' }}>
-                  Total
-                </TableCell>
+                <TableCell> </TableCell>
                 <TableCell align="right" sx={{ fontWeight: 700, fontSize: '1.1rem' }}>
                   {formatNumber(subtotalCantidad)}
                 </TableCell>
@@ -582,6 +585,145 @@ const VentasTable: React.FC<{ ventas: TablaVenta[] }> = ({ ventas }) => {
             <em>Ganancia Neta</em> considera además <strong>Gastos de venta</strong> e <strong>Inversiones</strong>.
           </Typography>
         </Box>
+      </CardContent>
+    </Block>
+  );
+};
+
+/* =========================================================
+   NUEVO — Análisis por Categoría (Inversiones)
+   ========================================================= */
+const AnalisisCategoriasBlock: React.FC<{ rows: AnalisisCategoria[] }> = ({ rows }) => {
+  const theme = useTheme();
+  const total = useMemo(() => rows.reduce((a, r) => a + Number(r.monto || 0), 0), [rows]);
+
+  return (
+    <Block delay={220}>
+      <CardHeader
+        avatar={
+          <Avatar sx={{ bgcolor: alpha(theme.palette.primary.main, 0.15), width: 48, height: 48 }}>
+            <Inventory sx={{ color: theme.palette.primary.main }} />
+          </Avatar>
+        }
+        title={<TableTitle variant="h5">Análisis por Categoría (Inversiones)</TableTitle>}
+        subheader="Participación de cada categoría en la inversión total"
+        action={
+          <Tooltip title="Suma por categoría vs total invertido">
+            <IconButton>
+              <InfoOutlined />
+            </IconButton>
+          </Tooltip>
+        }
+        sx={{ pb: 2 }}
+      />
+      <CardContent sx={{ pt: 0 }}>
+        <StyledTableContainer>
+          <StyledTable size="medium" stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell>Categoría</TableCell>
+                <TableCell align="right">Monto</TableCell>
+                <TableCell align="right">% del total</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {rows.map((r, i) => (
+                <TableRow key={`${r.categoria}-${i}`} hover>
+                  <TableCell>{r.categoria}</TableCell>
+                  <TableCell align="right">{formatCurrency(r.monto)}</TableCell>
+                  <TableCell align="right">{formatNumber(r.porcentaje)}%</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+            <TableFooter>
+              <TableRow>
+                <TableCell align="right" sx={{ fontWeight: 700 }}>
+                  Total
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700 }}>
+                  {formatCurrency(total)}
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700 }}>
+                  100%
+                </TableCell>
+              </TableRow>
+            </TableFooter>
+          </StyledTable>
+        </StyledTableContainer>
+      </CardContent>
+    </Block>
+  );
+};
+
+/* =========================================================
+   NUEVO — Análisis por Variedad (Ventas)
+   ========================================================= */
+const AnalisisVariedadesBlock: React.FC<{ rows: AnalisisVariedad[] }> = ({ rows }) => {
+  const theme = useTheme();
+  const totCajas = useMemo(() => rows.reduce((a, r) => a + Number(r.cajas || 0), 0), [rows]);
+  const totVentas = useMemo(() => rows.reduce((a, r) => a + Number(r.total || 0), 0), [rows]);
+
+  return (
+    <Block delay={240}>
+      <CardHeader
+        avatar={
+          <Avatar sx={{ bgcolor: alpha(theme.palette.success.main, 0.15), width: 48, height: 48 }}>
+            <LocalOffer sx={{ color: theme.palette.success.main }} />
+          </Avatar>
+        }
+        title={<TableTitle variant="h5">Análisis por Variedad (Ventas)</TableTitle>}
+        subheader="Cajas, precio promedio y aporte por variedad"
+        action={
+          <Tooltip title="Suma por variedad y su participación en ventas">
+            <IconButton>
+              <InfoOutlined />
+            </IconButton>
+          </Tooltip>
+        }
+        sx={{ pb: 2 }}
+      />
+      <CardContent sx={{ pt: 0 }}>
+        <StyledTableContainer>
+          <StyledTable size="medium" stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell>Variedad</TableCell>
+                <TableCell align="right">Cajas</TableCell>
+                <TableCell align="right">Precio Prom.</TableCell>
+                <TableCell align="right">Total</TableCell>
+                <TableCell align="right">% del total</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {rows.map((r, i) => (
+                <TableRow key={`${r.variedad}-${i}`} hover>
+                  <TableCell>{r.variedad}</TableCell>
+                  <TableCell align="right">{formatNumber(r.cajas)}</TableCell>
+                  <TableCell align="right">{formatCurrency(r.precio_prom)}</TableCell>
+                  <TableCell align="right">{formatCurrency(r.total)}</TableCell>
+                  <TableCell align="right">{formatNumber(r.porcentaje)}%</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+            <TableFooter>
+              <TableRow>
+                <TableCell align="right" sx={{ fontWeight: 700 }}>
+                  Totales
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700 }}>
+                  {formatNumber(totCajas)}
+                </TableCell>
+                <TableCell />
+                <TableCell align="right" sx={{ fontWeight: 700 }}>
+                  {formatCurrency(totVentas)}
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700 }}>
+                  100%
+                </TableCell>
+              </TableRow>
+            </TableFooter>
+          </StyledTable>
+        </StyledTableContainer>
       </CardContent>
     </Block>
   );
@@ -626,7 +768,6 @@ const ComparativoCosechasTable: React.FC<{ rows: FilaComparativoCosecha[] }> = (
     { key: 'cajas', label: 'Cajas', align: 'right' },
   ];
 
-  // Getters seguros
   const getGastos = (r: any) => Number(r?.gastos_venta ?? r?.gasto_venta ?? r?.gastos ?? 0);
   const getVentasNetas = (r: FilaComparativoCosecha) => Number(r.ventas || 0) - getGastos(r);
   const getGananciaNeta = (r: FilaComparativoCosecha) => getVentasNetas(r) - Number(r.inversion || 0);
@@ -682,14 +823,13 @@ const ComparativoCosechasTable: React.FC<{ rows: FilaComparativoCosecha[] }> = (
     setOrderBy(key);
   };
 
-  // Mejor/peor cosecha por ROI (para tarjetas resumen)
   const mejorCosecha = useMemo(() => {
     if (!rows.length) return null;
-    return [...rows].reduce((best, cur) => ((getRoi(cur) > getRoi(best)) ? cur : best));
+    return [...rows].reduce((best, cur) => (getRoi(cur) > getRoi(best) ? cur : best));
   }, [rows]);
   const peorCosecha = useMemo(() => {
     if (!rows.length) return null;
-    return [...rows].reduce((worst, cur) => ((getRoi(cur) < getRoi(worst)) ? cur : worst));
+    return [...rows].reduce((worst, cur) => (getRoi(cur) < getRoi(worst) ? cur : worst));
   }, [rows]);
 
   return (
@@ -848,15 +988,29 @@ const ComparativoCosechasTable: React.FC<{ rows: FilaComparativoCosecha[] }> = (
 /* =========================================================
    Panel
    ========================================================= */
-export default function TablesPanel({ inversiones, ventas, comparativo_cosechas, resumen_historico }: Props) {
+export default function TablesPanel({
+  inversiones,
+  ventas,
+  comparativo_cosechas,
+  resumen_historico,
+  analisis_categorias,
+  analisis_variedades,
+}: Props) {
   return (
     <>
       {/** Resumen histórico (Perfil de Huerta) */}
-      {!!resumen_historico?.length && (
-        <ResumenHistoricoTable rows={resumen_historico} />
-      )}
+      {!!resumen_historico?.length && <ResumenHistoricoTable rows={resumen_historico} />}
+
       {!!inversiones?.length && <InversionesTable inversiones={inversiones} />}
+
+      {/** NUEVO: Análisis por Categoría (Inversiones) */}
+      {!!analisis_categorias?.length && <AnalisisCategoriasBlock rows={analisis_categorias} />}
+
       {!!ventas?.length && <VentasTable ventas={ventas} />}
+
+      {/** NUEVO: Análisis por Variedad (Ventas) */}
+      {!!analisis_variedades?.length && <AnalisisVariedadesBlock rows={analisis_variedades} />}
+
       {!!comparativo_cosechas?.length && <ComparativoCosechasTable rows={comparativo_cosechas} />}
     </>
   );

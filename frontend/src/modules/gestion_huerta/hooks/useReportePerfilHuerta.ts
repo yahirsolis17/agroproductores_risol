@@ -109,7 +109,7 @@ export const useReportePerfilHuerta = (
 
       const hist = Array.isArray(rep.resumen_historico) ? (rep.resumen_historico as AnyRecord[]) : [];
       const getYear = (row: AnyRecord): number => {
-        const y = (row as AnyRecord)['año'] ?? (row as AnyRecord)['anio'] ?? (row as AnyRecord)['a��o'];
+        const y = (row as AnyRecord)['año'] ?? (row as AnyRecord)['anio'];
         const n = Number(y);
         return Number.isFinite(n) ? n : new Date().getFullYear();
       };

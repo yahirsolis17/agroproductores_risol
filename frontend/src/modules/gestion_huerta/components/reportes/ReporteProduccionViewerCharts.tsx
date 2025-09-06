@@ -14,7 +14,7 @@ import {
   Radar as RadarIcon,
   CompareArrows,
 } from '@mui/icons-material';
-import { SeriesDataPoint } from '../../types/reportesProduccionTypes';
+import { SeriesDataPoint, AnalisisCategoria, AnalisisVariedad } from '../../types/reportesProduccionTypes';
 import { parseLocalDateStrict } from '../../../../global/utils/date';
 import { formatCurrencyFull } from '../../../../global/utils/formatters';
 
@@ -26,6 +26,9 @@ interface Props {
     ventas?: SeriesDataPoint[];
     ganancias?: SeriesDataPoint[];
   };
+  /** NUEVO: insumos de análisis (opcionales, retrocompatibles) */
+  analisisCategorias?: AnalisisCategoria[];
+  analisisVariedades?: AnalisisVariedad[];
   animated?: boolean;
 }
 
@@ -55,8 +58,6 @@ const ChartContainer = styled(Paper, { shouldForwardProp: (p) => p !== 'delay' }
     top: 0, left: 0, right: 0, height: 4,
     background: `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
     backgroundSize: '200% 200%',
-    // Evita animación infinita para mejorar rendimiento
-    // animation: `${gradientShift} 6s ease infinite`,
     opacity: .8, borderRadius: '4px 4px 0 0'
   },
   '&:hover': { boxShadow: '0 12px 28px rgba(0,0,0,.1)', transform: 'translateY(-4px)' }
@@ -89,8 +90,6 @@ const SelectorContainer = styled(Box)(({ theme }) => ({
   borderRadius: 16,
   background: alpha(theme.palette.background.paper, 0.7),
   border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-  // Evitar blur para mejorar performance
-  // backdropFilter: 'blur(10px)',
   boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
   animation: `${fadeIn} .5s ease-out 200ms both`
 }));
@@ -119,7 +118,7 @@ const formatLabel = (s: string) => {
   const d = parseLocalDateStrict(s);
   if (d instanceof Date && !isNaN(d.getTime())) {
     return new Intl.DateTimeFormat('es-MX', { day: '2-digit', month: 'short', year: '2-digit' }).format(d);
-  }
+    }
   return s;
 };
 
@@ -212,7 +211,12 @@ const ChartSelector: React.FC<{
   );
 });
 
-export default function ChartsPanel({ series, animated = true }: Props) {
+export default function ChartsPanel({
+  series,
+  analisisCategorias,
+  analisisVariedades,
+  animated = true,
+}: Props) {
   const theme = useTheme();
   const [chartType, setChartType] = useState<ChartType>('line');
   const [compare, setCompare] = useState(false);
@@ -241,6 +245,16 @@ export default function ChartsPanel({ series, animated = true }: Props) {
   const hasGan = gan.length > 0;
   const hasAny = hasInv || hasVen || hasGan;
   const hasDual = hasInv && hasVen;
+
+  // NUEVO: datos de análisis (opcionales)
+  const catData = useMemo(
+    () => (analisisCategorias || []).map((c) => ({ categoria: c.categoria, valor: Number(c.monto || 0) })),
+    [analisisCategorias]
+  );
+  const varData = useMemo(
+    () => (analisisVariedades || []).map((v) => ({ categoria: v.variedad, valor: Number(v.total || 0) })),
+    [analisisVariedades]
+  );
 
   // merge inv vs ven por X
   const mergedDual = useMemo(() => {
@@ -521,11 +535,11 @@ export default function ChartsPanel({ series, animated = true }: Props) {
     );
   };
 
-  if (!hasAny) {
+  if (!hasAny && !(catData.length || varData.length)) {
     return (
       <ChartContainer>
         <Typography variant="body1" color="text.secondary">
-          No hay series para mostrar (aún). Si usas reporte de Temporada y tu backend no envía series mensuales, ahora se generarán a partir del comparativo por cosecha.
+          No hay series para mostrar (aún).
         </Typography>
       </ChartContainer>
     );
@@ -541,6 +555,7 @@ export default function ChartsPanel({ series, animated = true }: Props) {
         hasDual={hasDual}
       />
 
+      {/* Comparativa dual inversiones vs ventas */}
       {compare && hasDual && (
         <ChartContainer delay={100}>
           <ChartTitle variant="h5" gutterBottom>
@@ -550,6 +565,7 @@ export default function ChartsPanel({ series, animated = true }: Props) {
         </ChartContainer>
       )}
 
+      {/* Series individuales */}
       {!compare && hasInv && (
         <ChartContainer delay={200}>
           <ChartTitle variant="h5" gutterBottom>
@@ -574,6 +590,44 @@ export default function ChartsPanel({ series, animated = true }: Props) {
             Ganancias
           </ChartTitle>
           {renderSingle(gan, 'Ganancias', COLORS[2], 'valor')}
+        </ChartContainer>
+      )}
+
+      {/* NUEVO: Barras por Categoría (Inversiones) */}
+      {!!catData.length && (
+        <ChartContainer delay={450}>
+          <ChartTitle variant="h5" gutterBottom>
+            Inversión por Categoría
+          </ChartTitle>
+          <ResponsiveContainer width="100%" height={380}>
+            <BarChart data={catData} margin={{ top: 20, right: 28, left: 12, bottom: 20 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={alpha(theme.palette.divider, 0.2)} vertical={false} />
+              <XAxis dataKey="categoria" tick={{ fill: theme.palette.text.secondary, fontSize: 12 }} axisLine={false} tickLine={false} />
+              <YAxis tickFormatter={(v) => formatCurrencyFull(Number(v))} tick={{ fill: theme.palette.text.secondary, fontSize: 12 }} axisLine={false} tickLine={false} />
+              <RechartsTooltip content={<CustomTooltip />} />
+              <Legend iconSize={12} iconType="circle" wrapperStyle={{ paddingTop: 10 }} />
+              <Bar dataKey="valor" name="Monto" fill={theme.palette.primary.main} radius={[6, 6, 0, 0]} {...anim} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartContainer>
+      )}
+
+      {/* NUEVO: Radar por Variedad (Ventas) */}
+      {!!varData.length && (
+        <ChartContainer delay={500}>
+          <ChartTitle variant="h5" gutterBottom>
+            Ventas por Variedad
+          </ChartTitle>
+          <ResponsiveContainer width="100%" height={380}>
+            <RadarChart data={varData} margin={{ top: 20, right: 28, left: 12, bottom: 20 }}>
+              <PolarGrid stroke={alpha(theme.palette.divider, 0.2)} />
+              <PolarAngleAxis dataKey="categoria" tick={{ fill: theme.palette.text.secondary, fontSize: 12 }} />
+              <PolarRadiusAxis tickFormatter={(v) => formatCurrencyFull(Number(v))} tick={{ fill: theme.palette.text.secondary, fontSize: 12 }} />
+              <RechartsTooltip content={<CustomTooltip />} />
+              <Legend iconSize={12} iconType="circle" wrapperStyle={{ paddingTop: 10 }} />
+              <Radar name="Total Vendido" dataKey="valor" stroke={theme.palette.success.main} fill={alpha(theme.palette.success.main, 0.4)} strokeWidth={2} {...anim} />
+            </RadarChart>
+          </ResponsiveContainer>
         </ChartContainer>
       )}
     </Box>
