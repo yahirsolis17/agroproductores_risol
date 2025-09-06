@@ -12,7 +12,6 @@ import {
   IconButton,
   Avatar,
   Paper,
-  LinearProgress,
   useTheme
 } from '@mui/material';
 import { alpha, styled } from '@mui/material/styles';
@@ -49,7 +48,11 @@ interface Props {
   subtitle?: string;
   dense?: boolean;
   onOpenGlosario?: () => void;
-  showBars?: boolean; // permite ocultar barras de progreso si se requiere
+
+  /**
+   * @deprecated Se mantiene por compatibilidad; las barras ya no se muestran.
+   */
+  showBars?: boolean;
 }
 
 const CardRoot = styled(Card)(({ theme }) => ({
@@ -118,36 +121,6 @@ const RowFlex: React.FC<{
   </Box>
 );
 
-const ProgressBarWithLabel = ({ value, max, positive }: { value: number; max: number; positive: boolean }) => {
-  const theme = useTheme();
-  const percentage = Math.min(100, Math.max(0, (Math.abs(value) / Math.abs(max || 1)) * 100));
-
-  return (
-    <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-      <Box sx={{ width: '100%', mr: 1 }}>
-        <LinearProgress
-          variant="determinate"
-          value={percentage}
-          sx={{
-            height: 8,
-            borderRadius: 4,
-            backgroundColor: alpha(positive ? theme.palette.success.main : theme.palette.error.main, 0.2),
-            '& .MuiLinearProgress-bar': {
-              backgroundColor: positive ? theme.palette.success.main : theme.palette.error.main,
-              borderRadius: 4,
-            }
-          }}
-        />
-      </Box>
-      <Box sx={{ minWidth: 35 }}>
-        <Typography variant="body2" color="text.secondary">
-          {`${percentage.toFixed(0)}%`}
-        </Typography>
-      </Box>
-    </Box>
-  );
-};
-
 const DesgloseGananciaCard: React.FC<Props> = ({
   ventasTotales = 0,
   gastosVenta = 0,
@@ -161,9 +134,10 @@ const DesgloseGananciaCard: React.FC<Props> = ({
   subtitle,
   dense = false,
   onOpenGlosario,
-  showBars = true,
+  showBars, // deprecated
 }) => {
   const theme = useTheme();
+  void showBars; // mantener compatibilidad sin mostrar barras
 
   const netas = useMemo(
     () => (typeof ventasNetas === 'number' ? ventasNetas : (ventasTotales || 0) - (gastosVenta || 0)),
@@ -269,9 +243,7 @@ const DesgloseGananciaCard: React.FC<Props> = ({
                     Gastos de Venta
                   </Typography>
                 </Box>
-                {showBars && (
-                  <ProgressBarWithLabel value={gastosVenta} max={ventasTotales} positive={false} />
-                )}
+                {/* Barra de porcentaje eliminada intencionalmente */}
               </Box>
             }
             right={<ValueHighlight sx={{ color: 'error.main' }}>-{formatCurrency(gastosVenta)}</ValueHighlight>}
@@ -327,9 +299,7 @@ const DesgloseGananciaCard: React.FC<Props> = ({
                     Inversión Total
                   </Typography>
                 </Box>
-                {showBars && (
-                  <ProgressBarWithLabel value={inversionTotal} max={netas} positive={false} />
-                )}
+                {/* Barra de porcentaje eliminada intencionalmente */}
               </Box>
             }
             right={<ValueHighlight sx={{ color: 'error.main' }}>-{formatCurrency(inversionTotal)}</ValueHighlight>}
@@ -414,3 +384,4 @@ const DesgloseGananciaCard: React.FC<Props> = ({
 };
 
 export default DesgloseGananciaCard;
+

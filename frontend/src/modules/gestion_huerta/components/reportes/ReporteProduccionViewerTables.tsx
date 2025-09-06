@@ -874,7 +874,7 @@ const ResumenHistoricoTable: React.FC<{ rows: FilaResumenHistorico[] }> = ({ row
           </Avatar>
         }
         title={<TableTitle variant="h5">Resumen Histórico (Últimos Años)</TableTitle>}
-        subheader="Inversión, ventas, ganancia, ROI, productividad y # cosechas por año"
+        subheader="Inversión, ventas, ganancia, ROI, productividad y número de cosechas por año"
         sx={{ pb: 2 }}
       />
       <CardContent sx={{ pt: 0 }}>
@@ -888,7 +888,7 @@ const ResumenHistoricoTable: React.FC<{ rows: FilaResumenHistorico[] }> = ({ row
                 <TableCell align="right">Ganancia</TableCell>
                 <TableCell align="right">ROI</TableCell>
                 <TableCell align="right">Productividad (cajas/ha)</TableCell>
-                <TableCell align="right"># Cosechas</TableCell>
+                <TableCell align="right">Cosechas</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>

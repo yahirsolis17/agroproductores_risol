@@ -301,10 +301,10 @@ def _pdf_header_footer(canvas, doc, title: str, subtitle: str = ""):
         canvas.setFont(_font_light(), 12)
         canvas.drawString(40, height - 55, subtitle)
 
-    # Footer meta
+    # Footer meta (usar hora local consistente)
     canvas.setFont(_font_regular(), 8)
     canvas.setFillColor(HexColor("#adb5bd"))
-    fecha = datetime.now().strftime("%d/%m/%Y %H:%M")
+    fecha = _local_now_str()
     canvas.drawString(40, 25, f"Generado el: {fecha}")
 
     canvas.setFillColor(BRAND_GREY)
@@ -424,7 +424,7 @@ class PDFExporter:
         story.append(Spacer(1, 0.5 * inch))
 
         fi = _first(info.get("fecha_inicio")); ff = _first(info.get("fecha_fin"))
-        # Omitir Período en temporada (solo aplica a reportes de cosecha)
+        # En COSECHA sí mostramos Período
         periodo_txt = _safe_str(info.get("periodo") or (f"{fi} - {ff}" if (fi or ff) else ""))
 
         story.append(Paragraph(f"Período: {periodo_txt}", ParagraphStyle(
@@ -621,17 +621,16 @@ class PDFExporter:
         story.append(Paragraph(f"{huerta_nombre} | {temporada}", subtitle_style))
         story.append(Spacer(1, 0.5 * inch))
 
-        fi = _first(info.get("fecha_inicio")); ff = _first(info.get("fecha_fin"))
-        periodo_txt = _safe_str(info.get("periodo") or (f"{fi} - {ff}" if (fi or ff) else ""))
-
-        story.append(Paragraph(f"Período: {periodo_txt}", ParagraphStyle(
-            "Detail", parent=subtitle_style, fontSize=10, textColor=BRAND_GREY
-        )))
+        # 🚫 Omitir Período en Temporada (no se imprime en portada)
+        # (La tabla de información general también lo filtra más abajo)
 
         story.append(PageBreak())
 
         # Información general
         story.append(Paragraph("INFORMACIÓN GENERAL", heading_style))
+        # Se construye, pero se filtra la fila "Período"
+        fi = _first(info.get("fecha_inicio")); ff = _first(info.get("fecha_fin"))
+        periodo_txt = _safe_str(info.get("periodo") or (f"{fi} - {ff}" if (fi or ff) else ""))
         info_data = [
             ["Huerta:", f"{_safe_str(info.get('huerta_nombre'))} ({_safe_str(info.get('huerta_tipo'))})"],
             ["Ubicación:", _safe_str(info.get("ubicacion"))],

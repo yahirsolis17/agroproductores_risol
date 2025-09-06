@@ -943,12 +943,11 @@ def _html_temporada(temp: Temporada) -> str:
 
     body = []
 
-    # Información General (orden consistente)
+    # Información General (EN TEMPORADA **SIN** PERÍODO)
     huerta_nombre = getattr(origen, "nombre", "—") if origen else "—"
     huerta_tipo = "Rentada" if getattr(temp, "huerta_rentada_id", None) else "Propia"
     ubicacion = getattr(origen, "ubicacion", "") or "—"
     propietario = _nombre_propietario(origen) or "—"
-    periodo = f"{_date_only(getattr(temp,'fecha_inicio',''))} - {_date_only(getattr(temp,'fecha_fin',''))}"
     estado = "Finalizada" if getattr(temp, "finalizada", False) else "Activa"
     hectareas = getattr(origen, "hectareas", None)
     hect_str = f"{hectareas} ha" if hectareas is not None else "—"
@@ -957,7 +956,7 @@ def _html_temporada(temp: Temporada) -> str:
         ["Ubicación:", ubicacion],
         ["Propietario:", propietario],
         ["Temporada:", str(temp.año)],
-        ["Período:", periodo],
+        # <<< Período OMITIDO para temporada >>>
         ["Estado:", estado],
         ["Hectáreas:", hect_str],
     ]
@@ -1131,8 +1130,8 @@ def _periodo_from_info(info: Dict[str, Any]) -> str:
 def render_cosecha_pdf_from_data(reporte_data: Dict[str, Any]) -> bytes:
     info = (reporte_data or {}).get("informacion_general", {}) or {}
     resumen = (reporte_data or {}).get("resumen_financiero", {}) or {}
-    metricas = (reporte_data or {}).get("metricas_rendimiento", {}) or {}  # <-- NUEVO
-    flags = (reporte_data or {}).get("flags", {}) or {}                    # <-- opcional (alerta)
+    metricas = (reporte_data or {}).get("metricas_rendimiento", {}) or {}  # <-- opcional
+    flags = (reporte_data or {}).get("flags", {}) or {}
 
     # Badges
     badges: List[str] = []
@@ -1155,7 +1154,7 @@ def render_cosecha_pdf_from_data(reporte_data: Dict[str, Any]) -> bytes:
     body: List[str] = []
     body.append(_info_general_html(info_rows))
 
-    # KPIs (usar metricas_rendimiento; fallback a resumen si aplica)
+    # KPIs
     kpis = [
         {"id": "inv_total", "label": "Total Inversiones", "value": fmt_money(_safe_get(resumen,"total_inversiones",0))},
         {"id": "ventas_total", "label": "Total Ventas", "value": fmt_money(_safe_get(resumen,"total_ventas",0))},
@@ -1164,7 +1163,7 @@ def render_cosecha_pdf_from_data(reporte_data: Dict[str, Any]) -> bytes:
         {"id": "ganancia_neta", "label": "Ganancia Neta", "value": fmt_money(_safe_get(resumen,"ganancia_neta",0))},
         {"id": "roi", "label": "ROI", "value": f"{Flt(_safe_get(resumen,'roi_porcentaje',0)):.1f}%"},
         {"id": "ganancia_hectarea", "label": "Ganancia/Ha", "value": fmt_money(_safe_get(resumen,"ganancia_por_hectarea",0))},
-        # >>> de metricas_rendimiento <<<
+        # métricas de rendimiento (opcionales)
         {"id": "cajas_totales", "label": "Cajas Totales", "value": fmt_num(_safe_get(metricas,"cajas_totales",0))},
         {"id": "precio_promedio_caja", "label": "Precio Prom. Caja", "value": fmt_money(_safe_get(metricas,"precio_promedio_caja", _safe_get(resumen,"precio_promedio",0)))},
         {"id": "costo_unitario", "label": "Costo por Caja", "value": fmt_money(_safe_get(metricas,"costo_por_caja", _safe_get(resumen,"costo_unitario",0)))},
@@ -1236,12 +1235,13 @@ def render_temporada_pdf_from_data(reporte_data: Dict[str, Any]) -> bytes:
     if _safe_get(info, "huerta_nombre"):
         badges.append(f"Huerta: {info['huerta_nombre']}")
 
+    # EN TEMPORADA **SIN** PERÍODO
     info_rows = [
         ["Huerta:", f"{_safe_get(info,'huerta_nombre','—')} ({_safe_get(info,'huerta_tipo','—')})"],
         ["Ubicación:", _safe_get(info,"ubicacion","—")],
         ["Propietario:", _safe_get(info,"propietario","—")],
         ["Temporada:", str(_safe_get(info,"año", _safe_get(info,"temporada_año","—")))],
-        ["Período:", _periodo_from_info(info)],
+        # ["Período:", _periodo_from_info(info)],  # OMITIDO deliberadamente
         ["Estado:", _safe_get(info,"estado","—")],
         ["Hectáreas:", f"{_safe_get(info,'hectareas','—')} ha" if _safe_get(info,"hectareas","")!="" else "—"],
         ["Total Cosechas:", str(_safe_get(info,"total_cosechas", _safe_get(resumen,"cajas_totales","—")))],

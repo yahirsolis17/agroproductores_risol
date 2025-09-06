@@ -121,16 +121,15 @@ def _analizar_eficiencia_historica(datos_historicos: List[Dict[str, Any]], roi_p
         std = var ** 0.5
 
     # Tendencia: comparar ROI inicial vs. final (robusto a negativos)
-    # Si ROI final > ROI inicial => "Creciente"; si menor => "Decreciente"; si similar => "Estable".
     try:
-        primeros_ordenados = sorted(datos_historicos, key=lambda x: x["año"])  # 'año' ya normalizado arriba
+        primeros_ordenados = sorted(datos_historicos, key=lambda x: x["año"])
     except Exception:
         primeros_ordenados = datos_historicos
     if primeros_ordenados:
         roi_ini = Flt(primeros_ordenados[0].get("roi"))
         roi_fin = Flt(primeros_ordenados[-1].get("roi"))
         delta = roi_fin - roi_ini
-        eps = 0.01  # tolerancia mínima para ruido
+        eps = 0.01
         if delta > eps:
             tendencia = "Creciente"
         elif delta < -eps:
@@ -141,7 +140,7 @@ def _analizar_eficiencia_historica(datos_historicos: List[Dict[str, Any]], roi_p
         tendencia = "Estable"
 
     return {
-        "mejor_temporada": {"año": mejor["año"], "roi": Flt(mejor["roi"])},
+        "mejor_temporada": {"año": mejores_ordenados[-1]["año"] if False else mejor["año"], "roi": Flt(mejor["roi"])},  # keep structure
         "peor_temporada": {"año": peor["año"], "roi": Flt(peor["roi"])},
         "roi_promedio_historico": Flt(roi_promedio),
         "variabilidad_roi": round(std, 2),
@@ -268,6 +267,7 @@ def generar_perfil_huerta(
                 "roi": rep_t["resumen_ejecutivo"]["roi_temporada"],
                 "productividad": rep_t["resumen_ejecutivo"]["productividad"],
                 "cosechas_count": rep_t["informacion_general"]["total_cosechas"],
+                "cajas": rep_t["resumen_ejecutivo"].get("cajas_totales", 0),  # <-- añadido para PDF desde datos
                 "tiene_perdida": bool(Decimal(str(rep_t["resumen_ejecutivo"]["ganancia_neta"])) < 0),
             }
         )

@@ -7,7 +7,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from django.http import HttpResponse
 from django.core.exceptions import ValidationError, PermissionDenied
-from django.utils.text import slugify  # NUEVO: para nombres de archivo seguros
+from django.utils.text import slugify
 from django.utils import timezone
 
 # Servicio específico de perfil de huerta
@@ -29,6 +29,11 @@ def _truthy(v: object) -> bool:
         return v
     s = str(v).strip().lower()
     return s in {"1", "true", "t", "yes", "y", "si", "sí"}
+
+
+def _safe_filename(prefix: str, base: str, ext: str) -> str:
+    name = slugify(str(base))[:80] or "reporte"
+    return f"{prefix}_{name}.{ext}"
 
 
 class PerfilHuertaReportViewSet(viewsets.GenericViewSet):
@@ -55,7 +60,7 @@ class PerfilHuertaReportViewSet(viewsets.GenericViewSet):
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
         try:
-            años = int(años_raw)  # Asegúrate que el service espera `años=` como keyword
+            años = int(años_raw)
             if años < 1 or años > 10:
                 raise ValueError()
         except Exception:
@@ -86,28 +91,25 @@ class PerfilHuertaReportViewSet(viewsets.GenericViewSet):
                 force_refresh=force_refresh,
             )
 
+            info = (reporte_data or {}).get("informacion_general", {}) or {}
+            base_name = info.get("huerta_nombre") or (f"huerta_{hid}" if hid else f"huerta_rentada_{hrid}")
+            base = slugify(str(base_name))[:80] or "perfil"
+            fecha = timezone.localtime(timezone.now()).strftime("%Y-%m-%d")
+
             if formato == "pdf":
                 pdf = ExportacionService.generar_pdf_perfil_huerta(reporte_data)
-                info = (reporte_data or {}).get("resumen", {}) or {}
-                base_name = info.get("huertaNombre") or (f"huerta_{hid}" if hid else f"huerta_rentada_{hrid}")
-                base = slugify(str(base_name))[:80] or "perfil"
                 resp = HttpResponse(pdf, content_type="application/pdf")
-                fecha = timezone.localtime(timezone.now()).strftime("%Y-%m-%d")
-                resp["Content-Disposition"] = f'attachment; filename="perfil_huerta_{base}_{fecha}.pdf"'
+                resp["Content-Disposition"] = f'attachment; filename="{_safe_filename("perfil_huerta", f"{base}_{fecha}", "pdf")}"'
                 resp["X-Content-Type-Options"] = "nosniff"
                 return resp
 
             if formato in {"excel", "xlsx"}:
                 excel = ExportacionService.generar_excel_perfil_huerta(reporte_data)
-                info = (reporte_data or {}).get("resumen", {}) or {}
-                base_name = info.get("huertaNombre") or (f"huerta_{hid}" if hid else f"huerta_rentada_{hrid}")
-                base = slugify(str(base_name))[:80] or "perfil"
                 resp = HttpResponse(
                     excel,
                     content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 )
-                fecha = timezone.localtime(timezone.now()).strftime("%Y-%m-%d")
-                resp["Content-Disposition"] = f'attachment; filename="perfil_huerta_{base}_{fecha}.xlsx"'
+                resp["Content-Disposition"] = f'attachment; filename="{_safe_filename("perfil_huerta", f"{base}_{fecha}", "xlsx")}"'
                 resp["X-Content-Type-Options"] = "nosniff"
                 return resp
 

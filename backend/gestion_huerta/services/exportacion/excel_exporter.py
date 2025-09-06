@@ -132,9 +132,9 @@ class ExcelExporter:
         info = reporte_data.get("informacion_general", {}) or {}
         resumen = reporte_data.get("resumen_financiero", {}) or {}
 
+        # En COSECHA sí mostramos período
         fi = _first(info.get("fecha_inicio")); ff = _first(info.get("fecha_fin"))
-        # La sección de período no se muestra en exportes de temporada
-        periodo_txt = ""
+        periodo_txt = _safe_str(info.get("periodo") or (f"{fi} - {ff}" if (fi or ff) else ""))
 
         row = 3
         _ws_section_title(ws_resumen, row, "INFORMACIÓN GENERAL")
@@ -170,15 +170,15 @@ class ExcelExporter:
         # Autoajuste básico para hoja Resumen (2 columnas: etiqueta / valor)
         try:
             labels = [
-                "Huerta", "Ubicación", "Propietario", "Temporada", "Cosecha", "Estado", "Hectáreas",
-                "Inversión Total", "Ventas Totales", "Gastos de Venta", "Ganancia Bruta", "Ganancia Neta",
+                "Huerta", "Ubicación", "Propietario", "Temporada", "Cosecha", "Período", "Estado", "Hectáreas",
+                "Total Inversiones", "Total Ventas", "Gastos de Venta", "Ganancia Bruta", "Ganancia Neta",
                 "ROI (%)", "Ganancia por Hectárea",
             ]
             col1 = max(12, max(len(_safe_str(x)) for x in labels))
             # aproximar longitud de los valores para ancho de columna 2
             val_samples = [
                 _safe_str(info.get("huerta_nombre")), _safe_str(info.get("ubicacion")), _safe_str(info.get("propietario")),
-                _safe_str(info.get("temporada_a��o")), _safe_str(info.get("cosecha_nombre")), _safe_str(info.get("estado")),
+                _safe_str(info.get("temporada_año")), _safe_str(info.get("cosecha_nombre")), periodo_txt, _safe_str(info.get("estado")),
                 f"{_money(info.get('hectareas')):,.2f} ha",
                 f"{_money(resumen.get('total_inversiones')):,.2f}",
                 f"{_money(resumen.get('total_ventas')):,.2f}",
@@ -309,6 +309,7 @@ class ExcelExporter:
         info = reporte_data.get("informacion_general", {}) or {}
         res = reporte_data.get("resumen_ejecutivo", {}) or {}
 
+        # Se calcula pero NO se muestra
         fi = _first(info.get("fecha_inicio")); ff = _first(info.get("fecha_fin"))
         periodo_txt = _safe_str(info.get("periodo") or (f"{fi} - {ff}" if (fi or ff) else ""))
 
@@ -408,7 +409,6 @@ class ExcelExporter:
                     return 4
             for c in comp:
                 maxes[0] = max(maxes[0], len(_safe_str(c.get("nombre"))))
-                maxes[1] = maxes[1] if maxes[1] > 0 else 12
                 maxes[1] = max(maxes[1], _len_money(c.get("inversion")))
                 maxes[2] = max(maxes[2], _len_money(c.get("ventas")))
                 maxes[3] = max(maxes[3], _len_money(c.get("ganancia")))
@@ -494,7 +494,6 @@ class ExcelExporter:
                 maxes[1] = max(maxes[1], _len_money(d.get("inversion")))
                 maxes[2] = max(maxes[2], _len_money(d.get("ventas")))
                 maxes[3] = max(maxes[3], _len_money(d.get("ganancia")))
-                # ROI con un decimal y sufijo %
                 try:
                     maxes[4] = max(maxes[4], len(f"{float(d.get('roi') or 0):.1f}%"))
                 except Exception:

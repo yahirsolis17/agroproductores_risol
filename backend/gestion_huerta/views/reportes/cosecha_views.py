@@ -7,7 +7,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from django.http import HttpResponse
 from django.core.exceptions import ValidationError, PermissionDenied
-from django.utils.text import slugify  # ya se estaba usando para filename
+from django.utils.text import slugify
 from django.utils import timezone
 
 from gestion_huerta.services.reportes.cosecha_service import generar_reporte_cosecha
@@ -35,7 +35,7 @@ def _safe_filename(prefix: str, base: str, ext: str) -> str:
     Sanea y limita el nombre del archivo para descargas.
     """
     name = slugify(str(base))[:80] or "reporte"
-    return f'{prefix}_{name}.{ext}'
+    return f"{prefix}_{name}.{ext}"
 
 
 class CosechaReportViewSet(viewsets.GenericViewSet):
@@ -73,11 +73,14 @@ class CosechaReportViewSet(viewsets.GenericViewSet):
 
             info = (reporte_data or {}).get("informacion_general", {}) or {}
             base = f"{info.get('temporada_año','')}_{info.get('cosecha_nombre','')}".strip("_") or f"{cosecha_id}"
+            fecha = timezone.localtime(timezone.now()).strftime("%Y-%m-%d")
 
             if formato == "pdf":
                 pdf = ExportacionService.generar_pdf_cosecha(reporte_data)
                 resp = HttpResponse(pdf, content_type="application/pdf")
-                resp["Content-Disposition"] = f'attachment; filename="{_safe_filename("reporte_cosecha", f"{base}_{timezone.localtime(timezone.now()).strftime('%Y-%m-%d')}", "pdf")}"'
+                resp["Content-Disposition"] = (
+                    f'attachment; filename="{_safe_filename("reporte_cosecha", f"{base}_{fecha}", "pdf")}"'
+                )
                 resp["X-Content-Type-Options"] = "nosniff"
                 return resp
 
@@ -87,7 +90,9 @@ class CosechaReportViewSet(viewsets.GenericViewSet):
                     excel,
                     content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 )
-                resp["Content-Disposition"] = f'attachment; filename="{_safe_filename("reporte_cosecha", f"{base}_{timezone.localtime(timezone.now()).strftime('%Y-%m-%d')}", "xlsx")}"'
+                resp["Content-Disposition"] = (
+                    f'attachment; filename="{_safe_filename("reporte_cosecha", f"{base}_{fecha}", "xlsx")}"'
+                )
                 resp["X-Content-Type-Options"] = "nosniff"
                 return resp
 
