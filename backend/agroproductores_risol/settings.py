@@ -173,7 +173,6 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=7),
 }
 
-CRISPY_TEMPLATE_PACK = 'bootstrap4'
 MESSAGE_STORAGE = 'django.contrib.messages.storage.session.SessionStorage'
 
 AUTH_USER_MODEL = 'gestion_usuarios.Users'
