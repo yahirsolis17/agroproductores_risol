@@ -10,7 +10,15 @@ from gestion_bodega.serializers import CierreSemanalSerializer, CierreTemporadaS
 from gestion_bodega.permissions import HasModulePermission
 from gestion_bodega.utils.audit import ViewSetAuditMixin
 from agroproductores_risol.utils.pagination import GenericPagination
-from gestion_bodega.views import NotificationMixin
+from gestion_bodega.utils.notification_handler import NotificationHandler
+class NotificationMixin:
+    """Shortcut para devolver respuestas con el formato del frontend."""
+    def notify(self, *, key: str, data=None, status_code=status.HTTP_200_OK):
+        return NotificationHandler.generate_response(
+            message_key=key,
+            data=data or {},
+            status_code=status_code,
+        )
 
 
 class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewSet):

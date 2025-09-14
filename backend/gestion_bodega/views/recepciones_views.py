@@ -1,5 +1,6 @@
 # gestion_bodega/views/recepciones_views.py
 from rest_framework import viewsets, status, filters, serializers
+from gestion_bodega.utils.notification_handler import NotificationHandler
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from django_filters.rest_framework import DjangoFilterBackend
@@ -20,7 +21,16 @@ from gestion_bodega.utils.audit import ViewSetAuditMixin
 from agroproductores_risol.utils.pagination import GenericPagination
 
 # Reutilizamos el NotificationMixin como en tus vistas de huerta
-from gestion_bodega.views import NotificationMixin
+
+class NotificationMixin:
+    """Shortcut para devolver respuestas con el formato del frontend."""
+    def notify(self, *, key: str, data=None, status_code=status.HTTP_200_OK):
+        return NotificationHandler.generate_response(
+            message_key=key,
+            data=data or {},
+            status_code=status_code,
+        )
+        
 
 
 def _semana_cerrada(bodega_id: int, temporada_id: int, f: date) -> bool:

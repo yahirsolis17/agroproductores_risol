@@ -8,7 +8,9 @@ from .views.compras_madera_views import CompraMaderaViewSet
 from .views.pedidos_views import PedidoViewSet
 from .views.camiones_views import CamionSalidaViewSet
 from .views.consumibles_views import ConsumibleViewSet
-from .views.cierres_views import CierreViewSet
+from .views.cierres_views import CierresViewSet
+
+app_name = "gestion_bodega"
 
 router = DefaultRouter()
 router.register(r"recepciones", RecepcionViewSet, basename="recepciones")
@@ -18,7 +20,7 @@ router.register(r"compras-madera", CompraMaderaViewSet, basename="compras-madera
 router.register(r"pedidos", PedidoViewSet, basename="pedidos")
 router.register(r"camiones", CamionSalidaViewSet, basename="camiones")
 router.register(r"consumibles", ConsumibleViewSet, basename="consumibles")
-router.register(r"cierres", CierreViewSet, basename="cierres")
+router.register(r"cierres", CierresViewSet, basename="cierres")
 
 urlpatterns = [
     path("", include(router.urls)),

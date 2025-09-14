@@ -32,7 +32,6 @@ INSTALLED_APPS = [
     'gestion_usuarios',
     'gestion_huerta',
     'gestion_bodega',
-    'gestion_venta',
 
     # Django
     'django.contrib.admin',

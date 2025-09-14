@@ -1,0 +1,112 @@
+modules/
+  gestion_bodega/
+    estructura_limpia.txt
+
+    components/
+      common/
+        ActionsMenu.tsx
+        Breadcrumbs.tsx
+        WeekSwitcher.tsx
+        IsoWeekPicker.tsx
+        MaterialCalidadSelector.tsx
+        TipoMangoAutocomplete.tsx
+        ClienteAutocomplete.tsx
+        QuantityInput.tsx
+        ConfirmDialog.tsx
+        MiniKpis.tsx
+
+      capturas/
+        FastCapturePanel.tsx
+        RecepcionFormModal.tsx
+        ClasificacionFormModal.tsx
+        CapturasTable.tsx
+        CapturasToolbar.tsx
+
+      inventarios/
+        InventariosTabs.tsx
+        InventarioPlasticoTable.tsx
+        AjusteInventarioModal.tsx
+        MovimientosPlasticoDrawer.tsx
+        InventarioMaderaTable.tsx
+
+      logistica/
+        PedidoFormModal.tsx
+        PedidoTable.tsx
+        PedidoToolbar.tsx
+        SurtidoDrawer.tsx
+        CamionFormModal.tsx
+        CamionTable.tsx
+        CamionToolbar.tsx
+        CamionItemsEditor.tsx
+
+      gastos/
+        CompraMaderaFormModal.tsx
+        CompraMaderaTable.tsx
+        AbonoMaderaModal.tsx
+        ConsumibleFormModal.tsx
+        ConsumibleTable.tsx
+        GastosToolbar.tsx
+
+      cierres/
+        CierreSemanalFormModal.tsx
+        CierreTable.tsx
+        CierresToolbar.tsx
+
+      reportes/
+        ReportesTabs.tsx
+        ReporteSemanalViewer.tsx
+        ReporteSemanalCharts.tsx
+        ReporteSemanalTables.tsx
+        ReporteTemporadaViewer.tsx
+        ReportesToolbar.tsx
+
+    hooks/
+      useBodegas.ts
+      useTemporadasBodega.ts
+      useCapturas.ts
+      useInventarios.ts
+      usePedidos.ts
+      useCamiones.ts
+      useGastos.ts
+      useCierres.ts
+      useReportesBodega.ts
+      useTiposMango.ts
+      useIsoWeek.ts
+
+    pages/
+      DashboardBodega.tsx
+      Capturas.tsx
+      Inventarios.tsx
+      Logistica.tsx
+      Gastos.tsx
+      Cierres.tsx
+      Reportes.tsx
+
+    services/
+      bodegaService.ts
+      temporadaBodegaService.ts
+      capturasService.ts
+      inventarioService.ts
+      pedidosService.ts
+      camionesService.ts
+      gastosService.ts
+      cierresService.ts
+      reportesBodegaService.ts
+
+    types/
+      bodegaTypes.d.ts
+      temporadaBodegaTypes.d.ts
+      capturasTypes.d.ts
+      inventarioTypes.d.ts
+      pedidoTypes.d.ts
+      camionTypes.d.ts
+      gastosTypes.d.ts
+      cierreTypes.d.ts
+      reportesBodegaTypes.ts
+      shared.ts
+
+    utils/
+      bodegaTypeGuards.ts
+      format.ts
+      hotkeys.ts
+

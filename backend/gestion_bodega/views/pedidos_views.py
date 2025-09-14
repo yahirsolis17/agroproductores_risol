@@ -4,7 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Sum, F
 
 from gestion_bodega.models import (
     Pedido, PedidoRenglon, SurtidoRenglon, ClasificacionEmpaque, CierreSemanal
@@ -14,10 +14,17 @@ from gestion_bodega.serializers import (
     SurtirPedidoSerializer
 )
 from gestion_bodega.permissions import HasModulePermission
-from gestion_bodega.utils.audit import ViewSetAuditMixin
+from gestion_bodega.utils.audit import  ViewSetAuditMixin
 from agroproductores_risol.utils.pagination import GenericPagination
-from gestion_bodega.views import NotificationMixin
-
+from gestion_bodega.utils.notification_handler import NotificationHandler
+class NotificationMixin:
+    """Shortcut para devolver respuestas con el formato del frontend."""
+    def notify(self, *, key: str, data=None, status_code=status.HTTP_200_OK):
+        return NotificationHandler.generate_response(
+            message_key=key,
+            data=data or {},
+            status_code=status_code,
+        )
 
 def _semana_cerrada(bodega_id: int, temporada_id: int, fecha):
     return CierreSemanal.objects.filter(
@@ -185,7 +192,7 @@ class PedidoViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
                 renglon.save(update_fields=["cantidad_surtida", "actualizado_en"])
 
             # Recalcula estado del pedido
-            pend = obj.renglones.filter(cantidad_surtida__lt=models.F("cantidad_solicitada")).exists()
+            pend = obj.renglones.filter(cantidad_surtida__lt=F("cantidad_solicitada")).exists()
             obj.estado = "PARCIAL" if pend else "SURTIDO"
             obj.save(update_fields=["estado", "actualizado_en"])
 
