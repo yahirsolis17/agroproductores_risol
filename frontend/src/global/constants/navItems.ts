@@ -7,6 +7,7 @@ export interface NavItem {
   label: string;
   perm?: string;        // <-  AHORA sí existe para TypeScript
 }
+
 export const NAV_ITEMS: Record<Role, NavItem[]> = {
   admin: [
     { to: '/dashboard', label: 'Inicio' },
@@ -16,7 +17,8 @@ export const NAV_ITEMS: Record<Role, NavItem[]> = {
     // Podrías añadir aquí:
     { to: '/huertas', label: 'Huertas' },
     { to: '/propietarios', label: 'Propietarios' },
-    // etc.
+    // Gestión Bodega
+    { to: '/bodega', label: 'Bodegas', perm: 'view_bodega' },
   ],
   usuario: [
     { to: '/dashboard', label: 'Dashboard' },
@@ -24,5 +26,7 @@ export const NAV_ITEMS: Record<Role, NavItem[]> = {
     // Podrías añadir aquí:
     { to: '/huertas', label: 'Huertas' },
     { to: '/propietarios', label: 'Propietarios' },
+    // Gestión Bodega
+    { to: '/bodega', label: 'Bodegas', perm: 'view_bodega' },
   ],
 };

@@ -9,10 +9,7 @@ from django.db.models import Sum
 from gestion_bodega.models import (
     ClasificacionEmpaque, CierreSemanal
 )
-from gestion_bodega.serializers import (
-    ClasificacionEmpaqueSerializer,
-    ClasificacionEmpaqueBulkUpsertSerializer,
-)
+
 from gestion_bodega.permissions import HasModulePermission
 from gestion_bodega.utils.audit import ViewSetAuditMixin
 from agroproductores_risol.utils.pagination import GenericPagination
@@ -43,7 +40,6 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
     - Acción bulk-upsert para captura rápida.
     """
     queryset = ClasificacionEmpaque.objects.all().order_by("-fecha", "-id")
-    serializer_class = ClasificacionEmpaqueSerializer
     pagination_class = GenericPagination
 
     permission_classes = [IsAuthenticated, HasModulePermission]

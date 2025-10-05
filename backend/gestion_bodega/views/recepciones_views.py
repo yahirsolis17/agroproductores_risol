@@ -12,10 +12,7 @@ from gestion_bodega.models import (
     Recepcion, ClasificacionEmpaque, CierreSemanal,
     TemporadaBodega, Bodega
 )
-from gestion_bodega.serializers import (
-    RecepcionSerializer,
-    ClasificacionEmpaqueSerializer,
-)
+
 from gestion_bodega.permissions import HasModulePermission
 from gestion_bodega.utils.audit import ViewSetAuditMixin
 from agroproductores_risol.utils.pagination import GenericPagination
@@ -51,7 +48,6 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
     - Semana ISO cerrada bloquea cambios en fechas dentro del rango.
     """
     queryset = Recepcion.objects.all().order_by("-fecha", "-id")
-    serializer_class = RecepcionSerializer
     pagination_class = GenericPagination
 
     permission_classes = [IsAuthenticated, HasModulePermission]

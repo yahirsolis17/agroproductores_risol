@@ -184,4 +184,59 @@ export const breadcrumbRoutes = {
     { label: 'Huertas', path: '/huertas' },
     { label: `Reporte de Huerta – ${huertaName || `#${huertaId}`}`, path: '' },
   ],
+
+  // ─────────────────────────────────────────────────────────────
+  // Gestión Bodega
+  // ─────────────────────────────────────────────────────────────
+
+  bodegaDashboard: (): Crumb[] => [
+    { label: 'Bodegas', path: '/bodega' },
+  ],
+
+  bodegaTemporadas: (bodegaId: number | string, bodegaNombre?: string): Crumb[] => [
+    { label: 'Bodegas', path: '/bodega' },
+    { label: bodegaNombre ?? `Bodega #${bodegaId}`, path: `/bodega/${bodegaId}/temporadas` },
+    { label: 'Temporadas', path: '' },
+  ],
+  
+  bodegaHome: (bodegaId: number | string, bodegaNombre?: string): Crumb[] => [
+    { label: 'Bodegas', path: '/bodega' },
+    { label: bodegaNombre ?? `Bodega #${bodegaId}`, path: `/bodega/${bodegaId}/capturas` },
+  ],
+
+  bodegaCapturas: (bodegaId: number | string, bodegaNombre?: string): Crumb[] => [
+    { label: 'Bodegas', path: '/bodega' },
+    { label: bodegaNombre ?? `Bodega #${bodegaId}`, path: `/bodega/${bodegaId}/capturas` },
+    { label: 'Capturas', path: '' },
+  ],
+
+  bodegaInventarios: (bodegaId: number | string, bodegaNombre?: string): Crumb[] => [
+    { label: 'Bodegas', path: '/bodega' },
+    { label: bodegaNombre ?? `Bodega #${bodegaId}`, path: `/bodega/${bodegaId}/capturas` },
+    { label: 'Inventarios', path: '' },
+  ],
+
+  bodegaLogistica: (bodegaId: number | string, bodegaNombre?: string): Crumb[] => [
+    { label: 'Bodegas', path: '/bodega' },
+    { label: bodegaNombre ?? `Bodega #${bodegaId}`, path: `/bodega/${bodegaId}/capturas` },
+    { label: 'Logística', path: '' },
+  ],
+
+  bodegaGastos: (bodegaId: number | string, bodegaNombre?: string): Crumb[] => [
+    { label: 'Bodegas', path: '/bodega' },
+    { label: bodegaNombre ?? `Bodega #${bodegaId}`, path: `/bodega/${bodegaId}/capturas` },
+    { label: 'Gastos', path: '' },
+  ],
+
+  bodegaCierres: (bodegaId: number | string, bodegaNombre?: string): Crumb[] => [
+    { label: 'Bodegas', path: '/bodega' },
+    { label: bodegaNombre ?? `Bodega #${bodegaId}`, path: `/bodega/${bodegaId}/capturas` },
+    { label: 'Cierres', path: '' },
+  ],
+
+  bodegaReportes: (bodegaId: number | string, bodegaNombre?: string): Crumb[] => [
+    { label: 'Bodegas', path: '/bodega' },
+    { label: bodegaNombre ?? `Bodega #${bodegaId}`, path: `/bodega/${bodegaId}/capturas` },
+    { label: 'Reportes', path: '' },
+  ],
 };

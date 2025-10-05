@@ -73,3 +73,4 @@ export function handleBackendNotification(response: any) {
     console.log(`[Notificación: ${key}]`, message, action ? `action=${action}` : '');
   }
 }
+export default { handleBackendNotification };

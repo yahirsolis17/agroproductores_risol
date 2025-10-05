@@ -101,6 +101,12 @@ const Navbar: React.FC = () => {
     [visibleRoutes]
   );
 
+  // Gestión Bodega
+  const warehouseManagementRoutes = useMemo(
+    () => visibleRoutes.filter(r => /^\/bodega(\/|$)/.test(r.to)),
+    [visibleRoutes]
+  );
+
   /* ────────────────── render ────────────────── */
   return (
     <motion.nav
@@ -128,6 +134,7 @@ const Navbar: React.FC = () => {
             </Link>
             {renderMenu('Gestión de Usuarios', userManagementRoutes)}
             {renderMenu('Gestión de Huerta', gardenManagementRoutes)}
+            {renderMenu('Gestión de Bodega', warehouseManagementRoutes)}
           </>
         )}
       </div>

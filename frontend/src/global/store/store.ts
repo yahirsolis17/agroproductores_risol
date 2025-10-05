@@ -14,7 +14,8 @@ import temporadaReducer from './temporadaSlice';
 import breadcrumbsReducer from './breadcrumbsSlice';
 import userReducer from './userSlice';
 import huertasCombinadasReducer from './huertasCombinadasSlice'
-
+import bodegaReduce from './bodegasSlice';
+import temporadasBodegaReducer from './temporadabodegaSlice';
 
 export const store = configureStore({
   reducer: {
@@ -30,6 +31,8 @@ export const store = configureStore({
     inversiones: inversionesReducer,
     ventas: ventasReducer,
     categoriasInversion: categoriaInversionReducer,
+    bodegas: bodegaReduce,
+    temporadasBodega: temporadasBodegaReducer,
   },
 });
 

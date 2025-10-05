@@ -93,4 +93,57 @@ export const moduleRoutes: ModuleRoute[] = [
     allowedRoles: ['admin', 'usuario'],
     element: lazyRoute(() => import('../../modules/gestion_huerta/pages/PerfilHuerta')),
   },
+
+  // ─────────────────────────────────────────────────────────────
+  // Gestión Bodega
+  // ─────────────────────────────────────────────────────────────
+  {
+    path: '/bodega',
+    module: 'gestion_bodega',
+    allowedRoles: ['admin', 'usuario'],
+    element: lazyRoute(() => import('../../modules/gestion_bodega/pages/Bodegas')),
+  },
+  {
+    path: '/bodega/:bodegaId/temporadas',
+    module: 'gestion_bodega',
+    allowedRoles: ['admin', 'usuario'],
+    element: lazyRoute(() => import('../../modules/gestion_bodega/pages/Temporadas')),
+  },
+
+  {
+    path: '/bodega/:bodegaId/capturas',
+    module: 'gestion_bodega',
+    allowedRoles: ['admin', 'usuario'],
+    element: lazyRoute(() => import('../../modules/gestion_bodega/pages/Capturas')),
+  },
+  {
+    path: '/bodega/:bodegaId/inventarios',
+    module: 'gestion_bodega',
+    allowedRoles: ['admin', 'usuario'],
+    element: lazyRoute(() => import('../../modules/gestion_bodega/pages/Inventarios')),
+  },
+  {
+    path: '/bodega/:bodegaId/logistica',
+    module: 'gestion_bodega',
+    allowedRoles: ['admin', 'usuario'],
+    element: lazyRoute(() => import('../../modules/gestion_bodega/pages/Logistica')),
+  },
+  {
+    path: '/bodega/:bodegaId/gastos',
+    module: 'gestion_bodega',
+    allowedRoles: ['admin', 'usuario'],
+    element: lazyRoute(() => import('../../modules/gestion_bodega/pages/Gastos')),
+  },
+  {
+    path: '/bodega/:bodegaId/cierres',
+    module: 'gestion_bodega',
+    allowedRoles: ['admin', 'usuario'],
+    element: lazyRoute(() => import('../../modules/gestion_bodega/pages/Cierres')),
+  },
+  {
+    path: '/bodega/:bodegaId/reportes',
+    module: 'gestion_bodega',
+    allowedRoles: ['admin', 'usuario'],
+    element: lazyRoute(() => import('../../modules/gestion_bodega/pages/Reportes')),
+  },
 ];
