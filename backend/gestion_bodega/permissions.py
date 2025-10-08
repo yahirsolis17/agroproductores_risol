@@ -18,7 +18,6 @@ Uso típico en un ViewSet:
         allowed_roles = ["admin", "usuario"]  # opcional; por defecto ya admite ambos
 """
 
-from __future__ import annotations
 
 from rest_framework.permissions import BasePermission
 

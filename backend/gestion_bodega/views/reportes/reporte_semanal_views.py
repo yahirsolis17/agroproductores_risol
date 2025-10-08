@@ -58,6 +58,16 @@ class ReporteSemanalView(views.APIView):
                     "validation_error", status_code=status.HTTP_400_BAD_REQUEST,
                     data={"detail": "formato debe ser json|pdf|excel"}
                 )
+        except NotImplementedError as exc:
+            return NotificationHandler.generate_response(
+                "validation_error", status_code=status.HTTP_400_BAD_REQUEST,
+                data={"detail": str(exc)}
+            )
+        except ValueError as exc:
+            return NotificationHandler.generate_response(
+                "validation_error", status_code=status.HTTP_400_BAD_REQUEST,
+                data={"detail": str(exc)}
+            )
         except Exception as e:
             return NotificationHandler.generate_response(
                 "server_error", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -109,7 +109,7 @@ export const useReportePerfilHuerta = (
 
       const hist = Array.isArray(rep.resumen_historico) ? (rep.resumen_historico as AnyRecord[]) : [];
       const getYear = (row: AnyRecord): number => {
-        const y = (row as AnyRecord)['año'] ?? (row as AnyRecord)['anio'];
+        const y = (row as AnyRecord)['año'] ?? (row as AnyRecord)['año'];
         const n = Number(y);
         return Number.isFinite(n) ? n : new Date().getFullYear();
       };
@@ -163,7 +163,7 @@ export const useReportePerfilHuerta = (
               return A - B; // ascendente
             })
             .map((row) => ({
-              anio: getYear(row as AnyRecord),
+              año: getYear(row as AnyRecord),
               inversion: toNumber((row as AnyRecord)['inversion']),
               ventas: toNumber((row as AnyRecord)['ventas']),
               ganancia: toNumber((row as AnyRecord)['ganancia']),

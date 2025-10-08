@@ -48,7 +48,7 @@ const getFilename = (cd?: string, fallback?: string) => {
   return m ? decodeURIComponent(m[1].replace(/"/g, '')) : fallback;
 };
 
-/** Normaliza el perfil: año→anio y sanea codificaciones raras */
+/** Normaliza el perfil: año→año y sanea codificaciones raras */
 const normalizePerfilHuertaResponse = (rep: any) => {
   if (!rep || typeof rep !== 'object') return rep;
 
@@ -62,9 +62,9 @@ const normalizePerfilHuertaResponse = (rep: any) => {
   const normalizeArray = (arr: any[]) => {
     if (!Array.isArray(arr)) return arr;
     const out: FilaResumenHistorico[] = arr.map((row: any) => {
-      // soportar "año", "anio" o claves mal codificadas (por si acaso)
-      const anio =
-        row?.anio ??
+      // soportar "año", "año" o claves mal codificadas (por si acaso)
+      const año =
+        row?.año ??
         row?.año ??
         row?.['a\u00F1o'] ?? // 'año' unicode
         row?.['a\uFFFD\uFFFDo'] ?? // por si vienen bytes mal decodificados
@@ -72,7 +72,7 @@ const normalizePerfilHuertaResponse = (rep: any) => {
         row?.['a��o'] ??
         row?.['ano']; // fallback final (no ideal)
       return {
-        anio: anio as any,
+        año: año as any,
         inversion: Number(row?.inversion ?? 0),
         ventas: Number(row?.ventas ?? 0),
         ganancia: Number(row?.ganancia ?? 0),
@@ -205,7 +205,7 @@ export const reportesProduccionService = {
         const resp = await apiClient.post(`${BASE}/perfil-huerta/`, payload);
         try { handleBackendNotification(resp.data); } catch {}
         const unwrapped = unwrapJson(resp.data);
-        // 🔧 Normalizar año→anio para calzar con tus tipos y componentes
+        // 🔧 Normalizar año→año para calzar con tus tipos y componentes
         const normalized = normalizePerfilHuertaResponse(unwrapped);
         return { success: true, data: normalized, message: resp.data?.message, errors: resp.data?.errors };
       }

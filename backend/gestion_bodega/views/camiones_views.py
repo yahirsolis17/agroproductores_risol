@@ -1,4 +1,4 @@
-# gestion_bodega/views/camiones_views.py
+﻿# gestion_bodega/views/camiones_views.py
 from rest_framework import viewsets, status, filters, serializers
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -13,6 +13,7 @@ from agroproductores_risol.utils.pagination import GenericPagination
 from gestion_bodega.utils.notification_handler import NotificationHandler
 class NotificationMixin:
     """Shortcut para devolver respuestas con el formato del frontend."""
+
     def notify(self, *, key: str, data=None, status_code=status.HTTP_200_OK):
         return NotificationHandler.generate_response(
             message_key=key,
@@ -20,6 +21,16 @@ class NotificationMixin:
             status_code=status_code,
         )
 
+    def get_pagination_meta(self):
+        paginator = getattr(self, 'paginator', None)
+        page = getattr(paginator, 'page', None) if paginator else None
+        if not paginator or page is None:
+            return {'count': 0, 'next': None, 'previous': None}
+        return {
+            'count': page.paginator.count,
+            'next': paginator.get_next_link(),
+            'previous': paginator.get_previous_link(),
+        }
 
 def _semana_cerrada(bodega_id: int, temporada_id: int, fecha):
     return CierreSemanal.objects.filter(
@@ -177,3 +188,4 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
             item.archivar()
 
         return self.notify(key="camion_item_archivado", status_code=status.HTTP_200_OK)
+

@@ -22,8 +22,7 @@ import BodegaTable from '../components/bodegas/BodegaTable';
 import BodegaFormModal from '../components/bodegas/BodegaFormModal';
 
 import { useAppDispatch } from '../../../global/store/store';
-import { setBreadcrumbs, clearBreadcrumbs } from '../../../global/store/breadcrumbsSlice';
-import { breadcrumbRoutes } from '../../../global/constants/breadcrumbRoutes';
+import { clearBreadcrumbs } from '../../../global/store/breadcrumbsSlice';
 
 import { useBodegas } from '../hooks/useBodegas';
 
@@ -60,7 +59,7 @@ const Bodegas: React.FC = () => {
   } = useBodegas();
 
   useEffect(() => {
-    dispatch(setBreadcrumbs(breadcrumbRoutes.bodegaDashboard()));
+    dispatch(clearBreadcrumbs());
     return () => {
       dispatch(clearBreadcrumbs());
     };
@@ -218,7 +217,13 @@ const Bodegas: React.FC = () => {
             onArchive={onArchive}
             onRestore={onRestore}
             onDelete={onDelete}
-            onView={(b) => navigate(`/bodega/${b.id}/temporadas`)}
+            onView={(b) => {
+              const params = new URLSearchParams();
+              if (b.nombre) params.set('bodega_nombre', b.nombre);
+              if (b.ubicacion) params.set('bodega_ubicacion', b.ubicacion);
+              const query = params.toString();
+              navigate(query ? `/bodega/${b.id}/temporadas?${query}` : `/bodega/${b.id}/temporadas`);
+            }}
           />
         </Box>
 

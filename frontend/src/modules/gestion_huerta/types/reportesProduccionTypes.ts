@@ -97,9 +97,9 @@ export interface AnalisisVariedad {
 }
 
 /** Resumen histórico por año (Perfil de Huerta) */
-// Nota: en backend viene como "año". Normalizamos en el service a "anio".
+// Nota: en backend viene como "año". Normalizamos en el service a "año".
 export interface FilaResumenHistorico {
-  anio: string | number; // año (normalizado)
+  año: string | number; // año (normalizado)
   inversion: number;
   ventas: number;
   ganancia: number;

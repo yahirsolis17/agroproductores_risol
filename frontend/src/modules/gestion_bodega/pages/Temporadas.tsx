@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Box, Paper, Typography, Divider } from '@mui/material';
+import { Box, Paper, Typography, Divider, Tabs, Tab } from '@mui/material';
 
 import TemporadaBodegaToolbar from '../components/temporadas/TemporadaBodegaToolbar';
 import TemporadaBodegaTable from '../components/temporadas/TemporadaBodegaTable';
@@ -16,6 +16,8 @@ import {
   finalizeTemporada,
   setPage,
   setYearFilter,
+  setBodegaFilter,
+  setEstado,
 } from '../../../global/store/temporadabodegaSlice';
 import { setBreadcrumbs, clearBreadcrumbs } from '../../../global/store/breadcrumbsSlice';
 import { breadcrumbRoutes } from '../../../global/constants/breadcrumbRoutes';
@@ -23,54 +25,181 @@ import { bodegaService } from '../services/bodegaService';
 
 import type { TemporadaBodega } from '../types/temporadaBodegaTypes';
 
+const sanitizeText = (value?: string | null): string | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed.length ? trimmed : undefined;
+};
+
+type VistaTab = 'activos' | 'archivados' | 'todos';
+
 const BodegaTemporadasPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { bodegaId: urlBodegaId } = useParams<{ bodegaId?: string }>();
   const [searchParams] = useSearchParams();
 
-  const bodegaIdFromUrl = urlBodegaId ? Number(urlBodegaId) : undefined;
-  const bodegaIdFromQuery = searchParams.get('b') ? Number(searchParams.get('b')) : undefined;
+  const parseNumericParam = (value?: string | null): number | undefined => {
+    if (value === undefined || value === null || value.trim() === '') return undefined;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  };
+
+  const bodegaIdFromUrl = parseNumericParam(urlBodegaId);
+  const bodegaIdFromQuery = parseNumericParam(searchParams.get('b'));
   const bodegaId = bodegaIdFromUrl ?? bodegaIdFromQuery;
 
-  const [bodegaNombre, setBodegaNombre] = useState<string | undefined>(undefined);
-  const [hasFetchedNombre, setHasFetchedNombre] = useState(false);
+  const bodegaNombreParam = sanitizeText(searchParams.get('bodega_nombre'));
+  const bodegaUbicacionParam = sanitizeText(searchParams.get('bodega_ubicacion'));
+
+  const [headerInfo, setHeaderInfo] = useState<{ nombre?: string; ubicacion?: string | null } | null>(null);
+  const [hasFetchedDetalle, setHasFetchedDetalle] = useState(false);
 
   const { items, meta, ops, filters } = useAppSelector((state) => state.temporadasBodega);
   const [finalizadaFilter, setFinalizadaFilter] = useState<boolean | null>(null);
+  const estadoActual = (filters.estado ?? 'activos') as VistaTab;
+  const [tab, setTab] = useState<VistaTab>(estadoActual);
+
+  const temporadaEnLista = useMemo(() => {
+    if (typeof bodegaId !== 'number') return undefined;
+    return (
+      items.find((temporada) => temporada.bodega_id === bodegaId) ??
+      items.find((temporada) => sanitizeText(temporada.bodega_nombre))
+    );
+  }, [items, bodegaId]);
+
+  const derivedBodegaNombre = useMemo(
+    () => sanitizeText(temporadaEnLista?.bodega_nombre ?? undefined),
+    [temporadaEnLista]
+  );
+  const derivedBodegaUbicacion = useMemo(
+    () => sanitizeText(temporadaEnLista?.bodega_ubicacion ?? undefined),
+    [temporadaEnLista]
+  );
+
+  const headerNombre = useMemo(() => sanitizeText(headerInfo?.nombre), [headerInfo?.nombre]);
+  const headerUbicacion = useMemo(
+    () => sanitizeText(headerInfo?.ubicacion ?? undefined),
+    [headerInfo?.ubicacion]
+  );
+
+  const displayNombre = headerNombre || derivedBodegaNombre || bodegaNombreParam;
+  const displayUbicacion = headerUbicacion || derivedBodegaUbicacion || bodegaUbicacionParam;
+
+  const bodegaDisplayName = useMemo(() => {
+    if (typeof bodegaId !== 'number') return '';
+    if (displayNombre && displayUbicacion) return `${displayNombre} - ${displayUbicacion}`;
+    if (displayNombre) return displayNombre;
+    if (displayUbicacion) return `Ubicación ${displayUbicacion}`;
+    return `Bodega #${bodegaId}`;
+  }, [bodegaId, displayNombre, displayUbicacion]);
+
+  const bodegaBreadcrumbLabel = useMemo(() => {
+    if (typeof bodegaId !== 'number') return '';
+    if (displayNombre && displayUbicacion) return `${displayNombre} - ${displayUbicacion}`;
+    if (displayNombre) return displayNombre;
+    if (displayUbicacion) return displayUbicacion;
+    return `#${bodegaId}`;
+  }, [bodegaId, displayNombre, displayUbicacion]);
 
   useEffect(() => {
-    setBodegaNombre(undefined);
-    setHasFetchedNombre(false);
-  }, [bodegaId]);
+    setTab(estadoActual);
+  }, [estadoActual]);
 
   useEffect(() => {
-    if (!bodegaId) return;
+    if (tab !== estadoActual) {
+      dispatch(setEstado(tab));
+    }
+  }, [dispatch, tab, estadoActual]);
 
-    const itemWithNombre = items.find((temporada) => temporada.bodega_nombre);
-    const nombreDesdeListado = itemWithNombre?.bodega_nombre ?? undefined;
-    if (nombreDesdeListado) {
-      setBodegaNombre(nombreDesdeListado);
-      if (!hasFetchedNombre) {
-        setHasFetchedNombre(true);
+  useEffect(() => {
+    const nextBodegaId = typeof bodegaId === 'number' ? bodegaId : undefined;
+    if (filters.bodegaId !== nextBodegaId) {
+      dispatch(setBodegaFilter(nextBodegaId));
+    }
+  }, [dispatch, bodegaId, filters.bodegaId]);
+
+  useEffect(() => {
+    if (typeof bodegaId !== 'number') {
+      setHeaderInfo(null);
+      setHasFetchedDetalle(false);
+      setFinalizadaFilter(null);
+      return;
+    }
+
+    if (bodegaNombreParam || bodegaUbicacionParam) {
+      setHeaderInfo({
+        nombre: bodegaNombreParam ?? undefined,
+        ubicacion: bodegaUbicacionParam ?? null,
+      });
+    } else {
+      setHeaderInfo(null);
+    }
+
+    setHasFetchedDetalle(false);
+    setFinalizadaFilter(null);
+  }, [bodegaId, bodegaNombreParam, bodegaUbicacionParam]);
+
+  useEffect(() => {
+    if (!derivedBodegaNombre && !derivedBodegaUbicacion) return;
+
+    setHeaderInfo((prev) => {
+      const nextNombre = derivedBodegaNombre ?? prev?.nombre;
+      const nextUbicacion = derivedBodegaUbicacion ?? prev?.ubicacion ?? null;
+
+      const prevNombre = sanitizeText(prev?.nombre);
+      const prevUbicacion = sanitizeText(prev?.ubicacion ?? undefined);
+      const nextNombreSanitized = sanitizeText(nextNombre);
+      const nextUbicacionSanitized = sanitizeText(nextUbicacion ?? undefined);
+
+      if (prevNombre === nextNombreSanitized && prevUbicacion === nextUbicacionSanitized) {
+        return prev;
+      }
+
+      return {
+        nombre: nextNombre,
+        ubicacion: nextUbicacion,
+      };
+    });
+  }, [derivedBodegaNombre, derivedBodegaUbicacion]);
+
+  useEffect(() => {
+    if (typeof bodegaId !== 'number') return;
+
+    const hasNombre = Boolean(displayNombre);
+    const hasUbicacion = Boolean(displayUbicacion);
+
+    if (hasFetchedDetalle || (hasNombre && hasUbicacion)) {
+      if (!hasFetchedDetalle && hasNombre && hasUbicacion) {
+        setHasFetchedDetalle(true);
       }
       return;
     }
 
-    if (hasFetchedNombre) return;
-
     let cancelled = false;
-    setHasFetchedNombre(true);
+    setHasFetchedDetalle(true);
 
     (async () => {
       try {
         const detalle = await bodegaService.getById(bodegaId);
-        if (!cancelled) {
-          setBodegaNombre(detalle?.nombre ?? undefined);
-        }
+        if (cancelled) return;
+
+        setHeaderInfo({
+          nombre: sanitizeText(detalle?.nombre) ?? displayNombre ?? `#${bodegaId}`,
+          ubicacion: sanitizeText(detalle?.ubicacion) ?? displayUbicacion ?? null,
+        });
       } catch {
         if (!cancelled) {
-          setBodegaNombre(undefined);
+          setHeaderInfo((prev) => {
+            if (prev) return prev;
+            if (displayNombre || displayUbicacion) {
+              return {
+                nombre: displayNombre ?? `#${bodegaId}`,
+                ubicacion: displayUbicacion ?? null,
+              };
+            }
+            return prev;
+          });
         }
       }
     })();
@@ -78,10 +207,10 @@ const BodegaTemporadasPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [bodegaId, items, hasFetchedNombre]);
+  }, [bodegaId, hasFetchedDetalle, displayNombre, displayUbicacion]);
 
   useEffect(() => {
-    if (!bodegaId) {
+    if (typeof bodegaId !== 'number') {
       dispatch(setBreadcrumbs([
         { label: 'Bodegas', path: '/bodega' },
         { label: 'Temporadas', path: '' },
@@ -89,8 +218,8 @@ const BodegaTemporadasPage: React.FC = () => {
       return;
     }
 
-    dispatch(setBreadcrumbs(breadcrumbRoutes.bodegaTemporadas(bodegaId, bodegaNombre)));
-  }, [dispatch, bodegaId, bodegaNombre]);
+    dispatch(setBreadcrumbs(breadcrumbRoutes.bodegaTemporadas(bodegaId, bodegaBreadcrumbLabel)));
+  }, [dispatch, bodegaId, bodegaBreadcrumbLabel]);
 
   useEffect(() => {
     return () => {
@@ -99,7 +228,7 @@ const BodegaTemporadasPage: React.FC = () => {
   }, [dispatch]);
 
   useEffect(() => {
-    if (!bodegaId) return;
+    if (typeof bodegaId !== 'number') return;
 
     const params: Record<string, any> = {
       page: filters.page,
@@ -133,12 +262,12 @@ const BodegaTemporadasPage: React.FC = () => {
   }, [filters.year, finalizadaFilter]);
 
   const buildParams = () => {
-    if (!bodegaId) return null;
+    if (typeof bodegaId !== 'number') return null;
     const params: Record<string, any> = {
       page: filters.page,
       page_size: filters.page_size,
       ordering: filters.ordering,
-      estado: filters.estado,
+      estado: filters.estado ?? tab,
       bodegaId,
       year: filters.year,
     };
@@ -149,7 +278,7 @@ const BodegaTemporadasPage: React.FC = () => {
   };
 
   const handleCreate = async () => {
-    if (!bodegaId) return;
+    if (typeof bodegaId !== 'number') return;
     const currentYear = new Date().getFullYear();
 
     await dispatch(addTemporadaBodega({
@@ -192,7 +321,7 @@ const BodegaTemporadasPage: React.FC = () => {
   };
 
   const handleAdministrar = (temporada: TemporadaBodega) => {
-    if (!bodegaId) return;
+    if (typeof bodegaId !== 'number') return;
     navigate(`/bodega/${bodegaId}/capturas?temporada=${temporada.id}`);
   };
 
@@ -200,9 +329,10 @@ const BodegaTemporadasPage: React.FC = () => {
     /* Eliminar definitivo pendiente */
   };
 
-  if (!bodegaId) {
+  if (typeof bodegaId !== 'number') {
     return (
-      <Box p={2}>        <Paper className="p-6 rounded-2xl">
+      <Box p={2}>
+        <Paper className="p-6 rounded-2xl">
           <Typography variant="h5" gutterBottom>
             Temporadas de Bodega
           </Typography>
@@ -226,9 +356,21 @@ const BodegaTemporadasPage: React.FC = () => {
           Temporadas
         </Typography>
         <Typography variant="body2" color="text.secondary" className="mb-4">
-          {bodegaNombre ?? `Bodega #${bodegaId}`}
+          {bodegaDisplayName}
         </Typography>
         <Divider className="mb-4" />
+
+        <Tabs
+          value={tab}
+          onChange={(_, value: VistaTab) => setTab(value)}
+          textColor="primary"
+          indicatorColor="primary"
+          sx={{ mb: 2 }}
+        >
+          <Tab value="activos" label="Activas" />
+          <Tab value="archivados" label="Archivadas" />
+          <Tab value="todos" label="Todas" />
+        </Tabs>
 
         <TemporadaBodegaToolbar
           yearFilter={filters.year ?? null}

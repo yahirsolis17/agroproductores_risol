@@ -148,7 +148,7 @@ const ActionsMenu: React.FC<ActionsMenuProps> = (props) => {
             <span style={{ display: 'block' }}>
               <MenuItem disabled={!canView} onClick={() => handle(onView)}>
                 <ListItemIcon><VisibilityIcon fontSize="small" /></ListItemIcon>
-                <ListItemText primary="Ver" />
+                <ListItemText primary="Temporadas" />
               </MenuItem>
             </span>
           </Tooltip>

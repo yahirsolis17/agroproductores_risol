@@ -41,18 +41,24 @@ interface Props {
 
 const columns: Column<TemporadaBodega>[] = [
   {
-    label: 'Año',
-    key: 'año' as any,
-    render: (t) => <span className="font-medium">{t.año}</span>,
+    label: 'A\u00f1o',
+    key: 'a\u00f1o' as any,
+    render: (t) => <span className="font-medium">{(t as any)['a\u00f1o']}</span>,
   },
   {
     label: 'Bodega',
     key: 'bodega_nombre' as any,
-    render: (t) => (
-      <div>
-        <div className="font-medium">{t.bodega_nombre ?? '—'}</div>
-      </div>
-    ),
+    render: (t) => {
+      const ubicacion = typeof t.bodega_ubicacion === 'string' ? t.bodega_ubicacion.trim() : '';
+      return (
+        <div>
+          <div className="font-medium">{t.bodega_nombre ?? 'Sin nombre'}</div>
+          {ubicacion ? (
+            <div className="text-sm text-gray-500">{ubicacion}</div>
+          ) : null}
+        </div>
+      );
+    },
   },
   {
     label: 'Fecha Inicio',

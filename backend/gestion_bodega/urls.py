@@ -25,7 +25,7 @@ router = DefaultRouter()
 # Catálogo núcleo de bodega
 router.register(r"bodegas", BodegaViewSet, basename="bodegas")
 router.register(r"clientes", ClienteViewSet, basename="clientes")
-router.register(r"temporadas-bodega", TemporadaBodegaViewSet, basename="temporadas-bodega")
+router.register(r"temporadas", TemporadaBodegaViewSet, basename="temporadas")
 
 # Resto de endpoints que ya tenías
 router.register(r"recepciones", RecepcionViewSet, basename="recepciones")

@@ -81,7 +81,6 @@ const BodegaFormModal: React.FC<Props> = ({
                       {...field}
                       label="Nombre"
                       fullWidth
-                      required
                       size="small"
                       error={Boolean(touched.nombre && errors.nombre)}
                       helperText={touched.nombre && errors.nombre}
@@ -113,7 +112,7 @@ const BodegaFormModal: React.FC<Props> = ({
                 variant="contained"
                 disabled={isSubmitting || loading}
               >
-                {isEdit ? 'Guardar cambios' : 'Crear'}
+                {isEdit ? 'Guardar' : 'Crear'}
               </Button>
             </DialogActions>
           </Form>

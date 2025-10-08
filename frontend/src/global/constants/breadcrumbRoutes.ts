@@ -193,50 +193,74 @@ export const breadcrumbRoutes = {
     { label: 'Bodegas', path: '/bodega' },
   ],
 
-  bodegaTemporadas: (bodegaId: number | string, bodegaNombre?: string): Crumb[] => [
-    { label: 'Bodegas', path: '/bodega' },
-    { label: bodegaNombre ?? `Bodega #${bodegaId}`, path: `/bodega/${bodegaId}/temporadas` },
-    { label: 'Temporadas', path: '' },
-  ],
+  bodegaTemporadas: (bodegaId: number | string, bodegaNombre?: string): Crumb[] => {
+    const label = (bodegaNombre ?? '').trim() || `#${bodegaId}`;
+    return [
+      { label: 'Bodegas', path: '/bodega' },
+      { label, path: `/bodega/${bodegaId}/temporadas` },
+      { label: 'Temporadas', path: '' },
+    ];
+  },
   
-  bodegaHome: (bodegaId: number | string, bodegaNombre?: string): Crumb[] => [
-    { label: 'Bodegas', path: '/bodega' },
-    { label: bodegaNombre ?? `Bodega #${bodegaId}`, path: `/bodega/${bodegaId}/capturas` },
-  ],
+  bodegaHome: (bodegaId: number | string, bodegaNombre?: string): Crumb[] => {
+    const label = (bodegaNombre ?? '').trim() || `#${bodegaId}`;
+    return [
+      { label: 'Bodegas', path: '/bodega' },
+      { label, path: `/bodega/${bodegaId}/capturas` },
+    ];
+  },
 
-  bodegaCapturas: (bodegaId: number | string, bodegaNombre?: string): Crumb[] => [
-    { label: 'Bodegas', path: '/bodega' },
-    { label: bodegaNombre ?? `Bodega #${bodegaId}`, path: `/bodega/${bodegaId}/capturas` },
-    { label: 'Capturas', path: '' },
-  ],
+  bodegaCapturas: (bodegaId: number | string, bodegaNombre?: string): Crumb[] => {
+    const label = (bodegaNombre ?? '').trim() || `#${bodegaId}`;
+    return [
+      { label: 'Bodegas', path: '/bodega' },
+      { label, path: `/bodega/${bodegaId}/capturas` },
+      { label: 'Capturas', path: '' },
+    ];
+  },
 
-  bodegaInventarios: (bodegaId: number | string, bodegaNombre?: string): Crumb[] => [
-    { label: 'Bodegas', path: '/bodega' },
-    { label: bodegaNombre ?? `Bodega #${bodegaId}`, path: `/bodega/${bodegaId}/capturas` },
-    { label: 'Inventarios', path: '' },
-  ],
+  bodegaInventarios: (bodegaId: number | string, bodegaNombre?: string): Crumb[] => {
+    const label = (bodegaNombre ?? '').trim() || `#${bodegaId}`;
+    return [
+      { label: 'Bodegas', path: '/bodega' },
+      { label, path: `/bodega/${bodegaId}/capturas` },
+      { label: 'Inventarios', path: '' },
+    ];
+  },
 
-  bodegaLogistica: (bodegaId: number | string, bodegaNombre?: string): Crumb[] => [
-    { label: 'Bodegas', path: '/bodega' },
-    { label: bodegaNombre ?? `Bodega #${bodegaId}`, path: `/bodega/${bodegaId}/capturas` },
-    { label: 'Logística', path: '' },
-  ],
+  bodegaLogistica: (bodegaId: number | string, bodegaNombre?: string): Crumb[] => {
+    const label = (bodegaNombre ?? '').trim() || `#${bodegaId}`;
+    return [
+      { label: 'Bodegas', path: '/bodega' },
+      { label, path: `/bodega/${bodegaId}/capturas` },
+      { label: 'Logística', path: '' },
+    ];
+  },
 
-  bodegaGastos: (bodegaId: number | string, bodegaNombre?: string): Crumb[] => [
-    { label: 'Bodegas', path: '/bodega' },
-    { label: bodegaNombre ?? `Bodega #${bodegaId}`, path: `/bodega/${bodegaId}/capturas` },
-    { label: 'Gastos', path: '' },
-  ],
+  bodegaGastos: (bodegaId: number | string, bodegaNombre?: string): Crumb[] => {
+    const label = (bodegaNombre ?? '').trim() || `#${bodegaId}`;
+    return [
+      { label: 'Bodegas', path: '/bodega' },
+      { label, path: `/bodega/${bodegaId}/capturas` },
+      { label: 'Gastos', path: '' },
+    ];
+  },
 
-  bodegaCierres: (bodegaId: number | string, bodegaNombre?: string): Crumb[] => [
-    { label: 'Bodegas', path: '/bodega' },
-    { label: bodegaNombre ?? `Bodega #${bodegaId}`, path: `/bodega/${bodegaId}/capturas` },
-    { label: 'Cierres', path: '' },
-  ],
+  bodegaCierres: (bodegaId: number | string, bodegaNombre?: string): Crumb[] => {
+    const label = (bodegaNombre ?? '').trim() || `#${bodegaId}`;
+    return [
+      { label: 'Bodegas', path: '/bodega' },
+      { label, path: `/bodega/${bodegaId}/capturas` },
+      { label: 'Cierres', path: '' },
+    ];
+  },
 
-  bodegaReportes: (bodegaId: number | string, bodegaNombre?: string): Crumb[] => [
-    { label: 'Bodegas', path: '/bodega' },
-    { label: bodegaNombre ?? `Bodega #${bodegaId}`, path: `/bodega/${bodegaId}/capturas` },
-    { label: 'Reportes', path: '' },
-  ],
+  bodegaReportes: (bodegaId: number | string, bodegaNombre?: string): Crumb[] => {
+    const label = (bodegaNombre ?? '').trim() || `#${bodegaId}`;
+    return [
+      { label: 'Bodegas', path: '/bodega' },
+      { label, path: `/bodega/${bodegaId}/capturas` },
+      { label: 'Reportes', path: '' },
+    ];
+  },
 };

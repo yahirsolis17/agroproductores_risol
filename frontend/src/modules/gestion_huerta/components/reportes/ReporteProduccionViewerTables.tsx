@@ -1047,8 +1047,8 @@ const ResumenHistoricoTable: React.FC<{ rows: FilaResumenHistorico[] }> = ({ row
             </TableHead>
             <TableBody>
               {rows.map((r, idx) => (
-                <TableRow key={`${r.anio}-${idx}`} hover>
-                  <TableCell>{r.anio}</TableCell>
+                <TableRow key={`${r.año}-${idx}`} hover>
+                  <TableCell>{r.año}</TableCell>
                   <TableCell align="right">{formatCurrency(r.ventas)}</TableCell>
                   <TableCell align="right">{formatCurrency(r.inversion)}</TableCell>
                   <TableCell align="right">{formatCurrency(r.ganancia)}</TableCell>

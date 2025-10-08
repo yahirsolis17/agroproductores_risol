@@ -42,6 +42,7 @@ export interface TemporadaBodega {
   año: number;                        // <- se usa con tilde en tu FE
   bodega_id: number;
   bodega_nombre?: string | null;
+  bodega_ubicacion?: string | null;
   fecha_inicio?: string | null;
   fecha_fin?: string | null;
   finalizada: boolean;
