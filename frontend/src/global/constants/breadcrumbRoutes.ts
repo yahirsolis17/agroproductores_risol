@@ -18,10 +18,10 @@ const buildBodegaTemporadaCrumbs = (
   bodegaId: number | string,
   nombre: string,
   temporadaId: number | string,
-  anio: number
+  año: number
 ): Crumb[] => [
   { label: formatBodegaLabel(nombre), path: '/bodega' },
-  { label: `Temporada ${anio}`, path: `/bodega/${bodegaId}/temporadas${qs({ temporada: temporadaId })}` },
+  { label: `Temporada ${año}`, path: `/bodega/${bodegaId}/temporadas${qs({ temporada: temporadaId })}` },
 ];
 export const breadcrumbRoutes = {
   /** Lista de huertas */
@@ -211,9 +211,9 @@ export const breadcrumbRoutes = {
     bodegaId: number | string,
     nombreSolo: string,
     temporadaId: number | string,
-    anio: number
+    año: number
   ): Crumb[] => [
-    ...buildBodegaTemporadaCrumbs(bodegaId, nombreSolo, temporadaId, anio),
+    ...buildBodegaTemporadaCrumbs(bodegaId, nombreSolo, temporadaId, año),
     { label: 'Capturas', path: '' },
   ],
 
@@ -221,9 +221,9 @@ export const breadcrumbRoutes = {
     bodegaId: number | string,
     nombreSolo: string,
     temporadaId: number | string,
-    anio: number
+    año: number
   ): Crumb[] => [
-    ...buildBodegaTemporadaCrumbs(bodegaId, nombreSolo, temporadaId, anio),
+    ...buildBodegaTemporadaCrumbs(bodegaId, nombreSolo, temporadaId, año),
     { label: 'Inventarios', path: '' },
   ],
 
@@ -231,9 +231,9 @@ export const breadcrumbRoutes = {
     bodegaId: number | string,
     nombreSolo: string,
     temporadaId: number | string,
-    anio: number
+    año: number
   ): Crumb[] => [
-    ...buildBodegaTemporadaCrumbs(bodegaId, nombreSolo, temporadaId, anio),
+    ...buildBodegaTemporadaCrumbs(bodegaId, nombreSolo, temporadaId, año),
     { label: 'Logistica', path: '' },
   ],
 
@@ -241,9 +241,9 @@ export const breadcrumbRoutes = {
     bodegaId: number | string,
     nombreSolo: string,
     temporadaId: number | string,
-    anio: number
+    año: number
   ): Crumb[] => [
-    ...buildBodegaTemporadaCrumbs(bodegaId, nombreSolo, temporadaId, anio),
+    ...buildBodegaTemporadaCrumbs(bodegaId, nombreSolo, temporadaId, año),
     { label: 'Gastos', path: '' },
   ],
 
@@ -251,9 +251,9 @@ export const breadcrumbRoutes = {
     bodegaId: number | string,
     nombreSolo: string,
     temporadaId: number | string,
-    anio: number
+    año: number
   ): Crumb[] => [
-    ...buildBodegaTemporadaCrumbs(bodegaId, nombreSolo, temporadaId, anio),
+    ...buildBodegaTemporadaCrumbs(bodegaId, nombreSolo, temporadaId, año),
     { label: 'Cierres', path: '' },
   ],
 
@@ -261,9 +261,9 @@ export const breadcrumbRoutes = {
     bodegaId: number | string,
     nombreSolo: string,
     temporadaId: number | string,
-    anio: number
+    año: number
   ): Crumb[] => [
-    ...buildBodegaTemporadaCrumbs(bodegaId, nombreSolo, temporadaId, anio),
+    ...buildBodegaTemporadaCrumbs(bodegaId, nombreSolo, temporadaId, año),
     { label: 'Reportes', path: '' },
   ],
 };

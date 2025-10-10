@@ -9,10 +9,10 @@ export interface Bodega {
   nombre: string;
   ubicacion: string;
   is_active: boolean;
-  archivado_en: string | null;
+  archivado_en?: string | null;
 
-  creado_en: string;      // ISO datetime
-  actualizado_en: string; // ISO datetime
+  creado_en?: string;      // ISO datetime
+  actualizado_en?: string; // ISO datetime
 }
 
 /** Payloads CRUD */
@@ -55,9 +55,10 @@ export interface ListBodegasResult extends ListBodegasData {}
 /** Notificaciones backend (NotificationMixin). */
 export type NotificationType = 'success' | 'error' | 'warning' | 'info';
 export interface NotificationPayload {
-  key: string;               // clave semántica (para i18n/toast engine)
-  message?: string;          // opcional: texto directo
-  type?: NotificationType;   // opcional: severidad
+  key?: string;               // clave semántica (para i18n/toast engine)
+  message: string;            // texto directo
+  type: NotificationType;     // severidad
+  code?: number | string;
 }
 
 /** Envelope genérico (igual patrón que en gestión_huerta). */

@@ -46,7 +46,7 @@ const sanitizeText = (value?: string | null): string | undefined => {
   return trimmed.length ? trimmed : undefined;
 };
 
-type VistaTab = 'activos' | 'archivados' | 'todos';
+type VistaTab = 'activas' | 'archivadas' | 'todas';
 
 // Helpers visuales para breadcrumb
 const onlyName = (s?: string) => (s || '').split(',')[0].trim();
@@ -81,10 +81,21 @@ const BodegaTemporadasPage: React.FC = () => {
   // ───────── Estado Redux (OJO: key correcta en store) ─────────
   const { items, meta, ops, filters } = useAppSelector((state) => state.temporadasBodega);
   const finalizadaFilter = filters.finalizada ?? null;
-  const estadoActual = (filters.estado ?? 'activos') as VistaTab;
+  const estadoActual = (filters.estado ?? 'activas') as VistaTab;
 
   const [tab, setTab] = useState<VistaTab>(estadoActual);
   const [deleteTarget, setDeleteTarget] = useState<TemporadaBodega | null>(null);
+
+  const emptyMessage = useMemo(() => {
+    switch (tab) {
+      case 'activas':
+        return 'No hay temporadas activas para esta bodega.';
+      case 'archivadas':
+        return 'No hay temporadas archivadas para esta bodega.';
+      default:
+        return 'No hay temporadas registradas para esta bodega.';
+    }
+  }, [tab]);
 
   // Derivar nombre/ubicación de la lista
   const temporadaEnLista = useMemo(() => {
@@ -266,7 +277,7 @@ const BodegaTemporadasPage: React.FC = () => {
         const res = await temporadaBodegaService.list({
           page: 1,
           page_size: 1,
-          estado: 'todos',
+          estado: 'todas',
           bodegaId,
           año: currentYear,
         });
@@ -407,9 +418,9 @@ const BodegaTemporadasPage: React.FC = () => {
           indicatorColor="primary"
           sx={{ mb: 2 }}
         >
-          <Tab value="activos" label="Activas" />
-          <Tab value="archivados" label="Archivadas" />
-          <Tab value="todos" label="Todas" />
+          <Tab value="activas" label="Activas" />
+          <Tab value="archivadas" label="Archivadas" />
+          <Tab value="todas" label="Todas" />
         </Tabs>
 
         <TemporadaBodegaToolbar
@@ -434,7 +445,7 @@ const BodegaTemporadasPage: React.FC = () => {
           pageSize={filters.page_size}
           count={meta.count}
           loading={ops.listing}
-          emptyMessage="No hay temporadas registradas para esta bodega."
+          emptyMessage={emptyMessage}
           onPageChange={(page) => dispatch(setPage(page))}
           onArchive={handleArchive}
           onRestore={handleRestore}

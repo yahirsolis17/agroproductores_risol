@@ -148,7 +148,7 @@ function pickListPayload(resp: any, requested: { page?: number; page_size?: numb
 
 /**
  * Mapea `ordering` del FE al campo real del backend.
- * Útil cuando el FE usa `año` y el backend expone `anio` (o viceversa).
+ * Útil cuando el FE usa `año` y el backend expone `año` (o viceversa).
  */
 function mapOrdering(ordering?: string): string | undefined {
   if (!ordering) return undefined;
@@ -168,13 +168,27 @@ function mapOrdering(ordering?: string): string | undefined {
   const nk = normalize(key);
   let mapped = key;
 
-  // Caso común: FE usa `año`, backend `anio`
-  if (nk === 'ano' || nk === 'anio') mapped = 'anio';
+  // Caso común: FE usa `año`, backend `año`
+  if (nk === 'ano' || nk === 'año') mapped = 'año';
 
   // puedes añadir más mapeos aquí si tu API usa otros nombres
   // if (nk === 'bodega_nombre') mapped = 'bodega__nombre';
 
   return desc ? `-${mapped}` : mapped;
+}
+
+function mapEstadoToBackend(estado?: EstadoTemporadaBodega): string | undefined {
+  if (!estado) return undefined;
+  switch (estado) {
+    case 'activas':
+      return 'activos';
+    case 'archivadas':
+      return 'archivados';
+    case 'todas':
+      return 'todos';
+    default:
+      return estado;
+  }
 }
 
 // =============================================================================
@@ -183,7 +197,7 @@ function mapOrdering(ordering?: string): string | undefined {
 async function list(params: {
   page?: number;
   page_size?: number;
-  estado?: EstadoTemporadaBodega; // 'activos' | 'archivados' | 'todos'
+  estado?: EstadoTemporadaBodega; // 'activas' | 'archivadas' | 'todas'
   bodegaId?: number;
   año?: number;
   finalizada?: boolean | null;
@@ -198,7 +212,7 @@ async function list(params: {
   try {
     const query = compactParams({
       ...requested,
-      estado: params.estado ?? 'activos',
+      estado: mapEstadoToBackend(params.estado ?? 'activas'),
       bodega: params.bodegaId,
       año: params.año, // el backend recibe `año` (con tilde)
       finalizada: params.finalizada,
@@ -253,11 +267,11 @@ async function getById(id: number) {
   }
 }
 
-async function create(payload: TemporadaBodegaCreateData & { bodegaId: number }) {
+async function create(payload: TemporadaBodegaCreateData) {
   try {
     const body = compactParams({
       bodega_id: payload.bodegaId,
-      año: (payload as any)['año'] ?? (payload as any)['anio'], // tolerante a ambos
+      año: (payload as any)['año'] ?? (payload as any)['año'], // tolerante a ambos
       fecha_inicio: payload.fecha_inicio,
       fecha_fin: payload.fecha_fin,
     });
@@ -285,7 +299,7 @@ async function create(payload: TemporadaBodegaCreateData & { bodegaId: number })
 async function update(id: number, payload: TemporadaBodegaUpdateData) {
   try {
     const body = compactParams({
-      año: (payload as any)['año'] ?? (payload as any)['anio'],
+      año: (payload as any)['año'] ?? (payload as any)['año'],
       fecha_inicio: payload.fecha_inicio,
       fecha_fin: payload.fecha_fin,
       finalizada: payload.finalizada,

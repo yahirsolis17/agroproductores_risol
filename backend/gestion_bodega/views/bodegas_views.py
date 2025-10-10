@@ -472,6 +472,7 @@ class TemporadaBodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
 
         try:
             instance = serializer.save()
+            instance.refresh_from_db()
         except IntegrityError:
             return self.notify(
                 key="temporada_en_curso",
@@ -483,8 +484,8 @@ class TemporadaBodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        anio = getattr(instance, "año", None)
-        registrar_actividad(request.user, f"Creó temporada de bodega {anio or ''}")
+        año = getattr(instance, "año", None)
+        registrar_actividad(request.user, f"Creó temporada de bodega {año or ''}")
         payload = self.get_serializer(instance).data
         return self.notify(
             key="temporada_creada",
@@ -591,7 +592,7 @@ class TemporadaBodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
         temporada_id = temp.id
-        anio = getattr(temp, "año", "")
+        año = getattr(temp, "año", "")
         self.perform_destroy(temp)
-        registrar_actividad(request.user, f"Eliminó temporada bodega {anio}")
+        registrar_actividad(request.user, f"Eliminó temporada bodega {año}")
         return self.notify(key="temporada_eliminada", data={"temporada_id": temporada_id})

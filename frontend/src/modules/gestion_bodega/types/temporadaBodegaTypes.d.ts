@@ -6,8 +6,8 @@ export type NotificationType = 'success' | 'error' | 'warning' | 'info';
 export interface NotificationPayload {
   type: NotificationType;
   message: string;
-  // opcional por si el backend lo manda; no lo exigimos
-  code?: number;
+  code?: number | string;
+  key?: string;
 }
 
 // ==== Paginación (alineado a lo que usan tus otros módulos) ====
@@ -21,7 +21,7 @@ export interface PaginationMeta {
 }
 
 // ==== Estados de listados ====
-export type EstadoListado = 'activos' | 'archivados' | 'todos';
+export type EstadoListado = 'activas' | 'archivadas' | 'todas';
 
 // ==== Bodega (por si lo usas aquí) ====
 export interface Bodega {
@@ -39,7 +39,7 @@ export type EstadoTemporadaBodega = EstadoListado;
 
 export interface TemporadaBodega {
   id: number;
-  año: number;                        // <- se usa con tilde en tu FE
+  año: number;
   bodega_id: number;
   bodega_nombre?: string | null;
   bodega_ubicacion?: string | null;
@@ -54,6 +54,7 @@ export interface TemporadaBodega {
 }
 
 export interface TemporadaBodegaCreateData {
+  bodegaId: number;
   año: number;
   fecha_inicio?: string | null;
   fecha_fin?: string | null;

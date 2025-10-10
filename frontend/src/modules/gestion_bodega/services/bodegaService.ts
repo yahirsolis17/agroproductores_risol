@@ -8,6 +8,7 @@ import type {
   BodegaFilters,
   EstadoBodega,
   PaginationMeta,
+  NotificationPayload,
 } from '../types/bodegaTypes';
 
 /**
@@ -27,8 +28,6 @@ import type {
  */
 
 const BASE_URL = '/bodega/bodegas/';
-
-type Notif = { key: string; message?: string; type?: 'success' | 'error' | 'warning' | 'info' };
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Helpers de normalización (DRF <-> Envelope con meta uniforme)
@@ -131,12 +130,12 @@ export const bodegaService = {
   /** Crea una bodega. */
   async create(payload: BodegaCreateData): Promise<{
     success: boolean;
-    notification: Notif;
+    notification: NotificationPayload;
     data: { bodega: Bodega };
   }> {
     const { data } = await apiClient.post<{
       success: boolean;
-      notification: Notif;
+      notification: NotificationPayload;
       data: { bodega: Bodega };
     }>(BASE_URL, payload);
     return data;
@@ -145,12 +144,12 @@ export const bodegaService = {
   /** Actualiza parcialmente una bodega. */
   async update(id: number, payload: BodegaUpdateData): Promise<{
     success: boolean;
-    notification: Notif;
+    notification: NotificationPayload;
     data: { bodega: Bodega };
   }> {
     const { data } = await apiClient.patch<{
       success: boolean;
-      notification: Notif;
+      notification: NotificationPayload;
       data: { bodega: Bodega };
     }>(`${BASE_URL}${id}/`, payload);
     return data;
@@ -159,12 +158,12 @@ export const bodegaService = {
   /** Elimina (hard delete de fila en vista). */
   async delete(id: number): Promise<{
     success: boolean;
-    notification: Notif;
+    notification: NotificationPayload;
     data: { deleted_id: number };
   }> {
     const { data } = await apiClient.delete<{
       success: boolean;
-      notification: Notif;
+      notification: NotificationPayload;
       data: { deleted_id: number };
     }>(`${BASE_URL}${id}/`);
     return data;
@@ -173,12 +172,12 @@ export const bodegaService = {
   /** Archiva (soft-delete). */
   async archivar(id: number): Promise<{
     success: boolean;
-    notification: Notif;
+    notification: NotificationPayload;
     data: { bodega_id: number; affected?: Record<string, number> };
   }> {
     const { data } = await apiClient.post<{
       success: boolean;
-      notification: Notif;
+      notification: NotificationPayload;
       data: { bodega_id: number; affected?: Record<string, number> };
     }>(`${BASE_URL}${id}/archivar/`);
     return data;
@@ -187,12 +186,12 @@ export const bodegaService = {
   /** Restaura. */
   async restaurar(id: number): Promise<{
     success: boolean;
-    notification: Notif;
+    notification: NotificationPayload;
     data: { bodega_id: number; affected?: Record<string, number> };
   }> {
     const { data } = await apiClient.post<{
       success: boolean;
-      notification: Notif;
+      notification: NotificationPayload;
       data: { bodega_id: number; affected?: Record<string, number> };
     }>(`${BASE_URL}${id}/restaurar/`);
     return data;

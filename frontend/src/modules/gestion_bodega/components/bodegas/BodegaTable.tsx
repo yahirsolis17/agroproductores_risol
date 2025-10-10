@@ -99,7 +99,7 @@ const BodegaTable: React.FC<Props> = ({
             onEdit={isArchived ? undefined : () => onEdit(b)}
             onArchiveOrRestore={() => (isArchived ? onRestore(b) : onArchive(b))}
             onDelete={() => onDelete(b)}
-            onView={onView ? () => onView(b) : undefined}
+            onView={!isArchived && onView ? () => onView(b) : undefined}
             permEdit={permEdit}
             permArchiveOrRestore={permArchiveOrRestore}
             permDelete={permDelete}

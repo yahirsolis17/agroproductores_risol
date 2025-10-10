@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback, useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useAppDispatch, useAppSelector } from "../../../global/store/store";
 
 import {
   fetchTemporadasBodega,
@@ -38,14 +38,14 @@ import type {
 type Options = { autoFetch?: boolean };
 
 export default function useTemporadasBodega(opts: Options = { autoFetch: true }) {
-  const dispatch = useDispatch();
+  const dispatch = useAppDispatch();
 
-  const items   = useSelector(selectTemporadas);
-  const meta    = useSelector(selectTemporadasMeta);
-  const ops     = useSelector(selectTemporadaOps);
-  const filters = useSelector(selectTemporadasFilters);
-  const error   = useSelector(selectTemporadasError);
-  const current = useSelector(selectTemporadaCurrent);
+  const items   = useAppSelector(selectTemporadas);
+  const meta    = useAppSelector(selectTemporadasMeta);
+  const ops     = useAppSelector(selectTemporadaOps);
+  const filters = useAppSelector(selectTemporadasFilters);
+  const error   = useAppSelector(selectTemporadasError);
+  const current = useAppSelector(selectTemporadaCurrent);
 
   // Listado
   const reload = useCallback(
@@ -74,7 +74,7 @@ export default function useTemporadasBodega(opts: Options = { autoFetch: true })
 
   // CRUD
   const create = useCallback(
-    async (payload: TemporadaBodegaCreateData & { bodegaId: number }) => {
+    async (payload: TemporadaBodegaCreateData) => {
       const res = await dispatch(addTemporadaBodega(payload) as any);
       dispatch(fetchTemporadasBodega(filters) as any);
       return res;

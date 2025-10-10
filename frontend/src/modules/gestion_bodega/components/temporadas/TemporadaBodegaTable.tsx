@@ -7,17 +7,17 @@ import type { TemporadaBodega } from '../../types/temporadaBodegaTypes';
 // === Formateo robusto para YYYY-MM-DD evitando desfases de zona ===
 const formatFechaLarga = (iso?: string | null) => {
   if (!iso) return '—';
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
-  const d = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(iso);
-  if (isNaN(d.getTime())) return '—';
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  const date = match ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])) : new Date(iso);
+  if (Number.isNaN(date.getTime())) return '—';
 
-  let s = new Intl.DateTimeFormat('es-MX', {
+  let formatted = new Intl.DateTimeFormat('es-MX', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
-  }).format(d);
+  }).format(date);
 
-  return s.replace(/ de (\d{4})$/, ' del $1');
+  return formatted.replace(/ de (\d{4})$/, ' del $1');
 };
 
 interface Props {
@@ -27,31 +27,31 @@ interface Props {
   count: number;
   loading?: boolean;
   emptyMessage?: string;
-  onPageChange: (p: number) => void;
+  onPageChange: (page: number) => void;
 
-  onArchive: (t: TemporadaBodega) => void;
-  onRestore: (t: TemporadaBodega) => void;
-  onDelete: (t: TemporadaBodega) => void;
-  onFinalize: (t: TemporadaBodega) => void;
+  onArchive: (temporada: TemporadaBodega) => void;
+  onRestore: (temporada: TemporadaBodega) => void;
+  onDelete: (temporada: TemporadaBodega) => void;
+  onFinalize: (temporada: TemporadaBodega) => void;
 
-  /** “Entrar” a la administración (capturas/inventarios/etc.) con esa temporada */
-  onAdministrar: (t: TemporadaBodega) => void;
+  /** Permite entrar a la administración (capturas, inventarios, etc.) de la temporada. */
+  onAdministrar: (temporada: TemporadaBodega) => void;
 }
 
 const columns: Column<TemporadaBodega>[] = [
   {
     label: 'Año',
-    key: 'año' as any, // TableLayout se basa en key; render asegura la visual
-    render: (t) => <span className="font-medium">{t.año}</span>,
+    key: 'año' as keyof TemporadaBodega,
+    render: (temporada) => <span className="font-medium">{temporada.año}</span>,
   },
   {
     label: 'Bodega',
-    key: 'bodega_nombre' as any,
-    render: (t) => {
-      const ubicacion = typeof t.bodega_ubicacion === 'string' ? t.bodega_ubicacion.trim() : '';
+    key: 'bodega_nombre' as keyof TemporadaBodega,
+    render: (temporada) => {
+      const ubicacion = typeof temporada.bodega_ubicacion === 'string' ? temporada.bodega_ubicacion.trim() : '';
       return (
         <div>
-          <div className="font-medium">{t.bodega_nombre ?? 'Sin nombre'}</div>
+          <div className="font-medium">{temporada.bodega_nombre ?? 'Sin nombre'}</div>
           {ubicacion ? <div className="text-sm text-gray-500">{ubicacion}</div> : null}
         </div>
       );
@@ -60,14 +60,14 @@ const columns: Column<TemporadaBodega>[] = [
   {
     label: 'Fecha Inicio',
     key: 'fecha_inicio',
-    render: (t) => formatFechaLarga(t.fecha_inicio),
+    render: (temporada) => formatFechaLarga(temporada.fecha_inicio),
   },
   {
     label: 'Estado',
     key: 'finalizada',
     align: 'center',
-    render: (t) =>
-      t.finalizada ? (
+    render: (temporada) =>
+      temporada.finalizada ? (
         <Chip label="Finalizada" size="small" color="warning" />
       ) : (
         <Chip label="En curso" size="small" color="primary" />
@@ -76,14 +76,14 @@ const columns: Column<TemporadaBodega>[] = [
   {
     label: 'Fecha Fin',
     key: 'fecha_fin',
-    render: (t) => formatFechaLarga(t.fecha_fin),
+    render: (temporada) => formatFechaLarga(temporada.fecha_fin),
   },
   {
     label: 'Archivo',
     key: 'is_active',
     align: 'center',
-    render: (t) =>
-      t.is_active ? (
+    render: (temporada) =>
+      temporada.is_active ? (
         <Chip label="Activa" size="small" color="success" />
       ) : (
         <Chip label="Archivada" size="small" color="default" />
@@ -118,9 +118,9 @@ const TemporadaBodegaTable: React.FC<Props> = ({
     serverSidePagination
     emptyMessage={emptyMessage}
     rowKey={(row) => row.id}
-    renderActions={(t) => {
-      const isArchived = !t.is_active;
-      const isFinalized = t.finalizada;
+    renderActions={(temporada) => {
+      const isArchived = !temporada.is_active;
+      const isFinalized = temporada.finalizada;
 
       return (
         <ActionsMenu
@@ -130,14 +130,14 @@ const TemporadaBodegaTable: React.FC<Props> = ({
           hideFinalize={isArchived}
           labelTemporadas="Entrar"
           labelFinalize={isFinalized ? 'Reactivar' : 'Finalizar'}
-          onTemporadas={() => onAdministrar(t)}
-          onFinalize={() => onFinalize(t)}
-          onArchiveOrRestore={() => (isArchived ? onRestore(t) : onArchive(t))}
-          onDelete={isArchived ? () => onDelete(t) : undefined}
+          onTemporadas={!isArchived ? () => onAdministrar(temporada) : undefined}
+          onFinalize={() => onFinalize(temporada)}
+          onArchiveOrRestore={() => (isArchived ? onRestore(temporada) : onArchive(temporada))}
+          onDelete={isArchived ? () => onDelete(temporada) : undefined}
           // Permisos (coinciden con los codenames del ViewSet)
           permTemporadas="view_temporadabodega"
           permFinalize="change_temporadabodega"
-          // ✅ Permiso dinámico según estado (evita bloquear Restaurar)
+          // Permiso dinámico según estado (evita bloquear Restaurar)
           permArchiveOrRestore={isArchived ? 'restore_temporadabodega' : 'archive_temporadabodega'}
           permDelete="delete_temporadabodega"
         />

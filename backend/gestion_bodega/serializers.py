@@ -121,6 +121,14 @@ class TemporadaBodegaSerializer(serializers.ModelSerializer):
         if finalizada is None and self.instance is not None:
             finalizada = getattr(self.instance, "finalizada", False)
 
+        fecha_inicio = attrs.get("fecha_inicio")
+        if isinstance(fecha_inicio, datetime):
+            attrs["fecha_inicio"] = _as_local_date(fecha_inicio)
+
+        fecha_fin = attrs.get("fecha_fin")
+        if isinstance(fecha_fin, datetime):
+            attrs["fecha_fin"] = _as_local_date(fecha_fin)
+
         if bodega and año and not finalizada:
             qs = TemporadaBodega.objects.filter(bodega=bodega, año=año, finalizada=False)
             if self.instance is not None:

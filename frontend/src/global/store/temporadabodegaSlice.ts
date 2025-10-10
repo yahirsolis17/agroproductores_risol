@@ -30,7 +30,7 @@ export type TemporadasBodegaFilters = {
   page: number;
   page_size: number;
   ordering?: string;
-  estado?: EstadoTemporadaBodega; // "activos" | "archivados" | "todos"
+  estado?: EstadoTemporadaBodega; // "activas" | "archivadas" | "todas"
   bodegaId?: number;
   year?: number;
   finalizada?: boolean | null;
@@ -85,7 +85,7 @@ const initialState: SliceState = {
     page: 1,
     page_size: 10,
     ordering: undefined,
-    estado: "activos",
+    estado: "activas",
     bodegaId: undefined,
     year: undefined,
     finalizada: null,
@@ -110,7 +110,7 @@ export const fetchTemporadasBodega = createAsyncThunk(
   "temporadabodega/fetch",
   async (args: Partial<TemporadasBodegaFilters> | undefined, { rejectWithValue }) => {
     try {
-      const { data } = await temporadaBodegaService.list({
+      const response = await temporadaBodegaService.list({
         page: args?.page,
         page_size: args?.page_size,
         estado: args?.estado,
@@ -119,8 +119,11 @@ export const fetchTemporadasBodega = createAsyncThunk(
         finalizada: args?.finalizada ?? null,
         ordering: args?.ordering,
       });
-      return { temporadas: data.temporadas, meta: data.meta as PaginationMeta };
+      handleBackendNotification(response);
+      return { temporadas: response.data.temporadas, meta: response.data.meta as PaginationMeta };
     } catch (err: any) {
+      const resp = err?.response?.data;
+      if (resp) handleBackendNotification(resp);
       return rejectWithValue(getErrorMessage(err));
     }
   }
@@ -128,7 +131,7 @@ export const fetchTemporadasBodega = createAsyncThunk(
 
 export const addTemporadaBodega = createAsyncThunk(
   "temporadabodega/create",
-  async (payload: TemporadaBodegaCreateData & { bodegaId: number }, { rejectWithValue }) => {
+  async (payload: TemporadaBodegaCreateData, { rejectWithValue }) => {
     try {
       const res = await temporadaBodegaService.create(payload);
       handleBackendNotification(res);
@@ -317,10 +320,18 @@ const slice = createSlice({
       state.ops.archiving = false;
       const temporada = action.payload;
       if (temporada) {
-        const idx = state.items.findIndex((t) => t.id === temporada.id);
-        if (idx >= 0) state.items[idx] = temporada;
+        const currentEstado = state.filters.estado ?? "activas";
+        if (currentEstado === "activas") {
+          state.items = state.items.filter((t) => t.id !== temporada.id);
+          if (state.meta.count > 0) {
+            state.meta.count -= 1;
+          }
+        } else {
+          const idx = state.items.findIndex((t) => t.id === temporada.id);
+          if (idx >= 0) state.items[idx] = temporada;
+        }
         if (state.current?.id === temporada.id) {
-          state.current = temporada;
+          state.current = currentEstado === "activas" ? null : temporada;
         }
       }
     });
@@ -338,10 +349,18 @@ const slice = createSlice({
       state.ops.restoring = false;
       const temporada = action.payload;
       if (temporada) {
-        const idx = state.items.findIndex((t) => t.id === temporada.id);
-        if (idx >= 0) state.items[idx] = temporada;
+        const currentEstado = state.filters.estado ?? "activas";
+        if (currentEstado === "archivadas") {
+          state.items = state.items.filter((t) => t.id !== temporada.id);
+          if (state.meta.count > 0) {
+            state.meta.count -= 1;
+          }
+        } else {
+          const idx = state.items.findIndex((t) => t.id === temporada.id);
+          if (idx >= 0) state.items[idx] = temporada;
+        }
         if (state.current?.id === temporada.id) {
-          state.current = temporada;
+          state.current = currentEstado === "archivadas" ? null : temporada;
         }
       }
     });
@@ -416,13 +435,13 @@ export const {
 // -------------------------
 // Selectors
 // -------------------------
-// OJO: ajusta "temporadabodega" si en tu store.ts registraste el reducer con otro key.
-export const selectTemporadas = (s: RootState) => (s as any).temporadabodega.items;
-export const selectTemporadasMeta = (s: RootState) => (s as any).temporadabodega.meta;
-export const selectTemporadasFilters = (s: RootState) => (s as any).temporadabodega.filters;
-export const selectTemporadaCurrent = (s: RootState) => (s as any).temporadabodega.current;
-export const selectTemporadaOps = (s: RootState) => (s as any).temporadabodega.ops;
-export const selectTemporadasError = (s: RootState) => (s as any).temporadabodega.error;
+// Selectores alineados con la clave "temporadasBodega" definida en store.ts.
+export const selectTemporadas = (s: RootState) => s.temporadasBodega.items;
+export const selectTemporadasMeta = (s: RootState) => s.temporadasBodega.meta;
+export const selectTemporadasFilters = (s: RootState) => s.temporadasBodega.filters;
+export const selectTemporadaCurrent = (s: RootState) => s.temporadasBodega.current;
+export const selectTemporadaOps = (s: RootState) => s.temporadasBodega.ops;
+export const selectTemporadasError = (s: RootState) => s.temporadasBodega.error;
 
 // -------------------------
 // Reducer
