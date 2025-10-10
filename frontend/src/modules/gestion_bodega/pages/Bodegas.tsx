@@ -1,4 +1,3 @@
-// src/modules/gestion_bodega/pages/Bodegas.tsx
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -58,6 +57,7 @@ const Bodegas: React.FC = () => {
     restaurar,
   } = useBodegas();
 
+  // ⛳️ La lista principal NO debe mostrar breadcrumbs
   useEffect(() => {
     dispatch(clearBreadcrumbs());
     return () => {
@@ -218,6 +218,7 @@ const Bodegas: React.FC = () => {
             onRestore={onRestore}
             onDelete={onDelete}
             onView={(b) => {
+              // ⤴️ mantenemos la semántica de URL con nombre/ubicación
               const params = new URLSearchParams();
               if (b.nombre) params.set('bodega_nombre', b.nombre);
               if (b.ubicacion) params.set('bodega_ubicacion', b.ubicacion);
