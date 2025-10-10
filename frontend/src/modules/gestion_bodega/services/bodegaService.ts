@@ -11,7 +11,7 @@ import type {
 } from '../types/bodegaTypes';
 
 /**
- * Endpoints (según router y views que ya montamos):
+ * Endpoints (según router y views):
  *  - GET    /bodega/bodegas/?page=&estado=&search=&nombre=&ubicacion=
  *  - POST   /bodega/bodegas/
  *  - GET    /bodega/bodegas/:id/
@@ -22,8 +22,8 @@ import type {
  *
  * El backend responde con envelope { success, notification, data: {...} } en create/update/delete/acciones.
  * En list() damos soporte doble:
- *   - Envelope de nuestra notificación → data: { bodegas, meta }
- *   - DRF paginado nativo → { count,next,previous,results }
+ *   - Envelope → data: { bodegas, meta }
+ *   - DRF paginado → { count,next,previous,results }
  */
 
 const BASE_URL = '/bodega/bodegas/';
@@ -55,7 +55,7 @@ function toMeta(r: any, pageFallback = 1): PaginationMeta {
 
   // DRF paginado plano (count/next/previous/results) — inferimos page/page_size
   const count = Number(r?.count ?? 0);
-  const page_size = Array.isArray(r?.results) ? r.results.length : Number(r?.page_size ?? 10);
+  const page_size = Array.isArray(r?.results) ? (r.page_size ?? 10) : Number(r?.page_size ?? 10);
   const page = Number(r?.page ?? pageFallback ?? 1);
   const total_pages = Number(r?.total_pages ?? Math.max(1, Math.ceil(count / Math.max(1, page_size))));
   return {
@@ -115,7 +115,6 @@ export const bodegaService = {
       page,
       estado,
       page_size: opts?.pageSize ?? 10,
-      // filtros homogéneos con huerta:
       search: filters.search || undefined,
       nombre: filters.nombre || undefined,
       ubicacion: filters.ubicacion || undefined,
@@ -129,10 +128,7 @@ export const bodegaService = {
     return pickListPayload(data);
   },
 
-  /**
-   * Crea una bodega.
-   * Respuesta esperada: { success, notification, data: { bodega } }
-   */
+  /** Crea una bodega. */
   async create(payload: BodegaCreateData): Promise<{
     success: boolean;
     notification: Notif;
@@ -146,10 +142,7 @@ export const bodegaService = {
     return data;
   },
 
-  /**
-   * Actualiza parcialmente una bodega.
-   * Respuesta: { success, notification, data: { bodega } }
-   */
+  /** Actualiza parcialmente una bodega. */
   async update(id: number, payload: BodegaUpdateData): Promise<{
     success: boolean;
     notification: Notif;
@@ -163,10 +156,7 @@ export const bodegaService = {
     return data;
   },
 
-  /**
-   * Elimina (hard delete de fila en vista; el modelo soporta soft-delete a nivel de dominio).
-   * Respuesta: { success, notification, data: { deleted_id } }
-   */
+  /** Elimina (hard delete de fila en vista). */
   async delete(id: number): Promise<{
     success: boolean;
     notification: Notif;
@@ -180,10 +170,7 @@ export const bodegaService = {
     return data;
   },
 
-  /**
-   * Archiva (soft-delete con cascada controlada por dominio).
-   * Respuesta: { success, notification, data: { bodega_id, affected } }
-   */
+  /** Archiva (soft-delete). */
   async archivar(id: number): Promise<{
     success: boolean;
     notification: Notif;
@@ -197,10 +184,7 @@ export const bodegaService = {
     return data;
   },
 
-  /**
-   * Restaura (undo del archivado).
-   * Respuesta: { success, notification, data: { bodega_id, affected } }
-   */
+  /** Restaura. */
   async restaurar(id: number): Promise<{
     success: boolean;
     notification: Notif;
@@ -214,11 +198,7 @@ export const bodegaService = {
     return data;
   },
 
-  /**
-   * Obtiene una bodega por ID.
-   * En retrieve del ViewSet usualmente responde el serializer plano (sin envelope),
-   * y está OK: devolvemos el objeto `Bodega` directamente.
-   */
+  /** Obtiene una bodega por ID (serializer plano). */
   async getById(id: number): Promise<Bodega> {
     const { data } = await apiClient.get<Bodega>(`${BASE_URL}${id}/`);
     return data;

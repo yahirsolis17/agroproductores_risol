@@ -1,4 +1,3 @@
-// src/modules/gestion_bodega/components/temporadas/TemporadaBodegaToolbar.tsx
 import React, { useState } from 'react';
 import {
   Box,
@@ -59,7 +58,7 @@ const TemporadaBodegaToolbar: React.FC<Props> = ({
   return (
     <Box className="mb-6">
       <Box display="flex" flexWrap="wrap" gap={2} mb={2} alignItems="center">
-        {/* Filtro por año (igual UX que huerta) */}
+        {/* Filtro por año (idéntico UX a huerta) */}
         <TextField
           size="small"
           label="Año"

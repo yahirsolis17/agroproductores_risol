@@ -1,8 +1,20 @@
-// src/modules/gestion_bodega/pages/Temporadas.tsx
+﻿/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Box, Paper, Typography, Divider, Tabs, Tab } from '@mui/material';
+import {
+  Box,
+  Paper,
+  Typography,
+  Divider,
+  Tabs,
+  Tab,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+} from '@mui/material';
 
 import TemporadaBodegaToolbar from '../components/temporadas/TemporadaBodegaToolbar';
 import TemporadaBodegaTable from '../components/temporadas/TemporadaBodegaTable';
@@ -18,9 +30,13 @@ import {
   setYearFilter,
   setBodegaFilter,
   setEstado,
+  setFinalizadaFilter,
+  deleteTemporada,
 } from '../../../global/store/temporadabodegaSlice';
 import { setBreadcrumbs, clearBreadcrumbs } from '../../../global/store/breadcrumbsSlice';
+import { breadcrumbRoutes } from '../../../global/constants/breadcrumbRoutes';
 import { bodegaService } from '../services/bodegaService';
+import temporadaBodegaService from '../services/temporadaBodegaService';
 
 import type { TemporadaBodega } from '../types/temporadaBodegaTypes';
 
@@ -33,8 +49,11 @@ const sanitizeText = (value?: string | null): string | undefined => {
 type VistaTab = 'activos' | 'archivados' | 'todos';
 
 // Helpers visuales para breadcrumb
-const EN_DASH = '–';
 const onlyName = (s?: string) => (s || '').split(',')[0].trim();
+const toTitleCase = (value: string) =>
+  value
+    .toLocaleLowerCase('es-MX')
+    .replace(/\p{L}+/gu, (word) => word.charAt(0).toLocaleUpperCase('es-MX') + word.slice(1));
 
 const BodegaTemporadasPage: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -42,32 +61,37 @@ const BodegaTemporadasPage: React.FC = () => {
   const { bodegaId: urlBodegaId } = useParams<{ bodegaId?: string }>();
   const [searchParams] = useSearchParams();
 
+  // ───────── Resolver bodega/id/query ─────────
   const parseNumericParam = (value?: string | null): number | undefined => {
     if (value === undefined || value === null || value.trim() === '') return undefined;
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : undefined;
   };
 
-  const bodegaIdFromUrl = parseNumericParam(urlBodegaId);
+  const bodegaIdFromUrl   = parseNumericParam(urlBodegaId);
   const bodegaIdFromQuery = parseNumericParam(searchParams.get('b'));
-  const bodegaId = bodegaIdFromUrl ?? bodegaIdFromQuery;
+  const bodegaId          = bodegaIdFromUrl ?? bodegaIdFromQuery;
 
-  const bodegaNombreParam = sanitizeText(searchParams.get('bodega_nombre'));
+  const bodegaNombreParam    = sanitizeText(searchParams.get('bodega_nombre'));
   const bodegaUbicacionParam = sanitizeText(searchParams.get('bodega_ubicacion'));
 
   const [headerInfo, setHeaderInfo] = useState<{ nombre?: string; ubicacion?: string | null } | null>(null);
   const [hasFetchedDetalle, setHasFetchedDetalle] = useState(false);
 
+  // ───────── Estado Redux (OJO: key correcta en store) ─────────
   const { items, meta, ops, filters } = useAppSelector((state) => state.temporadasBodega);
-  const [finalizadaFilter, setFinalizadaFilter] = useState<boolean | null>(null);
+  const finalizadaFilter = filters.finalizada ?? null;
   const estadoActual = (filters.estado ?? 'activos') as VistaTab;
-  const [tab, setTab] = useState<VistaTab>(estadoActual);
 
+  const [tab, setTab] = useState<VistaTab>(estadoActual);
+  const [deleteTarget, setDeleteTarget] = useState<TemporadaBodega | null>(null);
+
+  // Derivar nombre/ubicación de la lista
   const temporadaEnLista = useMemo(() => {
     if (typeof bodegaId !== 'number') return undefined;
     return (
-      items.find((temporada) => temporada.bodega_id === bodegaId) ??
-      items.find((temporada) => sanitizeText(temporada.bodega_nombre))
+      items.find((temporada: TemporadaBodega) => temporada.bodega_id === bodegaId) ??
+      items.find((temporada: TemporadaBodega) => Boolean(sanitizeText(temporada.bodega_nombre)))
     );
   }, [items, bodegaId]);
 
@@ -81,10 +105,7 @@ const BodegaTemporadasPage: React.FC = () => {
   );
 
   const headerNombre = useMemo(() => sanitizeText(headerInfo?.nombre), [headerInfo?.nombre]);
-  const headerUbicacion = useMemo(
-    () => sanitizeText(headerInfo?.ubicacion ?? undefined),
-    [headerInfo?.ubicacion]
-  );
+  const headerUbicacion = useMemo(() => sanitizeText(headerInfo?.ubicacion ?? undefined), [headerInfo?.ubicacion]);
 
   const displayNombre = headerNombre || derivedBodegaNombre || bodegaNombreParam;
   const displayUbicacion = headerUbicacion || derivedBodegaUbicacion || bodegaUbicacionParam;
@@ -97,20 +118,25 @@ const BodegaTemporadasPage: React.FC = () => {
     return `Bodega #${bodegaId}`;
   }, [bodegaId, displayNombre, displayUbicacion]);
 
+  // Tabs ↔ estado Redux
   useEffect(() => { setTab(estadoActual); }, [estadoActual]);
-
   useEffect(() => { if (tab !== estadoActual) dispatch(setEstado(tab)); }, [dispatch, tab, estadoActual]);
 
+  // Limpia target al cambiar bodega
+  useEffect(() => { setDeleteTarget(null); }, [bodegaId]);
+
+  // Fija filtro bodega en slice
   useEffect(() => {
     const nextBodegaId = typeof bodegaId === 'number' ? bodegaId : undefined;
     if (filters.bodegaId !== nextBodegaId) dispatch(setBodegaFilter(nextBodegaId));
   }, [dispatch, bodegaId, filters.bodegaId]);
 
+  // Header desde query y reset de finalizada
   useEffect(() => {
     if (typeof bodegaId !== 'number') {
       setHeaderInfo(null);
       setHasFetchedDetalle(false);
-      setFinalizadaFilter(null);
+      dispatch(setFinalizadaFilter(null));
       return;
     }
 
@@ -124,9 +150,10 @@ const BodegaTemporadasPage: React.FC = () => {
     }
 
     setHasFetchedDetalle(false);
-    setFinalizadaFilter(null);
-  }, [bodegaId, bodegaNombreParam, bodegaUbicacionParam]);
+    dispatch(setFinalizadaFilter(null));
+  }, [dispatch, bodegaId, bodegaNombreParam, bodegaUbicacionParam]);
 
+  // Reflejar en header lo que venga de la lista
   useEffect(() => {
     if (!derivedBodegaNombre && !derivedBodegaUbicacion) return;
 
@@ -144,6 +171,7 @@ const BodegaTemporadasPage: React.FC = () => {
     });
   }, [derivedBodegaNombre, derivedBodegaUbicacion]);
 
+  // Cargar detalle si falta nombre/ubicación
   useEffect(() => {
     if (typeof bodegaId !== 'number') return;
 
@@ -185,26 +213,21 @@ const BodegaTemporadasPage: React.FC = () => {
     return () => { cancelled = true; };
   }, [bodegaId, hasFetchedDetalle, displayNombre, displayUbicacion]);
 
-  // Breadcrumbs: EXACTO patrón Huerta
-  //   Bodegas – {Nombre}  /  Temporadas
-  //   * “Bodegas – {Nombre}” lleva a /bodega (lista principal)
-  //   * “Temporadas” queda como crumb actual con path: '' (TS OK)
+  // Breadcrumbs
   useEffect(() => {
     if (typeof bodegaId !== 'number') {
       dispatch(clearBreadcrumbs());
       return;
     }
 
-    const nombreSolo = onlyName(displayNombre || `Bodega #${bodegaId}`);
+    const baseNombre = onlyName(displayNombre || '');
+    const formattedNombre = baseNombre ? toTitleCase(baseNombre) : `#${bodegaId}`;
 
-    dispatch(setBreadcrumbs([
-      { label: `Bodegas ${EN_DASH} ${nombreSolo}`, path: '/bodega' },
-      { label: 'Temporadas', path: '' }
-    ]));
+    dispatch(setBreadcrumbs(breadcrumbRoutes.bodegaTemporadas(bodegaId, formattedNombre)));
   }, [dispatch, bodegaId, displayNombre]);
-
   useEffect(() => () => { dispatch(clearBreadcrumbs()); }, [dispatch]);
 
+  // Fetch listado
   useEffect(() => {
     if (typeof bodegaId !== 'number') return;
     const params: Record<string, any> = {
@@ -228,12 +251,53 @@ const BodegaTemporadasPage: React.FC = () => {
     finalizadaFilter,
   ]);
 
+  // ───────── Regla: sólo 1 temporada por AÑO (any estado) ─────────
+  const currentYear = useMemo(() => new Date().getFullYear(), []);
+  const [existsThisYearAny, setExistsThisYearAny] = useState(false);
+  const [checkingExists, setCheckingExists] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (typeof bodegaId !== 'number') { setExistsThisYearAny(false); return; }
+
+    (async () => {
+      setCheckingExists(true);
+      try {
+        const res = await temporadaBodegaService.list({
+          page: 1,
+          page_size: 1,
+          estado: 'todos',
+          bodegaId,
+          año: currentYear,
+        });
+        if (!cancelled) {
+          const count = res?.data?.meta?.count ?? 0;
+          setExistsThisYearAny(count > 0);
+        }
+      } catch {
+        if (!cancelled) setExistsThisYearAny(false);
+      } finally {
+        if (!cancelled) setCheckingExists(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [bodegaId, currentYear, items.length]);
+
+  const canCreateTemporada = typeof bodegaId === 'number' && !existsThisYearAny;
+  const createTooltip = !canCreateTemporada ? 'Ya existe una temporada para este año en esta bodega.' : undefined;
+
+  // Filtros UI
   const activeFiltersCount = useMemo(() => {
     let count = 0;
     if (filters.year) count += 1;
     if (finalizadaFilter !== null) count += 1;
     return count;
   }, [filters.year, finalizadaFilter]);
+
+  const handleFinalizadaChange = (value: boolean | null) => {
+    dispatch(setFinalizadaFilter(value ?? null));
+  };
 
   const buildParams = () => {
     if (typeof bodegaId !== 'number') return null;
@@ -249,37 +313,35 @@ const BodegaTemporadasPage: React.FC = () => {
     return params;
   };
 
+  // Acciones
   const handleCreate = async () => {
-    if (typeof bodegaId !== 'number') return;
-    const currentYear = new Date().getFullYear();
-
-    await dispatch(addTemporadaBodega({
-      bodegaId,
-      ['a\u00f1o']: currentYear,
-      fecha_inicio: null,
-      fecha_fin: null,
-      finalizada: false,
-      is_active: true,
-    } as any));
+    if (!canCreateTemporada || typeof bodegaId !== 'number') return;
+    await dispatch(
+      addTemporadaBodega({
+        bodegaId,
+        año: currentYear,
+        // fecha_inicio: new Date().toISOString().slice(0, 10), // si te lo exige el backend
+      })
+    ).unwrap();
 
     const params = buildParams();
     if (params) void dispatch(fetchTemporadasBodega(params));
   };
 
   const handleArchive = async (temporada: TemporadaBodega) => {
-    await dispatch(archiveTemporada(temporada.id));
+    await dispatch(archiveTemporada(temporada.id)).unwrap();
     const params = buildParams();
     if (params) void dispatch(fetchTemporadasBodega(params));
   };
 
   const handleRestore = async (temporada: TemporadaBodega) => {
-    await dispatch(restoreTemporada(temporada.id));
+    await dispatch(restoreTemporada(temporada.id)).unwrap();
     const params = buildParams();
     if (params) void dispatch(fetchTemporadasBodega(params));
   };
 
   const handleFinalize = async (temporada: TemporadaBodega) => {
-    await dispatch(finalizeTemporada(temporada.id));
+    await dispatch(finalizeTemporada(temporada.id)).unwrap();
     const params = buildParams();
     if (params) void dispatch(fetchTemporadasBodega(params));
   };
@@ -289,10 +351,24 @@ const BodegaTemporadasPage: React.FC = () => {
     navigate(`/bodega/${bodegaId}/capturas?temporada=${temporada.id}`);
   };
 
-  const handleDelete = (_temporada: TemporadaBodega) => {
-    /* Eliminar definitivo pendiente */
+  const handleDelete = (temporada: TemporadaBodega) => {
+    setDeleteTarget(temporada);
   };
 
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await dispatch(deleteTemporada(deleteTarget.id)).unwrap();
+      const params = buildParams();
+      if (params) void dispatch(fetchTemporadasBodega(params));
+    } finally {
+      setDeleteTarget(null);
+    }
+  };
+
+  const cancelDelete = () => setDeleteTarget(null);
+
+  // Render
   if (typeof bodegaId !== 'number') {
     return (
       <Box p={2}>
@@ -340,14 +416,15 @@ const BodegaTemporadasPage: React.FC = () => {
           yearFilter={filters.year ?? null}
           onYearChange={(year) => dispatch(setYearFilter(year ?? undefined))}
           finalizadaFilter={finalizadaFilter}
-          onFinalizadaChange={setFinalizadaFilter}
+          onFinalizadaChange={handleFinalizadaChange}
           onCreate={handleCreate}
-          canCreate
+          canCreate={canCreateTemporada && !checkingExists}
+          createTooltip={createTooltip}
           totalCount={meta.count}
           activeFiltersCount={activeFiltersCount}
           onClearFilters={() => {
             dispatch(setYearFilter(undefined));
-            setFinalizadaFilter(null);
+            dispatch(setFinalizadaFilter(null));
           }}
         />
 
@@ -365,6 +442,21 @@ const BodegaTemporadasPage: React.FC = () => {
           onFinalize={handleFinalize}
           onAdministrar={handleAdministrar}
         />
+
+        <Dialog open={Boolean(deleteTarget)} onClose={cancelDelete} maxWidth="xs" fullWidth>
+          <DialogTitle>Confirmar eliminación</DialogTitle>
+          <DialogContent dividers>
+            <Typography>
+              {deleteTarget ? `¿Eliminar la temporada ${deleteTarget.año} de esta bodega?` : ''}
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={cancelDelete}>Cancelar</Button>
+            <Button color="error" onClick={confirmDelete} disabled={ops.deleting}>
+              Eliminar
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Paper>
     </motion.div>
   );

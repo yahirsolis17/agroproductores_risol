@@ -101,7 +101,7 @@ export const deleteBodega = createAsyncThunk<number, number, { rejectValue: stri
   }
 );
 
-/** Archivar (soft, con cascada manejada en dominio). */
+/** Archivar (soft). */
 export const archiveBodega = createAsyncThunk<{ id: number }, number, { rejectValue: string }>(
   'bodegas/archive',
   async (id, { rejectWithValue }) => {
@@ -145,7 +145,7 @@ const bodegasSlice = createSlice({
     },
     setBEstado: (s, a: PayloadAction<EstadoBodega>) => {
       s.estado = a.payload;
-      s.page = 1; // siempre reset al cambiar pestaña
+      s.page = 1; // reset al cambiar pestaña
     },
     setBFilters: (s, a: PayloadAction<BodegaFilters>) => {
       s.filters = { ...a.payload };
@@ -193,10 +193,8 @@ const bodegasSlice = createSlice({
     // archive
     b.addCase(archiveBodega.fulfilled, (s, { payload }) => {
       if (s.estado === 'activos') {
-        // en “activos” desaparece del grid
         s.list = s.list.filter((x) => x.id !== payload.id);
       } else {
-        // en “archivados”/“todos” intentamos marcar flags cuando el item está presente
         const i = s.list.findIndex((x) => x.id === payload.id);
         if (i !== -1) {
           s.list[i].archivado_en = new Date().toISOString();
@@ -208,7 +206,6 @@ const bodegasSlice = createSlice({
     // restore
     b.addCase(restoreBodega.fulfilled, (s, { payload }) => {
       if (s.estado === 'archivados') {
-        // en “archivados” desaparece del grid
         s.list = s.list.filter((x) => x.id !== payload.id);
       } else {
         const i = s.list.findIndex((x) => x.id === payload.id);

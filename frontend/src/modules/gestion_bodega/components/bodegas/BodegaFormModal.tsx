@@ -1,9 +1,12 @@
+// src/modules/gestion_bodega/components/bodegas/BodegaFormModal.tsx
 import React from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, Button, Box
+  TextField, Button, Box, CircularProgress
 } from '@mui/material';
 import { Formik, Form, Field, FieldProps } from 'formik';
+import { PermissionButton } from '../../../../components/common/PermissionButton';
+import { handleBackendNotification } from '../../../../global/utils/NotificationEngine';
 
 import type {
   Bodega,
@@ -58,7 +61,7 @@ const BodegaFormModal: React.FC<Props> = ({
         initialValues={init}
         validate={validate}
         enableReinitialize
-        onSubmit={async (vals, { setSubmitting }) => {
+        onSubmit={async (vals, { setSubmitting, setErrors }) => {
           try {
             const payload: BodegaCreateData | BodegaUpdateData = {
               nombre: vals.nombre.trim(),
@@ -66,6 +69,21 @@ const BodegaFormModal: React.FC<Props> = ({
             };
             await onSubmit(payload);
             onClose();
+          } catch (err: any) {
+            const backend = err?.response?.data || err?.data || {};
+            const beErrors = backend.errors || backend.data?.errors || {};
+            const fErrors: Record<string, string> = {};
+
+            if (Array.isArray(beErrors?.non_field_errors)) {
+              const msg = beErrors.non_field_errors[0];
+              ['nombre', 'ubicacion'].forEach((f) => (fErrors[f] = msg));
+            }
+            Object.entries(beErrors).forEach(([field, msgs]: [string, unknown]) => {
+              if (field !== 'non_field_errors') fErrors[field] = Array.isArray(msgs) ? (msgs as string[])[0] : String(msgs);
+            });
+
+            setErrors(fErrors);
+            handleBackendNotification(backend);
           } finally {
             setSubmitting(false);
           }
@@ -82,6 +100,7 @@ const BodegaFormModal: React.FC<Props> = ({
                       label="Nombre"
                       fullWidth
                       size="small"
+                      autoFocus
                       error={Boolean(touched.nombre && errors.nombre)}
                       helperText={touched.nombre && errors.nombre}
                     />
@@ -104,16 +123,17 @@ const BodegaFormModal: React.FC<Props> = ({
             </DialogContent>
 
             <DialogActions>
-              <Button onClick={onClose} color="inherit" disabled={isSubmitting || loading}>
+              <Button onClick={onClose} color="inherit" variant="outlined" disabled={isSubmitting || loading}>
                 Cancelar
               </Button>
-              <Button
+              <PermissionButton
+                perm={isEdit ? 'change_bodega' : 'add_bodega'}
                 type="submit"
                 variant="contained"
                 disabled={isSubmitting || loading}
               >
-                {isEdit ? 'Guardar' : 'Crear'}
-              </Button>
+                {isSubmitting || loading ? <CircularProgress size={22} /> : (isEdit ? 'Guardar' : 'Crear')}
+              </PermissionButton>
             </DialogActions>
           </Form>
         )}

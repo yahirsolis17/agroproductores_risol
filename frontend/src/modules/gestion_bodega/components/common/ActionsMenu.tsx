@@ -53,7 +53,7 @@ export interface ActionsMenuProps {
 
   onTemporadas?: () => void;     // acción "Temporadas" adicional
   labelTemporadas?: string;      // default: 'Temporadas'
-  permTemporadas?: Perm;         // NUEVO: permisos para "Temporadas" (default: 'view_temporadabodega')
+  permTemporadas?: Perm;         // default: 'view_temporadabodega'
 }
 
 const ActionsMenu: React.FC<ActionsMenuProps> = (props) => {
@@ -83,7 +83,7 @@ const ActionsMenu: React.FC<ActionsMenuProps> = (props) => {
 
     onTemporadas,
     labelTemporadas = 'Temporadas',
-    permTemporadas, // NUEVO
+    permTemporadas,
   } = props;
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -118,14 +118,14 @@ const ActionsMenu: React.FC<ActionsMenuProps> = (props) => {
   const _permFinalize    = permFinalize ?? (isFinalized ? 'reactivate_temporadabodega' : 'finalize_temporadabodega');
   const _labelFinalize   = labelFinalize ?? (isFinalized ? 'Reactivar' : 'Finalizar');
 
-  const _permTemporadas  = permTemporadas ?? 'view_temporadabodega'; // NUEVO default
+  const _permTemporadas  = permTemporadas ?? 'view_temporadabodega';
 
   const canEdit       = hasPerm(_permEdit);
   const canAorR       = hasPerm(_permAorR);
   const canDelete     = hasPerm(_permDelete);
   const canView       = hasPerm(_permView);
   const canFinalize   = hasPerm(_permFinalize);
-  const canTemporadas = onTemporadas ? hasPerm(_permTemporadas) : false; // NUEVO
+  const canTemporadas = onTemporadas ? hasPerm(_permTemporadas) : false;
 
   return (
     <>
@@ -142,7 +142,7 @@ const ActionsMenu: React.FC<ActionsMenuProps> = (props) => {
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
-        {/* Ver */}
+        {/* Ver (temporal: etiqueta "Temporadas") */}
         {!hideView && onView && (
           <Tooltip title={canView ? '' : 'No tienes permiso'} disableHoverListener={canView}>
             <span style={{ display: 'block' }}>
@@ -154,7 +154,7 @@ const ActionsMenu: React.FC<ActionsMenuProps> = (props) => {
           </Tooltip>
         )}
 
-        {/* Temporadas (con permiso propio) */}
+        {/* Temporadas con permiso propio (si se usa aparte) */}
         {onTemporadas && (
           <Tooltip title={canTemporadas ? '' : 'No tienes permiso'} disableHoverListener={canTemporadas}>
             <span style={{ display: 'block' }}>

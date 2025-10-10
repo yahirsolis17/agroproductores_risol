@@ -1,11 +1,10 @@
-// src/modules/gestion_bodega/components/temporadas/TemporadaBodegaTable.tsx
 import React from 'react';
 import { Chip } from '@mui/material';
 import { TableLayout, Column } from '../../../../components/common/TableLayout';
 import ActionsMenu from '../common/ActionsMenu';
 import type { TemporadaBodega } from '../../types/temporadaBodegaTypes';
 
-// === igual que en huerta: formateo robusto para YYYY-MM-DD ===
+// === Formateo robusto para YYYY-MM-DD evitando desfases de zona ===
 const formatFechaLarga = (iso?: string | null) => {
   if (!iso) return '—';
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
@@ -35,15 +34,15 @@ interface Props {
   onDelete: (t: TemporadaBodega) => void;
   onFinalize: (t: TemporadaBodega) => void;
 
-  // “Entrar” a la administración (capturas/inventarios/etc.) con esa temporada
+  /** “Entrar” a la administración (capturas/inventarios/etc.) con esa temporada */
   onAdministrar: (t: TemporadaBodega) => void;
 }
 
 const columns: Column<TemporadaBodega>[] = [
   {
-    label: 'A\u00f1o',
-    key: 'a\u00f1o' as any,
-    render: (t) => <span className="font-medium">{(t as any)['a\u00f1o']}</span>,
+    label: 'Año',
+    key: 'año' as any, // TableLayout se basa en key; render asegura la visual
+    render: (t) => <span className="font-medium">{t.año}</span>,
   },
   {
     label: 'Bodega',
@@ -53,9 +52,7 @@ const columns: Column<TemporadaBodega>[] = [
       return (
         <div>
           <div className="font-medium">{t.bodega_nombre ?? 'Sin nombre'}</div>
-          {ubicacion ? (
-            <div className="text-sm text-gray-500">{ubicacion}</div>
-          ) : null}
+          {ubicacion ? <div className="text-sm text-gray-500">{ubicacion}</div> : null}
         </div>
       );
     },
@@ -137,11 +134,11 @@ const TemporadaBodegaTable: React.FC<Props> = ({
           onFinalize={() => onFinalize(t)}
           onArchiveOrRestore={() => (isArchived ? onRestore(t) : onArchive(t))}
           onDelete={isArchived ? () => onDelete(t) : undefined}
-
           // Permisos (coinciden con los codenames del ViewSet)
           permTemporadas="view_temporadabodega"
           permFinalize="change_temporadabodega"
-          permArchiveOrRestore="archive_temporadabodega"
+          // ✅ Permiso dinámico según estado (evita bloquear Restaurar)
+          permArchiveOrRestore={isArchived ? 'restore_temporadabodega' : 'archive_temporadabodega'}
           permDelete="delete_temporadabodega"
         />
       );

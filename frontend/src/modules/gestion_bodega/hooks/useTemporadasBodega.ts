@@ -1,4 +1,4 @@
-// src/modules/gestion_bodega/hooks/useTemporadasBodega.ts
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 
@@ -32,20 +32,19 @@ import type {
   TemporadaBodegaCreateData,
   TemporadaBodegaUpdateData,
   EstadoTemporadaBodega,
+  TemporadaBodega,
 } from "../types/temporadaBodegaTypes";
 
-type Options = {
-  autoFetch?: boolean;
-};
+type Options = { autoFetch?: boolean };
 
 export default function useTemporadasBodega(opts: Options = { autoFetch: true }) {
   const dispatch = useDispatch();
 
-  const items = useSelector(selectTemporadas);
-  const meta = useSelector(selectTemporadasMeta);
-  const ops = useSelector(selectTemporadaOps);
+  const items   = useSelector(selectTemporadas);
+  const meta    = useSelector(selectTemporadasMeta);
+  const ops     = useSelector(selectTemporadaOps);
   const filters = useSelector(selectTemporadasFilters);
-  const error = useSelector(selectTemporadasError);
+  const error   = useSelector(selectTemporadasError);
   const current = useSelector(selectTemporadaCurrent);
 
   // Listado
@@ -61,13 +60,22 @@ export default function useTemporadasBodega(opts: Options = { autoFetch: true })
   useEffect(() => {
     if (!opts.autoFetch) return;
     dispatch(fetchTemporadasBodega(filters) as any);
-  }, [dispatch, opts.autoFetch, filters.page, filters.page_size, filters.ordering, filters.estado, filters.bodegaId, filters.year]);
+  }, [
+    dispatch,
+    opts.autoFetch,
+    filters.page,
+    filters.page_size,
+    filters.ordering,
+    filters.estado,
+    filters.bodegaId,
+    filters.year,
+    filters.finalizada,
+  ]);
 
   // CRUD
   const create = useCallback(
-    async (payload: TemporadaBodegaCreateData) => {
+    async (payload: TemporadaBodegaCreateData & { bodegaId: number }) => {
       const res = await dispatch(addTemporadaBodega(payload) as any);
-      // refrescamos lista para ver cambios si la inserción no cae en la página actual
       dispatch(fetchTemporadasBodega(filters) as any);
       return res;
     },
@@ -111,13 +119,13 @@ export default function useTemporadasBodega(opts: Options = { autoFetch: true })
   );
 
   // Filtros / estado UI
-  const setPageSafe = useCallback((page: number) => dispatch(setPage(page)), [dispatch]);
-  const setPageSizeSafe = useCallback((size: number) => dispatch(setPageSize(size)), [dispatch]);
-  const setOrderingSafe = useCallback((ord?: string) => dispatch(setOrdering(ord)), [dispatch]);
-  const setBodegaSafe = useCallback((id?: number) => dispatch(setBodegaFilter(id)), [dispatch]);
-  const setYearSafe = useCallback((year?: number) => dispatch(setYearFilter(year)), [dispatch]);
-  const setEstadoSafe = useCallback((e: EstadoTemporadaBodega) => dispatch(setEstado(e)), [dispatch]);
-  const setCurrent = useCallback((t: any) => dispatch(setCurrentTemporada(t)), [dispatch]);
+  const setPageSafe      = useCallback((page: number) => dispatch(setPage(page)), [dispatch]);
+  const setPageSizeSafe  = useCallback((size: number) => dispatch(setPageSize(size)), [dispatch]);
+  const setOrderingSafe  = useCallback((ord?: string) => dispatch(setOrdering(ord)), [dispatch]);
+  const setBodegaSafe    = useCallback((id?: number) => dispatch(setBodegaFilter(id)), [dispatch]);
+  const setYearSafe      = useCallback((year?: number) => dispatch(setYearFilter(year)), [dispatch]);
+  const setEstadoSafe    = useCallback((e: EstadoTemporadaBodega) => dispatch(setEstado(e)), [dispatch]);
+  const setCurrent       = useCallback((t: TemporadaBodega | null) => dispatch(setCurrentTemporada(t)), [dispatch]);
 
   return {
     // data
@@ -129,11 +137,11 @@ export default function useTemporadasBodega(opts: Options = { autoFetch: true })
     filters,
 
     // loaders
-    isLoading: ops.listing,
-    isCreating: ops.creating,
-    isUpdating: ops.updating,
-    isArchiving: ops.archiving,
-    isRestoring: ops.restoring,
+    isLoading:    ops.listing,
+    isCreating:   ops.creating,
+    isUpdating:   ops.updating,
+    isArchiving:  ops.archiving,
+    isRestoring:  ops.restoring,
     isFinalizing: ops.finalizing,
 
     // actions
@@ -145,12 +153,12 @@ export default function useTemporadasBodega(opts: Options = { autoFetch: true })
     toggleFinalize,
 
     // filters
-    setPage: setPageSafe,
+    setPage:     setPageSafe,
     setPageSize: setPageSizeSafe,
     setOrdering: setOrderingSafe,
-    setBodega: setBodegaSafe,
-    setYear: setYearSafe,
-    setEstado: setEstadoSafe,
+    setBodega:   setBodegaSafe,
+    setYear:     setYearSafe,
+    setEstado:   setEstadoSafe,
     setCurrent,
   };
 }

@@ -1,12 +1,10 @@
 from decimal import Decimal, InvalidOperation
-from typing import Optional, Dict
+from typing import Dict, Optional
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
-from django.db.models import (
-    Sum, Q, UniqueConstraint, Index, Max
-)
+from django.db.models import Sum, Q, UniqueConstraint, Index, Max
 from django.utils import timezone
 
 
@@ -37,41 +35,41 @@ def _is_only_archival_fields(update_fields):
 # ───────────────────────────────────────────────────────────────────────────
 
 class Material(models.TextChoices):
-    MADERA = "MADERA", "Madera"
+    MADERA   = "MADERA", "Madera"
     PLASTICO = "PLASTICO", "Plástico"
 
 
 class CalidadMadera(models.TextChoices):
-    EXTRA = "EXTRA", "Extra"
+    EXTRA   = "EXTRA", "Extra"
     PRIMERA = "PRIMERA", "Primera"
     SEGUNDA = "SEGUNDA", "Segunda"
     TERCERA = "TERCERA", "Tercera"
-    CUARTA = "CUARTA", "Cuarta"
-    NINIO = "NINIO", "Niño"
-    MADURO = "MADURO", "Maduro"
-    RONIA = "RONIA", "Roña"
+    CUARTA  = "CUARTA", "Cuarta"
+    NINIO   = "NINIO", "Niño"
+    MADURO  = "MADURO", "Maduro"
+    RONIA   = "RONIA", "Roña"
 
 
 class CalidadPlastico(models.TextChoices):
-    # En plástico, "segunda hacia arriba" = Primera (normalizada).
+    # En plástico, "segunda/extra" → PRIMERA (normalizada).
     PRIMERA = "PRIMERA", "Primera"
     TERCERA = "TERCERA", "Tercera"
-    NINIO = "NINIO", "Niño"
-    RONIA = "RONIA", "Roña"
-    MADURO = "MADURO", "Maduro"
+    NINIO   = "NINIO", "Niño"
+    RONIA   = "RONIA", "Roña"
+    MADURO  = "MADURO", "Maduro"
 
 
 class EstadoPedido(models.TextChoices):
-    BORRADOR = "BORRADOR", "Borrador"
-    PARCIAL = "PARCIAL", "Parcial"
-    SURTIDO = "SURTIDO", "Surtido"
+    BORRADOR  = "BORRADOR", "Borrador"
+    PARCIAL   = "PARCIAL", "Parcial"
+    SURTIDO   = "SURTIDO", "Surtido"
     CANCELADO = "CANCELADO", "Cancelado"
 
 
 class EstadoCamion(models.TextChoices):
-    BORRADOR = "BORRADOR", "Borrador"
+    BORRADOR   = "BORRADOR", "Borrador"
     CONFIRMADO = "CONFIRMADO", "Confirmado"
-    ANULADO = "ANULADO", "Anulado"
+    ANULADO    = "ANULADO", "Anulado"
 
 
 # ───────────────────────────────────────────────────────────────────────────
@@ -99,7 +97,7 @@ class TimeStampedModel(models.Model):
         self.save(update_fields=["is_active", "archivado_en", "archivado_por_cascada"])
 
     def desarchivar(self, via_cascada: bool = False):
-        # En huerta, cuando via_cascada=True solo se permite si se archivó por cascada.
+        # Igual que en huerta: si via_cascada=True, solo si se archivó por cascada.
         if via_cascada and not self.archivado_por_cascada:
             return
         if self.is_active:
@@ -138,7 +136,6 @@ class Bodega(TimeStampedModel):
 
         counts = {"bodegas": 1, "temporadas": 0, "recepciones": 0, "clasificaciones": 0,
                   "pedidos": 0, "camiones": 0, "compras_madera": 0, "consumibles": 0}
-        # Cascadear entidades directamente dependientes de Bodega
         for t in self.temporadas.all():
             c = t.archivar(via_cascada=True)
             counts = _sum_counts(counts, c)
@@ -167,8 +164,7 @@ class Bodega(TimeStampedModel):
 
 class TemporadaBodega(TimeStampedModel):
     """
-    Temporada de Bodega (independiente). Igual que en huerta:
-    - Soporta finalización y soft-delete.
+    Temporada de Bodega (independiente).
     """
     año = models.PositiveIntegerField()
     bodega = models.ForeignKey(Bodega, on_delete=models.CASCADE, related_name="temporadas")
@@ -179,12 +175,18 @@ class TemporadaBodega(TimeStampedModel):
 
     class Meta:
         ordering = ["-año", "-id"]
-        unique_together = (("año", "bodega"),)
         indexes = [
             Index(fields=["año"], name="idx_tb_año"),
             Index(fields=["bodega"], name="idx_tb_bodega"),
             Index(fields=["finalizada"], name="idx_tb_finalizada"),
             Index(fields=["is_active"], name="idx_tb_is_active"),
+        ]
+        constraints = [
+            UniqueConstraint(
+                fields=["año", "bodega"],
+                condition=Q(finalizada=False),
+                name="uniq_temporadabodega_activa",
+            ),
         ]
 
     def __str__(self):
@@ -204,20 +206,15 @@ class TemporadaBodega(TimeStampedModel):
 
         counts = {"temporadas": 1, "recepciones": 0, "clasificaciones": 0, "pedidos": 0, "camiones": 0, "compras_madera": 0}
         for r in self.recepciones.all():
-            r.archivar(via_cascada=True)
-            counts["recepciones"] += 1
+            r.archivar(via_cascada=True); counts["recepciones"] += 1
         for cl in self.clasificaciones.all():
-            cl.archivar(via_cascada=True)
-            counts["clasificaciones"] += 1
+            cl.archivar(via_cascada=True); counts["clasificaciones"] += 1
         for p in self.pedidos.all():
-            p.archivar(via_cascada=True)
-            counts["pedidos"] += 1
+            p.archivar(via_cascada=True); counts["pedidos"] += 1
         for c in self.camiones.all():
-            c.archivar(via_cascada=True)
-            counts["camiones"] += 1
+            c.archivar(via_cascada=True); counts["camiones"] += 1
         for cm in self.compras_madera.all():
-            cm.archivar(via_cascada=True)
-            counts["compras_madera"] += 1
+            cm.archivar(via_cascada=True); counts["compras_madera"] += 1
         return counts
 
     @transaction.atomic
@@ -231,26 +228,21 @@ class TemporadaBodega(TimeStampedModel):
 
         counts = {"temporadas": 1, "recepciones": 0, "clasificaciones": 0, "pedidos": 0, "camiones": 0, "compras_madera": 0}
         for r in self.recepciones.all():
-            r.desarchivar(via_cascada=True)
-            counts["recepciones"] += 1
+            r.desarchivar(via_cascada=True); counts["recepciones"] += 1
         for cl in self.clasificaciones.all():
-            cl.desarchivar(via_cascada=True)
-            counts["clasificaciones"] += 1
+            cl.desarchivar(via_cascada=True); counts["clasificaciones"] += 1
         for p in self.pedidos.all():
-            p.desarchivar(via_cascada=True)
-            counts["pedidos"] += 1
+            p.desarchivar(via_cascada=True); counts["pedidos"] += 1
         for c in self.camiones.all():
-            c.desarchivar(via_cascada=True)
-            counts["camiones"] += 1
+            c.desarchivar(via_cascada=True); counts["camiones"] += 1
         for cm in self.compras_madera.all():
-            cm.desarchivar(via_cascada=True)
-            counts["compras_madera"] += 1
+            cm.desarchivar(via_cascada=True); counts["compras_madera"] += 1
         return counts
 
 
 class Cliente(TimeStampedModel):
     """
-    Catálogo de clientes para pedidos/consignas de Bodega (independiente).
+    Catálogo de clientes para pedidos/consignas de Bodega.
     """
     nombre = models.CharField(max_length=120)
     alias = models.CharField(max_length=60, blank=True, default="")
@@ -623,19 +615,16 @@ class SurtidoRenglon(TimeStampedModel):
         if self.cantidad <= 0:
             raise ValidationError("La cantidad de surtido debe ser positiva.")
 
-        # Compatibilidad material/calidad entre renglón y origen
         if self.renglon.material != self.origen_clasificacion.material:
             raise ValidationError("Material del renglón y del origen no coincide.")
         if self.renglon.calidad != self.origen_clasificacion.calidad:
             raise ValidationError("La calidad del renglón y de la clasificación no coincide.")
 
-        # Disponible en la clasificación
         consumido = self.origen_clasificacion.surtidos.aggregate(total=Sum("cantidad"))["total"] or 0
         disponible = (self.origen_clasificacion.cantidad_cajas or 0) - consumido
         if self.cantidad > disponible:
             raise ValidationError("No hay suficiente disponible en esa clasificación (overpicking origen).")
 
-        # Pendiente del renglón
         if self.cantidad > self.renglon.pendiente:
             raise ValidationError("La cantidad excede lo pendiente en el renglón (overpicking renglón).")
 
@@ -695,13 +684,17 @@ class CamionSalida(TimeStampedModel):
         if self.numero is not None and self.estado == EstadoCamion.CONFIRMADO:
             return  # idempotente
 
-        ultimo = (CamionSalida.objects
-                  .filter(bodega=self.bodega, temporada=self.temporada, numero__isnull=False)
-                  .aggregate(maxn=Max("numero"))["maxn"])
-        siguiente = (ultimo or 0) + 1
-        self.numero = siguiente
-        self.estado = EstadoCamion.CONFIRMADO
-        self.save(update_fields=["numero", "estado", "actualizado_en"])
+        # Evitar condiciones de carrera al asignar número correlativo
+        with transaction.atomic():
+            last = (CamionSalida.objects
+                    .select_for_update()
+                    .filter(bodega=self.bodega, temporada=self.temporada, numero__isnull=False)
+                    .order_by("-numero")
+                    .first())
+            siguiente = (last.numero if last else 0) + 1
+            self.numero = siguiente
+            self.estado = EstadoCamion.CONFIRMADO
+            self.save(update_fields=["numero", "estado", "actualizado_en"])
 
     def save(self, *args, **kwargs):
         update_fields = kwargs.get("update_fields")

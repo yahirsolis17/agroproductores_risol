@@ -1,6 +1,7 @@
 // src/global/store/temporadabodegaSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import type { RootState } from "./store";
+import { handleBackendNotification } from "../utils/NotificationEngine";
 
 import type {
   TemporadaBodega,
@@ -32,6 +33,7 @@ export type TemporadasBodegaFilters = {
   estado?: EstadoTemporadaBodega; // "activos" | "archivados" | "todos"
   bodegaId?: number;
   year?: number;
+  finalizada?: boolean | null;
 };
 
 type OpsState = {
@@ -41,6 +43,7 @@ type OpsState = {
   archiving: boolean;
   restoring: boolean;
   finalizing: boolean;
+  deleting: boolean;
 };
 
 type SliceState = {
@@ -85,6 +88,7 @@ const initialState: SliceState = {
     estado: "activos",
     bodegaId: undefined,
     year: undefined,
+    finalizada: null,
   },
   current: null,
   ops: {
@@ -94,6 +98,7 @@ const initialState: SliceState = {
     archiving: false,
     restoring: false,
     finalizing: false,
+    deleting: false,
   },
   error: null,
 };
@@ -111,6 +116,7 @@ export const fetchTemporadasBodega = createAsyncThunk(
         estado: args?.estado,
         bodegaId: args?.bodegaId,
         año: args?.year, // el service espera 'año'
+        finalizada: args?.finalizada ?? null,
         ordering: args?.ordering,
       });
       return { temporadas: data.temporadas, meta: data.meta as PaginationMeta };
@@ -124,9 +130,12 @@ export const addTemporadaBodega = createAsyncThunk(
   "temporadabodega/create",
   async (payload: TemporadaBodegaCreateData & { bodegaId: number }, { rejectWithValue }) => {
     try {
-      const { data } = await temporadaBodegaService.create(payload);
-      return data as TemporadaBodega;
+      const res = await temporadaBodegaService.create(payload);
+      handleBackendNotification(res);
+      return res.data as TemporadaBodega;
     } catch (err: any) {
+      const resp = err?.response?.data;
+      if (resp) handleBackendNotification(resp);
       return rejectWithValue(getErrorMessage(err));
     }
   }
@@ -137,8 +146,11 @@ export const editTemporadaBodega = createAsyncThunk(
   async ({ id, data }: { id: number; data: TemporadaBodegaUpdateData }, { rejectWithValue }) => {
     try {
       const resp = await temporadaBodegaService.update(id, data);
+      handleBackendNotification(resp);
       return resp.data as TemporadaBodega;
     } catch (err: any) {
+      const resp = err?.response?.data;
+      if (resp) handleBackendNotification(resp);
       return rejectWithValue(getErrorMessage(err));
     }
   }
@@ -149,8 +161,11 @@ export const archiveTemporada = createAsyncThunk(
   async (id: number, { rejectWithValue }) => {
     try {
       const res = await temporadaBodegaService.archivar(id);
-      return { id, affected: (res as any).affected };
+      handleBackendNotification(res);
+      return res.data as TemporadaBodega | null;
     } catch (err: any) {
+      const resp = err?.response?.data;
+      if (resp) handleBackendNotification(resp);
       return rejectWithValue(getErrorMessage(err));
     }
   }
@@ -161,8 +176,11 @@ export const restoreTemporada = createAsyncThunk(
   async (id: number, { rejectWithValue }) => {
     try {
       const res = await temporadaBodegaService.restaurar(id);
-      return { id, affected: (res as any).affected };
+      handleBackendNotification(res);
+      return res.data as TemporadaBodega | null;
     } catch (err: any) {
+      const resp = err?.response?.data;
+      if (resp) handleBackendNotification(resp);
       return rejectWithValue(getErrorMessage(err));
     }
   }
@@ -173,9 +191,28 @@ export const finalizeTemporada = createAsyncThunk(
   async (id: number, { rejectWithValue }) => {
     try {
       const res = await temporadaBodegaService.toggleFinalizar(id);
-      const temporada = res.data as TemporadaBodega | null;
-      return { id: temporada?.id ?? id };
+      handleBackendNotification(res);
+      return res.data as TemporadaBodega | null;
     } catch (err: any) {
+      const resp = err?.response?.data;
+      if (resp) handleBackendNotification(resp);
+      return rejectWithValue(getErrorMessage(err));
+    }
+  }
+);
+
+export const deleteTemporada = createAsyncThunk(
+  "temporadabodega/delete",
+  async (id: number, { rejectWithValue }) => {
+    try {
+      const res = await temporadaBodegaService.remove(id);
+      handleBackendNotification(res);
+      const payload = res.data as { deleted_id?: number; temporada_id?: number } | null;
+      const deletedId = payload?.deleted_id ?? payload?.temporada_id ?? id;
+      return deletedId;
+    } catch (err: any) {
+      const resp = err?.response?.data;
+      if (resp) handleBackendNotification(resp);
       return rejectWithValue(getErrorMessage(err));
     }
   }
@@ -207,6 +244,10 @@ const slice = createSlice({
     },
     setYearFilter(state, action: PayloadAction<number | undefined>) {
       state.filters.year = action.payload;
+      state.filters.page = 1;
+    },
+    setFinalizadaFilter(state, action: PayloadAction<boolean | null | undefined>) {
+      state.filters.finalizada = action.payload ?? null;
       state.filters.page = 1;
     },
     setEstado(state, action: PayloadAction<EstadoTemporadaBodega>) {
@@ -274,14 +315,13 @@ const slice = createSlice({
     });
     builder.addCase(archiveTemporada.fulfilled, (state, action) => {
       state.ops.archiving = false;
-      const { id } = action.payload;
-      const idx = state.items.findIndex((t) => t.id === id);
-      if (idx >= 0) {
-        (state.items[idx] as any).is_active = false;
-        (state.items[idx] as any).archivado_en = new Date().toISOString();
-      }
-      if (state.current?.id === id) {
-        (state.current as any).is_active = false;
+      const temporada = action.payload;
+      if (temporada) {
+        const idx = state.items.findIndex((t) => t.id === temporada.id);
+        if (idx >= 0) state.items[idx] = temporada;
+        if (state.current?.id === temporada.id) {
+          state.current = temporada;
+        }
       }
     });
     builder.addCase(archiveTemporada.rejected, (state, action) => {
@@ -296,14 +336,13 @@ const slice = createSlice({
     });
     builder.addCase(restoreTemporada.fulfilled, (state, action) => {
       state.ops.restoring = false;
-      const { id } = action.payload;
-      const idx = state.items.findIndex((t) => t.id === id);
-      if (idx >= 0) {
-        (state.items[idx] as any).is_active = true;
-        (state.items[idx] as any).archivado_en = null;
-      }
-      if (state.current?.id === id) {
-        (state.current as any).is_active = true;
+      const temporada = action.payload;
+      if (temporada) {
+        const idx = state.items.findIndex((t) => t.id === temporada.id);
+        if (idx >= 0) state.items[idx] = temporada;
+        if (state.current?.id === temporada.id) {
+          state.current = temporada;
+        }
       }
     });
     builder.addCase(restoreTemporada.rejected, (state, action) => {
@@ -318,18 +357,42 @@ const slice = createSlice({
     });
     builder.addCase(finalizeTemporada.fulfilled, (state, action) => {
       state.ops.finalizing = false;
-      const id = action.payload.id;
-      const idx = state.items.findIndex((t) => t.id === id);
-      if (idx >= 0) {
-        (state.items[idx] as any).finalizada = !(state.items[idx] as any).finalizada;
-      }
-      if (state.current?.id === id) {
-        (state.current as any).finalizada = !(state.current as any).finalizada;
+      const temporada = action.payload;
+      if (temporada) {
+        const idx = state.items.findIndex((t) => t.id === temporada.id);
+        if (idx >= 0) state.items[idx] = temporada;
+        if (state.current?.id === temporada.id) {
+          state.current = temporada;
+        }
       }
     });
     builder.addCase(finalizeTemporada.rejected, (state, action) => {
       state.ops.finalizing = false;
       state.error = (action.payload as string) ?? "Error al finalizar/reactivar temporada";
+    });
+
+    // DELETE
+    builder.addCase(deleteTemporada.pending, (state) => {
+      state.ops.deleting = true;
+      state.error = null;
+    });
+    builder.addCase(deleteTemporada.fulfilled, (state, action) => {
+      state.ops.deleting = false;
+      const deletedId = action.payload;
+      state.items = state.items.filter((t) => t.id !== deletedId);
+      if (state.current?.id === deletedId) {
+        state.current = null;
+      }
+      if (state.meta.count > 0) {
+        state.meta.count -= 1;
+        if (state.meta.page_size) {
+          state.meta.total_pages = Math.max(1, Math.ceil(state.meta.count / state.meta.page_size));
+        }
+      }
+    });
+    builder.addCase(deleteTemporada.rejected, (state, action) => {
+      state.ops.deleting = false;
+      state.error = (action.payload as string) ?? "Error al eliminar temporada";
     });
   },
 });
@@ -344,6 +407,7 @@ export const {
   setOrdering,
   setBodegaFilter,
   setYearFilter,
+  setFinalizadaFilter,
   setEstado,
   setCurrentTemporada,
   resetTemporadasState,

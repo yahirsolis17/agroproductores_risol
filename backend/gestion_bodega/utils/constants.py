@@ -454,6 +454,63 @@ NOTIFICATION_MESSAGES = {
     # ==========================
     # Temporadas de bodega (usa estas keys en tu ViewSet)
     # ==========================
+    "temporada_creada": {
+        "message": "Temporada creada correctamente.",
+        "type": "success",
+        "code": 201,
+    },
+    "temporada_archivada": {
+        "message": "Temporada archivada.",
+        "type": "success",
+        "code": 200,
+    },
+    "temporada_restaurada": {
+        "message": "Temporada restaurada.",
+        "type": "success",
+        "code": 200,
+    },
+    "temporada_finalizada": {
+        "message": "Temporada finalizada.",
+        "type": "success",
+        "code": 200,
+    },
+    "temporada_reactivada": {
+        "message": "Temporada reactivada.",
+        "type": "success",
+        "code": 200,
+    },
+    "temporada_eliminada": {
+        "message": "Temporada eliminada definitivamente.",
+        "type": "success",
+        "code": 200,
+    },
+    "temporada_en_curso": {
+        "message": "Ya existe una temporada en curso para este año.",
+        "type": "warning",
+        "code": 400,
+    },
+    "temporada_ya_archivada": {
+        "message": "Esta temporada ya se encuentra archivada.",
+        "type": "warning",
+        "code": 400,
+    },
+    "temporada_archivada_no_finalizar": {
+        "message": "No puedes finalizar o reactivar una temporada archivada.",
+        "type": "error",
+        "code": 400,
+    },
+    "temporada_no_archivada": {
+        "message": "No se puede eliminar una temporada activa.",
+        "type": "error",
+        "code": 400,
+    },
+    "temporada_no_finalizada": {
+        "message": "No se puede eliminar una temporada en curso.",
+        "type": "error",
+        "code": 400,
+    },
+
+    # Alias legacy (compatibilidad)
     "temporada_bodega_archivada": {
         "message": "Temporada archivada.",
         "type": "success",
@@ -473,17 +530,6 @@ NOTIFICATION_MESSAGES = {
         "message": "Temporada reactivada.",
         "type": "success",
         "code": 200,
-    },
-
-    "temporada_ya_archivada": {
-        "message": "Esta temporada ya se encuentra archivada.",
-        "type": "warning",
-        "code": 400,
-    },
-    "temporada_archivada_no_finalizar": {
-        "message": "No puedes finalizar o reactivar una temporada archivada.",
-        "type": "error",
-        "code": 400,
     },
 
     # ==========================
@@ -508,5 +554,21 @@ NOTIFICATION_MESSAGES = {
         "message": "Temporada cerrada correctamente.",
         "type": "success",
         "code": 200,
+    },
+    
+        "cliente_ya_archivado": {
+        "message": "El cliente ya está archivado.",
+        "type": "warning",
+        "code": 400,
+    },
+    "cliente_ya_activo": {
+        "message": "El cliente ya está activo.",
+        "type": "warning",
+        "code": 400,
+    },
+    "temporada_ya_activa": {
+        "message": "La temporada ya está activa.",
+        "type": "warning",
+        "code": 400,
     },
 }

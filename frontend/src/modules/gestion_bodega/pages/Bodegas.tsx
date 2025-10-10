@@ -1,3 +1,4 @@
+// src/modules/gestion_bodega/pages/Bodegas.tsx
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';

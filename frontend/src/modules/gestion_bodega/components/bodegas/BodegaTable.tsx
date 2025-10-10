@@ -1,3 +1,4 @@
+// src/modules/gestion_bodega/components/bodegas/BodegaTable.tsx
 import React from 'react';
 import { Chip, Button } from '@mui/material';
 import { TableLayout, Column, FilterConfig } from '../../../../components/common/TableLayout';

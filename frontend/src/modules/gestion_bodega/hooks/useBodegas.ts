@@ -34,7 +34,7 @@ import type {
 export function useBodegas(autoFetch: boolean = true) {
   const dispatch = useAppDispatch();
 
-  // Clave del slice en el store: 'bodegas' (mantén esto igual en el slice).
+  // Clave del slice en el store: 'bodegas'
   const state = useAppSelector((s) => s.bodegas);
 
   // Auto carga cuando cambian page/estado/filtros (igual patrón que huerta)
@@ -49,7 +49,7 @@ export function useBodegas(autoFetch: boolean = true) {
     [dispatch, state.page, state.estado, state.filters]
   );
 
-  const refetch = reload; // alias esperado por algunas vistas
+  const refetch = reload; // alias
 
   // Paginación / estado / filtros
   const setPage = useCallback((page: number) => dispatch(setBPage(page)), [dispatch]);
@@ -115,4 +115,3 @@ export function useBodegas(autoFetch: boolean = true) {
 }
 
 export default useBodegas;
-

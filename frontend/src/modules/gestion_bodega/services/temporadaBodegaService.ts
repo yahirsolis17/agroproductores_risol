@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import apiClient from '../../../global/api/apiClient';
 import type {
   NotificationPayload as Notif,
@@ -11,23 +12,23 @@ import type {
 // =============================================================================
 // Config
 // =============================================================================
-const BASE_URL = '/bodega/temporadas/'; // ajusta si tu router usa otro path
+const BASE_URL = '/bodega/temporadas/';
 
 // =============================================================================
-// Helpers
+// Notificaciones y utilidades
 // =============================================================================
 function extractNotif(resp: any): Notif {
-  // 1) wrapper del backend
+  // 1) Envelope del backend
   if (resp?.notification) return resp.notification as Notif;
-  // 2) DRF error común
+  // 2) DRF error típico
   if (resp?.detail && typeof resp.detail === 'string') {
     return { type: 'error', message: resp.detail };
   }
-  // 3) fallback
+  // 3) Fallback
   return { type: 'info', message: 'Operación procesada.' };
 }
 
-// compact de params/body sin genérico para evitar TS2322
+/** Limpia params/body quitando undefined/null/'' */
 function compactParams(obj: Record<string, any>): Record<string, any> {
   const out: Record<string, any> = {};
   Object.keys(obj).forEach((k) => {
@@ -37,6 +38,7 @@ function compactParams(obj: Record<string, any>): Record<string, any> {
   return out;
 }
 
+/** Homologa meta cuando el backend devuelve DRF plano. */
 function buildMetaFromDRF(
   resp: any,
   requested: { page?: number; page_size?: number }
@@ -56,8 +58,9 @@ function buildMetaFromDRF(
   };
 }
 
+/** Normaliza payload de list() para soportar envelope, DRF o arreglo plano. */
 function pickListPayload(resp: any, requested: { page?: number; page_size?: number }) {
-  // Caso A: wrapper { data: { temporadas, meta } }
+  // A) Envelope { success, notification, data: { temporadas, meta } }
   if (resp?.data?.temporadas) {
     const baseMeta = resp?.data?.meta ?? {};
     const meta: PaginationMeta = {
@@ -88,7 +91,7 @@ function pickListPayload(resp: any, requested: { page?: number; page_size?: numb
     };
   }
 
-  // Caso B: DRF paginado plano
+  // B) DRF paginado
   if (Array.isArray(resp?.results)) {
     return {
       success: true,
@@ -97,11 +100,10 @@ function pickListPayload(resp: any, requested: { page?: number; page_size?: numb
         temporadas: resp.results as TemporadaBodega[],
         meta: buildMetaFromDRF(resp, requested),
       },
-      raw: resp,
     };
   }
 
-  // Caso C: arreglo plano
+  // C) Arreglo plano
   if (Array.isArray(resp)) {
     const page = requested.page ?? 1;
     const inferredSize = resp.length;
@@ -121,13 +123,12 @@ function pickListPayload(resp: any, requested: { page?: number; page_size?: numb
           page,
           page_size,
           total_pages,
-        },
+        } as PaginationMeta,
       },
-      raw: resp,
     };
   }
 
-  // Fallback
+  // D) Fallback defensivo
   return {
     success: true,
     notification: extractNotif(resp),
@@ -142,8 +143,38 @@ function pickListPayload(resp: any, requested: { page?: number; page_size?: numb
         total_pages: 1,
       } as PaginationMeta,
     },
-    raw: resp,
   };
+}
+
+/**
+ * Mapea `ordering` del FE al campo real del backend.
+ * Útil cuando el FE usa `año` y el backend expone `anio` (o viceversa).
+ */
+function mapOrdering(ordering?: string): string | undefined {
+  if (!ordering) return undefined;
+
+  const normalize = (s: string) =>
+    s
+      // quita espacios
+      .trim()
+      // normaliza tildes para comparar
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '');
+
+  const raw = ordering;
+  const desc = raw.startsWith('-');
+  const key = desc ? raw.slice(1) : raw;
+
+  const nk = normalize(key);
+  let mapped = key;
+
+  // Caso común: FE usa `año`, backend `anio`
+  if (nk === 'ano' || nk === 'anio') mapped = 'anio';
+
+  // puedes añadir más mapeos aquí si tu API usa otros nombres
+  // if (nk === 'bodega_nombre') mapped = 'bodega__nombre';
+
+  return desc ? `-${mapped}` : mapped;
 }
 
 // =============================================================================
@@ -155,7 +186,7 @@ async function list(params: {
   estado?: EstadoTemporadaBodega; // 'activos' | 'archivados' | 'todos'
   bodegaId?: number;
   año?: number;
-  finalizada?: boolean;
+  finalizada?: boolean | null;
   ordering?: string; // e.g. '-año'
   search?: string;
 }) {
@@ -169,9 +200,9 @@ async function list(params: {
       ...requested,
       estado: params.estado ?? 'activos',
       bodega: params.bodegaId,
-      año: params.año,
+      año: params.año, // el backend recibe `año` (con tilde)
       finalizada: params.finalizada,
-      ordering: params.ordering,
+      ordering: mapOrdering(params.ordering),
       search: params.search,
     });
 
@@ -193,7 +224,6 @@ async function list(params: {
           total_pages: 1,
         } as PaginationMeta,
       },
-      raw: resp || err,
     };
   }
 }
@@ -206,14 +236,12 @@ async function getById(id: number) {
         success: true,
         notification: extractNotif(data),
         data: data.data.temporada as TemporadaBodega,
-        raw: data,
       };
     }
     return {
       success: true,
       notification: extractNotif(data),
       data: (data as TemporadaBodega) ?? null,
-      raw: data,
     };
   } catch (err: any) {
     const resp = err?.response?.data;
@@ -221,16 +249,15 @@ async function getById(id: number) {
       success: false,
       notification: extractNotif(resp || err),
       data: null as unknown as TemporadaBodega,
-      raw: resp || err,
     };
   }
 }
 
-async function create(payload: TemporadaBodegaCreateData & { bodegaId?: number }) {
+async function create(payload: TemporadaBodegaCreateData & { bodegaId: number }) {
   try {
     const body = compactParams({
       bodega_id: payload.bodegaId,
-      año: (payload as any)['año'],
+      año: (payload as any)['año'] ?? (payload as any)['anio'], // tolerante a ambos
       fecha_inicio: payload.fecha_inicio,
       fecha_fin: payload.fecha_fin,
     });
@@ -244,7 +271,6 @@ async function create(payload: TemporadaBodegaCreateData & { bodegaId?: number }
       success: true,
       notification: extractNotif(data),
       data: temporada,
-      raw: data,
     };
   } catch (err: any) {
     const resp = err?.response?.data;
@@ -252,7 +278,6 @@ async function create(payload: TemporadaBodegaCreateData & { bodegaId?: number }
       success: false,
       notification: extractNotif(resp || err),
       data: null as unknown as TemporadaBodega,
-      raw: resp || err,
     };
   }
 }
@@ -260,7 +285,7 @@ async function create(payload: TemporadaBodegaCreateData & { bodegaId?: number }
 async function update(id: number, payload: TemporadaBodegaUpdateData) {
   try {
     const body = compactParams({
-      año: (payload as any)['año'],
+      año: (payload as any)['año'] ?? (payload as any)['anio'],
       fecha_inicio: payload.fecha_inicio,
       fecha_fin: payload.fecha_fin,
       finalizada: payload.finalizada,
@@ -275,7 +300,6 @@ async function update(id: number, payload: TemporadaBodegaUpdateData) {
       success: true,
       notification: extractNotif(data),
       data: temporada,
-      raw: data,
     };
   } catch (err: any) {
     const resp = err?.response?.data;
@@ -283,7 +307,6 @@ async function update(id: number, payload: TemporadaBodegaUpdateData) {
       success: false,
       notification: extractNotif(resp || err),
       data: null as unknown as TemporadaBodega,
-      raw: resp || err,
     };
   }
 }
@@ -295,11 +318,10 @@ async function archivar(id: number) {
       success: true,
       notification: extractNotif(data),
       data: (data?.data?.temporada ?? null) as TemporadaBodega | null,
-      raw: data,
     };
   } catch (err: any) {
     const resp = err?.response?.data;
-    return { success: false, notification: extractNotif(resp || err), data: null, raw: resp || err };
+    return { success: false, notification: extractNotif(resp || err), data: null };
   }
 }
 
@@ -310,11 +332,10 @@ async function restaurar(id: number) {
       success: true,
       notification: extractNotif(data),
       data: (data?.data?.temporada ?? null) as TemporadaBodega | null,
-      raw: data,
     };
   } catch (err: any) {
     const resp = err?.response?.data;
-    return { success: false, notification: extractNotif(resp || err), data: null, raw: resp || err };
+    return { success: false, notification: extractNotif(resp || err), data: null };
   }
 }
 
@@ -325,22 +346,22 @@ async function toggleFinalizar(id: number) {
       success: true,
       notification: extractNotif(data),
       data: (data?.data?.temporada ?? null) as TemporadaBodega | null,
-      raw: data,
     };
   } catch (err: any) {
     const resp = err?.response?.data;
-    return { success: false, notification: extractNotif(resp || err), data: null, raw: resp || err };
+    return { success: false, notification: extractNotif(resp || err), data: null };
   }
 }
 
 async function remove(id: number) {
   try {
     const { data } = await apiClient.delete(`${BASE_URL}${id}/`);
+    const payload = (data?.data ?? {}) as { deleted_id?: number; temporada_id?: number };
+    const deletedId = payload.deleted_id ?? payload.temporada_id ?? id;
     return {
       success: true,
       notification: extractNotif(data),
-      data: { deleted_id: id },
-      raw: data,
+      data: { deleted_id: deletedId },
     };
   } catch (err: any) {
     const resp = err?.response?.data;
@@ -348,12 +369,11 @@ async function remove(id: number) {
       success: false,
       notification: extractNotif(resp || err),
       data: null,
-      raw: resp || err,
     };
   }
 }
 
-export const temporadaBodegaService = {
+const temporadaBodegaService = {
   list,
   getById,
   create,

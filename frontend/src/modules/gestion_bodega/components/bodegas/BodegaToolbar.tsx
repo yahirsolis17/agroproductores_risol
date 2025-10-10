@@ -1,3 +1,4 @@
+// src/modules/gestion_bodega/components/bodegas/BodegaToolbar.tsx
 import React from 'react';
 import { Box } from '@mui/material';
 import { Add } from '@mui/icons-material';

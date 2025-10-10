@@ -1,10 +1,11 @@
 ﻿# backend/gestion_bodega/views/bodegas_views.py
-from django.db import transaction
-from django.db.models import Q, Count
+from django.db import transaction, IntegrityError
+from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, status, filters, serializers
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
+from django.utils import timezone
 
 from agroproductores_risol.utils.pagination import GenericPagination
 from gestion_usuarios.permissions import HasModulePermission
@@ -16,7 +17,7 @@ from gestion_bodega.serializers import (
     TemporadaBodegaSerializer,
 )
 
-# Utilidades ya usadas en gestión_huerta
+# Utilidades (mismo patrón que en gestión_huerta)
 from gestion_bodega.utils.audit import ViewSetAuditMixin
 from gestion_bodega.utils.activity import registrar_actividad
 from gestion_bodega.utils.notification_handler import NotificationHandler
@@ -33,8 +34,9 @@ def _has_perm_bodega(user, codename: str) -> bool:
         return True
     return user.has_perm(f"gestion_bodega.{codename}")
 
+
 class NotificationMixin:
-    """Shortcut para devolver respuestas con el formato del frontend."""
+    """Atajo para formatear la respuesta con el esquema de notificaciones del FE."""
 
     def notify(self, *, key: str, data=None, status_code=status.HTTP_200_OK):
         return NotificationHandler.generate_response(
@@ -55,18 +57,16 @@ class NotificationMixin:
         }
 
 
-
-
 # ---------------------------------------------------------------------------
 #  🏬  BODEGAS
 # ---------------------------------------------------------------------------
 class BodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
     """
     CRUD de bodegas con:
-    - Paginación uniforme + payload meta
-    - Filtros por estado (activos|archivados|todos), nombre, ubicación
-    - Búsqueda y ordenamiento
-    - Acciones: archivar / restaurar
+      - Paginación uniforme + payload meta
+      - Filtros por estado (activos|archivados|todos), nombre, ubicación
+      - Búsqueda y ordenamiento
+      - Acciones: archivar / restaurar
     """
     queryset = Bodega.objects.all().order_by("-id")
     serializer_class = BodegaSerializer
@@ -225,7 +225,7 @@ class BodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
                 status_code=status.HTTP_403_FORBIDDEN,
             )
         with transaction.atomic():
-            affected = instance.archivar()  # tu modelo ya lo implementa
+            affected = instance.archivar()  # en modelo
         registrar_actividad(request.user, f"Archivó bodega {instance.id}")
         return self.notify(key="bodega_archivada", data={"bodega_id": instance.id, "affected": affected})
 
@@ -259,8 +259,8 @@ class ClienteViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
     pagination_class = GenericPagination
     permission_classes = [IsAuthenticated, HasModulePermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ["is_active"]
-    search_fields = ["nombre", "empresa", "telefono", "email"]
+    filterset_fields = ["is_active", "nombre", "rfc"]
+    search_fields = ["nombre", "alias", "rfc", "telefono", "email", "direccion"]
     ordering_fields = ["nombre", "actualizado_en", "creado_en", "id"]
     ordering = ["nombre", "id"]
 
@@ -310,7 +310,7 @@ class ClienteViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
         instance = self.get_object()
         if instance.archivado_en:
             return self.notify(
-                key="ya_archivada",
+                key="cliente_ya_archivado",
                 data={"info": "El cliente ya está archivado."},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
@@ -330,7 +330,7 @@ class ClienteViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
         instance = self.get_object()
         if instance.is_active and not instance.archivado_en:
             return self.notify(
-                key="ya_esta_activa",
+                key="cliente_ya_activo",
                 data={"info": "El cliente ya está activo."},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
@@ -347,7 +347,7 @@ class ClienteViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
 
 
 # ---------------------------------------------------------------------------
-#  📅  TEMPORADAS DE BODEGA (espejo de Temporadas en huerta)
+#  📅  TEMPORADAS DE BODEGA
 # ---------------------------------------------------------------------------
 class TemporadaBodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
     queryset = (
@@ -375,9 +375,28 @@ class TemporadaBodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
         # 'finalizar' → permiso contextual (finalize vs reactivate)
     }
 
+    def _map_validation_error(self, detail) -> str:
+        messages = []
+        if isinstance(detail, dict):
+            for value in detail.values():
+                if isinstance(value, (list, tuple)):
+                    messages.extend(str(v) for v in value)
+                else:
+                    messages.append(str(value))
+        elif isinstance(detail, (list, tuple)):
+            messages.extend(str(v) for v in detail)
+        else:
+            messages.append(str(detail))
+
+        for msg in messages:
+            lowered = msg.lower()
+            if "temporada en curso" in lowered:
+                return "temporada_en_curso"
+        return "validation_error"
+
     def get_permissions(self):
         if self.action == "finalizar":
-            # Decide permiso según estado actual (igual patrón que Temporadas)
+            # Decide permiso según estado actual
             required = ["finalize_temporadabodega", "reactivate_temporadabodega"]
             pk = self.kwargs.get("pk")
             if pk:
@@ -400,6 +419,15 @@ class TemporadaBodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
             qs = qs.filter(archivado_en__isnull=True, is_active=True)
         elif estado == "archivados":
             qs = qs.filter(archivado_en__isnull=False)
+
+        finalizada = self.request.query_params.get("finalizada")
+        if finalizada is not None:
+            value = str(finalizada).strip().lower()
+            if value in {"true", "1", "finalizadas", "yes", "si"}:
+                qs = qs.filter(finalizada=True)
+            elif value in {"false", "0", "en_curso", "no"}:
+                qs = qs.filter(finalizada=False)
+
         return qs
 
     def list(self, request, *args, **kwargs):
@@ -407,15 +435,62 @@ class TemporadaBodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
         page = self.paginate_queryset(qs)
         if page is not None:
             data = self.get_serializer(page, many=True).data
+            page_obj = getattr(self.paginator, "page", None)
+            paginator = getattr(page_obj, "paginator", None) if page_obj else None
             meta = {
-                "count": self.paginator.page.paginator.count,
+                "count": paginator.count if paginator else len(data),
                 "next": self.paginator.get_next_link(),
                 "previous": self.paginator.get_previous_link(),
+                "page": page_obj.number if page_obj else 1,
+                "page_size": paginator.per_page if paginator else len(data),
+                "total_pages": paginator.num_pages if paginator else 1,
             }
         else:
             data = self.get_serializer(qs, many=True).data
-            meta = {"count": len(data), "next": None, "previous": None}
+            total = len(data)
+            meta = {
+                "count": total,
+                "next": None,
+                "previous": None,
+                "page": 1,
+                "page_size": total,
+                "total_pages": 1,
+            }
         return self.notify(key="data_processed_success", data={"temporadas": data, "meta": meta})
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except serializers.ValidationError as exc:
+            key = self._map_validation_error(exc.detail)
+            return self.notify(
+                key=key,
+                data={"errors": exc.detail},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            instance = serializer.save()
+        except IntegrityError:
+            return self.notify(
+                key="temporada_en_curso",
+                data={
+                    "errors": {
+                        "non_field_errors": ["Ya existe una temporada en curso para este año."]
+                    }
+                },
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        anio = getattr(instance, "año", None)
+        registrar_actividad(request.user, f"Creó temporada de bodega {anio or ''}")
+        payload = self.get_serializer(instance).data
+        return self.notify(
+            key="temporada_creada",
+            data={"temporada": payload},
+            status_code=status.HTTP_201_CREATED,
+        )
 
     # ------------------------------ ARCHIVAR / RESTAURAR
     @action(detail=True, methods=["post"], url_path="archivar")
@@ -435,8 +510,12 @@ class TemporadaBodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
             )
         with transaction.atomic():
             affected = temp.archivar()
-        registrar_actividad(request.user, f"Archivó temporada bodega {temp.año}")
-        return self.notify(key="temporada_bodega_archivada", data={"temporada_id": temp.id, "affected": affected})
+            temp.refresh_from_db()
+        registrar_actividad(request.user, f"Archivó temporada bodega {getattr(temp, 'año', '')}")
+        return self.notify(
+            key="temporada_archivada",
+            data={"temporada": self.get_serializer(temp).data, "affected": affected},
+        )
 
     @action(detail=True, methods=["post"], url_path="restaurar")
     def restaurar(self, request, pk=None):
@@ -449,14 +528,18 @@ class TemporadaBodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
         temp = self.get_object()
         if temp.is_active and not temp.archivado_en:
             return self.notify(
-                key="ya_esta_activa",
+                key="temporada_ya_activa",
                 data={"info": "La temporada ya está activa."},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
         with transaction.atomic():
             affected = temp.desarchivar()
-        registrar_actividad(request.user, f"Restauró temporada bodega {temp.año}")
-        return self.notify(key="temporada_bodega_restaurada", data={"temporada_id": temp.id, "affected": affected})
+            temp.refresh_from_db()
+        registrar_actividad(request.user, f"Restauró temporada bodega {getattr(temp, 'año', '')}")
+        return self.notify(
+            key="temporada_restaurada",
+            data={"temporada": self.get_serializer(temp).data, "affected": affected},
+        )
 
     # ------------------------------ FINALIZAR (toggle contextual)
     @action(detail=True, methods=["post"], url_path="finalizar")
@@ -479,14 +562,36 @@ class TemporadaBodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
 
         if not temp.finalizada:
             temp.finalizada = True
-            temp.save(update_fields=["finalizada", "actualizado_en"])
-            registrar_actividad(request.user, f"Finalizó temporada bodega {temp.año}")
-            key = "temporada_bodega_finalizada"
+            temp.fecha_fin = timezone.now().date()
+            temp.save(update_fields=["finalizada", "fecha_fin", "actualizado_en"])
+            registrar_actividad(request.user, f"Finalizó temporada bodega {getattr(temp, 'año', '')}")
+            key = "temporada_finalizada"
         else:
             temp.finalizada = False
-            temp.save(update_fields=["finalizada", "actualizado_en"])
-            registrar_actividad(request.user, f"Reactivó temporada bodega {temp.año}")
-            key = "temporada_bodega_reactivada"
+            temp.fecha_fin = None
+            temp.save(update_fields=["finalizada", "fecha_fin", "actualizado_en"])
+            registrar_actividad(request.user, f"Reactivó temporada bodega {getattr(temp, 'año', '')}")
+            key = "temporada_reactivada"
 
+        temp.refresh_from_db()
         return self.notify(key=key, data={"temporada": self.get_serializer(temp).data})
 
+    def destroy(self, request, *args, **kwargs):
+        temp = self.get_object()
+        if temp.is_active:
+            return self.notify(
+                key="temporada_no_archivada",
+                data={"info": "No se puede eliminar una temporada activa."},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        if not temp.finalizada:
+            return self.notify(
+                key="temporada_no_finalizada",
+                data={"info": "No se puede eliminar una temporada en curso."},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        temporada_id = temp.id
+        anio = getattr(temp, "año", "")
+        self.perform_destroy(temp)
+        registrar_actividad(request.user, f"Eliminó temporada bodega {anio}")
+        return self.notify(key="temporada_eliminada", data={"temporada_id": temporada_id})
