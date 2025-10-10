@@ -43,6 +43,7 @@ export interface TemporadaBodega {
   bodega_id: number;
   bodega_nombre?: string | null;
   bodega_ubicacion?: string | null;
+  bodega_is_active?: boolean | null;
   fecha_inicio?: string | null;
   fecha_fin?: string | null;
   finalizada: boolean;

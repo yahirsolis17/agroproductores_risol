@@ -79,6 +79,7 @@ class TemporadaBodegaSerializer(serializers.ModelSerializer):
     bodega_id = serializers.PrimaryKeyRelatedField(source="bodega", queryset=Bodega.objects.all(), write_only=True)
     bodega_nombre    = serializers.SerializerMethodField()
     bodega_ubicacion = serializers.SerializerMethodField()
+    bodega_is_active = serializers.SerializerMethodField()
 
     is_active    = serializers.BooleanField(read_only=True)
     archivado_en = serializers.DateTimeField(read_only=True)
@@ -87,13 +88,13 @@ class TemporadaBodegaSerializer(serializers.ModelSerializer):
         model = TemporadaBodega
         fields = [
             "id", "año",
-            "bodega", "bodega_id", "bodega_nombre", "bodega_ubicacion",
+            "bodega", "bodega_id", "bodega_nombre", "bodega_ubicacion", "bodega_is_active",
             "fecha_inicio", "fecha_fin", "finalizada",
             "is_active", "archivado_en",
             "creado_en", "actualizado_en",
         ]
         read_only_fields = [
-            "bodega", "bodega_nombre", "bodega_ubicacion",
+            "bodega", "bodega_nombre", "bodega_ubicacion", "bodega_is_active",
             "is_active", "archivado_en",
             "creado_en", "actualizado_en",
         ]
@@ -108,6 +109,10 @@ class TemporadaBodegaSerializer(serializers.ModelSerializer):
         ubicacion = getattr(b, "ubicacion", None) if b else None
         return (ubicacion.strip() if isinstance(ubicacion, str) else None)
 
+    def get_bodega_is_active(self, obj):
+        b = getattr(obj, "bodega", None)
+        return getattr(b, "is_active", None) if b else None
+
     def validate_año(self, value):
         actual = timezone.now().year
         if value < 2000 or value > actual + 1:
@@ -115,11 +120,9 @@ class TemporadaBodegaSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
+        field_ano = "año"
         bodega = attrs.get("bodega") or getattr(self.instance, "bodega", None)
-        año = attrs.get("año") or getattr(self.instance, "año", None)
-        finalizada = attrs.get("finalizada")
-        if finalizada is None and self.instance is not None:
-            finalizada = getattr(self.instance, "finalizada", False)
+        año = attrs.get(field_ano) or getattr(self.instance, field_ano, None)
 
         fecha_inicio = attrs.get("fecha_inicio")
         if isinstance(fecha_inicio, datetime):
@@ -129,12 +132,25 @@ class TemporadaBodegaSerializer(serializers.ModelSerializer):
         if isinstance(fecha_fin, datetime):
             attrs["fecha_fin"] = _as_local_date(fecha_fin)
 
-        if bodega and año and not finalizada:
-            qs = TemporadaBodega.objects.filter(bodega=bodega, año=año, finalizada=False)
-            if self.instance is not None:
-                qs = qs.exclude(pk=self.instance.pk)
+        instance = getattr(self, "instance", None)
+        if instance is not None:
+            if not getattr(instance, "is_active", True):
+                raise serializers.ValidationError({"non_field_errors": ["Registro archivado no editable."]})
+            if getattr(instance, "finalizada", False):
+                raise serializers.ValidationError({"non_field_errors": ["La temporada finalizada no se puede editar."]})
+            parent = getattr(instance, "bodega", None)
+            if parent is not None and not getattr(parent, "is_active", True):
+                raise serializers.ValidationError({"non_field_errors": ["La bodega esta archivada; no se pueden gestionar temporadas."]})
+
+        if bodega and not getattr(bodega, "is_active", True):
+            raise serializers.ValidationError({"non_field_errors": ["La bodega esta archivada; no se pueden gestionar temporadas."]})
+
+        if bodega and año:
+            qs = TemporadaBodega.objects.filter(bodega=bodega, año=año)
+            if instance is not None:
+                qs = qs.exclude(pk=instance.pk)
             if qs.exists():
-                raise serializers.ValidationError({"non_field_errors": ["Ya existe una temporada en curso para este año."]})
+                raise serializers.ValidationError({"non_field_errors": ["Ya existe una temporada registrada para este año en esta bodega."]})
         return attrs
 
 

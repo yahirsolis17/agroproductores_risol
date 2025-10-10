@@ -97,7 +97,7 @@ const TemporadaBodegaToolbar: React.FC<Props> = ({
 
         {/* Crear temporada (un clic) */}
         {onCreate && (
-          <Tooltip title={createTooltip || ''}>
+          <Tooltip title={createTooltip ?? ''} disableHoverListener={!createTooltip}>
             <span>
               <PermissionButton
                 perm="add_temporadabodega"

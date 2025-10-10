@@ -34,6 +34,26 @@ NOTIFICATION_MESSAGES = {
     # ==========================
     # Bloqueos / Invariantes
     # ==========================
+    "registro_archivado_no_editable": {
+        "message": "El registro archivado no se puede editar.",
+        "type": "error",
+        "code": 400,
+    },
+    "bodega_archivada_no_permite_temporadas": {
+        "message": "La bodega esta archivada; no se pueden crear ni editar temporadas.",
+        "type": "error",
+        "code": 400,
+    },
+    "violacion_unicidad_anio": {
+        "message": "Ya existe una temporada registrada para ese ano en esta bodega.",
+        "type": "error",
+        "code": 400,
+    },
+    "dependencias_presentes": {
+        "message": "No se puede completar la operacion: existen dependencias activas.",
+        "type": "error",
+        "code": 409,
+    },
     "temporada_bodega_inactiva_o_finalizada": {
         "message": "No se permiten cambios: la temporada de bodega está archivada o finalizada.",
         "type": "error",
@@ -454,6 +474,31 @@ NOTIFICATION_MESSAGES = {
     # ==========================
     # Temporadas de bodega (usa estas keys en tu ViewSet)
     # ==========================
+    "temporadabodega_creada": {
+        "message": "Temporada creada correctamente.",
+        "type": "success",
+        "code": 201,
+    },
+    "temporadabodega_archivada": {
+        "message": "Temporada archivada.",
+        "type": "success",
+        "code": 200,
+    },
+    "temporadabodega_actualizada": {
+        "message": "Temporada actualizada correctamente.",
+        "type": "success",
+        "code": 200,
+    },
+    "temporadabodega_restaurada": {
+        "message": "Temporada restaurada.",
+        "type": "success",
+        "code": 200,
+    },
+    "temporadabodega_eliminada": {
+        "message": "Temporada eliminada definitivamente.",
+        "type": "success",
+        "code": 200,
+    },
     "temporada_creada": {
         "message": "Temporada creada correctamente.",
         "type": "success",

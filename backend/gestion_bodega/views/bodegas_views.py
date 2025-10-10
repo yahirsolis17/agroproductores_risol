@@ -1,4 +1,4 @@
-﻿# backend/gestion_bodega/views/bodegas_views.py
+# backend/gestion_bodega/views/bodegas_views.py
 from django.db import transaction, IntegrityError
 from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
@@ -35,6 +35,20 @@ def _has_perm_bodega(user, codename: str) -> bool:
     return user.has_perm(f"gestion_bodega.{codename}")
 
 
+def _normalize_estado(raw, default: str = "activas") -> str:
+    value = (raw or default).strip().lower()
+    mapping = {
+        "activos": "activas",
+        "activas": "activas",
+        "archivados": "archivadas",
+        "archivadas": "archivadas",
+        "todos": "todas",
+        "todas": "todas",
+        "all": "todas",
+    }
+    return mapping.get(value, default)
+
+
 class NotificationMixin:
     """Atajo para formatear la respuesta con el esquema de notificaciones del FE."""
 
@@ -58,7 +72,7 @@ class NotificationMixin:
 
 
 # ---------------------------------------------------------------------------
-#  🏬  BODEGAS
+#  ??  BODEGAS
 # ---------------------------------------------------------------------------
 class BodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
     """
@@ -104,11 +118,11 @@ class BodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
         params = self.request.query_params
 
         # Estado: activos | archivados | todos
-        estado = (params.get("estado") or "activos").strip().lower()
-        if estado == "activos":
+        estado = _normalize_estado(params.get("estado"), default="activas")
+        if estado == "activas":
             qs = qs.filter(archivado_en__isnull=True, is_active=True)
-        elif estado == "archivados":
-            qs = qs.filter(archivado_en__isnull=False)
+        elif estado == "archivadas":
+            qs = qs.filter(archivado_en__isnull=False, is_active=False)
 
         # Filtros y search
         if nombre := params.get("nombre"):
@@ -251,7 +265,7 @@ class BodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
 
 
 # ---------------------------------------------------------------------------
-#  👥  CLIENTES (catálogo)
+#  ??  CLIENTES (catálogo)
 # ---------------------------------------------------------------------------
 class ClienteViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
     queryset = Cliente.objects.all().order_by("-id")
@@ -283,11 +297,11 @@ class ClienteViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
         qs = super().get_queryset()
         if self.action in {"retrieve", "update", "partial_update", "destroy", "archivar", "restaurar"}:
             return qs
-        estado = (self.request.query_params.get("estado") or "activos").strip().lower()
-        if estado == "activos":
+        estado = _normalize_estado(self.request.query_params.get("estado"), default="activas")
+        if estado == "activas":
             qs = qs.filter(archivado_en__isnull=True, is_active=True)
-        elif estado == "archivados":
-            qs = qs.filter(archivado_en__isnull=False)
+        elif estado == "archivadas":
+            qs = qs.filter(archivado_en__isnull=False, is_active=False)
         return qs
 
     def list(self, request, *args, **kwargs):
@@ -347,7 +361,7 @@ class ClienteViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
 
 
 # ---------------------------------------------------------------------------
-#  📅  TEMPORADAS DE BODEGA
+#  ??  TEMPORADAS DE BODEGA
 # ---------------------------------------------------------------------------
 class TemporadaBodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
     queryset = (
@@ -372,7 +386,7 @@ class TemporadaBodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
         "destroy":        ["delete_temporadabodega"],
         "archivar":       ["archive_temporadabodega"],
         "restaurar":      ["restore_temporadabodega"],
-        # 'finalizar' → permiso contextual (finalize vs reactivate)
+        # 'finalizar' ? permiso contextual (finalize vs reactivate)
     }
 
     def _map_validation_error(self, detail) -> str:
@@ -392,6 +406,18 @@ class TemporadaBodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
             lowered = msg.lower()
             if "temporada en curso" in lowered:
                 return "temporada_en_curso"
+            if "ya existe una temporada registrada" in lowered:
+                return "violacion_unicidad_anio"
+            if "registrada para este año en esta bodega" in lowered:
+                return "violacion_unicidad_anio"
+            if "bodega_id deben formar un conjunto único" in lowered:
+                return "violacion_unicidad_anio"
+            if "registro archivado no editable" in lowered:
+                return "registro_archivado_no_editable"
+            if "la temporada finalizada no se puede editar" in lowered:
+                return "registro_archivado_no_editable"
+            if "la bodega esta archivada; no se pueden gestionar temporadas" in lowered:
+                return "bodega_archivada_no_permite_temporadas"
         return "validation_error"
 
     def get_permissions(self):
@@ -414,11 +440,11 @@ class TemporadaBodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
         qs = super().get_queryset()
         if self.action in {"retrieve", "update", "partial_update", "destroy", "archivar", "restaurar", "finalizar"}:
             return qs
-        estado = (self.request.query_params.get("estado") or "activos").strip().lower()
-        if estado == "activos":
+        estado = _normalize_estado(self.request.query_params.get("estado"), default="activas")
+        if estado == "activas":
             qs = qs.filter(archivado_en__isnull=True, is_active=True)
-        elif estado == "archivados":
-            qs = qs.filter(archivado_en__isnull=False)
+        elif estado == "archivadas":
+            qs = qs.filter(archivado_en__isnull=False, is_active=False)
 
         finalizada = self.request.query_params.get("finalizada")
         if finalizada is not None:
@@ -475,10 +501,10 @@ class TemporadaBodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
             instance.refresh_from_db()
         except IntegrityError:
             return self.notify(
-                key="temporada_en_curso",
+                key="violacion_unicidad_anio",
                 data={
                     "errors": {
-                        "non_field_errors": ["Ya existe una temporada en curso para este año."]
+                        "non_field_errors": ["Ya existe una temporada registrada para este año en esta bodega."]
                     }
                 },
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -488,10 +514,56 @@ class TemporadaBodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
         registrar_actividad(request.user, f"Creó temporada de bodega {año or ''}")
         payload = self.get_serializer(instance).data
         return self.notify(
-            key="temporada_creada",
+            key="temporadabodega_creada",
             data={"temporada": payload},
             status_code=status.HTTP_201_CREATED,
         )
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+
+        if not instance.is_active:
+            return self.notify(
+                key="registro_archivado_no_editable",
+                data={"info": "No puedes editar una temporada archivada."},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        if instance.bodega_id and not instance.bodega.is_active:
+            return self.notify(
+                key="bodega_archivada_no_permite_temporadas",
+                data={"info": "La bodega esta archivada; no se pueden gestionar temporadas."},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        if instance.finalizada:
+            return self.notify(
+                key="registro_archivado_no_editable",
+                data={"info": "No puedes editar una temporada finalizada."},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except serializers.ValidationError as exc:
+            key = self._map_validation_error(exc.detail)
+            return self.notify(
+                key=key,
+                data={"errors": exc.detail},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        self.perform_update(serializer)
+        registrar_actividad(request.user, f"Actualizó temporada de bodega {getattr(instance, 'año', '')}")
+        return self.notify(
+            key="temporadabodega_actualizada",
+            data={"temporada": serializer.data},
+            status_code=status.HTTP_200_OK,
+        )
+
+    def partial_update(self, request, *args, **kwargs):
+        kwargs["partial"] = True
+        return self.update(request, *args, **kwargs)
 
     # ------------------------------ ARCHIVAR / RESTAURAR
     @action(detail=True, methods=["post"], url_path="archivar")
@@ -514,7 +586,7 @@ class TemporadaBodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
             temp.refresh_from_db()
         registrar_actividad(request.user, f"Archivó temporada bodega {getattr(temp, 'año', '')}")
         return self.notify(
-            key="temporada_archivada",
+            key="temporadabodega_archivada",
             data={"temporada": self.get_serializer(temp).data, "affected": affected},
         )
 
@@ -533,12 +605,18 @@ class TemporadaBodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
                 data={"info": "La temporada ya está activa."},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
+        if temp.bodega_id and not temp.bodega.is_active:
+            return self.notify(
+                key="bodega_archivada_no_permite_temporadas",
+                data={"info": "No puedes restaurar una temporada porque su bodega se encuentra archivada."},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
         with transaction.atomic():
             affected = temp.desarchivar()
             temp.refresh_from_db()
         registrar_actividad(request.user, f"Restauró temporada bodega {getattr(temp, 'año', '')}")
         return self.notify(
-            key="temporada_restaurada",
+            key="temporadabodega_restaurada",
             data={"temporada": self.get_serializer(temp).data, "affected": affected},
         )
 
@@ -591,8 +669,38 @@ class TemporadaBodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
                 data={"info": "No se puede eliminar una temporada en curso."},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
+
+        dependencias = []
+        if temp.recepciones.exists():
+            dependencias.append("recepciones")
+        if temp.clasificaciones.exists():
+            dependencias.append("clasificaciones")
+        if temp.pedidos.exists():
+            dependencias.append("pedidos")
+        if temp.camiones.exists():
+            dependencias.append("camiones")
+        if temp.compras_madera.exists():
+            dependencias.append("compras_madera")
+        if temp.inventarios_plastico.exists():
+            dependencias.append("inventarios_plastico")
+        if temp.consumibles.exists():
+            dependencias.append("consumibles")
+        if temp.cierres.exists():
+            dependencias.append("cierres")
+        if dependencias:
+            return self.notify(
+                key="dependencias_presentes",
+                data={"info": "No se puede eliminar la temporada porque tiene dependencias asociadas.",
+                      "dependencias": dependencias},
+                status_code=status.HTTP_409_CONFLICT,
+            )
+
         temporada_id = temp.id
         año = getattr(temp, "año", "")
         self.perform_destroy(temp)
         registrar_actividad(request.user, f"Eliminó temporada bodega {año}")
-        return self.notify(key="temporada_eliminada", data={"temporada_id": temporada_id})
+        return self.notify(
+            key="temporadabodega_eliminada",
+            data={"deleted_id": temporada_id},
+            status_code=status.HTTP_200_OK,
+        )

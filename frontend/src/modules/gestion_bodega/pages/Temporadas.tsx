@@ -1,5 +1,5 @@
 ﻿/* eslint-disable react-hooks/exhaustive-deps */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -77,6 +77,8 @@ const BodegaTemporadasPage: React.FC = () => {
 
   const [headerInfo, setHeaderInfo] = useState<{ nombre?: string; ubicacion?: string | null } | null>(null);
   const [hasFetchedDetalle, setHasFetchedDetalle] = useState(false);
+  const [isBodegaActive, setIsBodegaActive] = useState<boolean | null>(null);
+  const [createBlocked, setCreateBlocked] = useState<{ key: string | null; message?: string } | null>(null);
 
   // ───────── Estado Redux (OJO: key correcta en store) ─────────
   const { items, meta, ops, filters } = useAppSelector((state) => state.temporadasBodega);
@@ -129,9 +131,23 @@ const BodegaTemporadasPage: React.FC = () => {
     return `Bodega #${bodegaId}`;
   }, [bodegaId, displayNombre, displayUbicacion]);
 
+  const currentYear = useMemo(() => new Date().getFullYear(), []);
+  const [existsThisYearAny, setExistsThisYearAny] = useState(false);
+  const [checkingExists, setCheckingExists] = useState(false);
+
   // Tabs ↔ estado Redux
   useEffect(() => { setTab(estadoActual); }, [estadoActual]);
   useEffect(() => { if (tab !== estadoActual) dispatch(setEstado(tab)); }, [dispatch, tab, estadoActual]);
+  useEffect(() => {
+    if (createBlocked?.key === 'violacion_unicidad_anio' && !existsThisYearAny) {
+      setCreateBlocked(null);
+    }
+  }, [existsThisYearAny, createBlocked]);
+  useEffect(() => {
+    if (createBlocked?.key === 'bodega_archivada_no_permite_temporadas' && isBodegaActive) {
+      setCreateBlocked(null);
+    }
+  }, [isBodegaActive, createBlocked]);
 
   // Limpia target al cambiar bodega
   useEffect(() => { setDeleteTarget(null); }, [bodegaId]);
@@ -147,6 +163,8 @@ const BodegaTemporadasPage: React.FC = () => {
     if (typeof bodegaId !== 'number') {
       setHeaderInfo(null);
       setHasFetchedDetalle(false);
+      setIsBodegaActive(null);
+      setCreateBlocked(null);
       dispatch(setFinalizadaFilter(null));
       return;
     }
@@ -161,6 +179,7 @@ const BodegaTemporadasPage: React.FC = () => {
     }
 
     setHasFetchedDetalle(false);
+    setCreateBlocked(null);
     dispatch(setFinalizadaFilter(null));
   }, [dispatch, bodegaId, bodegaNombreParam, bodegaUbicacionParam]);
 
@@ -182,6 +201,19 @@ const BodegaTemporadasPage: React.FC = () => {
     });
   }, [derivedBodegaNombre, derivedBodegaUbicacion]);
 
+  // Estado activo de la bodega desde la lista (si viene incluido)
+  useEffect(() => {
+    if (typeof bodegaId !== 'number') return;
+    const temporadaRelacionada = items.find(
+      (temporada: TemporadaBodega) =>
+        temporada.bodega_id === bodegaId && typeof temporada.bodega_is_active === 'boolean'
+    );
+    if (temporadaRelacionada) {
+      const nextValue = Boolean(temporadaRelacionada.bodega_is_active);
+      setIsBodegaActive((prev) => (prev === nextValue ? prev : nextValue));
+    }
+  }, [items, bodegaId]);
+
   // Cargar detalle si falta nombre/ubicación
   useEffect(() => {
     if (typeof bodegaId !== 'number') return;
@@ -201,6 +233,11 @@ const BodegaTemporadasPage: React.FC = () => {
       try {
         const detalle = await bodegaService.getById(bodegaId);
         if (cancelled) return;
+        const activeFlag = typeof detalle?.is_active === 'boolean' ? detalle.is_active : null;
+        setIsBodegaActive(activeFlag);
+        if (activeFlag && createBlocked?.key === 'bodega_archivada_no_permite_temporadas') {
+          setCreateBlocked(null);
+        }
         setHeaderInfo({
           nombre: sanitizeText(detalle?.nombre) ?? displayNombre ?? `#${bodegaId}`,
           ubicacion: sanitizeText(detalle?.ubicacion) ?? displayUbicacion ?? null,
@@ -222,7 +259,7 @@ const BodegaTemporadasPage: React.FC = () => {
     })();
 
     return () => { cancelled = true; };
-  }, [bodegaId, hasFetchedDetalle, displayNombre, displayUbicacion]);
+  }, [bodegaId, hasFetchedDetalle, displayNombre, displayUbicacion, createBlocked?.key]);
 
   // Breadcrumbs
   useEffect(() => {
@@ -237,6 +274,20 @@ const BodegaTemporadasPage: React.FC = () => {
     dispatch(setBreadcrumbs(breadcrumbRoutes.bodegaTemporadas(bodegaId, formattedNombre)));
   }, [dispatch, bodegaId, displayNombre]);
   useEffect(() => () => { dispatch(clearBreadcrumbs()); }, [dispatch]);
+
+  const refreshBodegaEstado = useCallback(async () => {
+    if (typeof bodegaId !== 'number') return;
+    try {
+      const detalle = await bodegaService.getById(bodegaId);
+      const activeFlag = typeof detalle?.is_active === 'boolean' ? detalle.is_active : null;
+      setIsBodegaActive(activeFlag);
+      if (activeFlag && createBlocked?.key === 'bodega_archivada_no_permite_temporadas') {
+        setCreateBlocked(null);
+      }
+    } catch {
+      /* noop */
+    }
+  }, [bodegaId, createBlocked?.key]);
 
   // Fetch listado
   useEffect(() => {
@@ -263,9 +314,6 @@ const BodegaTemporadasPage: React.FC = () => {
   ]);
 
   // ───────── Regla: sólo 1 temporada por AÑO (any estado) ─────────
-  const currentYear = useMemo(() => new Date().getFullYear(), []);
-  const [existsThisYearAny, setExistsThisYearAny] = useState(false);
-  const [checkingExists, setCheckingExists] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -295,8 +343,24 @@ const BodegaTemporadasPage: React.FC = () => {
     return () => { cancelled = true; };
   }, [bodegaId, currentYear, items.length]);
 
-  const canCreateTemporada = typeof bodegaId === 'number' && !existsThisYearAny;
-  const createTooltip = !canCreateTemporada ? 'Ya existe una temporada para este año en esta bodega.' : undefined;
+  const bodegaInactiva = isBodegaActive === false;
+  const canCreateTemporada = typeof bodegaId === 'number' && !existsThisYearAny && !bodegaInactiva;
+  const createTooltip = useMemo(() => {
+    if (bodegaInactiva) {
+      return 'La bodega está archivada; no se pueden crear temporadas.';
+    }
+    if (createBlocked?.key === 'bodega_archivada_no_permite_temporadas') {
+      return createBlocked.message ?? 'La bodega está archivada; no se pueden crear temporadas.';
+    }
+    if (existsThisYearAny) {
+      return 'Ya existe una temporada para este año en esta bodega.';
+    }
+    if (createBlocked?.message) {
+      return createBlocked.message;
+    }
+    return undefined;
+  }, [bodegaInactiva, existsThisYearAny, createBlocked]);
+  const canTriggerCreate = canCreateTemporada && !checkingExists;
 
   // Filtros UI
   const activeFiltersCount = useMemo(() => {
@@ -326,35 +390,79 @@ const BodegaTemporadasPage: React.FC = () => {
 
   // Acciones
   const handleCreate = async () => {
-    if (!canCreateTemporada || typeof bodegaId !== 'number') return;
-    await dispatch(
-      addTemporadaBodega({
-        bodegaId,
-        año: currentYear,
-        // fecha_inicio: new Date().toISOString().slice(0, 10), // si te lo exige el backend
-      })
-    ).unwrap();
-
-    const params = buildParams();
-    if (params) void dispatch(fetchTemporadasBodega(params));
+    if (!canTriggerCreate || typeof bodegaId !== 'number') return;
+    let shouldReload = false;
+    try {
+      await dispatch(
+        addTemporadaBodega({
+          bodegaId,
+          año: currentYear,
+        })
+      ).unwrap();
+      setCreateBlocked(null);
+      shouldReload = true;
+    } catch (err: any) {
+      const errorKey = typeof err === 'object' && err ? err.key ?? err?.message : typeof err === 'string' ? err : null;
+      const errorMessage = typeof err === 'object' && err ? err.message ?? err?.key : typeof err === 'string' ? err : undefined;
+      if (errorKey === 'bodega_archivada_no_permite_temporadas') {
+        setCreateBlocked({ key: errorKey, message: errorMessage });
+      } else if (errorKey === 'violacion_unicidad_anio') {
+        setCreateBlocked({
+          key: errorKey,
+          message: errorMessage ?? 'Ya existe una temporada para este año en esta bodega.',
+        });
+        setExistsThisYearAny(true);
+      } else if (errorMessage) {
+        setCreateBlocked({ key: errorKey ?? null, message: errorMessage });
+      }
+      shouldReload = true;
+    } finally {
+      if (shouldReload) {
+        const params = buildParams();
+        if (params) void dispatch(fetchTemporadasBodega(params));
+      }
+      void refreshBodegaEstado();
+    }
   };
 
   const handleArchive = async (temporada: TemporadaBodega) => {
-    await dispatch(archiveTemporada(temporada.id)).unwrap();
-    const params = buildParams();
-    if (params) void dispatch(fetchTemporadasBodega(params));
+    try {
+      await dispatch(archiveTemporada(temporada.id)).unwrap();
+    } catch (err) {
+      // notificación ya gestionada en el thunk
+    } finally {
+      const params = buildParams();
+      if (params) void dispatch(fetchTemporadasBodega(params));
+      void refreshBodegaEstado();
+    }
   };
 
   const handleRestore = async (temporada: TemporadaBodega) => {
-    await dispatch(restoreTemporada(temporada.id)).unwrap();
-    const params = buildParams();
-    if (params) void dispatch(fetchTemporadasBodega(params));
+    try {
+      await dispatch(restoreTemporada(temporada.id)).unwrap();
+    } catch (err: any) {
+      const errorKey = typeof err === 'object' && err ? err.key ?? err?.message : typeof err === 'string' ? err : null;
+      const errorMessage = typeof err === 'object' && err ? err.message ?? err?.key : typeof err === 'string' ? err : undefined;
+      if (errorKey === 'bodega_archivada_no_permite_temporadas') {
+        setCreateBlocked({ key: errorKey, message: errorMessage });
+      }
+    } finally {
+      const params = buildParams();
+      if (params) void dispatch(fetchTemporadasBodega(params));
+      void refreshBodegaEstado();
+    }
   };
 
   const handleFinalize = async (temporada: TemporadaBodega) => {
-    await dispatch(finalizeTemporada(temporada.id)).unwrap();
-    const params = buildParams();
-    if (params) void dispatch(fetchTemporadasBodega(params));
+    try {
+      await dispatch(finalizeTemporada(temporada.id)).unwrap();
+    } catch (err) {
+      // notificación ya mostrada
+    } finally {
+      const params = buildParams();
+      if (params) void dispatch(fetchTemporadasBodega(params));
+      void refreshBodegaEstado();
+    }
   };
 
   const handleAdministrar = (temporada: TemporadaBodega) => {
@@ -368,11 +476,18 @@ const BodegaTemporadasPage: React.FC = () => {
 
   const confirmDelete = async () => {
     if (!deleteTarget) return;
+    let shouldReload = false;
     try {
       await dispatch(deleteTemporada(deleteTarget.id)).unwrap();
-      const params = buildParams();
-      if (params) void dispatch(fetchTemporadasBodega(params));
+      shouldReload = true;
+    } catch (err) {
+      shouldReload = true;
     } finally {
+      if (shouldReload) {
+        const params = buildParams();
+        if (params) void dispatch(fetchTemporadasBodega(params));
+      }
+      void refreshBodegaEstado();
       setDeleteTarget(null);
     }
   };
@@ -429,7 +544,7 @@ const BodegaTemporadasPage: React.FC = () => {
           finalizadaFilter={finalizadaFilter}
           onFinalizadaChange={handleFinalizadaChange}
           onCreate={handleCreate}
-          canCreate={canCreateTemporada && !checkingExists}
+          canCreate={canTriggerCreate}
           createTooltip={createTooltip}
           totalCount={meta.count}
           activeFiltersCount={activeFiltersCount}
