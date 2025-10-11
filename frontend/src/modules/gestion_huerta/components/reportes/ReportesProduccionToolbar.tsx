@@ -14,6 +14,7 @@ import {
 } from '@mui/icons-material';
 import { styled, alpha } from '@mui/material/styles';
 import { FormatoReporte } from '../../types/reportesProduccionTypes';
+import { useAuth } from '../../../gestion_usuarios/context/AuthContext';
 
 interface Props {
   from?: string;
@@ -26,6 +27,9 @@ interface Props {
   onRefresh: () => void;
   onExport: (formato: FormatoReporte) => void;
   showExportButtons?: boolean;
+  /** Permisos opcionales para habilitar/ocultar exportación */
+  permExportPdf?: string | string[];
+  permExportExcel?: string | string[];
 }
 
 const ToolbarContainer = styled(Paper)(({ theme }) => ({
@@ -56,7 +60,22 @@ export default function ReportesProduccionToolbar({
   onRefresh,
   onExport,
   showExportButtons = true,
+  permExportPdf,
+  permExportExcel,
 }: Props) {
+  const { user, permissions, hasPerm } = useAuth();
+  const isAdmin = user?.role === 'admin';
+
+  // Normaliza para permitir arrays de permisos (OR)
+  const can = (perm?: string | string[]) => {
+    if (!perm) return true; // si no se especifica, no restringe
+    const arr = Array.isArray(perm) ? perm : [perm];
+    return isAdmin || arr.some(p => hasPerm(p));
+  };
+
+  const allowPdf = can(permExportPdf);
+  const allowExcel = can(permExportExcel);
+  const disabledTooltip = 'Requiere permiso de Ver y Exportar';
   return (
     <ToolbarContainer elevation={0}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -84,13 +103,13 @@ export default function ReportesProduccionToolbar({
 
       {showExportButtons && (
         <Stack direction="row" spacing={1}>
-          <Tooltip title="Exportar como PDF">
+          <Tooltip title={allowPdf ? "Exportar como PDF" : disabledTooltip}>
             <span>
               <GradientButton
                 variant="contained"
                 startIcon={<PdfIcon />}
                 onClick={() => onExport('pdf')}
-                disabled={loading}
+                disabled={loading || !allowPdf}
                 sx={(theme) => ({
                   background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
                   '&:hover': {
@@ -103,13 +122,13 @@ export default function ReportesProduccionToolbar({
             </span>
           </Tooltip>
 
-          <Tooltip title="Exportar como Excel">
+          <Tooltip title={allowExcel ? "Exportar como Excel" : disabledTooltip}>
             <span>
               <GradientButton
                 variant="contained"
                 startIcon={<ExcelIcon />}
                 onClick={() => onExport('excel')}
-                disabled={loading}
+                disabled={loading || !allowExcel}
                 color="success"
                 sx={(theme) => ({
                   background: `linear-gradient(135deg, ${theme.palette.success.main}, ${theme.palette.info.main})`,

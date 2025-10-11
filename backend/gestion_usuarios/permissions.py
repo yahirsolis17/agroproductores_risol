@@ -52,3 +52,26 @@ class HasModulePermission(BasePermission):
         plains = {p.split('.', 1)[1] if '.' in p else p for p in dotted}
 
         return any(perm in plains for perm in required)
+
+
+class HasModulePermissionAnd(BasePermission):
+    """
+    Variante que exige TODOS los codenames en `required_permissions` (AND).
+    Admin pasa siempre. Respeta grupos usando get_all_permissions().
+    """
+    def has_permission(self, request, view):
+        user = request.user
+        if not user or not user.is_authenticated:
+            return False
+
+        if getattr(user, 'role', None) == 'admin':
+            return True
+
+        required = getattr(view, 'required_permissions', [])
+        if not required:
+            return True
+
+        dotted = user.get_all_permissions()
+        plains = {p.split('.', 1)[1] if '.' in p else p for p in dotted}
+
+        return all(perm in plains for perm in required)

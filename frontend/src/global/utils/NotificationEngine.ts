@@ -20,11 +20,27 @@ const SILENT_NOTIFICATION_KEYS = ['no_notification', 'silent_response', 'data_pr
 // ⛔ Claves que NO deben provocar redirect automático
 const REDIRECT_BLOCKLIST = new Set(['login_success', 'password_change_success']);
 
+const KEY_TO_TYPE: Record<string, 'success' | 'error' | 'warning' | 'info'> = {
+  permission_denied: 'error',
+  validation_error: 'warning',
+  server_error: 'error',
+  data_processed_success: 'info',
+  login_success: 'success',
+  password_change_success: 'success',
+  reporte_generado_exitosamente: 'success',
+  export_requires_view: 'error',
+  export_denied_no_view: 'error',
+  export_denied_no_export: 'error',
+};
+
 export function handleBackendNotification(response: any) {
   const notif = response?.notification;
   if (!notif) return;
 
-  const { type = 'info', message = 'Operación completada.', key, action, target } = notif;
+  let { type, message = 'Operación completada.', key, action, target } = notif;
+  if (!type && key && KEY_TO_TYPE[key]) {
+    type = KEY_TO_TYPE[key];
+  }
 
   // Notificaciones silenciosas (no toast)
   if (key && SILENT_NOTIFICATION_KEYS.includes(key)) {

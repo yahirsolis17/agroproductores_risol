@@ -1,5 +1,10 @@
 from rest_framework.permissions import BasePermission
-from gestion_usuarios.permissions import IsAdmin, IsUser, HasModulePermission
+from gestion_usuarios.permissions import (
+    IsAdmin,
+    IsUser,
+    HasModulePermission,
+    HasModulePermissionAnd,
+)
 
 
 class IsAdminForHuerta(IsAdmin):
@@ -39,3 +44,4 @@ class RolePermissionHuertaMixin(BasePermission):
 
 # Compatibilidad hacia atrás: usar el permiso genérico del módulo de usuarios.
 HasHuertaModulePermission = HasModulePermission
+HasHuertaModulePermissionAnd = HasModulePermissionAnd

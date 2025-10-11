@@ -85,7 +85,10 @@ const PermissionsDialog: React.FC<PermissionsDialogProps> = ({
           permisoService.getAllPermisos(),
           permisoService.getUserPermisos(userId),
         ]);
-        setAllPerms(allRes);
+        // Ocultar módulos que no deben mostrarse en el diálogo
+        const HIDDEN_MODULES = new Set(['Usuarios', 'Registro de actividad']);
+        const filtered = (allRes || []).filter(p => !HIDDEN_MODULES.has(p.modulo));
+        setAllPerms(filtered);
         setSelected(userPerms);
       } catch (err) {
         console.error(err);

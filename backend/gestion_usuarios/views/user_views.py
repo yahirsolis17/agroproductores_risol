@@ -8,6 +8,7 @@ from rest_framework.decorators import action
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 from django.contrib.auth.models import Permission
+from django.core.cache import cache
 
 from agroproductores_risol.utils.pagination import GenericPagination
 from gestion_usuarios.permissions import IsAdmin, IsSelfOrAdmin
@@ -146,11 +147,60 @@ class CustomTokenRefreshView(TokenRefreshView):
 # --------------------------------------------------------------------------- #
 #                              PERMISOS & LOGS                                #
 # --------------------------------------------------------------------------- #
+
+# Estándar de apps/prefijos permitidos para exposición de permisos
+ALLOWED_APP_LABELS = {'gestion_huerta', 'gestion_bodega'}
+ALLOWED_PREFIXES = (
+    'add_', 'change_', 'delete_', 'view_',
+    'archive_', 'restore_', 'finalize_', 'reactivate_',
+    'exportpdf_', 'exportexcel_',
+)
+
+
+from gestion_usuarios.permissions_policy import MODEL_CAPABILITIES, is_codename_allowed
+
+
+def get_filtered_permissions_qs():
+    """QuerySet de permisos limitado a apps del dominio y prefijos válidos."""
+    regex = r'^(add_|change_|delete_|view_|archive_|restore_|finalize_|reactivate_|exportpdf_|exportexcel_)'
+    base = (
+        Permission.objects.select_related('content_type')
+        .filter(
+            content_type__app_label__in=ALLOWED_APP_LABELS,
+            codename__regex=regex,
+        )
+        .order_by('content_type__app_label', 'content_type__model', 'codename')
+    )
+    # Post-filtrado por policy: sólo codenames permitidos para ese modelo
+    allowed_ids = []
+    for p in base:
+        app = p.content_type.app_label
+        model = p.content_type.model
+        code = p.codename
+        # Si el modelo no está en policy, por omisión mostramos CRUD; ocultamos extras
+        if (app, model) not in MODEL_CAPABILITIES:
+            show = code.startswith('add_') or code.startswith('change_') or code.startswith('delete_') or code.startswith('view_')
+        else:
+            show = is_codename_allowed(app, model, code)
+        if show:
+            allowed_ids.append(p.id)
+    return Permission.objects.select_related('content_type').filter(id__in=allowed_ids).order_by('content_type__app_label', 'content_type__model', 'codename')
+
+# Extiende etiquetas de acciones para exportación (si no existen)
+try:
+    _ACTION_LABELS.update({
+        'exportpdf': 'Exportar a PDF',
+        'exportexcel': 'Exportar a Excel',
+    })
+except Exception:
+    pass
 class PermisoViewSet(ReadOnlyModelViewSet):
     """
     Catálogo crudo de Django (poco usado por el frontend). Restringido a admin.
     """
-    queryset = Permission.objects.all().order_by("name")
+    # Usa queryset filtrado por apps/prefijos del dominio
+    def get_queryset(self):
+        return get_filtered_permissions_qs()
     serializer_class = PermisoSerializer
     permission_classes = [IsAuthenticated, IsAdmin]
     throttle_classes = [PermissionsThrottle]
@@ -321,6 +371,13 @@ class UsuarioViewSet(ModelViewSet):
             # Asignación directa de user_permissions (los grupos quedan intactos)
             permisos = [found_map[c][0] for c in plains]
             user_obj.user_permissions.set(permisos)
+        # Invalida cache de permisos del usuario editado
+        try:
+            epoch_key = f"user:{user_obj.id}:perm_epoch"
+            current = cache.get(epoch_key)
+            cache.set(epoch_key, (int(current) + 1) if current is not None else 2, None)
+        except Exception:
+            pass
 
         registrar_actividad(request.user, f"Actualizó permisos de usuario {user_obj.id}")
 
@@ -518,7 +575,27 @@ class UserPermissionsView(APIView):
 
     def get(self, request):
         dotted = list(request.user.get_all_permissions())
-        plains = _to_plain(dotted)
+        # Filtra por apps del dominio y prefijos válidos
+        filtered = []
+        for p in dotted:
+            if not p or '.' not in p:
+                continue
+            app, code = p.split('.', 1)
+            if app not in ALLOWED_APP_LABELS:
+                continue
+            # Policy-aware: infiere el modelo del sufijo del codename (después del primer '_')
+            try:
+                action, model = code.split('_', 1)
+            except ValueError:
+                model = ''
+            if (app, model) in MODEL_CAPABILITIES:
+                if is_codename_allowed(app, model, code):
+                    filtered.append(p)
+            else:
+                # Si el modelo no está declarado, deja CRUD solamente
+                if code.startswith(('add_', 'change_', 'delete_', 'view_')):
+                    filtered.append(p)
+        plains = _to_plain(filtered)
         return Response({"permissions": plains})
 
 
@@ -532,7 +609,7 @@ class PermisosFiltradosView(APIView):
 
     def get(self, request):
         permisos = []
-        for perm in _catalog_queryset():
+        for perm in get_filtered_permissions_qs():
             model = perm.content_type.model  # ej: 'huertarentada'
             modulo = _MODEL_LABELS.get(model, model.capitalize())
             nombre = _friendly_name_from_codename(perm.codename, modulo)
@@ -542,3 +619,81 @@ class PermisosFiltradosView(APIView):
                 'modulo': modulo,           # 'Huertas'
             })
         return Response(permisos)
+
+# ===== Parches de permisos: etiquetas, filtrado y overrides =====
+# Extiende etiquetas de modelos y acciones para el catálogo filtrado
+try:
+    _MODEL_LABELS.update({
+        'bodega': 'Bodegas',
+        'temporadabodega': 'Temporadas de bodega',
+        'cliente': 'Clientes',
+        'recepcion': 'Recepciones',
+        'clasificacionempaque': 'Clasificación empaque',
+        'pedido': 'Pedidos',
+        'camionsalida': 'Camiones',
+        'consumible': 'Consumibles',
+    })
+    _ACTION_LABELS.update({
+        'exportpdf': 'Exportar a PDF',
+        'exportexcel': 'Exportar a Excel',
+    })
+except Exception:
+    pass
+
+# Prefijos y apps permitidas en API de permisos
+ALLOWED_APP_LABELS = {'gestion_usuarios', 'gestion_huerta', 'gestion_bodega'}
+ALLOWED_PREFIXES = (
+    'add_', 'change_', 'delete_', 'view_',
+    'archive_', 'restore_', 'finalize_', 'reactivate_',
+    'exportpdf_', 'exportexcel_',
+)
+
+def _catalog_queryset():  # type: ignore[no-redef]
+    # Delegado al helper central para evitar divergencias
+    return get_filtered_permissions_qs()
+
+# Ajusta PermisoViewSet para usar el catálogo filtrado
+try:
+    def _permiso_get_queryset(self):  # noqa: ANN001
+        return _catalog_queryset()
+    PermisoViewSet.get_queryset = _permiso_get_queryset  # type: ignore[attr-defined]
+    if hasattr(PermisoViewSet, 'queryset'):
+        delattr(PermisoViewSet, 'queryset')
+except Exception:
+    pass
+
+# Filtra permisos devueltos al usuario autenticado
+try:
+    _orig_userperms_get = UserPermissionsView.get  # type: ignore[attr-defined]
+    def _userperms_get(self, request):  # noqa: ANN001
+        # Cache por usuario con epoch de invalidación
+        try:
+            user_id = int(getattr(request.user, 'id', 0) or 0)
+        except Exception:
+            user_id = 0
+        try:
+            epoch = cache.get(f"user:{user_id}:perm_epoch") or 1
+            cache_key = f"user:{user_id}:perms:v{int(epoch)}"
+            cached = cache.get(cache_key)
+            if cached is not None:
+                return Response({"permissions": cached})
+        except Exception:
+            cached = None
+
+        dotted = list(request.user.get_all_permissions())
+        filtered = []
+        for p in dotted:
+            if not p or '.' not in p:
+                continue
+            app, code = p.split('.', 1)
+            if app in ALLOWED_APP_LABELS and any(code.startswith(pref) for pref in ALLOWED_PREFIXES):
+                filtered.append(p)
+        plains = _to_plain(filtered)
+        try:
+            cache.set(cache_key, plains, 600)
+        except Exception:
+            pass
+        return Response({"permissions": plains})
+    UserPermissionsView.get = _userperms_get  # type: ignore[attr-defined]
+except Exception:
+    pass

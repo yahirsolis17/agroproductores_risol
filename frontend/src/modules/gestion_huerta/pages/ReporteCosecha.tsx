@@ -66,6 +66,8 @@ export default function ReporteCosecha() {
         loading={loading}
         onRefresh={refetch}
         onExport={handleExport}
+        permExportPdf="exportpdf_cosecha"
+        permExportExcel="exportexcel_cosecha"
       />
 
       <Divider sx={{ my: 2 }} />

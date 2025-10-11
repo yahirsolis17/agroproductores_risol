@@ -59,6 +59,8 @@ export default function ReportePerfilHuerta() {
         loading={loading}
         onRefresh={refetch}
         onExport={handleExport}
+        permExportPdf={["exportpdf_huerta", "exportpdf_huertarentada"]}
+        permExportExcel={["exportexcel_huerta", "exportexcel_huertarentada"]}
       />
 
       <Divider sx={{ my: 2 }} />

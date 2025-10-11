@@ -14,7 +14,8 @@ from django.utils import timezone
 from gestion_huerta.services.reportes.perfil_huerta_service import generar_perfil_huerta
 from gestion_huerta.services.exportacion_service import ExportacionService
 from gestion_huerta.utils.notification_handler import NotificationHandler
-from gestion_huerta.permissions import HasHuertaModulePermission
+from gestion_huerta.utils.activity import registrar_actividad
+from gestion_huerta.permissions import HasHuertaModulePermissionAnd
 
 
 def _as_int(value: Optional[object], field: str) -> int:
@@ -37,7 +38,27 @@ def _safe_filename(prefix: str, base: str, ext: str) -> str:
 
 
 class PerfilHuertaReportViewSet(viewsets.GenericViewSet):
-    permission_classes = [IsAuthenticated, HasHuertaModulePermission]
+    permission_classes = [IsAuthenticated, HasHuertaModulePermissionAnd]
+
+    def get_permissions(self):
+        # Exigir permisos por formato (export vs view) y por tipo de entidad (huerta u huerta rentada)
+        req = self.request
+        fmt = str((getattr(req, 'data', {}) or {}).get('formato') or req.query_params.get('formato') or 'json').strip().lower()
+        # Puede venir huerta_id o huerta_rentada_id
+        data_map = (getattr(req, 'data', {}) or {})
+        is_rentada = bool(data_map.get('huerta_rentada_id'))
+        # Conjunto de opciones OR para HasModulePermission
+        if fmt == 'pdf':
+            self.required_permissions = (
+                ['view_huertarentada', 'exportpdf_huertarentada'] if is_rentada else ['view_huerta', 'exportpdf_huerta']
+            )
+        elif fmt in {'excel', 'xlsx'}:
+            self.required_permissions = (
+                ['view_huertarentada', 'exportexcel_huertarentada'] if is_rentada else ['view_huerta', 'exportexcel_huerta']
+            )
+        else:
+            self.required_permissions = (['view_huertarentada'] if is_rentada else ['view_huerta'])
+        return [p() for p in self.permission_classes]
 
     @action(detail=False, methods=["post"], url_path="perfil-huerta")
     def perfil_huerta(self, request):
@@ -101,6 +122,11 @@ class PerfilHuertaReportViewSet(viewsets.GenericViewSet):
                 resp = HttpResponse(pdf, content_type="application/pdf")
                 resp["Content-Disposition"] = f'attachment; filename="{_safe_filename("perfil_huerta", f"{base}_{fecha}", "pdf")}"'
                 resp["X-Content-Type-Options"] = "nosniff"
+                try:
+                    rid = hrid if hrid is not None else hid
+                    registrar_actividad(request.user, "Exportación PDF - Perfil de Huerta", detalles=f"huerta_ref={rid}")
+                except Exception:
+                    pass
                 return resp
 
             if formato in {"excel", "xlsx"}:
@@ -111,6 +137,11 @@ class PerfilHuertaReportViewSet(viewsets.GenericViewSet):
                 )
                 resp["Content-Disposition"] = f'attachment; filename="{_safe_filename("perfil_huerta", f"{base}_{fecha}", "xlsx")}"'
                 resp["X-Content-Type-Options"] = "nosniff"
+                try:
+                    rid = hrid if hrid is not None else hid
+                    registrar_actividad(request.user, "Exportación Excel - Perfil de Huerta", detalles=f"huerta_ref={rid}")
+                except Exception:
+                    pass
                 return resp
 
             return NotificationHandler.generate_response(

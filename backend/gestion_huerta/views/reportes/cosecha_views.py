@@ -13,7 +13,8 @@ from django.utils import timezone
 from gestion_huerta.services.reportes.cosecha_service import generar_reporte_cosecha
 from gestion_huerta.services.exportacion_service import ExportacionService
 from gestion_huerta.utils.notification_handler import NotificationHandler
-from gestion_huerta.permissions import HasHuertaModulePermission
+from gestion_huerta.utils.activity import registrar_actividad
+from gestion_huerta.permissions import HasHuertaModulePermissionAnd
 
 
 def _as_int(value: Optional[object], field: str) -> int:
@@ -39,7 +40,19 @@ def _safe_filename(prefix: str, base: str, ext: str) -> str:
 
 
 class CosechaReportViewSet(viewsets.GenericViewSet):
-    permission_classes = [IsAuthenticated, HasHuertaModulePermission]
+    permission_classes = [IsAuthenticated, HasHuertaModulePermissionAnd]
+
+    def get_permissions(self):
+        # Exigir permisos por formato (export vs view)
+        req = self.request
+        fmt = str((getattr(req, 'data', {}) or {}).get('formato') or req.query_params.get('formato') or 'json').strip().lower()
+        if fmt == 'pdf':
+            self.required_permissions = ['view_cosecha', 'exportpdf_cosecha']
+        elif fmt in {'excel', 'xlsx'}:
+            self.required_permissions = ['view_cosecha', 'exportexcel_cosecha']
+        else:
+            self.required_permissions = ['view_cosecha']
+        return [p() for p in self.permission_classes]
 
     @action(detail=False, methods=["post"], url_path="cosecha")
     def reporte_cosecha(self, request):
@@ -82,6 +95,10 @@ class CosechaReportViewSet(viewsets.GenericViewSet):
                     f'attachment; filename="{_safe_filename("reporte_cosecha", f"{base}_{fecha}", "pdf")}"'
                 )
                 resp["X-Content-Type-Options"] = "nosniff"
+                try:
+                    registrar_actividad(request.user, "Exportación PDF - Reporte de Cosecha", detalles=f"cosecha_id={cosecha_id}")
+                except Exception:
+                    pass
                 return resp
 
             if formato in {"excel", "xlsx"}:
@@ -94,6 +111,10 @@ class CosechaReportViewSet(viewsets.GenericViewSet):
                     f'attachment; filename="{_safe_filename("reporte_cosecha", f"{base}_{fecha}", "xlsx")}"'
                 )
                 resp["X-Content-Type-Options"] = "nosniff"
+                try:
+                    registrar_actividad(request.user, "Exportación Excel - Reporte de Cosecha", detalles=f"cosecha_id={cosecha_id}")
+                except Exception:
+                    pass
                 return resp
 
             return NotificationHandler.generate_response(

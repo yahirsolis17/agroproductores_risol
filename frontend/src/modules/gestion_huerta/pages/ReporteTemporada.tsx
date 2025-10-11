@@ -53,7 +53,13 @@ export default function ReporteTemporada() {
 
   return (
     <Box sx={{ p: 2 }}>
-      <ReportesProduccionToolbar loading={loading} onRefresh={refetch} onExport={handleExport} />
+      <ReportesProduccionToolbar
+        loading={loading}
+        onRefresh={refetch}
+        onExport={handleExport}
+        permExportPdf="exportpdf_temporada"
+        permExportExcel="exportexcel_temporada"
+      />
 
       <Divider sx={{ my: 2 }} />
       {!id && <Alert severity="info">Proporcione un ID de temporada en la URL.</Alert>}
