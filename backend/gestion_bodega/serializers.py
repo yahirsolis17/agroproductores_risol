@@ -4,33 +4,24 @@ from decimal import Decimal
 
 from django.db.models import Sum, Q
 from django.utils import timezone
-from django.core.exceptions import ValidationError
 
 from rest_framework import serializers
 
 from .models import (
     # Catálogos / enums
     Material, CalidadMadera, CalidadPlastico,
-    EstadoPedido, EstadoCamion,
-
     # Núcleo
     Bodega, TemporadaBodega, Cliente,
-
     # Operación
     Recepcion, ClasificacionEmpaque,
-
     # Inventario plástico
     InventarioPlastico, MovimientoPlastico,
-
     # Madera
     CompraMadera, AbonoMadera,
-
     # Pedidos / Surtidos
     Pedido, PedidoRenglon, SurtidoRenglon,
-
     # Camiones
     CamionSalida, CamionItem,
-
     # Gastos / cierres
     Consumible, CierreSemanal,
 )
@@ -49,10 +40,13 @@ def _is_today_or_yesterday(d):
     return d in {hoy, hoy - timedelta(days=1)}
 
 def _semana_bloqueada(bodega: Bodega, temporada: TemporadaBodega, fecha) -> bool:
-    """True si la fecha cae dentro de un CierreSemanal para esa bodega+temporada."""
+    """True si la fecha cae dentro de un CierreSemanal ACTIVO para esa bodega+temporada."""
     return CierreSemanal.objects.filter(
-        bodega=bodega, temporada=temporada,
-        fecha_desde__lte=fecha, fecha_hasta__gte=fecha
+        bodega=bodega,
+        temporada=temporada,
+        fecha_desde__lte=fecha,
+        fecha_hasta__gte=fecha,
+        is_active=True,
     ).exists()
 
 def _temporada_activa(temporada: TemporadaBodega) -> bool:
@@ -76,10 +70,10 @@ class BodegaSerializer(serializers.ModelSerializer):
 
 
 class TemporadaBodegaSerializer(serializers.ModelSerializer):
-    bodega_id = serializers.PrimaryKeyRelatedField(source="bodega", queryset=Bodega.objects.all(), write_only=True)
-    bodega_nombre    = serializers.SerializerMethodField()
-    bodega_ubicacion = serializers.SerializerMethodField()
-    bodega_is_active = serializers.SerializerMethodField()
+    bodega_id       = serializers.PrimaryKeyRelatedField(source="bodega", queryset=Bodega.objects.all(), write_only=True)
+    bodega_nombre   = serializers.SerializerMethodField()
+    bodega_ubicacion= serializers.SerializerMethodField()
+    bodega_is_active= serializers.SerializerMethodField()
 
     is_active    = serializers.BooleanField(read_only=True)
     archivado_en = serializers.DateTimeField(read_only=True)
@@ -116,21 +110,18 @@ class TemporadaBodegaSerializer(serializers.ModelSerializer):
     def validate_año(self, value):
         actual = timezone.now().year
         if value < 2000 or value > actual + 1:
-            raise serializers.ValidationError("El año debe estar entre 2000 y el siguiente al actual.")
+            raise serializers.ValidationError("El año debe estar entre 2000 y el año siguiente al actual.")
         return value
 
     def validate(self, attrs):
-        field_ano = "año"
         bodega = attrs.get("bodega") or getattr(self.instance, "bodega", None)
-        año = attrs.get(field_ano) or getattr(self.instance, field_ano, None)
+        año    = attrs.get("año")    or getattr(self.instance, "año", None)
 
-        fecha_inicio = attrs.get("fecha_inicio")
-        if isinstance(fecha_inicio, datetime):
-            attrs["fecha_inicio"] = _as_local_date(fecha_inicio)
-
-        fecha_fin = attrs.get("fecha_fin")
-        if isinstance(fecha_fin, datetime):
-            attrs["fecha_fin"] = _as_local_date(fecha_fin)
+        # Normalizar fechas si vienen como datetime
+        for f in ("fecha_inicio", "fecha_fin"):
+            val = attrs.get(f)
+            if isinstance(val, datetime):
+                attrs[f] = _as_local_date(val)
 
         instance = getattr(self, "instance", None)
         if instance is not None:
@@ -140,17 +131,18 @@ class TemporadaBodegaSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({"non_field_errors": ["La temporada finalizada no se puede editar."]})
             parent = getattr(instance, "bodega", None)
             if parent is not None and not getattr(parent, "is_active", True):
-                raise serializers.ValidationError({"non_field_errors": ["La bodega esta archivada; no se pueden gestionar temporadas."]})
+                raise serializers.ValidationError({"non_field_errors": ["La bodega está archivada; no se pueden gestionar temporadas."]})
 
         if bodega and not getattr(bodega, "is_active", True):
-            raise serializers.ValidationError({"non_field_errors": ["La bodega esta archivada; no se pueden gestionar temporadas."]})
+            raise serializers.ValidationError({"non_field_errors": ["La bodega está archivada; no se pueden gestionar temporadas."]})
 
+        # Unicidad SOLO entre temporadas no finalizadas (consistente con constraint del modelo)
         if bodega and año:
-            qs = TemporadaBodega.objects.filter(bodega=bodega, año=año)
+            qs = TemporadaBodega.objects.filter(bodega=bodega, año=año, finalizada=False)
             if instance is not None:
                 qs = qs.exclude(pk=instance.pk)
             if qs.exists():
-                raise serializers.ValidationError({"non_field_errors": ["Ya existe una temporada registrada para este año en esta bodega."]})
+                raise serializers.ValidationError({"non_field_errors": ["Ya existe una temporada activa para este año en esta bodega."]})
         return attrs
 
 
@@ -177,7 +169,7 @@ class ClienteSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         nombre = (data.get("nombre") or getattr(self.instance, "nombre", "") or "").strip()
-        rfc = (data.get("rfc") or getattr(self.instance, "rfc", "") or "").strip().upper()
+        rfc    = (data.get("rfc") or getattr(self.instance, "rfc", "") or "").strip().upper()
         qs = Cliente.objects.filter(nombre__iexact=nombre, rfc__iexact=rfc)
         if self.instance:
             qs = qs.exclude(pk=self.instance.pk)
@@ -190,7 +182,7 @@ class ClienteSerializer(serializers.ModelSerializer):
 # ───────────────────────────────────────────────────────────────────────────
 
 class RecepcionSerializer(serializers.ModelSerializer):
-    bodega_id    = serializers.PrimaryKeyRelatedField(queryset=Bodega.objects.all(), source="bodega", write_only=True)
+    bodega_id    = serializers.PrimaryKeyRelatedField(queryset=Bodega.objects.all(),           source="bodega",    write_only=True)
     temporada_id = serializers.PrimaryKeyRelatedField(queryset=TemporadaBodega.objects.all(), source="temporada", write_only=True)
 
     class Meta:
@@ -383,9 +375,8 @@ class MovimientoPlasticoSerializer(serializers.ModelSerializer):
         if _semana_bloqueada(inv.bodega, inv.temporada, d):
             raise serializers.ValidationError("Esta semana está cerrada; no se permiten más cambios en ese rango.")
 
-        if tipo == MovimientoPlastico.SALIDA:
-            if cantidad > inv.stock:
-                raise serializers.ValidationError("No hay stock suficiente para registrar la salida.")
+        if tipo == MovimientoPlastico.SALIDA and cantidad > inv.stock:
+            raise serializers.ValidationError("No hay stock suficiente para registrar la salida.")
         return data
 
 
@@ -511,7 +502,10 @@ class PedidoRenglonSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"material": "Material inválido."})
 
         if material == Material.PLASTICO:
-            if calidad not in set(CalidadPlastico.values):
+            # Normalizar "SEGUNDA/EXTRA" → PRIMERA para mantener consistencia con empaque
+            if calidad in {"SEGUNDA", "EXTRA"}:
+                data["calidad"] = CalidadPlastico.PRIMERA
+            if data.get("calidad", calidad) not in set(CalidadPlastico.values):
                 raise serializers.ValidationError({"calidad": "Calidad inválida para PLÁSTICO."})
         else:
             if calidad not in set(CalidadMadera.values):
@@ -525,7 +519,7 @@ class PedidoRenglonSerializer(serializers.ModelSerializer):
 class PedidoSerializer(serializers.ModelSerializer):
     bodega_id    = serializers.PrimaryKeyRelatedField(queryset=Bodega.objects.all(),           source="bodega",    write_only=True)
     temporada_id = serializers.PrimaryKeyRelatedField(queryset=TemporadaBodega.objects.all(), source="temporada", write_only=True)
-    cliente_id   = serializers.PrimaryKeyRelatedField(queryset=Cliente.objects.all(),         source="cliente",   write_only=True)
+    cliente_id   = serializers.PrimaryKeyRelatedField(queryset=Cliente.objects.all(),          source="cliente",   write_only=True)
 
     renglones = PedidoRenglonSerializer(many=True, read_only=True)
 
@@ -545,7 +539,7 @@ class PedidoSerializer(serializers.ModelSerializer):
         if temporada and not _temporada_activa(temporada):
             raise serializers.ValidationError("No se pueden crear/editar pedidos en temporadas archivadas o finalizadas.")
 
-        fecha = data.get("fecha") or getattr(self.instance, "fecha", None)
+        fecha  = data.get("fecha")  or getattr(self.instance, "fecha", None)
         bodega = data.get("bodega") or getattr(self.instance, "bodega", None)
 
         if fecha:
@@ -604,8 +598,8 @@ class SurtidoRenglonSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("La calidad del renglón no coincide con la clasificación de origen.")
 
         # Disponible en origen (sin overpicking)
-        consumido = origen.surtidos.aggregate(total=Sum("cantidad"))["total"] or 0
-        disponible = (origen.cantidad_cajas or 0) - consumido
+        consumido   = origen.surtidos.aggregate(total=Sum("cantidad"))["total"] or 0
+        disponible  = (origen.cantidad_cajas or 0) - consumido
         if cantidad > disponible:
             raise serializers.ValidationError("No hay suficiente disponible en la clasificación seleccionada.")
 
@@ -638,7 +632,9 @@ class CamionItemSerializer(serializers.ModelSerializer):
         if mat not in Material.values:
             raise serializers.ValidationError({"material": "Material inválido."})
         if mat == Material.PLASTICO:
-            if cal not in set(CalidadPlastico.values):
+            if cal in {"SEGUNDA", "EXTRA"}:
+                data["calidad"] = CalidadPlastico.PRIMERA
+            if data.get("calidad", cal) not in set(CalidadPlastico.values):
                 raise serializers.ValidationError({"calidad": "Calidad inválida para PLÁSTICO."})
         else:
             if cal not in set(CalidadMadera.values):
@@ -666,9 +662,9 @@ class CamionSalidaSerializer(serializers.ModelSerializer):
         read_only_fields = ["bodega", "temporada", "numero", "estado", "is_active", "archivado_en", "creado_en", "actualizado_en"]
 
     def validate(self, data):
-        temporada = data.get("temporada") or getattr(self.instance, "temporada", None)
+        temporada = data.get("temporada")    or getattr(self.instance, "temporada", None)
         fecha     = data.get("fecha_salida") or getattr(self.instance, "fecha_salida", None)
-        bodega    = data.get("bodega") or getattr(self.instance, "bodega", None)
+        bodega    = data.get("bodega")       or getattr(self.instance, "bodega", None)
 
         if temporada and not _temporada_activa(temporada):
             raise serializers.ValidationError("No se pueden registrar camiones en temporadas archivadas o finalizadas.")
@@ -754,7 +750,7 @@ class CierreSemanalSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("No puedes cerrar semanas en temporadas finalizadas o archivadas.")
 
         # Evitar traslapes con cierres existentes
-        qs = CierreSemanal.objects.filter(bodega=bodega, temporada=temporada)
+        qs = CierreSemanal.objects.filter(bodega=bodega, temporada=temporada, is_active=True)
         if self.instance:
             qs = qs.exclude(pk=self.instance.pk)
         if qs.filter(Q(fecha_desde__lte=hasta) & Q(fecha_hasta__gte=desde)).exists():

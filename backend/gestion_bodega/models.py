@@ -245,7 +245,7 @@ class Cliente(TimeStampedModel):
     Catálogo de clientes para pedidos/consignas de Bodega.
     """
     nombre = models.CharField(max_length=120)
-    alias = models.CharField(max_length=60, blank=True, default="")
+    alias = models.CharField(max_length=20, blank=True, default="")
     rfc = models.CharField(max_length=20, blank=True, default="")
     telefono = models.CharField(max_length=30, blank=True, default="")
     email = models.EmailField(blank=True, default="")

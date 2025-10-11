@@ -25,11 +25,21 @@ class NotificationMixin:
         paginator = getattr(self, 'paginator', None)
         page = getattr(paginator, 'page', None) if paginator else None
         if not paginator or page is None:
-            return {'count': 0, 'next': None, 'previous': None}
+            return {
+                'count': 0,
+                'next': None,
+                'previous': None,
+                'page': None,
+                'page_size': None,
+                'total_pages': None,
+            }
         return {
             'count': page.paginator.count,
             'next': paginator.get_next_link(),
             'previous': paginator.get_previous_link(),
+            'page': getattr(page, 'number', None),
+            'page_size': paginator.get_page_size(self.request) if hasattr(paginator, 'get_page_size') else None,
+            'total_pages': getattr(page.paginator, 'num_pages', None),
         }
 
 def _semana_cerrada(bodega_id: int, temporada_id: int, fecha):

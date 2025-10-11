@@ -63,11 +63,21 @@ class NotificationMixin:
         paginator = getattr(self, 'paginator', None)
         page = getattr(paginator, 'page', None) if paginator else None
         if not paginator or page is None:
-            return {'count': 0, 'next': None, 'previous': None}
+            return {
+                'count': 0,
+                'next': None,
+                'previous': None,
+                'page': None,
+                'page_size': None,
+                'total_pages': None,
+            }
         return {
             'count': page.paginator.count,
             'next': paginator.get_next_link(),
             'previous': paginator.get_previous_link(),
+            'page': getattr(page, 'number', None),
+            'page_size': paginator.get_page_size(self.request) if hasattr(paginator, 'get_page_size') else None,
+            'total_pages': getattr(page.paginator, 'num_pages', None),
         }
 
 
@@ -309,15 +319,18 @@ class ClienteViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
         page = self.paginate_queryset(qs)
         if page is not None:
             data = self.get_serializer(page, many=True).data
-            meta = {
-                "count": self.paginator.page.paginator.count,
-                "next": self.paginator.get_next_link(),
-                "previous": self.paginator.get_previous_link(),
-            }
+            meta = self.get_pagination_meta()
         else:
             data = self.get_serializer(qs, many=True).data
-            meta = {"count": len(data), "next": None, "previous": None}
-        return self.notify(key="data_processed_success", data={"clientes": data, "meta": meta})
+            meta = {
+                "count": len(data),
+                "next": None,
+                "previous": None,
+                "page": None,
+                "page_size": None,
+                "total_pages": None,
+            }
+        return self.notify(key="data_processed_success", data={"bodegas": data, "meta": meta})
 
     @action(detail=True, methods=["post"], url_path="archivar")
     def archivar(self, request, pk=None):
