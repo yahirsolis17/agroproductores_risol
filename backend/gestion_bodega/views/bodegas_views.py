@@ -82,7 +82,7 @@ class NotificationMixin:
 
 
 # ---------------------------------------------------------------------------
-#  ??  BODEGAS
+#  BODEGAS
 # ---------------------------------------------------------------------------
 class BodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
     """
@@ -150,14 +150,17 @@ class BodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
         page = self.paginate_queryset(qs)
         if page is not None:
             data = self.get_serializer(page, many=True).data
-            meta = {
-                "count": self.paginator.page.paginator.count,
-                "next": self.paginator.get_next_link(),
-                "previous": self.paginator.get_previous_link(),
-            }
+            meta = self.get_pagination_meta()  # meta extendido uniforme
         else:
             data = self.get_serializer(qs, many=True).data
-            meta = {"count": len(data), "next": None, "previous": None}
+            meta = {
+                "count": len(data),
+                "next": None,
+                "previous": None,
+                "page": None,
+                "page_size": None,
+                "total_pages": None,
+            }
         return self.notify(
             key="data_processed_success",
             data={"bodegas": data, "meta": meta},
@@ -187,6 +190,15 @@ class BodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop("partial", False)
         instance = self.get_object()
+
+        # ⛔ No editar archivadas
+        if not instance.is_active:
+            return self.notify(
+                key="registro_archivado_no_editar",
+                data={"info": "No puedes editar una bodega archivada."},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
         ser = self.get_serializer(instance, data=request.data, partial=partial)
         try:
             ser.is_valid(raise_exception=True)
@@ -330,7 +342,40 @@ class ClienteViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
                 "page_size": None,
                 "total_pages": None,
             }
-        return self.notify(key="data_processed_success", data={"bodegas": data, "meta": meta})
+        return self.notify(key="data_processed_success", data={"clientes": data, "meta": meta})
+
+    # Bloqueo de edición si archivado (consistencia)
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+
+        if not instance.is_active:
+            return self.notify(
+                key="registro_archivado_no_editar",
+                data={"info": "No puedes editar un cliente archivado."},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        ser = self.get_serializer(instance, data=request.data, partial=partial)
+        try:
+            ser.is_valid(raise_exception=True)
+        except serializers.ValidationError as ex:
+            return self.notify(
+                key="validation_error",
+                data={"errors": getattr(ex, "detail", ser.errors)},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        self.perform_update(ser)
+        registrar_actividad(request.user, f"Actualizó cliente {ser.data.get('nombre')}")
+        return self.notify(
+            key="cliente_update_success",
+            data={"cliente": ser.data},
+            status_code=status.HTTP_200_OK,
+        )
+
+    def partial_update(self, request, *args, **kwargs):
+        kwargs["partial"] = True
+        return self.update(request, *args, **kwargs)
 
     @action(detail=True, methods=["post"], url_path="archivar")
     def archivar(self, request, pk=None):

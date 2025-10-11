@@ -1,3 +1,4 @@
+# backend/gestion_bodega/utils/constants.py
 # Mensajes de notificación para el módulo de Bodega.
 # Mismo contrato de NOTIFICATION_MESSAGES que en otros módulos.
 
@@ -39,18 +40,24 @@ NOTIFICATION_MESSAGES = {
         "type": "error",
         "code": 400,
     },
+    # alias usado puntualmente en recepciones.update
+    "registro_archivado_no_editar": {
+        "message": "El registro archivado no se puede editar.",
+        "type": "error",
+        "code": 400,
+    },
     "bodega_archivada_no_permite_temporadas": {
-        "message": "La bodega esta archivada; no se pueden crear ni editar temporadas.",
+        "message": "La bodega está archivada; no se pueden crear ni editar temporadas.",
         "type": "error",
         "code": 400,
     },
     "violacion_unicidad_anio": {
-        "message": "Ya existe una temporada registrada para ese ano en esta bodega.",
+        "message": "Ya existe una temporada registrada para ese año en esta bodega.",
         "type": "error",
         "code": 400,
     },
     "dependencias_presentes": {
-        "message": "No se puede completar la operacion: existen dependencias activas.",
+        "message": "No se puede completar la operación: existen dependencias activas.",
         "type": "error",
         "code": 409,
     },
@@ -71,7 +78,7 @@ NOTIFICATION_MESSAGES = {
     },
 
     # ==========================
-    # Bodegas (coinciden con las keys usadas en tus vistas)
+    # Bodegas
     # ==========================
     "bodega_create_success": {
         "message": "Bodega creada con éxito.",
@@ -132,6 +139,16 @@ NOTIFICATION_MESSAGES = {
         "type": "success",
         "code": 200,
     },
+    "cliente_ya_archivado": {
+        "message": "El cliente ya está archivado.",
+        "type": "warning",
+        "code": 400,
+    },
+    "cliente_ya_activo": {
+        "message": "El cliente ya está activo.",
+        "type": "warning",
+        "code": 400,
+    },
 
     # ==========================
     # Recepciones (mango crudo)
@@ -191,6 +208,26 @@ NOTIFICATION_MESSAGES = {
         "type": "warning",
         "code": 400,
     },
+    "recepcion_debe_estar_archivada": {
+        "message": "Debes archivar la recepción antes de eliminarla.",
+        "type": "error",
+        "code": 400,
+    },
+    "recepcion_con_dependencias": {
+        "message": "No se puede eliminar: existen clasificaciones asociadas.",
+        "type": "error",
+        "code": 400,
+    },
+    "recepcion_bodega_temporada_incongruente": {
+        "message": "La bodega de la recepción debe coincidir con la bodega de la temporada.",
+        "type": "error",
+        "code": 400,
+    },
+    "recepcion_cantidad_invalida": {
+        "message": "La cantidad de cajas es inválida.",
+        "type": "error",
+        "code": 400,
+    },
 
     # ==========================
     # Clasificación / Empaque
@@ -246,6 +283,7 @@ NOTIFICATION_MESSAGES = {
         "type": "success",
         "code": 201,
     },
+
     # ==========================
     # Inventario de Plástico
     # ==========================
@@ -280,6 +318,7 @@ NOTIFICATION_MESSAGES = {
         "type": "error",
         "code": 400,
     },
+
     # ==========================
     # Compras de Madera y Abonos ($)
     # ==========================
@@ -319,6 +358,7 @@ NOTIFICATION_MESSAGES = {
         "type": "error",
         "code": 400,
     },
+
     # ==========================
     # Consumibles
     # ==========================
@@ -407,6 +447,7 @@ NOTIFICATION_MESSAGES = {
         "type": "error",
         "code": 409,
     },
+
     # ==========================
     # Camiones de salida
     # ==========================
@@ -471,8 +512,9 @@ NOTIFICATION_MESSAGES = {
         "type": "error",
         "code": 404,
     },
+
     # ==========================
-    # Temporadas de bodega (usa estas keys en tu ViewSet)
+    # Temporadas de bodega
     # ==========================
     "temporadabodega_creada": {
         "message": "Temporada creada correctamente.",
@@ -600,17 +642,8 @@ NOTIFICATION_MESSAGES = {
         "type": "success",
         "code": 200,
     },
-    
-        "cliente_ya_archivado": {
-        "message": "El cliente ya está archivado.",
-        "type": "warning",
-        "code": 400,
-    },
-    "cliente_ya_activo": {
-        "message": "El cliente ya está activo.",
-        "type": "warning",
-        "code": 400,
-    },
+
+    # Extras de estado/alias frecuentes
     "temporada_ya_activa": {
         "message": "La temporada ya está activa.",
         "type": "warning",
