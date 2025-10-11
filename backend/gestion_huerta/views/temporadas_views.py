@@ -288,6 +288,12 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
                 data={"error": "Debes archivar la temporada antes de eliminarla."},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
+        if not temp.finalizada:
+            return self.notify(
+                key="temporada_no_finalizada",
+                data={"error": "Debes finalizar la temporada antes de eliminarla."},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
         if temp.cosechas.exists():
             return self.notify(
                 key="temporada_con_dependencias",

@@ -205,7 +205,7 @@ Faltan en `backend/requirements.txt` pese a ser referenciadas en código:
 - Quitar `gestion_bodega` y `gestion_venta` si no se usarán.
 - Quitar `notificationSlice` del store o consumirlo; hoy todo pasa por `NotificationEngine`.
 10) Calidad de código/encoding
-- Arreglar caracteres mojibake en comentarios/mensajes (`�`) para legibilidad; definir UTF-8 por defecto en editor/ambiente.
+- Arreglar caracteres mojibake en comentarios/mensajes (`año`) para legibilidad; definir UTF-8 por defecto en editor/ambiente.
 
 
 ## Trazabilidad FE ↔ BE (mapeo rápido)

@@ -1,4 +1,4 @@
-﻿/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -61,7 +61,7 @@ const BodegaTemporadasPage: React.FC = () => {
   const { bodegaId: urlBodegaId } = useParams<{ bodegaId?: string }>();
   const [searchParams] = useSearchParams();
 
-  // ───────── Resolver bodega/id/query ─────────
+  // --------- Resolver bodega/id/query ---------
   const parseNumericParam = (value?: string | null): number | undefined => {
     if (value === undefined || value === null || value.trim() === '') return undefined;
     const parsed = Number(value);
@@ -79,8 +79,9 @@ const BodegaTemporadasPage: React.FC = () => {
   const [hasFetchedDetalle, setHasFetchedDetalle] = useState(false);
   const [isBodegaActive, setIsBodegaActive] = useState<boolean | null>(null);
   const [createBlocked, setCreateBlocked] = useState<{ key: string | null; message?: string } | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
-  // ───────── Estado Redux (OJO: key correcta en store) ─────────
+  // --------- Estado Redux (OJO: key correcta en store) ---------
   const { items, meta, ops, filters } = useAppSelector((state) => state.temporadasBodega);
   const finalizadaFilter = filters.finalizada ?? null;
   const estadoActual = (filters.estado ?? 'activas') as VistaTab;
@@ -135,7 +136,7 @@ const BodegaTemporadasPage: React.FC = () => {
   const [existsThisYearAny, setExistsThisYearAny] = useState(false);
   const [checkingExists, setCheckingExists] = useState(false);
 
-  // Tabs ↔ estado Redux
+  // Tabs -> estado Redux
   useEffect(() => { setTab(estadoActual); }, [estadoActual]);
   useEffect(() => { if (tab !== estadoActual) dispatch(setEstado(tab)); }, [dispatch, tab, estadoActual]);
   useEffect(() => {
@@ -313,7 +314,7 @@ const BodegaTemporadasPage: React.FC = () => {
     finalizadaFilter,
   ]);
 
-  // ───────── Regla: sólo 1 temporada por AÑO (any estado) ─────────
+  // --------- Regla: sólo 1 temporada por AÑO (any estado) ---------
 
   useEffect(() => {
     let cancelled = false;
@@ -389,6 +390,11 @@ const BodegaTemporadasPage: React.FC = () => {
   };
 
   // Acciones
+  const handleRequestCreate = () => {
+    if (!canTriggerCreate) return;
+    setConfirmOpen(true);
+  };
+
   const handleCreate = async () => {
     if (!canTriggerCreate || typeof bodegaId !== 'number') return;
     let shouldReload = false;
@@ -400,6 +406,7 @@ const BodegaTemporadasPage: React.FC = () => {
         })
       ).unwrap();
       setCreateBlocked(null);
+      setConfirmOpen(false);
       shouldReload = true;
     } catch (err: any) {
       const errorKey = typeof err === 'object' && err ? err.key ?? err?.message : typeof err === 'string' ? err : null;
@@ -543,7 +550,7 @@ const BodegaTemporadasPage: React.FC = () => {
           onYearChange={(year) => dispatch(setYearFilter(year ?? undefined))}
           finalizadaFilter={finalizadaFilter}
           onFinalizadaChange={handleFinalizadaChange}
-          onCreate={handleCreate}
+          onCreate={handleRequestCreate}
           canCreate={canTriggerCreate}
           createTooltip={createTooltip}
           totalCount={meta.count}
@@ -568,6 +575,31 @@ const BodegaTemporadasPage: React.FC = () => {
           onFinalize={handleFinalize}
           onAdministrar={handleAdministrar}
         />
+
+        <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} maxWidth="xs" fullWidth>
+          <DialogTitle>Confirmar nueva temporada</DialogTitle>
+          <DialogContent dividers>
+            <Typography>Año: {currentYear}</Typography>
+            <Typography>
+              Bodega: {displayNombre ? displayNombre : `#${bodegaId}`}
+            </Typography>
+            {createTooltip ? (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                {createTooltip}
+              </Typography>
+            ) : null}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setConfirmOpen(false)}>Cancelar</Button>
+            <Button
+              variant="contained"
+              onClick={handleCreate}
+              disabled={!canTriggerCreate}
+            >
+              Iniciar
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         <Dialog open={Boolean(deleteTarget)} onClose={cancelDelete} maxWidth="xs" fullWidth>
           <DialogTitle>Confirmar eliminación</DialogTitle>

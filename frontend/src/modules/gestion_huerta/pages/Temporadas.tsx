@@ -292,6 +292,7 @@ const Temporadas: React.FC = () => {
     try {
       await addTemporada(payload);
       handleBackendNotification({ key: 'temporada_create_success', message: 'Temporada creada.', type: 'success' });
+      setConfirmOpen(false);
     } catch (err: any) {
       handleBackendNotification(err?.notification || err?.response?.data?.notification || err);
     }

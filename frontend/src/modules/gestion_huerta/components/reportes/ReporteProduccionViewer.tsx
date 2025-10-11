@@ -384,7 +384,7 @@ export default function ReporteProduccionViewer({
                 if (fiFmt && ffFmt) return `${fiFmt} - ${ffFmt}`;
                 return fiFmt || ffFmt || '';
               })();
-              const temporada = (info.temporada_año ?? info['temporada_a��o'] ?? '') as any;
+              const temporada = (info.temporada_año ?? info['temporada_año'] ?? '') as any;
               const rows: Array<[string, string]> = [
                 ['Huerta:', `${info.huerta_nombre || ''} (${info.huerta_tipo || ''})`],
                 ['Ubicación:', info.ubicacion || ''],

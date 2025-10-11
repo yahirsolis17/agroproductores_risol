@@ -7,29 +7,51 @@ import { NAV_ITEMS } from '../../global/constants/navItems';
 import { useAuth } from '../../modules/gestion_usuarios/context/AuthContext';
 
 const Navbar: React.FC = () => {
+  // Hooks de auth y routing: SIEMPRE en top-level y en el mismo orden
   const { user, isAuthenticated, logout, hasPerm } = useAuth();
   const location = useLocation();
+
+  // State local: también en top-level y orden fijo
   const [hoverMenu, setHoverMenu] = useState<string | null>(null);
   const [openLogout, setOpenLogout] = useState(false);
-
-  /* ────────────────── visibilidad del navbar ────────────────── */
-  const shouldHideNavbar =
-    location.pathname === '/login' ||
-    (location.pathname === '/change-password' && user?.must_change_password);
-
-  if (shouldHideNavbar) return null;
 
   /* ────────────────── helpers ────────────────── */
   const isActive = (path: string) => location.pathname === path;
 
-  /** Rutas visibles según permiso */
+  // Role efectivo del usuario
   const role: 'admin' | 'usuario' = user?.role ?? 'usuario';
+
+  /** Rutas visibles según permisos (llamado SIEMPRE) */
   const visibleRoutes = useMemo(
-    () => (NAV_ITEMS[role] ?? []).filter(i => !i.perm || hasPerm(i.perm)),
+    () => (NAV_ITEMS[role] ?? []).filter(i => !i.perm || hasPerm?.(i.perm)),
     [role, hasPerm]
   );
 
-  /** Renderiza un menú desplegable */
+  /** Submenús (llamados SIEMPRE, aunque luego no se rendericen) */
+  const userManagementRoutes = useMemo(
+    () => visibleRoutes.filter(r => /users?|register|activity/.test(r.to)),
+    [visibleRoutes]
+  );
+
+  const gardenManagementRoutes = useMemo(
+    () => visibleRoutes.filter(r => /huerta|propietario|cosecha|temporad/i.test(r.to)),
+    [visibleRoutes]
+  );
+
+  const warehouseManagementRoutes = useMemo(
+    () => visibleRoutes.filter(r => /^\/bodega(\/|$)/.test(r.to)),
+    [visibleRoutes]
+  );
+
+  /* ────────────────── visibilidad del navbar ──────────────────
+     NOTA: Este cálculo va DESPUÉS de haber llamado todos los hooks,
+     para que el orden de hooks no cambie entre renders.
+  */
+  const shouldHideNavbar =
+    location.pathname === '/login' ||
+    (location.pathname === '/change-password' && user?.must_change_password);
+
+  /** Renderiza un menú desplegable (no usa hooks) */
   const renderMenu = (
     title: string,
     routes: { to: string; label: string }[]
@@ -89,25 +111,12 @@ const Navbar: React.FC = () => {
     );
   };
 
-  // Memoizar rutas para cada menú
-  const userManagementRoutes = useMemo(
-    () => visibleRoutes.filter(r => /users?|register|activity/.test(r.to)),
-    [visibleRoutes]
-  );
+  /* ────────────────── retorno ──────────────────
+     Ahora sí: luego de haber llamado todos los hooks y memos, puedes
+     decidir ocultar el navbar sin romper las reglas de hooks.
+  */
+  if (shouldHideNavbar) return null;
 
-  // Incluye temporadas (se agregan "temporad" para cubrir singular/plural)
-  const gardenManagementRoutes = useMemo(
-    () => visibleRoutes.filter(r => /huerta|propietario|cosecha|temporad/i.test(r.to)),
-    [visibleRoutes]
-  );
-
-  // Gestión Bodega
-  const warehouseManagementRoutes = useMemo(
-    () => visibleRoutes.filter(r => /^\/bodega(\/|$)/.test(r.to)),
-    [visibleRoutes]
-  );
-
-  /* ────────────────── render ────────────────── */
   return (
     <motion.nav
       className="bg-white shadow-md px-6 py-3 flex items-center justify-between sticky top-0 z-50"
@@ -132,6 +141,7 @@ const Navbar: React.FC = () => {
             >
               Mi Perfil
             </Link>
+
             {renderMenu('Gestión de Usuarios', userManagementRoutes)}
             {renderMenu('Gestión de Huerta', gardenManagementRoutes)}
             {renderMenu('Gestión de Bodega', warehouseManagementRoutes)}
@@ -148,26 +158,18 @@ const Navbar: React.FC = () => {
               variant="contained"
               color="primary"
               size="small"
-              sx={{
-                textTransform: 'none',
-                fontWeight: 500,
-                borderRadius: '8px'
-              }}
+              sx={{ textTransform: 'none', fontWeight: 500, borderRadius: '8px' }}
             >
               Cerrar Sesión
             </Button>
-            <Dialog
-              open={openLogout}
-              onClose={() => setOpenLogout(false)}
-            >
+
+            <Dialog open={openLogout} onClose={() => setOpenLogout(false)}>
               <DialogTitle>Confirmar cierre de sesión</DialogTitle>
               <DialogContent>
                 ¿Estás seguro de que deseas cerrar sesión?
               </DialogContent>
               <DialogActions>
-                <Button onClick={() => setOpenLogout(false)}>
-                  Cancelar
-                </Button>
+                <Button onClick={() => setOpenLogout(false)}>Cancelar</Button>
                 <Button
                   color="error"
                   onClick={() => {

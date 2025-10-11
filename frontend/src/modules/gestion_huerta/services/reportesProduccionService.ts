@@ -67,9 +67,9 @@ const normalizePerfilHuertaResponse = (rep: any) => {
         row?.año ??
         row?.año ??
         row?.['a\u00F1o'] ?? // 'año' unicode
-        row?.['a\uFFFD\uFFFDo'] ?? // por si vienen bytes mal decodificados
+        row?.['año'] ?? // por si vienen bytes mal decodificados
         row?.['aï¿½ï¿½o'] ??
-        row?.['a��o'] ??
+        row?.['añó'] ??
         row?.['ano']; // fallback final (no ideal)
       return {
         año: año as any,

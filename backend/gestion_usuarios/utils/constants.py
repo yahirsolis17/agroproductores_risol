@@ -28,7 +28,6 @@ NOTIFICATION_MESSAGES = {
         "message": "Usuario registrado exitosamente back",
         "type": "success",
         "action": "redirect",
-        "target": "/dashboard"
     },
     "password_change_success": {
         "message": "Contraseña actualizada correctamente back",

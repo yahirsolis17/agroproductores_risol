@@ -78,7 +78,7 @@ NOTIFICATION_MESSAGES = {
     },
     "propietario_ya_archivado": {
         "message": "El propietario ya está archivado.",
-        "type": "info"
+        "type": "error"
     },
     "propietario_restaurado": {
         "message": "Propietario restaurado.",
@@ -189,8 +189,8 @@ NOTIFICATION_MESSAGES = {
         "type": "warning"
     },
     "temporada_no_finalizada": {
-        "message": "Esta temporada no está finalizada.",
-        "type": "info"
+        "message": "No se puede eliminar una temporada en curso.",
+        "type": "error"
     },
     "temporada_archivada": {
         "message": "Temporada archivada correctamente.",
