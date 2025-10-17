@@ -73,7 +73,7 @@ export default function PropietarioFormModal({
             const nuevo = await onSubmit(vals); // ← el thunk ya mostró el toast
             onSuccess?.(nuevo);
             onClose();
-          } catch (error: unknown) {
+          } catch (error: any) {
             const backend = error?.data || error?.response?.data || {};
             const beErrors = backend.errors || backend.data?.errors || {};
             const formikErrors: Record<string, string> = {};

@@ -1,5 +1,5 @@
 ﻿# backend/gestion_bodega/views/recepciones_views.py
-from datetime import date
+from datetime import date, datetime
 
 from django.db import transaction
 from django.db.models import Q
@@ -12,6 +12,7 @@ from gestion_bodega.models import (
     Bodega,
     Recepcion,
     TemporadaBodega,
+    CierreSemanal,
 )
 from gestion_usuarios.permissions import HasModulePermission  # alineado con bodegas_views
 from gestion_bodega.serializers import RecepcionSerializer
@@ -176,16 +177,78 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         else:
             ser = self.get_serializer(qs, many=True)
 
+        # Meta base de paginación
+        meta = self.get_pagination_meta()
+
+        # -------- Meta extendido (flags de bloqueo y rango) --------
+        params = request.query_params
+
+        def _parse_int(v):
+            try:
+                return int(v) if v is not None and str(v).strip() != "" else None
+            except (TypeError, ValueError):
+                return None
+
+        def _parse_date(v):
+            try:
+                return date.fromisoformat(v) if v else None
+            except Exception:
+                try:
+                    return datetime.strptime(v, "%Y/%m/%d").date()
+                except Exception:
+                    try:
+                        return datetime.strptime(v, "%d-%m-%Y").date()
+                    except Exception:
+                        return None
+
+        bodega_id = _parse_int(params.get("bodega"))
+        temporada_id = _parse_int(params.get("temporada"))
+        f_from = _parse_date(params.get("fecha__gte") or params.get("from"))
+        f_to   = _parse_date(params.get("fecha__lte") or params.get("to"))
+
+        semana_rango = None
+        if f_from and f_to:
+            semana_rango = {"from": f_from.isoformat(), "to": f_to.isoformat()}
+
+        temporada_finalizada = False
+        if temporada_id:
+            tf = TemporadaBodega.objects.filter(id=temporada_id).values_list("finalizada", flat=True).first()
+            temporada_finalizada = bool(tf)
+
+        semana_cerrada = False
+        if bodega_id and temporada_id and f_from and f_to:
+            semana_cerrada = CierreSemanal.objects.filter(
+                bodega_id=bodega_id,
+                temporada_id=temporada_id,
+                is_active=True,
+                fecha_desde__lte=f_to,
+                fecha_hasta__gte=f_from,
+            ).exists()
+
+        meta.update({
+            "semana_cerrada": semana_cerrada,
+            "temporada_finalizada": temporada_finalizada,
+            "semana_rango": semana_rango,
+        })
+
         payload = {
             "recepciones": ser.data,   # alias estable para UI
             "results": ser.data,       # compatibilidad
-            "meta": self.get_pagination_meta(),
+            "meta": meta,
         }
         return self.notify(key="data_processed_success", data=payload, status_code=status.HTTP_200_OK)
 
     # ---------- CREATE ----------
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
+        # Normalización de payload desde el FE (alias comunes)
+        if "bodega" in data and "bodega_id" not in data:
+            data["bodega_id"] = data.get("bodega")
+        if "temporada" in data and "temporada_id" not in data:
+            data["temporada_id"] = data.get("temporada")
+        if "cantidad_cajas" in data and "cajas_campo" not in data:
+            data["cajas_campo"] = data.get("cantidad_cajas")
+
         ser = self.get_serializer(data=data)
         try:
             ser.is_valid(raise_exception=True)
@@ -236,7 +299,16 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        ser = self.get_serializer(instance, data=request.data, partial=partial)
+        data = request.data.copy()
+        # Normalización de payload desde el FE (alias comunes)
+        if "bodega" in data and "bodega_id" not in data:
+            data["bodega_id"] = data.get("bodega")
+        if "temporada" in data and "temporada_id" not in data:
+            data["temporada_id"] = data.get("temporada")
+        if "cantidad_cajas" in data and "cajas_campo" not in data:
+            data["cajas_campo"] = data.get("cantidad_cajas")
+
+        ser = self.get_serializer(instance, data=data, partial=partial)
         try:
             ser.is_valid(raise_exception=True)
         except serializers.ValidationError as ex:

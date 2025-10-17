@@ -117,6 +117,12 @@ export const moduleRoutes: ModuleRoute[] = [
     element: lazyRoute(() => import('../../modules/gestion_bodega/pages/Capturas')),
   },
   {
+    path: '/bodega/:bodegaId/capturas/:recepcionId/clasificacion',
+    module: 'gestion_bodega',
+    allowedRoles: ['admin', 'usuario'],
+    element: lazyRoute(() => import('../../modules/gestion_bodega/pages/Clasificacion')),
+  },
+  {
     path: '/bodega/:bodegaId/inventarios',
     module: 'gestion_bodega',
     allowedRoles: ['admin', 'usuario'],

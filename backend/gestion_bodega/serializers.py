@@ -182,22 +182,30 @@ class ClienteSerializer(serializers.ModelSerializer):
 # ───────────────────────────────────────────────────────────────────────────
 
 class RecepcionSerializer(serializers.ModelSerializer):
-    bodega_id    = serializers.PrimaryKeyRelatedField(queryset=Bodega.objects.all(),           source="bodega",    write_only=True)
-    temporada_id = serializers.PrimaryKeyRelatedField(queryset=TemporadaBodega.objects.all(), source="temporada", write_only=True)
+    # Acepta IDs directamente en 'bodega' y 'temporada' (consistente con el FE)
+    bodega    = serializers.PrimaryKeyRelatedField(queryset=Bodega.objects.all())
+    temporada = serializers.PrimaryKeyRelatedField(queryset=TemporadaBodega.objects.all())
+    # Alias amigable para FE: 'cantidad_cajas' -> source 'cajas_campo'
+    cantidad_cajas = serializers.IntegerField(source="cajas_campo", required=False)
 
     class Meta:
         model = Recepcion
         fields = [
-            "id", "bodega", "temporada", "bodega_id", "temporada_id",
-            "fecha", "huertero_nombre", "tipo_mango", "cajas_campo", "observaciones",
+            "id", "bodega", "temporada",
+            "fecha", "huertero_nombre", "tipo_mango",
+            "cajas_campo", "cantidad_cajas", "observaciones",
             "is_active", "archivado_en", "creado_en", "actualizado_en",
         ]
-        read_only_fields = ["bodega", "temporada", "is_active", "archivado_en", "creado_en", "actualizado_en"]
+        read_only_fields = ["is_active", "archivado_en", "creado_en", "actualizado_en", "cajas_campo"]
 
     def validate_cajas_campo(self, v):
         if v is None or v <= 0:
             raise serializers.ValidationError("La cantidad de cajas debe ser mayor a 0.")
         return v
+
+    # Validación equivalente para el alias de entrada
+    def validate_cantidad_cajas(self, v):
+        return self.validate_cajas_campo(v)
 
     def validate(self, data):
         bodega    = data.get("bodega")    or getattr(self.instance, "bodega", None)

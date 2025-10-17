@@ -202,7 +202,7 @@ export const breadcrumbRoutes = {
     { label: 'Bodegas', path: '/bodega' },
   ],
 
-  bodegaTemporadas: (bodegaId: number | string, nombreSolo: string): Crumb[] => [
+  bodegaTemporadas: (_bodegaId: number | string, nombreSolo: string): Crumb[] => [
     { label: formatBodegaLabel(nombreSolo), path: '/bodega' },
     { label: 'Temporadas', path: '' },
   ],

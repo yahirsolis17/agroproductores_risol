@@ -63,7 +63,7 @@ export default function ReportesProduccionToolbar({
   permExportPdf,
   permExportExcel,
 }: Props) {
-  const { user, permissions, hasPerm } = useAuth();
+  const { user, hasPerm } = useAuth();
   const isAdmin = user?.role === 'admin';
 
   // Normaliza para permitir arrays de permisos (OR)

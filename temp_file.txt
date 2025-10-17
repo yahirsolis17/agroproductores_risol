@@ -1,4 +1,5 @@
-﻿import api from "../../../global/api/apiClient";
+﻿// frontend/src/modules/gestion_bodega/services/capturasService.ts
+import api from "../../../global/api/apiClient";
 import { handleBackendNotification } from "../../../global/utils/NotificationEngine";
 import type {
   PaginationMeta,
@@ -11,6 +12,7 @@ import type {
   CapturaListParams,
 } from "../types/capturasTypes";
 
+// Backend expone /bodega/recepciones/, acciones: archivar/restaurar
 const BASE = "/bodega/recepciones/";
 
 // -------------------------------
@@ -18,7 +20,14 @@ const BASE = "/bodega/recepciones/";
 // -------------------------------
 function normalizeMeta(raw: any): PaginationMeta {
   if (!raw) {
-    return { count: 0, next: null, previous: null, page: null, page_size: null, total_pages: null };
+    return {
+      count: 0,
+      next: null,
+      previous: null,
+      page: null,
+      page_size: null,
+      total_pages: null,
+    };
   }
   // Envelope con meta extendido
   if (
@@ -33,9 +42,6 @@ function normalizeMeta(raw: any): PaginationMeta {
       page: raw.page ?? null,
       page_size: raw.page_size ?? null,
       total_pages: raw.total_pages ?? null,
-      semana_cerrada: raw.semana_cerrada ?? undefined,
-      temporada_finalizada: raw.temporada_finalizada ?? undefined,
-      semana_rango: raw.semana_rango ?? undefined,
     };
   }
   // DRF puro
@@ -55,8 +61,9 @@ function normalizeListPayload(res: any): CapturasListResponse {
 
   const dataLayer = res?.data?.data ?? res?.data ?? {};
   const capturas: Captura[] =
+    // alias backend (recepciones) â†’ FE (capturas)
     dataLayer.recepciones ??
-    dataLayer.capturas ??
+    dataLayer.capturas ?? // por si el BE viniera ya renombrado en algÃºn punto
     dataLayer.results ??
     [];
 
@@ -69,15 +76,15 @@ function normalizeListPayload(res: any): CapturasListResponse {
   return { capturas, meta: normalizeMeta(metaRaw) };
 }
 
-// Unifica envelope { data: { recepcion } } → FE { captura }
+// Unifica envelope { data: { recepcion } } â†’ FE { captura }
 function normalizeSinglePayload(res: any): CapturaSingleResponse {
   handleBackendNotification(res?.data);
 
   const dataLayer = res?.data?.data ?? res?.data ?? {};
   const captura: Captura =
-    dataLayer.recepcion ??  // backend actual
-    dataLayer.captura ??    // alias futuro
-    dataLayer.item ??       // fallback
+    dataLayer.recepcion ?? // backend actual
+    dataLayer.captura ??   // alias futuro
+    dataLayer.item ??      // fallback
     dataLayer;
 
   return { captura };
@@ -109,12 +116,12 @@ function buildQuery(params: CapturaListParams = {}): Record<string, any> {
 }
 
 // -------------------------------
-// Service API
+// Service
 // -------------------------------
 export const capturasService = {
-  async list(params: CapturaListParams = {}, opts?: { signal?: AbortSignal }): Promise<CapturasListResponse> {
+  async list(params: CapturaListParams = {}): Promise<CapturasListResponse> {
     try {
-      const res = await api.get(BASE, { params: buildQuery(params), signal: opts?.signal });
+      const res = await api.get(BASE, { params: buildQuery(params) });
       return normalizeListPayload(res);
     } catch (err: any) {
       handleBackendNotification(err?.response?.data);
@@ -167,10 +174,16 @@ export const capturasService = {
       const res = await api.post(`${BASE}${id}/archivar/`);
       handleBackendNotification(res?.data);
 
-      const d = res?.data?.data ?? {};
-      if (d.recepcion) return { captura_id: d.recepcion.id, captura: d.recepcion };
-      if (d.captura) return { captura_id: d.captura.id, captura: d.captura };
-      return { captura_id: d.recepcion_id ?? d.captura_id ?? id };
+      const dataLayer = res?.data?.data ?? {};
+      // puede venir { recepcion_id } o { recepcion }
+      if (dataLayer.recepcion) {
+        return { captura_id: dataLayer.recepcion.id, captura: dataLayer.recepcion };
+      }
+      // por si en algÃºn momento el BE cambia a captura_id
+      if (dataLayer.captura) {
+        return { captura_id: dataLayer.captura.id, captura: dataLayer.captura };
+      }
+      return { captura_id: dataLayer.recepcion_id ?? dataLayer.captura_id ?? id };
     } catch (err: any) {
       handleBackendNotification(err?.response?.data);
       throw err;
@@ -191,8 +204,8 @@ export const capturasService = {
     try {
       const res = await api.delete(`${BASE}${id}/`);
       handleBackendNotification(res?.data);
-      const d = res?.data?.data ?? {};
-      return { deleted_id: d.deleted_id ?? id };
+      const dataLayer = res?.data?.data ?? {};
+      return { deleted_id: dataLayer.deleted_id ?? id };
     } catch (err: any) {
       handleBackendNotification(err?.response?.data);
       throw err;
@@ -201,13 +214,3 @@ export const capturasService = {
 };
 
 export default capturasService;
-
-// Named exports (comodidad para slices/thunks)
-export const listCapturas = capturasService.list;
-export const getCaptura = capturasService.retrieve;
-export const createCaptura = capturasService.create;
-export const updateCaptura = capturasService.update;
-export const patchCaptura = capturasService.patch;
-export const archivarCaptura = capturasService.archivar;
-export const restaurarCaptura = capturasService.restaurar;
-export const deleteCaptura = capturasService.remove;
