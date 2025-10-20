@@ -474,7 +474,7 @@ const BodegaTemporadasPage: React.FC = () => {
 
   const handleAdministrar = (temporada: TemporadaBodega) => {
     if (typeof bodegaId !== 'number') return;
-    navigate(`/bodega/${bodegaId}/capturas?temporada=${temporada.id}`);
+    navigate(`/bodega/tablero?temporada=${temporada.id}&bodega=${bodegaId}`);
   };
 
   const handleDelete = (temporada: TemporadaBodega) => {

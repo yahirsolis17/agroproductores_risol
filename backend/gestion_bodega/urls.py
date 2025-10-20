@@ -12,13 +12,22 @@ from .views.camiones_views import CamionSalidaViewSet
 from .views.consumibles_views import ConsumibleViewSet
 from .views.cierres_views import CierresViewSet
 
+# Reportes (APIViews)
+from .views.reportes.reporte_semanal_views import ReporteSemanalView
+from .views.reportes.reporte_temporada_views import ReporteTemporadaView
+
 # --- NUEVOS: Bodega, Cliente, TemporadaBodega ---
 from .views.bodegas_views import (
     BodegaViewSet,
     ClienteViewSet,
     TemporadaBodegaViewSet,
+    
 )
-
+from .views.tablero_views import (
+    TableroBodegaSummaryView,
+    TableroBodegaQueuesView,
+    TableroBodegaAlertsView,
+)
 app_name = "gestion_bodega"
 
 router = DefaultRouter()
@@ -39,4 +48,11 @@ router.register(r"cierres", CierresViewSet, basename="cierres")
 
 urlpatterns = [
     path("", include(router.urls)),
+    # Reportes
+    path("reportes/semanal/", ReporteSemanalView.as_view(), name="reporte-semanal"),
+    path("reportes/temporada/", ReporteTemporadaView.as_view(), name="reporte-temporada"),
+        # ENDPOINTS DEL TABLERO (SIEMPRE REQUIEREN temporada=:id)
+    path("tablero/summary/", TableroBodegaSummaryView.as_view(), name="tablero-summary"),
+    path("tablero/queues/", TableroBodegaQueuesView.as_view(), name="tablero-queues"),
+    path("tablero/alerts/", TableroBodegaAlertsView.as_view(), name="tablero-alerts"),
 ]

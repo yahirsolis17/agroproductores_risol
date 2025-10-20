@@ -52,9 +52,12 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
 
     permission_classes = [IsAuthenticated, HasModulePermission]
     _perm_map = {
-        "semanal": ["close_semana_bodega"],
-        "temporada": ["close_temporada_bodega"],
-        "list": ["close_semana_bodega"],
+        # Crear un cierre semanal requiere poder agregar registros de CierreSemanal
+        "semanal": ["add_cierresemanal"],
+        # Cerrar temporada usa la capacidad de lifecycle sobre TemporadaBodega
+        "temporada": ["finalize_temporadabodega"],
+        # Listado de cierres semanales
+        "list": ["view_cierresemanal"],
     }
 
     filter_backends = [DjangoFilterBackend]

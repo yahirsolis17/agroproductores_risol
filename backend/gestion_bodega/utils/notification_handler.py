@@ -33,3 +33,5 @@ class NotificationHandler:
             response.update(extra_data)
         
         return Response(response, status=http_status)
+    
+__all__ = ['NotificationHandler']

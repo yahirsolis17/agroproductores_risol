@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -6,10 +6,10 @@ import DialogActions from '@mui/material/DialogActions';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
+import { Add } from '@mui/icons-material';
 import Tooltip from '@mui/material/Tooltip';
 
-import TipoMangoAutocomplete from '../common/TipoMangoAutocomplete';
-import QuantityInput from '../common/QuantityInput';
+// Campos manuales: tipo (texto) y cantidad (nÃºmero)
 import { formatDateISO, parseLocalDateStrict } from '../../../../global/utils/date';
 
 type CreatePayload = {
@@ -73,7 +73,7 @@ export default function FastCaptureModal({ open, onClose, onCreate, disabled, bo
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>Captura rápida</DialogTitle>
+      <DialogTitle>Captura rapida</DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <Stack direction="row" spacing={1} alignItems="center">
@@ -89,9 +89,24 @@ export default function FastCaptureModal({ open, onClose, onCreate, disabled, bo
             />
           </Stack>
 
-          <TipoMangoAutocomplete value={tipo} onChange={(v?: string) => setTipo(v ?? '')} />
+          <TextField
+            label="Tipo de mango"
+            size="small"
+            value={tipo}
+            onChange={(e) => setTipo(e.target.value)}
+          />
 
-          <QuantityInput value={cajas} onChange={setCajas} min={1} />
+          <TextField
+            label="Cantidad de cajas"
+            type="number"
+            size="small"
+            inputProps={{ min: 1 }}
+            value={Number.isFinite(cajas) ? cajas : ''}
+            onChange={(e) => {
+              const v = parseInt(e.target.value, 10);
+              setCajas(Number.isFinite(v) && v > 0 ? v : 0);
+            }}
+          />
 
           <TextField label="Huertero (opcional)" size="small" value={huertero} onChange={(e) => setHuertero(e.target.value)} />
 
@@ -102,10 +117,13 @@ export default function FastCaptureModal({ open, onClose, onCreate, disabled, bo
         <Button onClick={onClose}>Cancelar</Button>
         <Tooltip title={disabled ? 'Operación no disponible' : ''} disableHoverListener={!disabled}>
           <span>
-            <Button variant="contained" onClick={handleCreate} disabled={disabledSubmit}>Crear</Button>
+            <Button variant="contained" onClick={handleCreate} disabled={disabledSubmit} startIcon={<Add />} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 500 }}>Crear</Button>
           </span>
         </Tooltip>
       </DialogActions>
     </Dialog>
   );
 }
+
+
+

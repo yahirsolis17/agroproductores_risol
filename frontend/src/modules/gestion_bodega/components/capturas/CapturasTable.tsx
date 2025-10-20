@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import Paper from "@mui/material/Paper";
 import Chip from "@mui/material/Chip";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -41,7 +40,6 @@ export default function CapturasTable({
 }: Props) {
   const columns: Column<Captura>[] = useMemo(
     () => [
-      { label: "ID", key: "id", align: "center" },
       {
         label: "Fecha",
         key: "fecha",
@@ -78,7 +76,7 @@ export default function CapturasTable({
   );
 
   return (
-    <Paper variant="outlined" sx={{ p: 2 }}>
+    <>
       <TableLayout<Captura>
         data={items}
         page={meta.page ?? 1}
@@ -87,6 +85,10 @@ export default function CapturasTable({
         onPageChange={onPageChange}
         columns={columns}
         loading={loading}
+        serverSidePagination
+        striped
+        dense
+        emptyMessage={"No hay recepciones registradas."}
         rowKey={(row) => row.id}
         renderActions={(row) => {
           const isArchived = !row.is_active;
@@ -126,6 +128,7 @@ export default function CapturasTable({
           return (total / 7).toFixed(1);
         })()}</span>
       </Box>
-    </Paper>
+    </>
   );
 }
+

@@ -30,7 +30,7 @@ export default function RulesBanner({ blocked, reason, range }: Props) {
 
   return (
     <Stack sx={{ mb: 2 }}>
-      <Alert severity={severity as any} variant="outlined">
+      <Alert severity={severity as any} variant="outlined" sx={{ borderRadius: 2 }}>
         <AlertTitle>{title}</AlertTitle>
         {message}
       </Alert>

@@ -3,6 +3,7 @@ import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import Paper from "@mui/material/Paper";
+import Divider from "@mui/material/Divider";
 
 import CapturasTable from "../../../modules/gestion_bodega/components/capturas/CapturasTable";
 import RecepcionFormModal from "../../..//modules/gestion_bodega/components/capturas/RecepcionFormModal";
@@ -34,12 +35,9 @@ export default function CapturasPage() {
     archivar,
     restaurar,
     remove,
-    setSearch,
-    setTipoMango,
-    setDateRange,
+    
     setPage,
-    setEstado,
-    canOperate,
+        canOperate,
     reasonDisabled,
     setBodega,
     setTemporada,
@@ -56,20 +54,12 @@ export default function CapturasPage() {
     const bFromPath = bodegaIdParam ? Number(bodegaIdParam) : undefined;
     const b = bFromPath || bFromQuery;
     const t = Number(searchParams.get('temporada') || '') || undefined;
-    const from = searchParams.get('from') || undefined;
-    const to = searchParams.get('to') || undefined;
-    const q = searchParams.get('search') || undefined;
-    const estado = (searchParams.get('estado') as any) || undefined;
-    const tipo = searchParams.get('tipo_mango') || undefined;
+    
     const page = Number(searchParams.get('page') || '') || undefined;
     const pageSize = Number(searchParams.get('page_size') || '') || undefined;
 
     if (b && b !== filters.bodega) setBodega(b);
     if (t && t !== filters.temporada) setTemporada(t);
-    if (from || to) setDateRange(from, to);
-    if (q !== undefined) setSearch(q);
-    if (estado) setEstado(estado);
-    if (tipo !== undefined) setTipoMango(tipo);
     if (page) setPage(page);
     if (pageSize) setPageSize(pageSize);
 
@@ -110,15 +100,11 @@ export default function CapturasPage() {
     const params = new URLSearchParams();
     if (filters.bodega) params.set('bodega', String(filters.bodega));
     if (filters.temporada) params.set('temporada', String(filters.temporada));
-    if (filters.search) params.set('search', String(filters.search));
-    if (filters.estado) params.set('estado', String(filters.estado));
-    if (filters.fecha_gte) params.set('from', String(filters.fecha_gte));
-    if (filters.fecha_lte) params.set('to', String(filters.fecha_lte));
     if (filters.page) params.set('page', String(filters.page));
     if (filters.page_size) params.set('page_size', String(filters.page_size));
-    if (filters.tipo_mango) params.set('tipo_mango', String(filters.tipo_mango));
+    
     setSearchParams(params, { replace: true });
-  }, [filters.bodega, filters.temporada, filters.search, filters.estado, filters.fecha_gte, filters.fecha_lte, filters.page, filters.page_size, filters.tipo_mango, setSearchParams]);
+  }, [filters.bodega, filters.temporada, filters.page, filters.page_size, setSearchParams]);
 
   const handleCreate = async (payload: CapturaCreateDTO) => {
     await create(payload);
@@ -139,38 +125,21 @@ export default function CapturasPage() {
   const handleDelete = async (row: Captura) => {
     await remove(row.id);
   };
-
-  const onClearFilters = () => {
-    setSearch('');
-    setTipoMango(undefined);
-    setEstado('activas');
-    setDateRange(undefined, undefined);
-    setPage(1);
-  };
-
   return (
-    <Box>\n      <Stack spacing={2} sx={{ mt: 2 }}>
-        <Paper variant="outlined" sx={{ p: 2 }}>
+    <Box>
+      <Stack spacing={2} sx={{ mt: 2 }}>
+        <Paper elevation={3} className="p-6 sm:p-8 rounded-2xl bg-white">
           <RulesBanner
             blocked={!canOperate}
             reason={reasonDisabled}
-            range={(meta as any)?.semana_rango ?? { from: filters.fecha_gte, to: filters.fecha_lte }}
+            range={undefined}
           />
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-            <Typography variant="h6">Recepciones</Typography>
+            <Typography variant="h4" className="font-bold">Recepciones</Typography>
             <CapturasToolbar
               bodegaId={filters.bodega}
               temporadaId={filters.temporada}
-              search={filters.search}
-              tipo_mango={filters.tipo_mango}
-              estado={filters.estado as any}
-              fecha_gte={filters.fecha_gte}
-              fecha_lte={filters.fecha_lte}
-              onSearchChange={(v) => { setSearch(v); setPage(1); }}
-              onTipoMangoChange={(v) => { setTipoMango(v); setPage(1); }}
-              onEstadoChange={(v) => { setEstado(v); setPage(1); }}
-              onRangeChange={(from, to) => { setDateRange(from, to); setPage(1); }}
-              onClear={onClearFilters}
+              
               onNewRecepcion={() => { setEditing(null); setOpen(true); }}
               onFastCapture={() => setFastOpen(true)}
               busy={loading}
@@ -178,6 +147,7 @@ export default function CapturasPage() {
               disabledReason={reasonDisabled}
             />
           </Stack>
+          <Divider className="mb-2" />
 
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             {canOperate
@@ -200,13 +170,9 @@ export default function CapturasPage() {
               const bId = filters.bodega ?? '';
               const params = new URLSearchParams();
               if (filters.temporada) params.set('temporada', String(filters.temporada));
-              if (filters.fecha_gte) params.set('from', String(filters.fecha_gte));
-              if (filters.fecha_lte) params.set('to', String(filters.fecha_lte));
-              if (filters.search) params.set('search', String(filters.search));
-              if (filters.estado) params.set('estado', String(filters.estado));
               if (filters.page) params.set('page', String(filters.page));
               if (filters.page_size) params.set('page_size', String(filters.page_size));
-              if (filters.tipo_mango) params.set('tipo_mango', String(filters.tipo_mango));
+              
               navigate(`/bodega/${bId}/capturas/${row.id}/clasificacion?${params.toString()}`);
             }}
           />
@@ -244,9 +210,3 @@ export default function CapturasPage() {
     </Box>
   );
 }
-
-
-
-
-
-

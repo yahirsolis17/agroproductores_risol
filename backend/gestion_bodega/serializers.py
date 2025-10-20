@@ -775,3 +775,53 @@ class CierreTemporadaSerializer(serializers.Serializer):
         if getattr(t, "finalizada", False):
             raise serializers.ValidationError("La temporada ya está finalizada.")
         return t
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# serializador de Tablero de Bodega
+class KpiOcupacionCamaraSerializer(serializers.Serializer):
+    camara = serializers.CharField()
+    capacidad_kg = serializers.FloatField()
+    ocupado_kg = serializers.FloatField()
+    pct = serializers.FloatField()
+
+
+class KpiSummarySerializer(serializers.Serializer):
+    recepcion = serializers.DictField(child=serializers.FloatField(), required=False)
+    stock = serializers.DictField(required=False)
+    ocupacion = serializers.DictField(required=False)
+    rotacion = serializers.DictField(required=False)
+    fefo = serializers.DictField(required=False, allow_null=True)
+    rechazos_qc = serializers.DictField(required=False)
+    lead_times = serializers.DictField(required=False)
+
+
+class QueueItemSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    ref = serializers.CharField()
+    fecha = serializers.DateTimeField()
+    huerta = serializers.CharField(allow_null=True)
+    kg = serializers.FloatField()
+    estado = serializers.CharField()
+    meta = serializers.DictField(required=False)
+
+
+class AlertItemSerializer(serializers.Serializer):
+    code = serializers.CharField()
+    title = serializers.CharField()
+    description = serializers.CharField()
+    severity = serializers.ChoiceField(choices=["info", "warning", "critical"])
+    link = serializers.DictField()  # { path, query }
+
+
+class DashboardSummaryResponseSerializer(serializers.Serializer):
+    kpis = KpiSummarySerializer()
+
+
+class DashboardQueueResponseSerializer(serializers.Serializer):
+    meta = serializers.DictField()
+    results = QueueItemSerializer(many=True)
+
+
+class DashboardAlertResponseSerializer(serializers.Serializer):
+    alerts = AlertItemSerializer(many=True)

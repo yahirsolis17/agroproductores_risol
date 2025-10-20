@@ -12,8 +12,7 @@ import type {
   Captura,
   CapturaCreatePayload,
   CapturaUpdatePayload,
-  CapturaFilters,
-  PaginationMeta
+  PaginationMeta,
 } from '../../modules/gestion_bodega/types/capturasTypes';
 
 // -------------------------------
@@ -22,7 +21,7 @@ import type {
 export interface CapturasState {
   items: Captura[];
   meta: PaginationMeta;
-  filters: CapturaFilters;
+  filters: { page: number; page_size: number; bodega?: number; temporada?: number };
   status: 'idle' | 'loading' | 'succeeded' | 'failed';
   saving: boolean;
   error?: string | null;
@@ -32,18 +31,7 @@ export interface CapturasState {
 const initialState: CapturasState = {
   items: [],
   meta: { count: 0, next: null, previous: null, page: 1, page_size: 20, total_pages: 1 },
-  filters: {
-    estado: 'activas', // 'activas' | 'archivadas' | 'todas'
-    search: '',
-    page: 1,
-    page_size: 20,
-    ordering: '-fecha,-id',
-    bodega: undefined,
-    temporada: undefined,
-    fecha_gte: undefined,
-    fecha_lte: undefined,
-    tipo_mango: undefined,
-  },
+  filters: { page: 1, page_size: 20, bodega: undefined, temporada: undefined },
   status: 'idle',
   saving: false,
   error: null,
@@ -60,7 +48,7 @@ export const fetchCapturas = createAsyncThunk<
 >('capturas/fetchCapturas', async (_void, { getState, rejectWithValue, signal }) => {
   try {
     const { filters } = (getState().capturas as CapturasState);
-    const resp = await listCapturas(filters, { signal });
+    const resp = await listCapturas(filters as any, { signal });
     // resp ya viene normalizado: { capturas, meta }
     return resp;
   } catch (err: any) {
@@ -135,34 +123,12 @@ const capturasSlice = createSlice({
   name: 'capturas',
   initialState,
   reducers: {
-    // --- filtros ---
-    setEstado(state, action: PayloadAction<CapturaFilters['estado']>) {
-      state.filters.estado = action.payload;
-      state.filters.page = 1;
-    },
-    setSearch(state, action: PayloadAction<string>) {
-      state.filters.search = action.payload;
-      state.filters.page = 1;
-    },
     setBodega(state, action: PayloadAction<number | undefined>) {
       state.filters.bodega = action.payload;
       state.filters.page = 1;
     },
     setTemporada(state, action: PayloadAction<number | undefined>) {
       state.filters.temporada = action.payload;
-      state.filters.page = 1;
-    },
-    setTipoMango(state, action: PayloadAction<string | undefined>) {
-      state.filters.tipo_mango = action.payload;
-      state.filters.page = 1;
-    },
-    setDateRange(state, action: PayloadAction<{ desde?: string; hasta?: string }>) {
-      state.filters.fecha_gte = action.payload.desde;
-      state.filters.fecha_lte = action.payload.hasta;
-      state.filters.page = 1;
-    },
-    setOrdering(state, action: PayloadAction<string>) {
-      state.filters.ordering = action.payload;
       state.filters.page = 1;
     },
     setPage(state, action: PayloadAction<number>) {
@@ -280,13 +246,8 @@ export const selectCapturaById = (id: number) => (s: RootState) =>
 // Exports
 // -------------------------------
 export const {
-  setEstado,
-  setSearch,
   setBodega,
   setTemporada,
-  setTipoMango,
-  setDateRange,
-  setOrdering,
   setPage,
   setPageSize,
   resetFilters,

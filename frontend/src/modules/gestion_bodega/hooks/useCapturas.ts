@@ -12,13 +12,8 @@ import {
   selectCapturasFilters,
   selectCapturasLoading,
   selectCapturasSaving,
-  setEstado,
-  setSearch,
   setBodega,
   setTemporada,
-  setTipoMango,
-  setDateRange,
-  setOrdering,
   setPage,
   setPageSize,
 } from '../../../global/store/capturasSlice';
@@ -62,15 +57,10 @@ export default function useCapturas() {
     [dispatch]
   );
 
-  // filtros
+  // filtros mínimos (solo contexto y paginación)
   const actions = {
-    setEstado: (v: 'activas'|'archivadas'|'todas') => dispatch(setEstado(v)),
-    setSearch: (v: string) => dispatch(setSearch(v)),
     setBodega: (v?: number) => dispatch(setBodega(v)),
     setTemporada: (v?: number) => dispatch(setTemporada(v)),
-    setTipoMango: (v?: string) => dispatch(setTipoMango(v)),
-    setDateRange: (desde?: string, hasta?: string) => dispatch(setDateRange({ desde, hasta })),
-    setOrdering: (v: string) => dispatch(setOrdering(v)),
     setPage: (v: number) => dispatch(setPage(v)),
     setPageSize: (v: number) => dispatch(setPageSize(v)),
   };
@@ -81,15 +71,10 @@ export default function useCapturas() {
     create, update, archivar, restaurar, remove,
     ...actions,
     get canOperate() {
-      const ctx = Boolean(filters?.bodega && filters?.temporada);
-      const semanaCerrada = Boolean((meta as any)?.semana_cerrada);
-      const temporadaFinalizada = Boolean((meta as any)?.temporada_finalizada);
-      return ctx && !semanaCerrada && !temporadaFinalizada;
+      return Boolean(filters?.bodega && filters?.temporada);
     },
     get reasonDisabled() {
       if (!filters?.bodega || !filters?.temporada) return 'Selecciona bodega y temporada.';
-      if ((meta as any)?.semana_cerrada) return 'Semana cerrada.';
-      if ((meta as any)?.temporada_finalizada) return 'Temporada finalizada.';
       return '';
     },
   };

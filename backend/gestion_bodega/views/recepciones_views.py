@@ -123,17 +123,9 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         "restaurar":        ["restore_recepcion"],
     }
 
-    # Filtros / búsqueda / ordenamiento
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = {
-        "bodega": ["exact"],
-        "temporada": ["exact"],
-        "fecha": ["exact", "gte", "lte"],
-        "tipo_mango": ["exact", "icontains"],
-        "is_active": ["exact"],
-    }
-    search_fields = ["huertero_nombre", "tipo_mango", "observaciones"]
-    ordering_fields = ["fecha", "id", "creado_en"]
+    # Filtros reducidos / ordenamiento
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = {"bodega": ["exact"], "temporada": ["exact"]}
     ordering = ["-fecha", "-id"]
 
     # ---------- permisos por acción ----------
@@ -149,23 +141,6 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         if self.action in ["retrieve", "update", "partial_update", "destroy", "archivar", "restaurar"]:
             return qs
 
-        params = self.request.query_params
-
-        # Filtro estado/archivado (alias coherente con resto del módulo)
-        estado = _normalize_estado(params.get("estado"), default="activas")
-        if estado == "activas":
-            qs = qs.filter(is_active=True)
-        elif estado == "archivadas":
-            qs = qs.filter(is_active=False)
-
-        # Búsqueda rica combinada adicional (además de SearchFilter)
-        if search := (params.get("search") or "").strip():
-            qs = qs.filter(
-                Q(huertero_nombre__icontains=search)
-                | Q(tipo_mango__icontains=search)
-                | Q(observaciones__icontains=search)
-            )
-
         return qs
 
     # ---------- LIST ----------
@@ -177,65 +152,8 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         else:
             ser = self.get_serializer(qs, many=True)
 
-        # Meta base de paginación
         meta = self.get_pagination_meta()
-
-        # -------- Meta extendido (flags de bloqueo y rango) --------
-        params = request.query_params
-
-        def _parse_int(v):
-            try:
-                return int(v) if v is not None and str(v).strip() != "" else None
-            except (TypeError, ValueError):
-                return None
-
-        def _parse_date(v):
-            try:
-                return date.fromisoformat(v) if v else None
-            except Exception:
-                try:
-                    return datetime.strptime(v, "%Y/%m/%d").date()
-                except Exception:
-                    try:
-                        return datetime.strptime(v, "%d-%m-%Y").date()
-                    except Exception:
-                        return None
-
-        bodega_id = _parse_int(params.get("bodega"))
-        temporada_id = _parse_int(params.get("temporada"))
-        f_from = _parse_date(params.get("fecha__gte") or params.get("from"))
-        f_to   = _parse_date(params.get("fecha__lte") or params.get("to"))
-
-        semana_rango = None
-        if f_from and f_to:
-            semana_rango = {"from": f_from.isoformat(), "to": f_to.isoformat()}
-
-        temporada_finalizada = False
-        if temporada_id:
-            tf = TemporadaBodega.objects.filter(id=temporada_id).values_list("finalizada", flat=True).first()
-            temporada_finalizada = bool(tf)
-
-        semana_cerrada = False
-        if bodega_id and temporada_id and f_from and f_to:
-            semana_cerrada = CierreSemanal.objects.filter(
-                bodega_id=bodega_id,
-                temporada_id=temporada_id,
-                is_active=True,
-                fecha_desde__lte=f_to,
-                fecha_hasta__gte=f_from,
-            ).exists()
-
-        meta.update({
-            "semana_cerrada": semana_cerrada,
-            "temporada_finalizada": temporada_finalizada,
-            "semana_rango": semana_rango,
-        })
-
-        payload = {
-            "recepciones": ser.data,   # alias estable para UI
-            "results": ser.data,       # compatibilidad
-            "meta": meta,
-        }
+        payload = {"recepciones": ser.data, "results": ser.data, "meta": meta}
         return self.notify(key="data_processed_success", data=payload, status_code=status.HTTP_200_OK)
 
     # ---------- CREATE ----------
@@ -427,3 +345,7 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
             data={"recepcion": self.get_serializer(instance).data},
             status_code=status.HTTP_200_OK,
         )
+
+
+
+

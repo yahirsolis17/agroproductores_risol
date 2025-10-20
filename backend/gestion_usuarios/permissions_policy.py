@@ -33,7 +33,7 @@ MODEL_CAPABILITIES: Dict[ModelKey, Set[Capability]] = {
 
     # gestion_bodega (por decidir lifecycle/export en varias)
     ("gestion_bodega", "bodega"): {"crud", "archive"},
-    ("gestion_bodega", "temporadabodega"): {"crud", "archive"},
+    ("gestion_bodega", "temporadabodega"): {"crud", "archive", "lifecycle"},
     ("gestion_bodega", "cliente"): {"crud", "archive"},
     ("gestion_bodega", "recepcion"): {"crud", "archive"},
     ("gestion_bodega", "clasificacionempaque"): {"crud", "export"},

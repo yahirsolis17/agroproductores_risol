@@ -7,8 +7,7 @@ import type {
   CapturaUpdateDTO,
   CapturaPatchDTO,
   CapturasListResponse,
-  CapturaSingleResponse,
-  CapturaListParams,
+  CapturaSingleResponse
 } from "../types/capturasTypes";
 
 const BASE = "/bodega/recepciones/";
@@ -86,24 +85,13 @@ function normalizeSinglePayload(res: any): CapturaSingleResponse {
 // -------------------------------
 // Query builder
 // -------------------------------
-function buildQuery(params: CapturaListParams = {}): Record<string, any> {
+function buildQuery(params: any = {}): Record<string, any> {
   const q: Record<string, any> = {};
 
   if (params.page) q.page = params.page;
   if (params.page_size) q.page_size = params.page_size;
-  if (params.ordering) q.ordering = params.ordering;
-
-  if (params.estado && params.estado !== "todas") q.estado = params.estado;
-
   if (params.bodega) q.bodega = params.bodega;
   if (params.temporada) q.temporada = params.temporada;
-
-  if (params.search) q.search = params.search;
-  if (params.tipo_mango) q.tipo_mango = params.tipo_mango;
-
-  if (params.fecha) q.fecha = params.fecha;
-  if (params.fecha_gte) q["fecha__gte"] = params.fecha_gte;
-  if (params.fecha_lte) q["fecha__lte"] = params.fecha_lte;
 
   return q;
 }
@@ -112,7 +100,7 @@ function buildQuery(params: CapturaListParams = {}): Record<string, any> {
 // Service API
 // -------------------------------
 export const capturasService = {
-  async list(params: CapturaListParams = {}, opts?: { signal?: AbortSignal }): Promise<CapturasListResponse> {
+  async list(params: any = {} , opts?: { signal?: AbortSignal }): Promise<CapturasListResponse> {
     try {
       const res = await api.get(BASE, { params: buildQuery(params), signal: opts?.signal });
       return normalizeListPayload(res);
@@ -211,3 +199,7 @@ export const patchCaptura = capturasService.patch;
 export const archivarCaptura = capturasService.archivar;
 export const restaurarCaptura = capturasService.restaurar;
 export const deleteCaptura = capturasService.remove;
+
+
+
+

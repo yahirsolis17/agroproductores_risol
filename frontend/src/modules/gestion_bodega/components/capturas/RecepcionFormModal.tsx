@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
-import Box from "@mui/material/Box";
+﻿import { useEffect, useMemo, useState } from "react";
 import Stack from "@mui/material/Stack";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
@@ -7,9 +6,9 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import TextField from "@mui/material/TextField";
+import { Save, Add } from "@mui/icons-material";
 
-import TipoMangoAutocomplete from "../../../../modules/gestion_bodega/components/common/TipoMangoAutocomplete";
-import QuantityInput from "../../../../modules/gestion_bodega/components/common/QuantityInput";
+// Reemplazamos autocomplete/cantidad custom por campos manuales simples
 import { formatDateISO, parseLocalDateStrict } from "../../../../global/utils/date";
 
 import type {
@@ -22,10 +21,9 @@ type Props = {
   open: boolean;
   onClose: () => void;
 
-  // si hay initial => es edición
+  // si hay initial => es ediciÃ³n
   initial?: Captura | null;
 
-  // para creación rápida, la página suele conocerlos
   bodegaId?: number;
   temporadaId?: number;
 
@@ -55,7 +53,7 @@ export default function RecepcionFormModal({
   const [cajas, setCajas] = useState<number>(initial?.cantidad_cajas ?? 1);
   const [obs, setObs] = useState<string>(initial?.observaciones ?? "");
 
-  // sincroniza al abrir en modo edición
+  // sincroniza al abrir en modo ediciÃ³n
   useEffect(() => {
     if (!open) return;
     if (initial) {
@@ -75,8 +73,9 @@ export default function RecepcionFormModal({
 
   const disabledSubmit = useMemo(() => {
     const d = parseLocalDateStrict(fecha);
-    return !fecha || isNaN(d.getTime()) || !huertero || !tipo || !(cajas > 0);
-  }, [fecha, huertero, tipo, cajas]);
+    // huertero es opcional; solo validamos fecha, tipo y cantidad > 0
+    return !fecha || isNaN(d.getTime()) || !tipo || !(cajas > 0);
+  }, [fecha, tipo, cajas]);
 
   const handleSubmit = async () => {
     const payloadBase = {
@@ -120,13 +119,24 @@ export default function RecepcionFormModal({
             onChange={(e) => setHuertero(e.target.value)}
           />
 
-          <Box>
-            <TipoMangoAutocomplete value={tipo} onChange={(v) => setTipo(v ?? "")} />
-          </Box>
+          <TextField
+            label="Tipo de mango"
+            size="small"
+            value={tipo}
+            onChange={(e) => setTipo(e.target.value)}
+          />
 
-          <Box>
-            <QuantityInput value={cajas} onChange={setCajas} min={1} />
-          </Box>
+          <TextField
+            label="Cantidad de cajas"
+            type="number"
+            size="small"
+            inputProps={{ min: 1 }}
+            value={Number.isFinite(cajas) ? cajas : ''}
+            onChange={(e) => {
+              const v = parseInt(e.target.value, 10);
+              setCajas(Number.isFinite(v) && v > 0 ? v : 0);
+            }}
+          />
 
           <TextField
             label="Observaciones"
@@ -139,11 +149,13 @@ export default function RecepcionFormModal({
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancelar</Button>
+        <Button onClick={onClose} sx={{ textTransform: 'none' }}>Cancelar</Button>
         <Button
           variant="contained"
           onClick={handleSubmit}
           disabled={disabledSubmit || (!isEdit && (!bodegaId || !temporadaId))}
+          startIcon={isEdit ? <Save /> : <Add />}
+          sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 500 }}
         >
           {isEdit ? "Guardar cambios" : "Crear"}
         </Button>
@@ -151,3 +163,6 @@ export default function RecepcionFormModal({
     </Dialog>
   );
 }
+
+
+
