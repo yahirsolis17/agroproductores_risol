@@ -75,9 +75,9 @@ function clamp01(n: number) {
   return Math.max(0, Math.min(1, n));
 }
 
-function fmtKg(n?: number) {
+function fmtCajas(n?: number) {
   const v = typeof n === "number" ? n : 0;
-  return new Intl.NumberFormat("es-MX", { maximumFractionDigits: 0 }).format(v) + " kg";
+  return new Intl.NumberFormat("es-MX", { maximumFractionDigits: 0 }).format(v) + " cajas";
 }
 
 function fmtPct01(n?: number | null) {
@@ -124,7 +124,7 @@ function mapSummaryToKpiCards(kpis: KpiSummary): KpiCard[] {
     cards.push({
       id: "recepcion",
       title: "Recepción",
-      primary: fmtKg(kpis.recepcion.kg_total),
+      primary: fmtCajas(kpis.recepcion.kg_total),
       secondary: `Apto ${fmtPct01(kpis.recepcion.apto_pct)} · Merma ${fmtPct01(kpis.recepcion.merma_pct)}`,
     });
   }
@@ -132,11 +132,11 @@ function mapSummaryToKpiCards(kpis: KpiSummary): KpiCard[] {
     cards.push({
       id: "stock",
       title: "Stock actual",
-      primary: fmtKg(kpis.stock.total_kg),
+      primary: fmtCajas(kpis.stock.total_kg),
       secondary:
         Object.entries(kpis.stock.por_madurez || {})
           .slice(0, 3)
-          .map(([k, v]) => `${k}: ${fmtKg(v)}`)
+          .map(([k, v]) => `${k}: ${fmtCajas(v)}`)
           .join(" · ") || "—",
     });
   }
@@ -154,7 +154,7 @@ function mapSummaryToKpiCards(kpis: KpiSummary): KpiCard[] {
       id: "rotacion",
       title: "Rotación",
       primary: `${kpis.rotacion.dias_promedio_bodega?.toFixed(1) ?? "0.0"} días`,
-      secondary: "Promedio ponderado por kg",
+      secondary: "Promedio ponderado por cajas",
     });
   }
   if (kpis.fefo) {
@@ -193,7 +193,7 @@ export type QueueRowUI = {
   ref: string;
   fecha: string; // ya formateada a zona local
   huerta: string;
-  kg: string;
+  kg: string;    // mantenemos la clave por compatibilidad, pero muestra "cajas"
   estado: string;
   chips: string[]; // tags (madurez, calidad, cámara, SLA...)
 };
@@ -211,7 +211,7 @@ function mapQueueToUI(rows: QueueItem[]): QueueRowUI[] {
       ref: r.ref,
       fecha: fmtDateTimeISO(r.fecha),
       huerta: r.huerta ?? "—",
-      kg: fmtKg(r.kg),
+      kg: fmtCajas(r.kg), // visualmente "cajas"
       estado: r.estado,
       chips,
     };
@@ -311,14 +311,23 @@ export function useTableroBodega({ temporadaId }: UseTableroArgs) {
       }),
     retry: DEFAULTS.RETRY,
     staleTime: DEFAULTS.STALE_MS,
-    // React Query v5: 'keepPreviousData' fue eliminado.
-    // Para comportamiento similar, puedes usar 'placeholderData' si lo necesitas.
   });
 
   const queueUI = useMemo(() => {
-    const data = queueQ.data as DashboardQueueResponse | undefined; // tipado explícito para TS v5
+    const data = queueQ.data as DashboardQueueResponse | undefined;
+
+    const metaSrc = (data?.meta ?? {}) as any;
+    const meta = {
+      page: metaSrc.page ?? filters.page,
+      page_size: metaSrc.page_size ?? filters.page_size,
+      total: metaSrc.total ?? metaSrc.count ?? 0,
+      pages: metaSrc.pages ?? metaSrc.total_pages,
+      next: metaSrc.next,
+      previous: metaSrc.previous,
+    };
+
     return {
-      meta: data?.meta ?? { page: filters.page, page_size: filters.page_size, total: 0 },
+      meta,
       rows: mapQueueToUI(data?.results ?? []),
     };
   }, [queueQ.data, filters.page, filters.page_size]);

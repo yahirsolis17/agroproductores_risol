@@ -52,17 +52,24 @@ export interface QueueItem {
   ref: string;
   fecha: string; // ISO
   huerta: string | null;
-  kg: number;
+  kg: number;    // el backend manda "kg"; en UI lo mostramos como "cajas"
   estado: string;
   meta?: Record<string, any>;
 }
 
 export interface DashboardQueueResponse {
   meta: {
+    // forma usada por UI previa
     page: number;
     page_size: number;
-    total: number;
+    total?: number;
     pages?: number;
+
+    // forma real del backend (GenericPagination)
+    count?: number;
+    total_pages?: number;
+    next?: string | null;
+    previous?: string | null;
   };
   results: QueueItem[];
 }
@@ -84,7 +91,7 @@ export interface DashboardAlertResponse {
 
 /**
  * Filtros que viajan al backend (DTO).
- * Ojo: los campos de UI (ej. busquedas libres) no se incluyen aquí.
+ * Ojo: los campos de UI (ej. búsquedas libres) no se incluyen aquí.
  */
 export interface TableroFiltersDTO {
   huerta_id: number | null;

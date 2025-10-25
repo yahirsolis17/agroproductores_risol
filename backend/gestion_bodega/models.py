@@ -808,6 +808,10 @@ class CierreSemanal(TimeStampedModel):
         indexes = [
             Index(fields=["bodega", "temporada", "fecha_desde", "fecha_hasta"], name="idx_cierre_rango"),
         ]
+        permissions = (
+            ("close_week", "Puede cerrar semana"),
+            ("view_dashboard", "Puede ver el tablero de bodega"),
+        )
 
     def __str__(self) -> str:
         return f"Cierre {self.iso_semana} ({self.fecha_desde}→{self.fecha_hasta})"

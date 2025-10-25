@@ -41,6 +41,8 @@ import QuickActions from "../components/tablero/QuickActions";
 import ResumenRecepciones from "../components/tablero/ResumenRecepciones";
 import ResumenInventarios from "../components/tablero/ResumenInventarios";
 import ResumenLogistica from "../components/tablero/ResumenLogistica";
+import WeekSwitcher from "../components/common/WeekSwitcher";
+import { formatDateISO, parseLocalDateStrict } from "../../../global/utils/date";
 
 // ───────────────────────────────────────────────────────────────────────────────
 // Anim presets (suaves; sin parpadeo)
@@ -82,6 +84,28 @@ function withTemporada(href: string, temporadaId: number) {
   }
   return url.pathname + "?" + url.searchParams.toString();
 }
+
+// Helpers ISO (lunes–domingo) para rango por semana
+const startOfISOWeek = (d: Date) => {
+  const date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const day = date.getDay(); // 0=Sun,1=Mon,...
+  const diff = (day + 6) % 7; // days since Monday
+  date.setDate(date.getDate() - diff);
+  return date;
+};
+const endOfISOWeek = (d: Date) => {
+  const s = startOfISOWeek(d);
+  return new Date(s.getFullYear(), s.getMonth(), s.getDate() + 6);
+};
+
+// Deriva {from,to} ISO en base a los filtros actuales o "hoy"
+const deriveWeekFromFilters = (f: TableroFilters) => {
+  const baseISO = f.fecha_desde || f.fecha_hasta || formatDateISO(new Date());
+  const base = parseLocalDateStrict(baseISO);
+  const from = startOfISOWeek(base);
+  const to = endOfISOWeek(base);
+  return { from: formatDateISO(from), to: formatDateISO(to) };
+};
 
 const TableroBodega: React.FC = () => {
   const navigate = useNavigate();
@@ -141,6 +165,9 @@ const TableroBodega: React.FC = () => {
   // Estado local de filtros (editables antes de aplicar)
   const [localFilters, setLocalFilters] = useState<TableroFilters>(filters);
   useEffect(() => setLocalFilters(filters), [filters]);
+
+  // Rango de semana derivado de filtros
+  const weekValue = useMemo(() => deriveWeekFromFilters(localFilters), [localFilters]);
 
   // Handlers de filtros
   const handleFilterChange = useCallback(
@@ -261,6 +288,15 @@ const TableroBodega: React.FC = () => {
         {/* Toolbar de filtros */}
         <Box p={2} display="flex" alignItems="center" gap={1.5} flexWrap="wrap">
           <FilterAltIcon fontSize="small" color="action" />
+
+          {/* Week switcher (sin "semana 0", ISO lunes–domingo) */}
+          <WeekSwitcher
+            value={weekValue}
+            onChange={(r) => {
+              setLocalFilters((prev) => ({ ...prev, fecha_desde: r.from, fecha_hasta: r.to }));
+            }}
+          />
+
           <TextField
             size="small"
             label="Huerta ID"
@@ -410,7 +446,7 @@ const TableroBodega: React.FC = () => {
       </MotionPaper>
 
       {/* (Opcional) Resumen de costos recientes — habilítalo cuando lo conectes */}
-      {/*
+      {/* 
       <MotionPaper variant="outlined" elevation={0} {...fadeInUp} sx={{ p: 2, borderRadius: 2 }}>
         <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Gastos recientes</Typography>

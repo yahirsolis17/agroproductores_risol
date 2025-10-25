@@ -1,8 +1,13 @@
 ﻿# gestion_bodega/views/cierres_views.py
+from __future__ import annotations
+
+from typing import List, Dict
+
 from rest_framework import viewsets, status, serializers
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
+from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 
 from gestion_bodega.models import CierreSemanal, TemporadaBodega
@@ -11,6 +16,12 @@ from gestion_bodega.permissions import HasModulePermission
 from gestion_bodega.utils.audit import ViewSetAuditMixin
 from agroproductores_risol.utils.pagination import GenericPagination
 from gestion_bodega.utils.notification_handler import NotificationHandler
+from gestion_bodega.utils.semana import (
+    tz_today_mx,
+    season_week_index,
+    season_week_bounds,
+)
+
 class NotificationMixin:
     """Shortcut para devolver respuestas con el formato del frontend."""
 
@@ -42,6 +53,7 @@ class NotificationMixin:
             'total_pages': getattr(page.paginator, 'num_pages', None),
         }
 
+
 class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewSet):
     """
     Endpoints de cierre semanal y cierre de temporada.
@@ -58,6 +70,8 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
         "temporada": ["finalize_temporadabodega"],
         # Listado de cierres semanales
         "list": ["view_cierresemanal"],
+        # Índice de semanas (consulta)
+        "index": ["view_cierresemanal"],
     }
 
     filter_backends = [DjangoFilterBackend]
@@ -78,6 +92,66 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
                 status_code=status.HTTP_200_OK
             )
         return self.notify(key="data_processed_success", data={"results": data}, status_code=status.HTTP_200_OK)
+
+    # ──────────────────────────────────────────────────────────────────────
+    # NUEVO: índice de semanas de una temporada (rango, cerrada/abierta)
+    # GET /bodega/cierres/index/?temporada=:id
+    # ──────────────────────────────────────────────────────────────────────
+    @action(detail=False, methods=["get"], url_path="index")
+    def index(self, request):
+        temporada_id = request.query_params.get("temporada")
+        if not temporada_id:
+            return self.notify(
+                key="validation_error",
+                data={"errors": {"temporada": ["Este campo es obligatorio."]}},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        temporada = get_object_or_404(TemporadaBodega, pk=temporada_id)
+
+        # Construcción de semanas desde el ancla (lunes ISO de la semana de inicio)
+        # hasta hoy (o fecha_fin si existe). Semana 1 es la que arranca en el lunes ISO
+        # que contiene a fecha_inicio (recortada al inicio real de temporada).
+        today = tz_today_mx()
+        last_day = min(temporada.fecha_fin or today, today)
+
+        weeks: List[Dict] = []
+        ix = 1
+        while True:
+            desde, hasta, code = season_week_bounds(temporada, ix)
+            # detener cuando el rango ya no intersecta la temporada
+            if desde > last_day:
+                break
+
+            # ¿Existe cierre activo que cubra este rango?
+            cerrada = CierreSemanal.objects.filter(
+                bodega=temporada.bodega,
+                temporada=temporada,
+                is_active=True,
+                fecha_desde__lte=hasta,
+                fecha_hasta__gte=desde,
+            ).exists()
+
+            weeks.append({
+                "semana_ix": ix,
+                "desde": str(desde),
+                "hasta": str(hasta),
+                "iso_semana": code,
+                "is_closed": cerrada,
+            })
+            ix += 1
+
+        current_ix = season_week_index(last_day, temporada.fecha_inicio)
+
+        return self.notify(
+            key="data_processed_success",
+            data={
+                "temporada": {"id": temporada.id, "año": temporada.año, "finalizada": temporada.finalizada},
+                "current_semana_ix": current_ix,
+                "weeks": weeks,
+            },
+            status_code=status.HTTP_200_OK,
+        )
 
     @action(detail=False, methods=["post"])
     def semanal(self, request):
@@ -129,4 +203,3 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
             data={"temporada": {"id": temporada.id, "año": temporada.año, "finalizada": True}},
             status_code=status.HTTP_200_OK
         )
-

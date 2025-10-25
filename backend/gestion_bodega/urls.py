@@ -51,7 +51,7 @@ urlpatterns = [
     # Reportes
     path("reportes/semanal/", ReporteSemanalView.as_view(), name="reporte-semanal"),
     path("reportes/temporada/", ReporteTemporadaView.as_view(), name="reporte-temporada"),
-        # ENDPOINTS DEL TABLERO (SIEMPRE REQUIEREN temporada=:id)
+    # ENDPOINTS DEL TABLERO (SIEMPRE REQUIEREN temporada=:id)
     path("tablero/summary/", TableroBodegaSummaryView.as_view(), name="tablero-summary"),
     path("tablero/queues/", TableroBodegaQueuesView.as_view(), name="tablero-queues"),
     path("tablero/alerts/", TableroBodegaAlertsView.as_view(), name="tablero-alerts"),

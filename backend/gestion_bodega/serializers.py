@@ -1,5 +1,5 @@
 # backend/gestion_bodega/serializers.py
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, time
 from decimal import Decimal
 
 from django.db.models import Sum, Q
@@ -51,6 +51,26 @@ def _semana_bloqueada(bodega: Bodega, temporada: TemporadaBodega, fecha) -> bool
 
 def _temporada_activa(temporada: TemporadaBodega) -> bool:
     return getattr(temporada, "is_active", True) and not getattr(temporada, "finalizada", False)
+
+class DateOrDateTimeField(serializers.Field):
+    """
+    Serializa tanto date como datetime a ISO-8601 con hora 00:00:00 si viene date.
+    También deja pasar strings ISO (por compatibilidad).
+    """
+    def to_representation(self, value):
+        # datetime → iso
+        if isinstance(value, datetime):
+            return value.isoformat()
+        # date → iso con T00:00:00
+        if hasattr(value, "year") and hasattr(value, "month") and hasattr(value, "day"):
+            return datetime.combine(value, time(0, 0, 0)).isoformat()
+        # string ya formateado (best-effort)
+        if isinstance(value, str):
+            # si viene "YYYY-MM-DD", normalizamos a "YYYY-MM-DDT00:00:00"
+            if len(value) == 10 and value[4] == "-" and value[7] == "-":
+                return f"{value}T00:00:00"
+            return value
+        return None
 
 # ───────────────────────────────────────────────────────────────────────────
 # Bodega / Temporada / Cliente
@@ -799,12 +819,12 @@ class KpiSummarySerializer(serializers.Serializer):
 class QueueItemSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     ref = serializers.CharField()
-    fecha = serializers.DateTimeField()
+    # antes: fecha = serializers.DateTimeField()
+    fecha = DateOrDateTimeField()
     huerta = serializers.CharField(allow_null=True)
     kg = serializers.FloatField()
     estado = serializers.CharField()
     meta = serializers.DictField(required=False)
-
 
 class AlertItemSerializer(serializers.Serializer):
     code = serializers.CharField()

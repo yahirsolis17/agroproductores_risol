@@ -13,10 +13,11 @@ import type {
  * Enforce backend envelope and throw on !success.
  */
 function ensureSuccess<T>(resp: any): T {
-  const { success, data, message, message_key } = resp || {};
+  const { success, data, notification } = resp || {};
   if (!success) {
-    const error = new Error(message || "Operación no exitosa");
-    (error as any).message_key = message_key;
+    const message = notification?.message || "Operación no exitosa";
+    const error = new Error(message);
+    (error as any).message_key = notification?.key;
     (error as any).payload = resp;
     throw error;
   }
