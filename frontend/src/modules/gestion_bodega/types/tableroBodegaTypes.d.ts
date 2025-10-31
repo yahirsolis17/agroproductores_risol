@@ -1,6 +1,6 @@
 // frontend/src/modules/gestion_bodega/types/tableroBodegaTypes.d.ts
 
-export type QueueType = "recepciones" | "ubicaciones" | "despachos";
+export type QueueType = "recepciones" | "inventarios" | "despachos";
 export type AlertSeverity = "info" | "warning" | "critical";
 
 export interface KpiSummary {

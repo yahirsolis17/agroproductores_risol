@@ -1,462 +1,650 @@
 // frontend/src/modules/gestion_bodega/pages/TableroBodega.tsx
-// Página principal del Tablero de Bodega (corazón operativo).
-// - Consumo de useTableroBodega (Redux UI + React Query datos).
-// - Reusa los 6 componentes clave: KpiCards, AvisosPanel, QuickActions,
-//   ResumenRecepciones, ResumenInventarios, ResumenLogistica.
-// - Filtros globales minimalistas integrados.
-// - Animaciones sutiles (framer-motion), sin flicker.
-// - Navegación con preservación de ?temporada=<id>.
-// - MUI + tu TableLayout/PermissionButton style.
+// FUSIÓN PREMIUM: Diseño empresarial + animaciones fluidas + resúmenes integrados
+// - Shell único (Paper) con glass sutil, sin “huecos” visuales
+// - Header ejecutivo: título, chips (Temporada/Semana) y QuickActions (dense + pill)
+// - Subheader sticky con WeekSwitcher + acciones (Iniciar/Finalizar/Reporte)
+// - KPIs + 3 secciones con tablas-resumen: Recepciones, Inventarios, Logística
+// - URL sincronizada con ?isoSemana=YYYY-Www y preservando temporada/bodega
+// - Sin crear archivos nuevos; integra ResumenRecepciones/Inventarios/Logistica
 
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Box,
   Paper,
   Typography,
-  Divider,
-  Tabs,
-  Tab,
   Chip,
   Alert,
   AlertTitle,
-  TextField,
-  MenuItem,
-  Checkbox,
-  FormControlLabel,
-  IconButton,
   Tooltip,
+  IconButton,
   Button,
+  Divider,
+  alpha,
+  useTheme,
 } from "@mui/material";
+import { useDispatch } from "react-redux";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+
+// Icons
 import RefreshIcon from "@mui/icons-material/Refresh";
-import FilterAltIcon from "@mui/icons-material/FilterAlt";
+import PlayArrowIcon from "@mui/icons-material/PlayArrow";
+import StopIcon from "@mui/icons-material/Stop";
+import AssessmentIcon from "@mui/icons-material/Assessment";
+import WarehouseIcon from "@mui/icons-material/Warehouse";
+import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
+import InventoryIcon from "@mui/icons-material/Inventory";
+import LocalShippingIcon from "@mui/icons-material/LocalShipping";
+import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 
 import { useTableroBodega } from "../hooks/useTableroBodega";
-import type { QueueType } from "../types/tableroBodegaTypes";
-
 import KpiCards from "../components/tablero/KpiCards";
-import AvisosPanel from "../components/tablero/AvisosPanel";
+import WeekSwitcher from "../components/common/WeekSwitcher";
 import QuickActions from "../components/tablero/QuickActions";
+
+// Resúmenes integrados
 import ResumenRecepciones from "../components/tablero/ResumenRecepciones";
 import ResumenInventarios from "../components/tablero/ResumenInventarios";
 import ResumenLogistica from "../components/tablero/ResumenLogistica";
-import WeekSwitcher from "../components/common/WeekSwitcher";
+import type { QueueRowUI } from "../hooks/useTableroBodega";
+
+import { setBreadcrumbs } from "../../../global/store/breadcrumbsSlice";
 import { formatDateISO, parseLocalDateStrict } from "../../../global/utils/date";
 
-// ───────────────────────────────────────────────────────────────────────────────
-// Anim presets (suaves; sin parpadeo)
-const fadeInUp = {
-  initial: { opacity: 0, y: 8 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.18, ease: "easeOut" } },
-  exit: { opacity: 0, y: -8, transition: { duration: 0.12 } },
+// ─────────────────────────────────────────────────────────────────────────────
+// Animaciones (combinadas de ambas propuestas, suavizadas)
+const pageTransition = {
+  initial: { opacity: 0, y: 8, scale: 0.99 },
+  animate: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] },
+  },
+  exit: {
+    opacity: 0,
+    y: -8,
+    scale: 0.99,
+    transition: { duration: 0.25, ease: "easeIn" },
+  },
 };
 
-const MotionPaper = motion(Paper);
-
-// ───────────────────────────────────────────────────────────────────────────────
-// Filtros locales (alineados con el hook/slice)
-type TableroFilters = {
-  huerta_id?: number | null;
-  fecha_desde?: string | null; // YYYY-MM-DD
-  fecha_hasta?: string | null; // YYYY-MM-DD
-  estado_lote?: string | null;
-  calidad?: string | null;
-  madurez?: string | null;
-  solo_pendientes?: boolean;
-  page: number;
-  page_size: number;
-  order_by?: string | null;
+const sectionTransition = {
+  initial: { opacity: 0, x: 14 },
+  animate: {
+    opacity: 1,
+    x: 0,
+    transition: { duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] },
+  },
 };
 
-// Mapa de tabs → queueType
-const QUEUE_TABS: { key: QueueType; label: string }[] = [
-  { key: "recepciones", label: "Recepciones" },
-  { key: "ubicaciones", label: "Ubicaciones" },
-  { key: "despachos", label: "Despachos" },
-];
+const staggerChildren = {
+  animate: {
+    transition: { staggerChildren: 0.08 },
+  },
+};
 
-// Util para preservar ?temporada en navegación
-function withTemporada(href: string, temporadaId: number) {
+// ─────────────────────────────────────────────────────────────────────────────
+// Utilidades ISO WEEK (sin cambios)
+function pad2(n: number) {
+  return n < 10 ? `0${n}` : String(n);
+}
+function getISODay(d: Date) {
+  const day = d.getDay();
+  return day === 0 ? 7 : day;
+}
+function getISOWeekYear(d: Date) {
+  const date = new Date(d.getTime());
+  date.setHours(0, 0, 0, 0);
+  const thursday = new Date(date.getTime());
+  thursday.setDate(date.getDate() + (4 - getISODay(date)));
+  return thursday.getFullYear();
+}
+function getISOWeek(d: Date) {
+  const date = new Date(d.getTime());
+  date.setHours(0, 0, 0, 0);
+  const thursday = new Date(date.getTime());
+  thursday.setDate(date.getDate() + (4 - getISODay(date)));
+  const yearStart = new Date(thursday.getFullYear(), 0, 1);
+  const week = Math.floor(((thursday.getTime() - yearStart.getTime()) / 86400000 + getISODay(yearStart) + 3) / 7);
+  return week;
+}
+function dateToIsoKey(d: Date) {
+  const year = getISOWeekYear(d);
+  const week = getISOWeek(d);
+  return `${year}-W${pad2(week)}`;
+}
+function isoWeekToMonday(year: number, week: number) {
+  const jan4 = new Date(year, 0, 4);
+  const jan4ISODow = getISODay(jan4);
+  const mondayWeek1 = new Date(jan4);
+  mondayWeek1.setDate(jan4.getDate() - (jan4ISODow - 1));
+  const mondayTarget = new Date(mondayWeek1);
+  mondayTarget.setDate(mondayWeek1.getDate() + (week - 1) * 7);
+  return mondayTarget;
+}
+function isoKeyToRange(isoKey: string) {
+  const m = isoKey.match(/^(\d{4})-W(\d{2})$/);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const week = Number(m[2]);
+  const monday = isoWeekToMonday(year, week);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return { from: formatDateISO(monday), to: formatDateISO(sunday) };
+}
+function prettyRange(fromISO: string, toISO: string) {
+  const from = parseLocalDateStrict(fromISO);
+  const to = parseLocalDateStrict(toISO);
+  const fmt = (d: Date) =>
+    d.toLocaleDateString(undefined, {
+      day: "2-digit",
+      month: "short",
+      year: d.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined,
+    });
+  return `${fmt(from)} – ${fmt(to)}`;
+}
+// Preservar query params
+function withPreservedParams(href: string, preserveKeys: string[] = ["temporada", "isoSemana", "bodega"]) {
+  const current = new URLSearchParams(window.location.search);
   const url = new URL(href, window.location.origin);
-  if (!url.searchParams.has("temporada")) {
-    url.searchParams.set("temporada", String(temporadaId));
-  }
-  return url.pathname + "?" + url.searchParams.toString();
+  preserveKeys.forEach((k) => {
+    if (current.has(k) && !url.searchParams.has(k)) {
+      url.searchParams.set(k, current.get(k)!);
+    }
+  });
+  return url.pathname + (url.searchParams.toString() ? `?${url.searchParams.toString()}` : "");
 }
 
-// Helpers ISO (lunes–domingo) para rango por semana
-const startOfISOWeek = (d: Date) => {
-  const date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const day = date.getDay(); // 0=Sun,1=Mon,...
-  const diff = (day + 6) % 7; // days since Monday
-  date.setDate(date.getDate() - diff);
-  return date;
-};
-const endOfISOWeek = (d: Date) => {
-  const s = startOfISOWeek(d);
-  return new Date(s.getFullYear(), s.getMonth(), s.getDate() + 6);
-};
-
-// Deriva {from,to} ISO en base a los filtros actuales o "hoy"
-const deriveWeekFromFilters = (f: TableroFilters) => {
-  const baseISO = f.fecha_desde || f.fecha_hasta || formatDateISO(new Date());
-  const base = parseLocalDateStrict(baseISO);
-  const from = startOfISOWeek(base);
-  const to = endOfISOWeek(base);
-  return { from: formatDateISO(from), to: formatDateISO(to) };
-};
-
+// ─────────────────────────────────────────────────────────────────────────────
+// Componente principal
 const TableroBodega: React.FC = () => {
+  const theme = useTheme();
+  const dispatch = useDispatch();
   const navigate = useNavigate();
-  const [sp] = useSearchParams();
+  const [sp, setSp] = useSearchParams();
+
   const temporadaParam = sp.get("temporada");
   const temporadaId = Number(temporadaParam);
   const bodegaParam = sp.get("bodega");
-  const bodegaId = bodegaParam ? Number(bodegaParam) : NaN;
+  const bodegaId = bodegaParam ? Number(bodegaParam) : undefined;
 
-  // Guard de temporada → fallback a /bodega (coherente con tu ruta actual)
+  // Guard: sin temporada → regresar a /bodega
   useEffect(() => {
     if (!temporadaParam || Number.isNaN(temporadaId) || temporadaId <= 0) {
       navigate("/bodega", { replace: true });
     }
   }, [temporadaParam, temporadaId, navigate]);
 
-  if (!temporadaParam || Number.isNaN(temporadaId) || temporadaId <= 0) {
-    return (
-      <Box p={2}>
-        <Alert severity="warning">
-          <AlertTitle>Temporada inválida</AlertTitle>
-          Redirigiendo a la lista de bodegas…
-        </Alert>
-      </Box>
-    );
-  }
+  // Tomamos el hook como any para poder leer listas-resumen si ya existen (no rompemos tipos actuales)
+  const hookAny = useTableroBodega({ temporadaId }) as any;
 
-  // Hook maestro (datos + estado UI + actions)
+  // Extraemos lo ya tipado/estable
   const {
-    // Datos
     kpiCards,
-    alerts,
-    queue,
-
-    // Loading/errores
     isLoadingSummary,
-    isLoadingAlerts,
-    isLoadingQueue,
     errorSummary,
-    errorAlerts,
-    errorQueue,
-
-    // Estado/UI
-    activeQueue,
-    filters,
-
-    // Acciones
-    onChangeQueue,
-    onApplyFilters,
-    onChangePage, // ✅ nombre correcto del hook
-    refetchAll,
     refetchSummary,
-    refetchAlerts,
-    refetchQueue,
-  } = useTableroBodega({ temporadaId });
+    filters,
+    onApplyFilters,
+  } = hookAny;
 
-  // Estado local de filtros (editables antes de aplicar)
-  const [localFilters, setLocalFilters] = useState<TableroFilters>(filters);
-  useEffect(() => setLocalFilters(filters), [filters]);
+  // ISO semana controlada por URL
+  const [isoSemana, setIsoSemana] = useState<string | null>(() => sp.get("isoSemana"));
 
-  // Rango de semana derivado de filtros
-  const weekValue = useMemo(() => deriveWeekFromFilters(localFilters), [localFilters]);
+  // Seed inicial de isoSemana
+  useEffect(() => {
+    if (!isoSemana) {
+      const baseISO = filters?.fecha_desde || filters?.fecha_hasta || formatDateISO(new Date());
+      const base = parseLocalDateStrict(baseISO);
+      const key = dateToIsoKey(base);
+      setIsoSemana(key);
+      const next = new URLSearchParams(sp);
+      next.set("isoSemana", key);
+      setSp(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isoSemana, filters?.fecha_desde, filters?.fecha_hasta]);
 
-  // Handlers de filtros
-  const handleFilterChange = useCallback(
-    (patch: Partial<TableroFilters>) => {
-      setLocalFilters((prev) => ({ ...prev, ...patch }));
+  // Aplicar filtros when isoSemana cambia
+  useEffect(() => {
+    if (!isoSemana) return;
+    const range = isoKeyToRange(isoSemana);
+    if (!range) return;
+    onApplyFilters?.({
+      fecha_desde: range.from,
+      fecha_hasta: range.to,
+    });
+  }, [isoSemana, onApplyFilters]);
+
+  // Pretty range
+  const rangoPretty = useMemo(() => {
+    if (!filters?.fecha_desde || !filters?.fecha_hasta) return "";
+    return prettyRange(filters.fecha_desde, filters.fecha_hasta);
+  }, [filters?.fecha_desde, filters?.fecha_hasta]);
+
+  // Semana #
+  const semanaIndex = useMemo(() => {
+    if (!isoSemana) return null;
+    const m = isoSemana.match(/^(\d{4})-W(\d{2})$/);
+    return m ? Number(m[2]) : null;
+  }, [isoSemana]);
+
+  // Breadcrumbs
+  useEffect(() => {
+    const crumbs = [
+      { label: "Bodegas", path: "/bodega" },
+      {
+        label: `Temporada ${temporadaId}`,
+        path: `/bodega/${bodegaId ?? ""}/temporadas${bodegaId ? `?temporada=${temporadaId}` : ""}`,
+      },
+      { label: `Semana ${semanaIndex ?? "--"}`, path: "" },
+    ];
+    dispatch(setBreadcrumbs(crumbs));
+  }, [dispatch, temporadaId, bodegaId, semanaIndex]);
+
+  // WeekSwitcher handler (OutRange tolerante)
+  const handleWeekChange = useCallback(
+    (range: { from?: string; to?: string; isoSemana?: string | null }) => {
+      if (!range.from || !range.to) return;
+      const key = range.isoSemana || dateToIsoKey(parseLocalDateStrict(range.from));
+
+      setIsoSemana(key);
+      const next = new URLSearchParams(sp);
+      next.set("isoSemana", key);
+      setSp(next, { replace: false });
+
+      onApplyFilters?.({ fecha_desde: range.from, fecha_hasta: range.to, isoSemana: key });
     },
-    []
+    [onApplyFilters, sp, setSp]
   );
 
-  const applyFilters = useCallback(() => {
-    const { huerta_id, fecha_desde, fecha_hasta, estado_lote, calidad, madurez, solo_pendientes } = localFilters;
-    onApplyFilters({
-      huerta_id: huerta_id ?? undefined,
-      fecha_desde: fecha_desde || undefined,
-      fecha_hasta: fecha_hasta || undefined,
-      estado_lote: estado_lote || undefined,
-      calidad: calidad || undefined,
-      madurez: madurez || undefined,
-      solo_pendientes: !!solo_pendientes,
-    });
-  }, [localFilters, onApplyFilters]);
-
-  const clearFilters = useCallback(() => {
-    onApplyFilters({
-      huerta_id: undefined,
-      fecha_desde: undefined,
-      fecha_hasta: undefined,
-      estado_lote: undefined,
-      calidad: undefined,
-      madurez: undefined,
-      solo_pendientes: false,
-    });
-  }, [onApplyFilters]);
-
-  // Navegación unificada (preserva temporada)
+  // Navegación preservando query relevantes
   const goto = useCallback(
     (href: string) => {
-      navigate(withTemporada(href, temporadaId));
+      navigate(withPreservedParams(href, ["temporada", "isoSemana", "bodega"]));
     },
-    [navigate, temporadaId]
+    [navigate]
   );
 
-  // Header chip
+  // Chips
   const temporadaChipLabel = useMemo(() => `Temporada ${temporadaId}`, [temporadaId]);
 
+  // Valor inicial para WeekSwitcher
+  const weekValue = useMemo(() => {
+    const fallback = isoSemana ? isoKeyToRange(isoSemana) : null;
+    const from = filters?.fecha_desde || fallback?.from || formatDateISO(new Date());
+    const to = filters?.fecha_hasta || fallback?.to || formatDateISO(new Date());
+    return { from, to };
+  }, [filters?.fecha_desde, filters?.fecha_hasta, isoSemana]);
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // Datos para resúmenes (con fallback seguro si el hook aún no los expone)
+  const emptyMeta = { page: 1, page_size: 10, total: 0 };
+
+  const recepRows: QueueRowUI[] = (hookAny?.queueRecepciones?.rows ?? []) as QueueRowUI[];
+  const recepMeta = hookAny?.queueRecepciones?.meta ?? emptyMeta;
+  const recepLoading: boolean = !!hookAny?.isLoadingRecepciones;
+  const onPageRecep = (n: number) => hookAny?.onPageChangeRecepciones?.(n);
+
+  const invRows: QueueRowUI[] = (hookAny?.queueInventarios?.rows ?? []) as QueueRowUI[];
+  const invMeta = hookAny?.queueInventarios?.meta ?? emptyMeta;
+  const invLoading: boolean = !!hookAny?.isLoadingInventarios;
+  const onPageInv = (n: number) => hookAny?.onPageChangeInventarios?.(n);
+
+  const logRows: QueueRowUI[] = (hookAny?.queueLogistica?.rows ?? []) as QueueRowUI[];
+  const logMeta = hookAny?.queueLogistica?.meta ?? emptyMeta;
+  const logLoading: boolean = !!hookAny?.isLoadingLogistica;
+  const onPageLog = (n: number) => hookAny?.onPageChangeLogistica?.(n);
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // Render
   return (
-    <Box p={2} display="flex" flexDirection="column" gap={2}>
-      {/* Header */}
-      <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1.5}>
-        <Box display="flex" alignItems="center" gap={1.5}>
-          <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: 0.2 }}>
-            Bodega · Tablero
-          </Typography>
-          <Chip label={temporadaChipLabel} size="small" color="primary" variant="outlined" />
-        </Box>
+    <Box
+      p={2.5}
+      component={motion.div}
+      {...pageTransition}
+      sx={{
+        background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.02)} 0%, ${alpha(
+          theme.palette.background.default,
+          0.8
+        )} 100%)`,
+        minHeight: "100vh",
+      }}
+    >
+      {/* Shell único premium (no hay “huecos” visuales) */}
+      <Paper
+        elevation={1}
+        sx={{
+          borderRadius: 4,
+          overflow: "hidden",
+          backgroundColor: "background.paper",
+          border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+          boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
+        }}
+      >
+        {/* Header premium con gradiente y QuickActions compactas */}
+        <Box
+          sx={{
+            background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.03)} 0%, ${alpha(
+              theme.palette.background.paper,
+              1
+            )} 100%)`,
+            p: { xs: 2, md: 3 },
+            borderBottom: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
+          }}
+        >
+          <Box
+            display="grid"
+            gap={2}
+            sx={{ gridTemplateColumns: { xs: "1fr", md: "1fr auto" }, alignItems: "center" }}
+          >
+            <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
+              <Box
+                sx={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 2,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
+                  boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.3)}`,
+                }}
+              >
+                <TrendingUpIcon sx={{ color: "white", fontSize: 22 }} />
+              </Box>
+              <Box>
+                <Typography
+                  variant="h4"
+                  sx={{
+                    fontWeight: 800,
+                    letterSpacing: -0.5,
+                    background: `linear-gradient(135deg, ${theme.palette.text.primary} 0%, ${alpha(
+                      theme.palette.text.primary,
+                      0.8
+                    )} 100%)`,
+                    backgroundClip: "text",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    lineHeight: 1.1,
+                    mb: 0.5,
+                  }}
+                >
+                  Tablero de Bodega
+                </Typography>
+                <Box display="flex" alignItems="center" gap={1.5}>
+                  <Chip
+                    label={temporadaChipLabel}
+                    size="small"
+                    color="primary"
+                    variant="filled"
+                    sx={{
+                      fontWeight: 600,
+                      backgroundColor: alpha(theme.palette.primary.main, 0.12),
+                      color: theme.palette.primary.dark,
+                    }}
+                  />
+                  <Chip
+                    icon={<CalendarTodayIcon fontSize="small" />}
+                    label={`Semana ${semanaIndex ?? "--"}`}
+                    size="small"
+                    variant="outlined"
+                    sx={{
+                      borderColor: alpha(theme.palette.primary.main, 0.3),
+                      color: theme.palette.primary.dark,
+                    }}
+                  />
+                </Box>
+              </Box>
+            </Box>
 
-        {/* Acciones rápidas (permisos internos en el componente) */}
-        {Number.isFinite(bodegaId) && bodegaId > 0 && (
-          <QuickActions bodegaId={bodegaId} temporadaId={temporadaId} onNavigate={goto} />
-        )}
-      </Box>
-
-      {/* KPIs */}
-      <AnimatePresence initial={false}>
-        <MotionPaper key="kpis" variant="outlined" elevation={0} {...fadeInUp} sx={{ p: 2, borderRadius: 2 }}>
-          {errorSummary ? (
-            <Alert
-              severity="error"
-              action={
-                <Button color="inherit" size="small" onClick={() => refetchSummary()}>
-                  Reintentar
-                </Button>
-              }
-            >
-              <AlertTitle>Error al cargar KPIs</AlertTitle>
-              {String((errorSummary as any)?.message ?? "Error desconocido")}
-            </Alert>
-          ) : (
-            <KpiCards items={kpiCards} loading={isLoadingSummary} />
-          )}
-        </MotionPaper>
-      </AnimatePresence>
-
-      {/* Avisos */}
-      <AnimatePresence initial={false}>
-        <MotionPaper key="avisos" variant="outlined" elevation={0} {...fadeInUp} sx={{ p: 2, borderRadius: 2 }}>
-          <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-              Avisos de operación
-            </Typography>
-            <Tooltip title="Refrescar avisos">
-              <IconButton onClick={() => refetchAlerts()} size="small">
-                <RefreshIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
+            {bodegaId && bodegaId > 0 && (
+              <Box display="flex" justifyContent={{ xs: "flex-start", md: "flex-end" }}>
+                <QuickActions bodegaId={bodegaId} temporadaId={temporadaId} onNavigate={goto} dense pill />
+              </Box>
+            )}
           </Box>
+        </Box>
 
-          {errorAlerts ? (
-            <Alert
-              severity="error"
-              action={
-                <Button color="inherit" size="small" onClick={() => refetchAlerts()}>
-                  Reintentar
-                </Button>
-              }
-            >
-              <AlertTitle>Error al cargar avisos</AlertTitle>
-              {String((errorAlerts as any)?.message ?? "Error desconocido")}
-            </Alert>
-          ) : (
-            <AvisosPanel alerts={alerts} loading={isLoadingAlerts} onNavigate={goto} />
-          )}
-        </MotionPaper>
-      </AnimatePresence>
-
-      {/* Filtros + Tabs + Tabla de la cola activa */}
-      <MotionPaper variant="outlined" elevation={0} {...fadeInUp} sx={{ borderRadius: 2 }}>
-        {/* Toolbar de filtros */}
-        <Box p={2} display="flex" alignItems="center" gap={1.5} flexWrap="wrap">
-          <FilterAltIcon fontSize="small" color="action" />
-
-          {/* Week switcher (sin "semana 0", ISO lunes–domingo) */}
-          <WeekSwitcher
-            value={weekValue}
-            onChange={(r) => {
-              setLocalFilters((prev) => ({ ...prev, fecha_desde: r.from, fecha_hasta: r.to }));
-            }}
-          />
-
-          <TextField
-            size="small"
-            label="Huerta ID"
-            value={localFilters.huerta_id ?? ""}
-            onChange={(e) => handleFilterChange({ huerta_id: e.target.value ? Number(e.target.value) : undefined })}
-            sx={{ width: 130 }}
-            inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
-          />
-          <TextField
-            size="small"
-            type="date"
-            label="Desde"
-            InputLabelProps={{ shrink: true }}
-            value={localFilters.fecha_desde ?? ""}
-            onChange={(e) => handleFilterChange({ fecha_desde: e.target.value || undefined })}
-            sx={{ width: 160 }}
-          />
-          <TextField
-            size="small"
-            type="date"
-            label="Hasta"
-            InputLabelProps={{ shrink: true }}
-            value={localFilters.fecha_hasta ?? ""}
-            onChange={(e) => handleFilterChange({ fecha_hasta: e.target.value || undefined })}
-            sx={{ width: 160 }}
-          />
-          <TextField
-            size="small"
-            label="Estado lote"
-            value={localFilters.estado_lote ?? ""}
-            onChange={(e) => handleFilterChange({ estado_lote: e.target.value || undefined })}
-            sx={{ width: 160 }}
-            select
+        {/* Subheader sticky: WeekSwitcher + acciones */}
+        <Box
+          sx={{
+            position: "sticky",
+            top: 0,
+            zIndex: (t) => t.zIndex.appBar - 1,
+            px: { xs: 2, md: 3 },
+            py: 2,
+            backgroundColor: alpha(theme.palette.background.paper, 0.96),
+            borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+            backdropFilter: "saturate(180%) blur(12px)",
+            WebkitBackdropFilter: "saturate(180%) blur(12px)",
+          }}
+        >
+          <Box
+            display="flex"
+            alignItems="center"
+            gap={3}
+            flexWrap="wrap"
+            component={motion.div}
+            variants={staggerChildren}
+            initial="initial"
+            animate="animate"
           >
-            <MenuItem value="">(cualquiera)</MenuItem>
-            <MenuItem value="pendiente">Pendiente</MenuItem>
-            <MenuItem value="en_proceso">En proceso</MenuItem>
-            <MenuItem value="completo">Completo</MenuItem>
-          </TextField>
-          <TextField
-            size="small"
-            label="Calidad"
-            value={localFilters.calidad ?? ""}
-            onChange={(e) => handleFilterChange({ calidad: e.target.value || undefined })}
-            sx={{ width: 140 }}
-            placeholder="A/B/C…"
-          />
-          <TextField
-            size="small"
-            label="Madurez"
-            value={localFilters.madurez ?? ""}
-            onChange={(e) => handleFilterChange({ madurez: e.target.value || undefined })}
-            sx={{ width: 140 }}
-            placeholder="verde/óptima/madura…"
-          />
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={!!localFilters.solo_pendientes}
-                onChange={(e) => handleFilterChange({ solo_pendientes: e.target.checked })}
+            <Box component={motion.div} variants={sectionTransition}>
+              <WeekSwitcher value={weekValue} onChange={handleWeekChange} />
+            </Box>
+
+            <Box display="flex" alignItems="center" gap={1.5} component={motion.div} variants={sectionTransition}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ fontWeight: 500, display: "flex", alignItems: "center", gap: 1 }}
+              >
+                <CalendarTodayIcon fontSize="small" />
+                {rangoPretty || "—"}
+              </Typography>
+              <Chip
+                label="Activa"
                 size="small"
+                sx={{
+                  fontWeight: 700,
+                  fontSize: "0.6875rem",
+                  height: 24,
+                  borderRadius: 1.5,
+                  background: alpha(theme.palette.success.main, 0.12),
+                  color: theme.palette.success.dark,
+                  border: `1px solid ${alpha(theme.palette.success.main, 0.3)}`,
+                  "& .MuiChip-label": { px: 1.5 },
+                }}
               />
-            }
-            label="Solo pendientes"
-          />
+            </Box>
 
-          <Box flexGrow={1} />
+            <Box flexGrow={1} />
 
-          <Button onClick={clearFilters} variant="text" size="small">
-            Limpiar
-          </Button>
-          <Button onClick={applyFilters} variant="contained" size="small">
-            Aplicar filtros
-          </Button>
-          <Tooltip title="Refrescar todo">
-            <IconButton onClick={() => refetchAll()} size="small">
-              <RefreshIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+            <Box display="flex" alignItems="center" gap={1} component={motion.div} variants={sectionTransition}>
+              <Tooltip title="Iniciar semana (pendiente de reglas)">
+                <span>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    startIcon={<PlayArrowIcon />}
+                    disabled
+                    sx={{
+                      borderRadius: 3,
+                      textTransform: "none",
+                      fontWeight: 600,
+                      px: 2,
+                      boxShadow: "none",
+                    }}
+                  >
+                    Iniciar
+                  </Button>
+                </span>
+              </Tooltip>
+
+              <Tooltip title="Finalizar semana (pendiente de reglas)">
+                <span>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<StopIcon />}
+                    disabled
+                    sx={{
+                      borderRadius: 3,
+                      textTransform: "none",
+                      fontWeight: 600,
+                      px: 2,
+                      borderWidth: 2,
+                      "&:hover": { borderWidth: 2 },
+                    }}
+                  >
+                    Finalizar
+                  </Button>
+                </span>
+              </Tooltip>
+
+              <Tooltip title="Reporte (disponible al final del módulo)">
+                <span>
+                  <Button
+                    size="small"
+                    variant="text"
+                    startIcon={<AssessmentIcon />}
+                    disabled
+                    sx={{ borderRadius: 3, textTransform: "none", fontWeight: 600, px: 2 }}
+                  >
+                    Reporte
+                  </Button>
+                </span>
+              </Tooltip>
+            </Box>
+          </Box>
         </Box>
 
-        <Divider />
+        {/* Cuerpo semanal con transiciones */}
+        <Box sx={{ px: { xs: 2, md: 3 }, py: 1 }}>
+          <AnimatePresence initial={false} mode="wait">
+            <Box component={motion.div} key={isoSemana || weekValue.from} {...pageTransition}>
+              {/* KPIs */}
+              <Box sx={{ py: 3 }}>
+                {errorSummary ? (
+                  <Alert
+                    severity="error"
+                    sx={{
+                      borderRadius: 3,
+                      border: `1px solid ${alpha(theme.palette.error.main, 0.2)}`,
+                      backgroundColor: alpha(theme.palette.error.main, 0.04),
+                      mb: 2,
+                    }}
+                    action={
+                      <Button color="inherit" size="small" onClick={() => refetchSummary()} sx={{ fontWeight: 600 }}>
+                        Reintentar
+                      </Button>
+                    }
+                  >
+                    <AlertTitle sx={{ fontWeight: 700 }}>Error al cargar KPIs</AlertTitle>
+                    {String((errorSummary as any)?.message ?? "Error desconocido")}
+                  </Alert>
+                ) : (
+                  <KpiCards items={kpiCards} loading={isLoadingSummary} />
+                )}
+              </Box>
 
-        {/* Tabs de colas */}
-        <Box display="flex" alignItems="center" justifyContent="space-between" px={2} pt={1.5}>
-          <Tabs
-            value={QUEUE_TABS.findIndex((t) => t.key === activeQueue)}
-            onChange={(_, idx) => onChangeQueue(QUEUE_TABS[idx].key)}
-            variant="scrollable"
-            scrollButtons="auto"
-          >
-            {QUEUE_TABS.map((t) => (
-              <Tab key={t.key} label={t.label} />
-            ))}
-          </Tabs>
+              <Divider
+                sx={{ my: 3, borderColor: alpha(theme.palette.divider, 0.1), borderWidth: 1 }}
+              />
 
-          <Typography variant="body2" color="text.secondary">
-            {queue?.meta?.total ?? 0} registros
+              {/* Sección: Recepciones */}
+              <Box sx={{ py: 3 }} component={motion.section} variants={sectionTransition} initial="initial" animate="animate">
+                <SectionHeader
+                  icon={<InventoryIcon sx={{ color: "primary.main", fontSize: 28 }} />}
+                  title="Recepciones"
+                  subtitle={`Semana ${semanaIndex ?? "—"}`}
+                />
+                <Paper variant="outlined" sx={{ p: { xs: 1.5, md: 2 }, borderRadius: 3 }}>
+                  <ResumenRecepciones
+                    rows={recepRows}
+                    meta={recepMeta}
+                    loading={recepLoading}
+                    onPageChange={onPageRecep}
+                  />
+                </Paper>
+              </Box>
+
+              <Divider
+                sx={{ my: 3, borderColor: alpha(theme.palette.divider, 0.1), borderWidth: 1 }}
+              />
+
+              {/* Sección: Inventarios */}
+              <Box sx={{ py: 3 }} component={motion.section} variants={sectionTransition} initial="initial" animate="animate">
+                <SectionHeader
+                  icon={<WarehouseIcon sx={{ color: "primary.main", fontSize: 28 }} />}
+                  title="Inventarios"
+                  subtitle={`Semana ${semanaIndex ?? "—"}`}
+                />
+                <Paper variant="outlined" sx={{ p: { xs: 1.5, md: 2 }, borderRadius: 3 }}>
+                  <ResumenInventarios rows={invRows} meta={invMeta} loading={invLoading} onPageChange={onPageInv} />
+                </Paper>
+              </Box>
+
+              <Divider
+                sx={{ my: 3, borderColor: alpha(theme.palette.divider, 0.1), borderWidth: 1 }}
+              />
+
+              {/* Sección: Logística */}
+              <Box sx={{ py: 3 }} component={motion.section} variants={sectionTransition} initial="initial" animate="animate">
+                <SectionHeader
+                  icon={<LocalShippingIcon sx={{ color: "primary.main", fontSize: 28 }} />}
+                  title="Despachos / Logística"
+                  subtitle={`Semana ${semanaIndex ?? "—"}`}
+                />
+                <Paper variant="outlined" sx={{ p: { xs: 1.5, md: 2 }, borderRadius: 3 }}>
+                  <ResumenLogistica rows={logRows} meta={logMeta} loading={logLoading} onPageChange={onPageLog} />
+                </Paper>
+              </Box>
+            </Box>
+          </AnimatePresence>
+        </Box>
+      </Paper>
+    </Box>
+  );
+};
+
+// Header compacto reutilizable para cada bloque
+const SectionHeader: React.FC<{ icon: React.ReactNode; title: string; subtitle?: string }> = ({
+  icon,
+  title,
+  subtitle,
+}) => {
+  const theme = useTheme();
+  return (
+    <Box display="flex" alignItems="center" justifyContent="space-between" mb={2.5}>
+      <Box display="flex" alignItems="center" gap={1.5}>
+        {icon}
+        <Box>
+          <Typography variant="h6" sx={{ fontWeight: 700, color: theme.palette.text.primary }}>
+            {title}
           </Typography>
-        </Box>
-
-        <Divider sx={{ mb: 1 }} />
-
-        {/* Tabla de la cola activa */}
-        <Box p={2}>
-          {errorQueue ? (
-            <Alert
-              severity="error"
-              action={
-                <Button color="inherit" size="small" onClick={() => refetchQueue()}>
-                  Reintentar
-                </Button>
-              }
-            >
-              <AlertTitle>Error al cargar la lista</AlertTitle>
-              {String((errorQueue as any)?.message ?? "Error desconocido")}
-            </Alert>
-          ) : (
-            <>
-              {activeQueue === "recepciones" && (
-                <ResumenRecepciones
-                  rows={queue.rows}
-                  meta={queue.meta}
-                  loading={isLoadingQueue}
-                  onPageChange={onChangePage}
-                />
-              )}
-              {activeQueue === "ubicaciones" && (
-                <ResumenInventarios
-                  rows={queue.rows}
-                  meta={queue.meta}
-                  loading={isLoadingQueue}
-                  onPageChange={onChangePage}
-                />
-              )}
-              {activeQueue === "despachos" && (
-                <ResumenLogistica
-                  rows={queue.rows}
-                  meta={queue.meta}
-                  loading={isLoadingQueue}
-                  onPageChange={onChangePage}
-                />
-              )}
-            </>
+          {subtitle && (
+            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+              {subtitle}
+            </Typography>
           )}
         </Box>
-      </MotionPaper>
-
-      {/* (Opcional) Resumen de costos recientes — habilítalo cuando lo conectes */}
-      {/* 
-      <MotionPaper variant="outlined" elevation={0} {...fadeInUp} sx={{ p: 2, borderRadius: 2 }}>
-        <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Gastos recientes</Typography>
-          <Tooltip title="Refrescar">
-            <IconButton size="small"><RefreshIcon fontSize="small" /></IconButton>
-          </Tooltip>
-        </Box>
-        <ResumenGastos items={[]} loading={false} />
-      </MotionPaper>
-      */}
+      </Box>
+      <Tooltip title="Refrescar bloque (cuando se conecte al servicio)">
+        <IconButton
+          size="medium"
+          disabled
+          sx={{
+            border: `1px solid ${alpha(theme.palette.divider, 0.3)}`,
+            borderRadius: 2,
+            "&:hover": { backgroundColor: alpha(theme.palette.primary.main, 0.05) },
+          }}
+        >
+          <RefreshIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
     </Box>
   );
 };

@@ -1,7 +1,6 @@
 // src/modules/gestion_bodega/components/tablero/ResumenRecepciones.tsx
-import React from "react";
-import { Chip } from "@mui/material";
-import { motion, AnimatePresence } from "framer-motion";
+import React, { useMemo } from "react";
+import {  Tooltip } from "@mui/material";
 import { TableLayout, Column } from "../../../../components/common/TableLayout";
 import type { QueueRowUI } from "../../hooks/useTableroBodega";
 
@@ -10,34 +9,43 @@ type Props = {
   meta: { page: number; page_size: number; total: number };
   loading?: boolean;
   onPageChange: (n: number) => void;
+  onRowClick?: (row: QueueRowUI) => void; // opcional: abrir detalle
+  striped?: boolean;
+  dense?: boolean;
 };
 
-const MotionDiv = motion.div;
 
-const columns: Column<QueueRowUI>[] = [
-  { label: "Ref", key: "ref", render: (r) => r.ref },
-  { label: "Fecha", key: "fecha", render: (r) => r.fecha },
-  { label: "Huerta", key: "huerta", render: (r) => r.huerta },
-  { label: "Kg", key: "kg", align: "right", render: (r) => r.kg },
-  { label: "Estado", key: "estado", render: (r) => r.estado },
-  {
-    label: "Tags",
-    key: "chips",
-    render: (r) => (
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        <AnimatePresence initial={false}>
-          {r.chips.map((c, i) => (
-            <MotionDiv key={i} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <Chip size="small" label={c} variant="outlined" />
-            </MotionDiv>
-          ))}
-        </AnimatePresence>
-      </div>
-    ),
-  },
-];
+const ResumenRecepciones: React.FC<Props> = ({
+  rows,
+  meta,
+  loading,
+  onPageChange,
+  onRowClick,
+  striped = true,
+  dense = true,
+}) => {
+  // NOTA: Ref y Tags se quitaron para alinear con la vista principal:
+  // Fecha | Huertero | Tipo | Cajas | Notas | Estado
+  const columns = useMemo<Column<QueueRowUI>[]>(() => [
+    { label: "Fecha", key: "fecha", render: (r) => r.fecha },
+    { label: "Huertero", key: "huertero", render: (r) => r.huertero ?? "—" },
+    { label: "Tipo", key: "tipo", render: (r) => r.tipo ?? "—" },
+    { label: "Cajas", key: "kg", align: "right", render: (r) => r.kg },
+    {
+      label: "Notas",
+      key: "notas",
+      render: (r) =>
+        r.notas ? (
+          <Tooltip title={r.notas}>
+            <span style={{ display: "inline-block", maxWidth: 260, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {r.notas}
+            </span>
+          </Tooltip>
+        ) : "—",
+    },
+    { label: "Estado", key: "estado", render: (r) => r.estado },
+  ], []);
 
-const ResumenRecepciones: React.FC<Props> = ({ rows, meta, loading, onPageChange }) => {
   return (
     <TableLayout<QueueRowUI>
       columns={columns}
@@ -48,8 +56,9 @@ const ResumenRecepciones: React.FC<Props> = ({ rows, meta, loading, onPageChange
       onPageChange={onPageChange}
       serverSidePagination
       loading={!!loading}
-      striped
-      dense
+      striped={striped}
+      dense={dense}
+      onRowClick={onRowClick}
     />
   );
 };

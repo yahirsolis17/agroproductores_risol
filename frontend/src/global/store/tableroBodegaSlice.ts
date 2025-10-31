@@ -1,10 +1,22 @@
-// frontend/src/modules/gestion_bodega/global/store/tableroBodegaSlice.ts
+// frontend/src/global/store/tableroBodegaSlice.ts
+// Slice de UI para Tablero de Bodega con soporte de isoSemana (YYYY-Www)
+// - Mantiene compatibilidad con filtros actuales (fecha_desde/fecha_hasta)
+// - Permite setFilters({ isoSemana }) y deriva el rango en el hook (fase 3)
 
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import type { QueueType, TableroUIState } from "../../modules/gestion_bodega/types/tableroBodegaTypes";
-import type { RootState } from "./store"; // ← tu tipo raíz del store
+import type { RootState } from "./store";
 
-const DEFAULT_FILTERS: TableroUIState["filters"] = {
+// ───────────────────────────────────────────────────────────────────────────────
+// Extensión local de filtros para incluir isoSemana sin romper tipos globales
+type FiltersBase = TableroUIState["filters"];
+export type FiltersExt = FiltersBase & {
+  /** Semana ISO seleccionada (YYYY-Www). Opcional: si llega, el hook deriva from/to. */
+  isoSemana?: string | null;
+};
+
+// Defaults (con isoSemana opcional). Se mantiene order_by por compatibilidad.
+const DEFAULT_FILTERS: FiltersExt = {
   huerta_id: null,
   fecha_desde: null,
   fecha_hasta: null,
@@ -15,9 +27,13 @@ const DEFAULT_FILTERS: TableroUIState["filters"] = {
   page: 1,
   page_size: 10,
   order_by: "fecha_recepcion:asc,id:asc",
+  isoSemana: null,
 };
 
-const initialState: TableroUIState = {
+// Estado extendido localmente (sin romper el tipo exportado aguas arriba)
+type TableroStateExt = Omit<TableroUIState, "filters"> & { filters: FiltersExt };
+
+const initialState: TableroStateExt = {
   temporadaId: null,
   filters: DEFAULT_FILTERS,
   activeQueue: "recepciones",
@@ -41,6 +57,7 @@ const tableroBodegaSlice = createSlice({
       state.temporadaId = action.payload;
       state.lastVisitedAt = Date.now();
     },
+
     setActiveQueue(state, action: PayloadAction<QueueType>) {
       state.activeQueue = action.payload;
       // Ajusta order_by por cola si es el default genérico
@@ -54,7 +71,9 @@ const tableroBodegaSlice = createSlice({
         }
       }
     },
-    setFilters(state, action: PayloadAction<Partial<TableroUIState["filters"]>>) {
+
+    // Permite parches parciales; acepta también isoSemana
+    setFilters(state, action: PayloadAction<Partial<FiltersExt>>) {
       state.filters = { ...state.filters, ...action.payload };
     },
 
@@ -66,6 +85,7 @@ const tableroBodegaSlice = createSlice({
       else if (what === "alerts") state.refreshAlertsAt = now;
       else state.refreshQueuesAt[what] = now;
     },
+
     applyRefetch(state) {
       state.refreshSummaryAt = null;
       state.refreshAlertsAt = null;
@@ -92,6 +112,8 @@ export const {
   resetTablero,
 } = tableroBodegaSlice.actions;
 
-export const selectTablero = (state: RootState) => state.tableroBodega as TableroUIState;
+// Nota: mantenemos la firma original para no romper imports existentes.
+// A nivel de uso, el objeto real contiene filters: FiltersExt.
+export const selectTablero = (state: RootState) => state.tableroBodega as unknown as TableroStateExt;
 
 export default tableroBodegaSlice.reducer;

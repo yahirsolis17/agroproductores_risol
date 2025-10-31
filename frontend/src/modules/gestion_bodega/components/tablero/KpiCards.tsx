@@ -22,6 +22,8 @@ const KpiCards: React.FC<Props> = ({ items, loading }) => {
 
   return (
     <Box
+      role="region"
+      aria-label="Indicadores de la semana"
       display="grid"
       gap={2}
       sx={{
@@ -37,7 +39,16 @@ const KpiCards: React.FC<Props> = ({ items, loading }) => {
         {(loading ? placeholders : items).map((it, idx) => {
           const key = loading ? `ph-${idx}` : (it as KpiCard).id;
           return (
-            <MotionPaper key={key} elevation={1} variant="outlined" {...fadeIn} sx={{ borderRadius: 2 }}>
+            <MotionPaper
+              key={key}
+              elevation={1}
+              variant="outlined"
+              {...fadeIn}
+              sx={{
+                borderRadius: 2,
+                minHeight: 112, // altura estable para evitar saltos en carga
+              }}
+            >
               <Box px={2} py={2}>
                 {loading ? (
                   <>
@@ -47,10 +58,19 @@ const KpiCards: React.FC<Props> = ({ items, loading }) => {
                   </>
                 ) : (
                   <>
-                    <Typography variant="subtitle2" color="text.secondary" gutterBottom sx={{ fontWeight: 600 }}>
+                    <Typography
+                      variant="subtitle2"
+                      color="text.secondary"
+                      gutterBottom
+                      sx={{ fontWeight: 600, letterSpacing: 0.2 }}
+                    >
                       {(it as KpiCard).title}
                     </Typography>
-                    <Typography variant="h5" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+                    <Typography
+                      variant="h5"
+                      sx={{ fontWeight: 700, lineHeight: 1.2 }}
+                      aria-live="polite"
+                    >
                       {(it as KpiCard).primary}
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>

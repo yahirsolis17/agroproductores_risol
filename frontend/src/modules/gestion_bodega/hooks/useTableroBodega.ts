@@ -1,5 +1,7 @@
 // frontend/src/modules/gestion_bodega/hooks/useTableroBodega.ts
 /* Hook maestro del Tablero — unifica constants + mappers + filtros + colas
+   Ahora con soporte de isoSemana (YYYY-Www) → deriva fecha_desde/fecha_hasta,
+   y expone colas para los tres resúmenes (recepciones/inventarios/logistica).
    SIN dayjs: usa Date + Intl nativo para formateo en America/Mexico_City. */
 
 import { useMemo, useCallback } from "react";
@@ -30,6 +32,11 @@ import {
   applyRefetch,
 } from "../../../global/store/tableroBodegaSlice";
 
+import {
+  isoKeyToRange,
+  guessIsoFromRange,
+} from "./useIsoWeek";
+
 // ───────────────────────────────────────────────────────────────────────────────
 // CONFIG (constants centralizados)
 const LOCAL_TZ = "America/Mexico_City";
@@ -47,7 +54,7 @@ const DEFAULTS = {
   PAGE_SIZE: 10,
   ORDER_BY: {
     recepciones: "fecha_recepcion:asc,id:asc",
-    ubicaciones: "prioridad:desc,recepcion__fecha_recepcion:desc",
+    ubicaciones: "prioridad:desc,recepcion__fecha_recepcion:desc", // inventarios
     despachos: "fecha_programada:asc,id:asc",
   } as Record<QueueType, string>,
   RETRY: 1,
@@ -102,7 +109,6 @@ function formatDDMMYYYY_HHmm(date: Date, timeZone = LOCAL_TZ) {
 }
 
 function fmtDateTimeISO(iso: string) {
-  // Un Date construido desde ISO con 'Z' se interpreta en UTC y Intl lo renderiza en la zona pedida
   return formatDDMMYYYY_HHmm(new Date(iso), LOCAL_TZ);
 }
 
@@ -188,18 +194,23 @@ function mapSummaryToKpiCards(kpis: KpiSummary): KpiCard[] {
   return cards;
 }
 
+// ✨ Extendemos la fila UI para Recepciones (huertero, tipo, notas)
 export type QueueRowUI = {
   id: number;
   ref: string;
-  fecha: string; // ya formateada a zona local
-  huerta: string;
-  kg: string;    // mantenemos la clave por compatibilidad, pero muestra "cajas"
+  fecha: string;        // formateada a zona local
+  huerta?: string;      // útil en inventarios
+  huertero?: string;    // requerido en recepciones (si existe)
+  tipo?: string;        // ej. variedad: manila, ataulfo...
+  notas?: string;       // notas libres
+  kg: string;           // se muestra como "cajas"
   estado: string;
-  chips: string[]; // tags (madurez, calidad, cámara, SLA...)
+  chips: string[];      // tags (madurez, calidad, cámara, SLA...)
 };
 
 function mapQueueToUI(rows: QueueItem[]): QueueRowUI[] {
   return (rows || []).map((r) => {
+    const anyR = r as any; // para campos opcionales que quizá vengan en meta u objeto plano
     const chips: string[] = [];
     if (r.meta?.madurez) chips.push(`Madurez: ${r.meta.madurez}`);
     if (r.meta?.calidad) chips.push(`Calidad: ${r.meta.calidad}`);
@@ -210,8 +221,11 @@ function mapQueueToUI(rows: QueueItem[]): QueueRowUI[] {
       id: r.id,
       ref: r.ref,
       fecha: fmtDateTimeISO(r.fecha),
-      huerta: r.huerta ?? "—",
-      kg: fmtCajas(r.kg), // visualmente "cajas"
+      huerta: (anyR.huerta ?? r.meta?.huerta) ?? undefined,
+      huertero: (anyR.huertero ?? r.meta?.huertero) ?? undefined,
+      tipo: (anyR.tipo ?? r.meta?.tipo) ?? undefined,
+      notas: (anyR.notas ?? r.meta?.notas) ?? undefined,
+      kg: fmtCajas(r.kg),
       estado: r.estado,
       chips,
     };
@@ -242,7 +256,7 @@ function mapAlertsToUI(temporadaId: number, data: DashboardAlertResponse): Alert
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
-/** HOOK principal (unifica filtros + colas + mappers + constants) */
+/** HOOK principal */
 type UseTableroArgs = { temporadaId: number };
 
 export function useTableroBodega({ temporadaId }: UseTableroArgs) {
@@ -254,10 +268,27 @@ export function useTableroBodega({ temporadaId }: UseTableroArgs) {
     dispatch(setTemporadaId(temporadaId));
   }
 
-  const filters = state.filters;
+  // ── Normalización de filtros con soporte isoSemana
+  const rawFilters = state.filters as typeof state.filters & { isoSemana?: string | null };
+  const normalizedFilters = useMemo(() => {
+    const f = { ...rawFilters };
+    if (f.isoSemana) {
+      const r = isoKeyToRange(f.isoSemana);
+      if (r) {
+        f.fecha_desde = r.from;
+        f.fecha_hasta = r.to;
+      }
+    } else {
+      const inferred = guessIsoFromRange({ from: f.fecha_desde ?? undefined, to: f.fecha_hasta ?? undefined });
+      f.isoSemana = inferred ?? f.isoSemana;
+    }
+    return f;
+  }, [rawFilters]);
+
+  const filters = normalizedFilters;
   const queueType: QueueType = state.activeQueue;
 
-  // Firma compacta de filtros para invalidación de cache (evita objetos en queryKey)
+  // Firma compacta de filtros para invalidación de cache (incluye isoSemana)
   const filtersSignature = useMemo(() => {
     const p = {
       huerta_id: filters.huerta_id,
@@ -270,6 +301,7 @@ export function useTableroBodega({ temporadaId }: UseTableroArgs) {
       page: filters.page,
       page_size: filters.page_size,
       order_by: filters.order_by,
+      isoSemana: (filters as any).isoSemana ?? null,
     };
     return JSON.stringify(p);
   }, [filters]);
@@ -282,7 +314,7 @@ export function useTableroBodega({ temporadaId }: UseTableroArgs) {
     staleTime: DEFAULTS.STALE_MS,
   });
 
-  const kpiCards = useMemo<KpiCard[]>(() => {
+  const kpiCards = useMemo(() => {
     const kpis = summaryQ.data?.kpis;
     if (!kpis) return [];
     return mapSummaryToKpiCards(kpis);
@@ -301,7 +333,7 @@ export function useTableroBodega({ temporadaId }: UseTableroArgs) {
     return mapAlertsToUI(temporadaId, alertsQ.data);
   }, [alertsQ.data, temporadaId]);
 
-  // ===== QUEUES (paginadas) =====
+  // ===== QUEUE ACTIVA (para otras pantallas que la usen) =====
   const queueQ = useQuery<DashboardQueueResponse>({
     queryKey: QUERY_KEYS.queue(temporadaId, queueType, filtersSignature),
     queryFn: () =>
@@ -332,8 +364,81 @@ export function useTableroBodega({ temporadaId }: UseTableroArgs) {
     };
   }, [queueQ.data, filters.page, filters.page_size]);
 
+  // ===== COLAS PARA LOS 3 RESÚMENES (simultáneas) =====
+  const recepcionesQ = useQuery<DashboardQueueResponse>({
+    queryKey: QUERY_KEYS.queue(temporadaId, "recepciones", filtersSignature + "|summary"),
+    queryFn: () =>
+      getDashboardQueues(temporadaId, "recepciones", {
+        ...filters,
+        order_by: DEFAULTS.ORDER_BY["recepciones"],
+      }),
+    retry: DEFAULTS.RETRY,
+    staleTime: DEFAULTS.STALE_MS,
+  });
+
+  const inventariosQ = useQuery<DashboardQueueResponse>({
+    queryKey: QUERY_KEYS.queue(temporadaId, "ubicaciones", filtersSignature + "|summary"),
+    queryFn: () =>
+      getDashboardQueues(temporadaId, "ubicaciones", {
+        ...filters,
+        order_by: DEFAULTS.ORDER_BY["ubicaciones"],
+      }),
+    retry: DEFAULTS.RETRY,
+    staleTime: DEFAULTS.STALE_MS,
+  });
+
+  const logisticaQ = useQuery<DashboardQueueResponse>({
+    queryKey: QUERY_KEYS.queue(temporadaId, "despachos", filtersSignature + "|summary"),
+    queryFn: () =>
+      getDashboardQueues(temporadaId, "despachos", {
+        ...filters,
+        order_by: DEFAULTS.ORDER_BY["despachos"],
+      }),
+    retry: DEFAULTS.RETRY,
+    staleTime: DEFAULTS.STALE_MS,
+  });
+
+  const queueRecepciones = useMemo(() => {
+    const data = recepcionesQ.data as DashboardQueueResponse | undefined;
+    const metaSrc = (data?.meta ?? {}) as any;
+    return {
+      meta: {
+        page: metaSrc.page ?? filters.page,
+        page_size: metaSrc.page_size ?? filters.page_size,
+        total: metaSrc.total ?? metaSrc.count ?? 0,
+      },
+      rows: mapQueueToUI(data?.results ?? []),
+    };
+  }, [recepcionesQ.data, filters.page, filters.page_size]);
+
+  const queueInventarios = useMemo(() => {
+    const data = inventariosQ.data as DashboardQueueResponse | undefined;
+    const metaSrc = (data?.meta ?? {}) as any;
+    return {
+      meta: {
+        page: metaSrc.page ?? filters.page,
+        page_size: metaSrc.page_size ?? filters.page_size,
+        total: metaSrc.total ?? metaSrc.count ?? 0,
+      },
+      rows: mapQueueToUI(data?.results ?? []),
+    };
+  }, [inventariosQ.data, filters.page, filters.page_size]);
+
+  const queueLogistica = useMemo(() => {
+    const data = logisticaQ.data as DashboardQueueResponse | undefined;
+    const metaSrc = (data?.meta ?? {}) as any;
+    return {
+      meta: {
+        page: metaSrc.page ?? filters.page,
+        page_size: metaSrc.page_size ?? filters.page_size,
+        total: metaSrc.total ?? metaSrc.count ?? 0,
+      },
+      rows: mapQueueToUI(data?.results ?? []),
+    };
+  }, [logisticaQ.data, filters.page, filters.page_size]);
+
   // ───────────────────────────────────────────────────────────────────────────
-  // Acciones UI (unificadas — reemplazan useQueue + useTableroFilters)
+  // Acciones UI (unificadas)
   const onChangeQueue = useCallback(
     (type: QueueType) => {
       dispatch(setActiveQueue(type));
@@ -356,9 +461,22 @@ export function useTableroBodega({ temporadaId }: UseTableroArgs) {
     [dispatch]
   );
 
+  // onApplyFilters acepta isoSemana y/o from/to.
   const onApplyFilters = useCallback(
-    (partial: Partial<typeof filters>) => {
-      const next = { ...partial };
+    (partial: Partial<typeof filters> & { isoSemana?: string | null }) => {
+      const next: any = { ...partial };
+
+      if (next.isoSemana) {
+        const r = isoKeyToRange(next.isoSemana);
+        if (r) {
+          next.fecha_desde = r.from;
+          next.fecha_hasta = r.to;
+        }
+      } else {
+        const inferred = guessIsoFromRange({ from: next.fecha_desde, to: next.fecha_hasta });
+        if (inferred) next.isoSemana = inferred;
+      }
+
       if (!next.order_by) next.order_by = DEFAULTS.ORDER_BY[queueType];
       dispatch(setFilters({ ...next, page: 1 }));
     },
@@ -378,7 +496,10 @@ export function useTableroBodega({ temporadaId }: UseTableroArgs) {
     summaryQ.refetch();
     alertsQ.refetch();
     queueQ.refetch();
-  }, [dispatch, summaryQ, alertsQ, queueQ]);
+    recepcionesQ.refetch();
+    inventariosQ.refetch();
+    logisticaQ.refetch();
+  }, [dispatch, summaryQ, alertsQ, queueQ, recepcionesQ, inventariosQ, logisticaQ]);
 
   // Helpers para componentes (deep-links y estados)
   const dashboardHref = useMemo(() => ROUTES.dashboard(temporadaId), [temporadaId]);
@@ -387,16 +508,28 @@ export function useTableroBodega({ temporadaId }: UseTableroArgs) {
     // Datos listos para UI
     kpiCards,
     alerts: alertsUI,
-    queue: queueUI,
+    queue: queueUI, // cola activa (compatibilidad)
+    queueRecepciones,
+    queueInventarios,
+    queueLogistica,
 
     // Estados de carga/errores por sección
-    loading: summaryQ.isLoading || alertsQ.isLoading || queueQ.isLoading,
+    loading:
+      summaryQ.isLoading || alertsQ.isLoading ||
+      queueQ.isLoading || recepcionesQ.isLoading || inventariosQ.isLoading || logisticaQ.isLoading,
     isLoadingSummary: summaryQ.isLoading,
     isLoadingAlerts: alertsQ.isLoading,
     isLoadingQueue: queueQ.isLoading,
+    isLoadingRecepciones: recepcionesQ.isLoading,
+    isLoadingInventarios: inventariosQ.isLoading,
+    isLoadingLogistica: logisticaQ.isLoading,
+
     errorSummary: summaryQ.error as any,
     errorAlerts: alertsQ.error as any,
     errorQueue: queueQ.error as any,
+    errorRecepciones: recepcionesQ.error as any,
+    errorInventarios: inventariosQ.error as any,
+    errorLogistica: logisticaQ.error as any,
 
     // Estado global de UI (Redux)
     temporadaId,
@@ -409,11 +542,14 @@ export function useTableroBodega({ temporadaId }: UseTableroArgs) {
     onChangePage,
     onChangePageSize,
 
-    // Refetch sutil
+    // Paginación por bloque (por ahora comparten la misma page del store)
+    onPageChangeRecepciones: onChangePage,
+    onPageChangeInventarios: onChangePage,
+    onPageChangeLogistica: onChangePage,
+
+    // Refetch sutil/directo
     markForRefetch,
     applyMarkedRefetch,
-
-    // Refetch directo
     refetchSummary: summaryQ.refetch,
     refetchAlerts: alertsQ.refetch,
     refetchQueue: queueQ.refetch,
@@ -421,6 +557,9 @@ export function useTableroBodega({ temporadaId }: UseTableroArgs) {
       summaryQ.refetch();
       alertsQ.refetch();
       queueQ.refetch();
+      recepcionesQ.refetch();
+      inventariosQ.refetch();
+      logisticaQ.refetch();
     },
 
     // Navegación
