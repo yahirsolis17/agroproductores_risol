@@ -72,7 +72,7 @@ class TemporadaBodegaAPITests(APITestCase):
 
         duplicate = self.client.post(self.temporadas_url, payload, format="json")
         self.assertEqual(duplicate.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(duplicate.json()["notification"]["key"], "violacion_unicidad_anio")
+        self.assertEqual(duplicate.json()["notification"]["key"], "violacion_unicidad_año")
 
     def test_bodega_archivar_cascades_to_temporadas(self):
         bodega = self._create_bodega()

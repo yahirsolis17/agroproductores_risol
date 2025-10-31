@@ -1,8 +1,9 @@
 // frontend/src/modules/gestion_bodega/hooks/useTableroBodega.ts
-/* Hook maestro del Tablero — unifica constants + mappers + filtros + colas
-   Ahora con soporte de isoSemana (YYYY-Www) → deriva fecha_desde/fecha_hasta,
-   y expone colas para los tres resúmenes (recepciones/inventarios/logistica).
-   SIN dayjs: usa Date + Intl nativo para formateo en America/Mexico_City. */
+/* Hook maestro del Tablero — lógica reactiva y contratos estabilizados
+   - Fecha: si la API trae Date (YYYY-MM-DD), mostramos solo fecha (sin 00:00).
+   - Huertero: se muestra explícito en recepciones.
+   - Semanas manuales: helpers para fijar rango y marcar isoSemana="MANUAL".
+*/
 
 import { useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -34,11 +35,9 @@ import {
 
 import {
   isoKeyToRange,
-  guessIsoFromRange,
 } from "./useIsoWeek";
 
 // ───────────────────────────────────────────────────────────────────────────────
-// CONFIG (constants centralizados)
 const LOCAL_TZ = "America/Mexico_City";
 
 const QUERY_KEYS = {
@@ -53,30 +52,16 @@ const QUERY_KEYS = {
 const DEFAULTS = {
   PAGE_SIZE: 10,
   ORDER_BY: {
-    recepciones: "fecha_recepcion:asc,id:asc",
-    ubicaciones: "prioridad:desc,recepcion__fecha_recepcion:desc", // inventarios
-    despachos: "fecha_programada:asc,id:asc",
+    recepciones: "fecha_recepcion:desc,id:desc",
+    inventarios: "fecha:desc,id:desc",
+    despachos: "fecha_programada:desc,id:desc",
   } as Record<QueueType, string>,
   RETRY: 1,
   STALE_MS: 30_000,
 };
 
-const ROUTES = {
-  dashboard: (temporadaId: number) => `/bodega/tablero?temporada=${temporadaId}`,
-  deepLink: (path: string, query?: Record<string, any>) => {
-    if (!query) return path;
-    const qs = new URLSearchParams();
-    Object.entries(query).forEach(([k, v]) => {
-      if (v == null) return;
-      qs.append(k, String(v));
-    });
-    const tail = qs.toString();
-    return tail ? `${path}?${tail}` : path;
-  },
-};
-
 // ───────────────────────────────────────────────────────────────────────────────
-// HELPERS (nativo: Date + Intl)
+// HELPERS
 function clamp01(n: number) {
   if (Number.isNaN(n)) return 0;
   return Math.max(0, Math.min(1, n));
@@ -93,27 +78,32 @@ function fmtPct01(n?: number | null) {
   return new Intl.NumberFormat("es-MX", { style: "percent", maximumFractionDigits: 0 }).format(v);
 }
 
-function formatDDMMYYYY_HHmm(date: Date, timeZone = LOCAL_TZ) {
+// Si el backend devuelve solo “YYYY-MM-DD”, mostramos solo fecha.
+// Si incluye tiempo (ISO con “T”), mostramos fecha y hora.
+function formatSmart(iso: string, timeZone = LOCAL_TZ) {
+  if (!iso) return "";
+  const hasTime = iso.includes("T");
+  const date = new Date(iso);
+
   const parts = new Intl.DateTimeFormat("es-MX", {
     timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
+    ...(hasTime
+      ? { hour: "2-digit", minute: "2-digit", hour12: false as const }
+      : {}),
   }).formatToParts(date);
 
-  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? "";
-  return `${get("day")}/${get("month")}/${get("year")} ${get("hour")}:${get("minute")}`;
-}
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? "";
 
-function fmtDateTimeISO(iso: string) {
-  return formatDDMMYYYY_HHmm(new Date(iso), LOCAL_TZ);
+  const base = `${get("day")}/${get("month")}/${get("year")}`;
+  if (!hasTime) return base;
+  return `${base} ${get("hour")}:${get("minute")}`;
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
-/** MAPPERS (API → UI) */
 export type KpiCard =
   | { id: "recepcion"; title: string; primary: string; secondary: string }
   | { id: "stock"; title: string; primary: string; secondary: string }
@@ -181,49 +171,53 @@ function mapSummaryToKpiCards(kpis: KpiSummary): KpiCard[] {
     });
   }
   if (kpis.lead_times) {
-    const a = kpis.lead_times.recepcion_a_ubicacion_h;
-    const b = kpis.lead_times.ubicacion_a_despacho_h;
+    const a = kpis.lead_times.recepcion_a_inventario_h;
+    const b = kpis.lead_times.inventario_a_despacho_h;
     cards.push({
       id: "lead_times",
       title: "Lead Times",
-      primary: `${a ?? "N/A"}h → ${b ?? "N/A"}h`,
-      secondary: "Recepción→Ubicación → Despacho",
+      primary: `${a ?? "N/A"}h -> ${b ?? "N/A"}h`,
+      secondary: "Recepción → Inventario → Despacho",
     });
   }
 
   return cards;
 }
 
-// ✨ Extendemos la fila UI para Recepciones (huertero, tipo, notas)
+// ───────────────────────────────────────────────────────────────────────────────
 export type QueueRowUI = {
   id: number;
   ref: string;
-  fecha: string;        // formateada a zona local
-  huerta?: string;      // útil en inventarios
-  huertero?: string;    // requerido en recepciones (si existe)
-  tipo?: string;        // ej. variedad: manila, ataulfo...
-  notas?: string;       // notas libres
-  kg: string;           // se muestra como "cajas"
+  fecha: string;
+  huerta?: string;
+  huertero?: string;
+  tipo?: string;
+  notas?: string;
+  kg: string;
   estado: string;
-  chips: string[];      // tags (madurez, calidad, cámara, SLA...)
+  chips: string[];
 };
 
 function mapQueueToUI(rows: QueueItem[]): QueueRowUI[] {
   return (rows || []).map((r) => {
-    const anyR = r as any; // para campos opcionales que quizá vengan en meta u objeto plano
+    const anyR = r as any;
     const chips: string[] = [];
     if (r.meta?.madurez) chips.push(`Madurez: ${r.meta.madurez}`);
     if (r.meta?.calidad) chips.push(`Calidad: ${r.meta.calidad}`);
     if (r.meta?.camara) chips.push(`Cámara: ${r.meta.camara}`);
     if (r.meta?.sla_h != null) chips.push(`SLA: ${r.meta.sla_h}h`);
 
+    // 🔹 Huertero: preferimos r.huertero, luego meta.huertero, luego recepcion__huertero_nombre (si backend lo puso en toplevel/values)
+    const huertero =
+      (anyR.huertero ?? r.meta?.huertero ?? anyR["recepcion__huertero_nombre"] ?? anyR["huertero_nombre"]) || undefined;
+
     return {
       id: r.id,
       ref: r.ref,
-      fecha: fmtDateTimeISO(r.fecha),
+      fecha: formatSmart(r.fecha),
       huerta: (anyR.huerta ?? r.meta?.huerta) ?? undefined,
-      huertero: (anyR.huertero ?? r.meta?.huertero) ?? undefined,
-      tipo: (anyR.tipo ?? r.meta?.tipo) ?? undefined,
+      huertero,
+      tipo: (anyR.tipo ?? r.meta?.tipo ?? anyR["tipo_mango"]) ?? undefined,
       notas: (anyR.notas ?? r.meta?.notas) ?? undefined,
       kg: fmtCajas(r.kg),
       estado: r.estado,
@@ -251,12 +245,16 @@ function mapAlertsToUI(temporadaId: number, data: DashboardAlertResponse): Alert
     title: a.title,
     description: a.description,
     severity: a.severity,
-    href: ROUTES.deepLink(a.link.path, { temporada: temporadaId, ...(a.link.query || {}) }),
+    href: a.link?.path
+      ? ((): string => {
+          const qs = new URLSearchParams({ temporada: String(temporadaId), ...(a.link.query || {}) });
+          return `${a.link.path}?${qs.toString()}`;
+        })()
+      : "#",
   }));
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
-/** HOOK principal */
 type UseTableroArgs = { temporadaId: number };
 
 export function useTableroBodega({ temporadaId }: UseTableroArgs) {
@@ -268,19 +266,21 @@ export function useTableroBodega({ temporadaId }: UseTableroArgs) {
     dispatch(setTemporadaId(temporadaId));
   }
 
-  // ── Normalización de filtros con soporte isoSemana
+  // Normalización de filtros con soporte manual de semanas
   const rawFilters = state.filters as typeof state.filters & { isoSemana?: string | null };
   const normalizedFilters = useMemo(() => {
-    const f = { ...rawFilters };
-    if (f.isoSemana) {
+    const f: any = { ...rawFilters };
+    // Si isoSemana === "MANUAL", respetamos fecha_desde/hasta tal cual (no inferimos nada).
+    if (f.isoSemana && f.isoSemana !== "MANUAL") {
       const r = isoKeyToRange(f.isoSemana);
       if (r) {
         f.fecha_desde = r.from;
         f.fecha_hasta = r.to;
       }
-    } else {
-      const inferred = guessIsoFromRange({ from: f.fecha_desde ?? undefined, to: f.fecha_hasta ?? undefined });
-      f.isoSemana = inferred ?? f.isoSemana;
+    } else if (!f.isoSemana) {
+      // Si el usuario puso rango manual (desde UI) y no hay isoSemana, NO INFERRAMOS ⇒ dejamos como está.
+      // Si necesitas inferir, descomenta la siguiente línea.
+      // f.isoSemana = guessIsoFromRange({ from: f.fecha_desde ?? undefined, to: f.fecha_hasta ?? undefined }) ?? null;
     }
     return f;
   }, [rawFilters]);
@@ -288,23 +288,20 @@ export function useTableroBodega({ temporadaId }: UseTableroArgs) {
   const filters = normalizedFilters;
   const queueType: QueueType = state.activeQueue;
 
-  // Firma compacta de filtros para invalidación de cache (incluye isoSemana)
-  const filtersSignature = useMemo(() => {
-    const p = {
-      huerta_id: filters.huerta_id,
-      fecha_desde: filters.fecha_desde,
-      fecha_hasta: filters.fecha_hasta,
-      estado_lote: filters.estado_lote,
-      calidad: filters.calidad,
-      madurez: filters.madurez,
-      solo_pendientes: filters.solo_pendientes,
-      page: filters.page,
-      page_size: filters.page_size,
-      order_by: filters.order_by,
-      isoSemana: (filters as any).isoSemana ?? null,
-    };
-    return JSON.stringify(p);
-  }, [filters]);
+  // Firma de filtros
+  const filtersSignature = useMemo(() => JSON.stringify({
+    huerta_id: filters.huerta_id ?? null,
+    fecha_desde: filters.fecha_desde ?? null,
+    fecha_hasta: filters.fecha_hasta ?? null,
+    estado_lote: filters.estado_lote ?? null,
+    calidad: filters.calidad ?? null,
+    madurez: filters.madurez ?? null,
+    solo_pendientes: filters.solo_pendientes ?? null,
+    page: filters.page ?? 1,
+    page_size: filters.page_size ?? DEFAULTS.PAGE_SIZE,
+    order_by: filters.order_by ?? DEFAULTS.ORDER_BY[queueType],
+    isoSemana: (filters as any).isoSemana ?? null,
+  }), [filters, queueType]);
 
   // ===== SUMMARY =====
   const summaryQ = useQuery<DashboardSummaryResponse>({
@@ -333,7 +330,7 @@ export function useTableroBodega({ temporadaId }: UseTableroArgs) {
     return mapAlertsToUI(temporadaId, alertsQ.data);
   }, [alertsQ.data, temporadaId]);
 
-  // ===== QUEUE ACTIVA (para otras pantallas que la usen) =====
+  // ===== QUEUE ACTIVA =====
   const queueQ = useQuery<DashboardQueueResponse>({
     queryKey: QUERY_KEYS.queue(temporadaId, queueType, filtersSignature),
     queryFn: () =>
@@ -364,7 +361,7 @@ export function useTableroBodega({ temporadaId }: UseTableroArgs) {
     };
   }, [queueQ.data, filters.page, filters.page_size]);
 
-  // ===== COLAS PARA LOS 3 RESÚMENES (simultáneas) =====
+  // ===== COLAS PARA RESÚMENES =====
   const recepcionesQ = useQuery<DashboardQueueResponse>({
     queryKey: QUERY_KEYS.queue(temporadaId, "recepciones", filtersSignature + "|summary"),
     queryFn: () =>
@@ -377,11 +374,11 @@ export function useTableroBodega({ temporadaId }: UseTableroArgs) {
   });
 
   const inventariosQ = useQuery<DashboardQueueResponse>({
-    queryKey: QUERY_KEYS.queue(temporadaId, "ubicaciones", filtersSignature + "|summary"),
+    queryKey: QUERY_KEYS.queue(temporadaId, "inventarios", filtersSignature + "|summary"),
     queryFn: () =>
-      getDashboardQueues(temporadaId, "ubicaciones", {
+      getDashboardQueues(temporadaId, "inventarios", {
         ...filters,
-        order_by: DEFAULTS.ORDER_BY["ubicaciones"],
+        order_by: DEFAULTS.ORDER_BY["inventarios"],
       }),
     retry: DEFAULTS.RETRY,
     staleTime: DEFAULTS.STALE_MS,
@@ -438,7 +435,7 @@ export function useTableroBodega({ temporadaId }: UseTableroArgs) {
   }, [logisticaQ.data, filters.page, filters.page_size]);
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Acciones UI (unificadas)
+  // Acciones UI
   const onChangeQueue = useCallback(
     (type: QueueType) => {
       dispatch(setActiveQueue(type));
@@ -461,20 +458,19 @@ export function useTableroBodega({ temporadaId }: UseTableroArgs) {
     [dispatch]
   );
 
-  // onApplyFilters acepta isoSemana y/o from/to.
+  // Filtros (acepta isoSemana y/o rango manual). Si viene rango sin iso, marcamos "MANUAL".
   const onApplyFilters = useCallback(
     (partial: Partial<typeof filters> & { isoSemana?: string | null }) => {
       const next: any = { ...partial };
 
-      if (next.isoSemana) {
+      if (next.isoSemana && next.isoSemana !== "MANUAL") {
         const r = isoKeyToRange(next.isoSemana);
         if (r) {
           next.fecha_desde = r.from;
           next.fecha_hasta = r.to;
         }
-      } else {
-        const inferred = guessIsoFromRange({ from: next.fecha_desde, to: next.fecha_hasta });
-        if (inferred) next.isoSemana = inferred;
+      } else if (!next.isoSemana && (next.fecha_desde || next.fecha_hasta)) {
+        next.isoSemana = "MANUAL";
       }
 
       if (!next.order_by) next.order_by = DEFAULTS.ORDER_BY[queueType];
@@ -483,7 +479,41 @@ export function useTableroBodega({ temporadaId }: UseTableroArgs) {
     [dispatch, queueType]
   );
 
-  // Refetch sutil (cross-módulo) y ejecución
+  // 🔸 Semanas manuales (helpers de UX, 100% front)
+  const addDays = (isoDate: string, days: number) => {
+    const d = new Date(isoDate);
+    d.setDate(d.getDate() + days);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  // Inicia semana manual: fija desde y calcula hasta +6 días. Marca isoSemana="MANUAL".
+  const startManualWeek = useCallback((fromISO: string) => {
+    const toISO = addDays(fromISO, 6);
+    onApplyFilters({ fecha_desde: fromISO, fecha_hasta: toISO, isoSemana: "MANUAL", page: 1 });
+  }, [onApplyFilters]);
+
+  // Finaliza semana: ajusta fecha_hasta (manteniendo desde). Mantiene "MANUAL".
+  const finishManualWeek = useCallback((toISO: string) => {
+    onApplyFilters({ fecha_hasta: toISO, isoSemana: "MANUAL", page: 1 });
+  }, [onApplyFilters]);
+
+  // Guard de seguridad opcional: si la semana se pasó de 7 días, recorta al día 6.
+  const closeIfExceeded7 = useCallback(() => {
+    const { fecha_desde, fecha_hasta } = filters as any;
+    if (!fecha_desde || !fecha_hasta) return;
+    const d0 = new Date(fecha_desde);
+    const d1 = new Date(fecha_hasta);
+    const diff = Math.ceil((d1.getTime() - d0.getTime()) / (1000 * 60 * 60 * 24));
+    if (diff > 6) {
+      const toISO = addDays(fecha_desde, 6);
+      onApplyFilters({ fecha_hasta: toISO, isoSemana: "MANUAL" });
+    }
+  }, [filters, onApplyFilters]);
+
+  // Refetch sutil
   const markForRefetch = useCallback(
     (what: "summary" | "alerts" | QueueType) => {
       dispatch(scheduleRefetch(what));
@@ -501,19 +531,18 @@ export function useTableroBodega({ temporadaId }: UseTableroArgs) {
     logisticaQ.refetch();
   }, [dispatch, summaryQ, alertsQ, queueQ, recepcionesQ, inventariosQ, logisticaQ]);
 
-  // Helpers para componentes (deep-links y estados)
-  const dashboardHref = useMemo(() => ROUTES.dashboard(temporadaId), [temporadaId]);
+  const dashboardHref = useMemo(() => `/bodega/tablero?temporada=${temporadaId}`, [temporadaId]);
 
   return {
-    // Datos listos para UI
+    // Datos UI
     kpiCards,
     alerts: alertsUI,
-    queue: queueUI, // cola activa (compatibilidad)
+    queue: queueUI,
     queueRecepciones,
     queueInventarios,
     queueLogistica,
 
-    // Estados de carga/errores por sección
+    // Loading / Error
     loading:
       summaryQ.isLoading || alertsQ.isLoading ||
       queueQ.isLoading || recepcionesQ.isLoading || inventariosQ.isLoading || logisticaQ.isLoading,
@@ -531,23 +560,28 @@ export function useTableroBodega({ temporadaId }: UseTableroArgs) {
     errorInventarios: inventariosQ.error as any,
     errorLogistica: logisticaQ.error as any,
 
-    // Estado global de UI (Redux)
+    // Estado global
     temporadaId,
     filters,
     activeQueue: queueType,
 
-    // Acciones UI
+    // Acciones
     onChangeQueue,
     onApplyFilters,
     onChangePage,
     onChangePageSize,
 
-    // Paginación por bloque (por ahora comparten la misma page del store)
+    // Semanas manuales
+    startManualWeek,
+    finishManualWeek,
+    closeIfExceeded7,
+
+    // Paginación por bloque (comparten page global)
     onPageChangeRecepciones: onChangePage,
     onPageChangeInventarios: onChangePage,
     onPageChangeLogistica: onChangePage,
 
-    // Refetch sutil/directo
+    // Refetch
     markForRefetch,
     applyMarkedRefetch,
     refetchSummary: summaryQ.refetch,

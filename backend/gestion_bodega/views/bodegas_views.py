@@ -465,11 +465,11 @@ class TemporadaBodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
             if "temporada en curso" in lowered:
                 return "temporada_en_curso"
             if "ya existe una temporada registrada" in lowered:
-                return "violacion_unicidad_anio"
+                return "violacion_unicidad_año"
             if "registrada para este año en esta bodega" in lowered:
-                return "violacion_unicidad_anio"
+                return "violacion_unicidad_año"
             if "bodega_id deben formar un conjunto único" in lowered:
-                return "violacion_unicidad_anio"
+                return "violacion_unicidad_año"
             if "registro archivado no editable" in lowered:
                 return "registro_archivado_no_editable"
             if "la temporada finalizada no se puede editar" in lowered:
@@ -559,7 +559,7 @@ class TemporadaBodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
             instance.refresh_from_db()
         except IntegrityError:
             return self.notify(
-                key="violacion_unicidad_anio",
+                key="violacion_unicidad_año",
                 data={
                     "errors": {
                         "non_field_errors": ["Ya existe una temporada registrada para este año en esta bodega."]

@@ -38,8 +38,8 @@ export interface KpiSummary {
     top_causas: Array<{ causa: string; pct: number }>;
   };
   lead_times?: {
-    recepcion_a_ubicacion_h: number | null;
-    ubicacion_a_despacho_h: number | null;
+    recepcion_a_inventario_h: number | null;
+    inventario_a_despacho_h: number | null;
   };
 }
 

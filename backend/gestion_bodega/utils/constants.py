@@ -51,7 +51,7 @@ NOTIFICATION_MESSAGES = {
         "type": "error",
         "code": 400,
     },
-    "violacion_unicidad_anio": {
+    "violacion_unicidad_año": {
         "message": "Ya existe una temporada registrada para ese año en esta bodega.",
         "type": "error",
         "code": 400,

@@ -57,7 +57,7 @@ const QuickActions: React.FC<Props> = ({ bodegaId, temporadaId, onNavigate, acti
   const defaults = useMemo<QuickAction[]>(
     () => [
       {
-        label: "Nueva recepción",
+        label: "Nueva recepcion",
         href: composeHref(`/bodega/${bodegaId}/capturas`, ctx, { modal: "recepcion" }),
         icon: <AddIcon />,
         perm: "add_recepcion",
@@ -65,10 +65,10 @@ const QuickActions: React.FC<Props> = ({ bodegaId, temporadaId, onNavigate, acti
         color: "primary",
       },
       {
-        label: "Ubicaciones críticas",
+        label: "Inventario critico",
         href: composeHref(`/bodega/${bodegaId}/inventarios`, ctx, { solo_criticas: 1 }),
         icon: <GridIcon />,
-        perm: "view_ubicaciones",
+        perm: "view_inventario_plastico",
         variant: "outlined",
         color: "warning",
       },

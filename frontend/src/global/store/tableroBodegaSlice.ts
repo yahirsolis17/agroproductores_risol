@@ -42,7 +42,7 @@ const initialState: TableroStateExt = {
   refreshAlertsAt: null,
   refreshQueuesAt: {
     recepciones: null,
-    ubicaciones: null,
+    inventarios: null,
     despachos: null,
   },
 
@@ -62,7 +62,7 @@ const tableroBodegaSlice = createSlice({
       state.activeQueue = action.payload;
       // Ajusta order_by por cola si es el default genérico
       if (!state.filters.order_by || state.filters.order_by.includes("fecha_recepcion")) {
-        if (action.payload === "ubicaciones") {
+        if (action.payload === "inventarios") {
           state.filters.order_by = "prioridad:desc,recepcion__fecha_recepcion:desc";
         } else if (action.payload === "despachos") {
           state.filters.order_by = "fecha_programada:asc,id:asc";
@@ -89,7 +89,7 @@ const tableroBodegaSlice = createSlice({
     applyRefetch(state) {
       state.refreshSummaryAt = null;
       state.refreshAlertsAt = null;
-      state.refreshQueuesAt = { recepciones: null, ubicaciones: null, despachos: null };
+      state.refreshQueuesAt = { recepciones: null, inventarios: null, despachos: null };
     },
 
     resetTablero(state) {
@@ -97,7 +97,7 @@ const tableroBodegaSlice = createSlice({
       state.activeQueue = "recepciones";
       state.refreshSummaryAt = null;
       state.refreshAlertsAt = null;
-      state.refreshQueuesAt = { recepciones: null, ubicaciones: null, despachos: null };
+      state.refreshQueuesAt = { recepciones: null, inventarios: null, despachos: null };
       state.lastVisitedAt = Date.now();
     },
   },

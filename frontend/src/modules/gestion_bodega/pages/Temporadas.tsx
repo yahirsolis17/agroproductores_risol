@@ -140,7 +140,7 @@ const BodegaTemporadasPage: React.FC = () => {
   useEffect(() => { setTab(estadoActual); }, [estadoActual]);
   useEffect(() => { if (tab !== estadoActual) dispatch(setEstado(tab)); }, [dispatch, tab, estadoActual]);
   useEffect(() => {
-    if (createBlocked?.key === 'violacion_unicidad_anio' && !existsThisYearAny) {
+    if (createBlocked?.key === 'violacion_unicidad_año' && !existsThisYearAny) {
       setCreateBlocked(null);
     }
   }, [existsThisYearAny, createBlocked]);
@@ -413,7 +413,7 @@ const BodegaTemporadasPage: React.FC = () => {
       const errorMessage = typeof err === 'object' && err ? err.message ?? err?.key : typeof err === 'string' ? err : undefined;
       if (errorKey === 'bodega_archivada_no_permite_temporadas') {
         setCreateBlocked({ key: errorKey, message: errorMessage });
-      } else if (errorKey === 'violacion_unicidad_anio') {
+      } else if (errorKey === 'violacion_unicidad_año') {
         setCreateBlocked({
           key: errorKey,
           message: errorMessage ?? 'Ya existe una temporada para este año en esta bodega.',
