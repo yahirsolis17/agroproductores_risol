@@ -8,29 +8,27 @@ import type { RootState } from '../../../../global/store/store';
 import type { Crumb } from '../../../../global/store/breadcrumbsSlice';
 
 function buildSearchSuffix(currentSearch: string) {
-  // Preserva solo las llaves de contexto relevantes
   const keep = new URLSearchParams(currentSearch);
   const temporada = keep.get('temporada');
   const isoSemana = keep.get('isoSemana'); // FE key (backend usa iso_semana)
   const bodega = keep.get('bodega');
+  const semanaId = keep.get('semana_id');   // opcional: si navegas por id de semana real
 
   const qs = new URLSearchParams();
   if (temporada) qs.set('temporada', temporada);
   if (isoSemana) qs.set('isoSemana', isoSemana);
   if (bodega) qs.set('bodega', bodega);
+  if (semanaId) qs.set('semana_id', semanaId);
 
   const tail = qs.toString();
   return tail ? `?${tail}` : '';
 }
 
 const Breadcrumbs: React.FC = () => {
-  // Toma los crumbs desde Redux (mismo patrón que en gestión_huerta)
   const crumbs: Crumb[] = useSelector((state: RootState) => state.breadcrumbs.crumbs);
   const location = useLocation();
 
-  if (!crumbs || crumbs.length === 0) {
-    return null;
-  }
+  if (!crumbs || crumbs.length === 0) return null;
 
   return (
     <div className="flex justify-center px-4">
@@ -44,7 +42,6 @@ const Breadcrumbs: React.FC = () => {
         {crumbs.map((crumb, idx) => {
           const isLast = idx === crumbs.length - 1;
           const hasQueryInPath = crumb.path?.includes('?');
-          // Si el path YA trae query, respetamos tal cual; si no, le anexamos el contexto actual (temporada/isoSemana/bodega).
           const to = !isLast
             ? (hasQueryInPath ? crumb.path : `${crumb.path}${buildSearchSuffix(location.search)}`)
             : '';
@@ -63,9 +60,7 @@ const Breadcrumbs: React.FC = () => {
                   {crumb.label}
                 </span>
               )}
-              {idx < crumbs.length - 1 && (
-                <span className="mx-3 text-primary-light">/</span>
-              )}
+              {idx < crumbs.length - 1 && <span className="mx-3 text-primary-light">/</span>}
             </React.Fragment>
           );
         })}

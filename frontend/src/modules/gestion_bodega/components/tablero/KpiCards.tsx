@@ -1,4 +1,3 @@
-// src/modules/gestion_bodega/components/tablero/KpiCards.tsx
 import React from "react";
 import { Paper, Box, Typography, Skeleton } from "@mui/material";
 import { motion, AnimatePresence } from "framer-motion";
@@ -9,7 +8,7 @@ type Props = {
   loading?: boolean;
 };
 
-const MotionPaper = motion(Paper);
+const MotionPaper = motion.create(Paper)
 
 const fadeIn = {
   initial: { opacity: 0, y: 6 },

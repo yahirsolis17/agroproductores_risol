@@ -3,15 +3,34 @@
 export type QueueType = "recepciones" | "inventarios" | "despachos";
 export type AlertSeverity = "info" | "warning" | "critical";
 
+export interface WeekActive {
+  id: number;
+  fecha_inicio: string;                   // "YYYY-MM-DD"
+  fecha_fin: string | null;               // null si abierta
+  rango_inferido: { from: string; to: string };
+  estado: "ABIERTA" | "CERRADA";
+  iso_semana: string | null;
+}
+
+/** Contexto común adjuntado por el backend para identificar la temporada en UI */
+export interface TableroContext {
+  temporada_id: number;
+  temporada_label: string;
+  /** Nombre legible de bodega (opcional) */
+  bodega_label?: string;
+  /** Opcional: semana activa inferida por backend para bodega+temporada */
+  active_week?: WeekActive | null;
+}
+
 export interface KpiSummary {
   recepcion?: {
     kg_total: number;
     kg_apto: number;
     kg_merma: number;
-    apto_pct: number;   // 0..1
-    merma_pct: number;  // 0..1
-    hoy: number;
-    semana: number;
+    apto_pct: number | null;   // backend puede mandar null
+    merma_pct: number | null;  // backend puede mandar null
+    hoy: number | null;        // backend puede mandar null
+    semana: number | null;     // backend puede mandar null
   };
   stock?: {
     total_kg: number;
@@ -45,6 +64,8 @@ export interface KpiSummary {
 
 export interface DashboardSummaryResponse {
   kpis: KpiSummary;
+  /** Contexto agregado por backend (temporada legible, y opcionalmente active_week) */
+  context?: TableroContext;
 }
 
 export interface QueueItem {
@@ -52,7 +73,7 @@ export interface QueueItem {
   ref: string;
   fecha: string; // ISO
   huerta: string | null;
-  kg: number;    // el backend manda "kg"; en UI lo mostramos como "cajas"
+  kg: number;    // el backend manda "kg"; en UI lo mostramos como "cajas" si aplica
   estado: string;
   meta?: Record<string, any>;
 }
@@ -60,8 +81,8 @@ export interface QueueItem {
 export interface DashboardQueueResponse {
   meta: {
     // forma usada por UI previa
-    page: number;
-    page_size: number;
+    page?: number;
+    page_size?: number;
     total?: number;
     pages?: number;
 
@@ -72,6 +93,8 @@ export interface DashboardQueueResponse {
     previous?: string | null;
   };
   results: QueueItem[];
+  /** Contexto agregado por backend */
+  context?: TableroContext;
 }
 
 export interface AlertItem {
@@ -87,6 +110,8 @@ export interface AlertItem {
 
 export interface DashboardAlertResponse {
   alerts: AlertItem[];
+  /** Contexto agregado por backend */
+  context?: TableroContext;
 }
 
 /**
@@ -123,4 +148,52 @@ export interface TableroUIState {
 
   // Metadatos
   lastVisitedAt: number | null;
+}
+
+/** Respuesta para barra de navegación de semanas */
+export type WeeksNavResponse = {
+  /** Semana ISO actual (YYYY-Www) o null si no hay semanas */
+  actual: string | null;
+  /** Total de semanas definidas en la temporada */
+  total: number;
+  /** Flags navegación */
+  has_prev: boolean;
+  has_next: boolean;
+  /** Claves ISO adyacentes (si aplican) */
+  prev?: string | null;
+  next?: string | null;
+  /** Índice 1-based */
+  indice?: number;
+  /** Rango de fechas inferido (yyyy-mm-dd) para la semana de referencia (actual) */
+  inicio?: string;
+  fin?: string;
+
+  /** Listado opcional de semanas con rangos (el backend puede enviarlo) */
+  items?: Array<{
+    id: number;
+    iso_semana: string | null;
+    inicio: string; // yyyy-mm-dd
+    fin: string;    // yyyy-mm-dd
+    cerrada: boolean;
+  }>;
+
+  /** Contexto agregado por backend */
+  context?: TableroContext;
+};
+
+export interface WeekCurrentResponse {
+  active_week: WeekActive | null;
+  context?: TableroContext;
+}
+
+export interface WeekStartRequest {
+  bodega: number;
+  temporada: number;
+  fecha_desde: string; // "YYYY-MM-DD"
+}
+
+export interface WeekFinishRequest {
+  bodega: number;
+  temporada: number;
+  fecha_hasta: string; // "YYYY-MM-DD" (máx 7d desde fecha_desde)
 }

@@ -1,3 +1,8 @@
+// frontend/src/modules/gestion_bodega/components/tablero/WeekSwitcher.tsx
+// Control de semana ISO con modo disabled real:
+// - Cuando disabled=true: sin flechas, sin popover y SIN mostrar rango (solo “—”).
+// - Cuando enabled: navegación ISO normal; emite { from, to, isoSemana }.
+
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import Stack from '@mui/material/Stack';
 import IconButton from '@mui/material/IconButton';
@@ -11,8 +16,6 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 
 import { formatDateDisplay, formatDateISO, parseLocalDateStrict } from '../../../../global/utils/date';
-import type { IsoWeekRange } from './IsoWeekPicker';
-
 import {
   startOfISOWeek,
   endOfISOWeek,
@@ -22,16 +25,16 @@ import {
   prettyRange,
 } from '../../hooks/useIsoWeek';
 
-// Ampliamos el contrato de salida, PERO mantenemos compatibilidad:
-// - Los llamadores antiguos que esperan sólo {from, to} siguen funcionando.
-// - Enviamos además isoSemana y direction si el llamador lo aprovecha.
+// Contratos
+export type IsoWeekRange = { from: string; to: string };
 type OutRange = IsoWeekRange & { isoSemana?: string; direction?: 'prev' | 'next' | 'jump' };
 
 interface WeekSwitcherProps {
-  value: IsoWeekRange & { isoSemana?: string }; // puedes pasar isoSemana o sólo from/to
+  value: IsoWeekRange & { isoSemana?: string | null };
   onChange: (range: OutRange) => void;
 
-  // Nuevos (opcionales): para controlar límites
+  // Control de límites y estado global
+  disabled?: boolean;           // ← deshabilita TODO el control y oculta el rango
   disablePrev?: boolean;
   disableNext?: boolean;
 
@@ -42,23 +45,39 @@ interface WeekSwitcherProps {
 const WeekSwitcher: React.FC<WeekSwitcherProps> = ({
   value,
   onChange,
+  disabled = false,
   disablePrev = false,
   disableNext = false,
   showPicker = true,
 }) => {
   // Base de cálculo: preferimos isoSemana -> from -> to -> hoy
-  const baseISOKey = value?.isoSemana;
+  const baseISOKey = value?.isoSemana || undefined;
   const baseDateStr = value?.from || value?.to || formatDateISO(new Date());
   const baseDate = parseLocalDateStrict(baseDateStr);
 
-  const fromDate = startOfISOWeek(baseISOKey ? parseLocalDateStrict(isoKeyToRange(baseISOKey)!.from) : baseDate);
-  const toDate = endOfISOWeek(baseISOKey ? parseLocalDateStrict(isoKeyToRange(baseISOKey)!.to) : baseDate);
+  // Traducimos isoSemana a rango una sola vez (null-safe)
+  const isoRange = useMemo(() => {
+    if (!baseISOKey) return null;
+    const r = isoKeyToRange(baseISOKey);
+    return r ?? null;
+  }, [baseISOKey]);
+
+  // Fechas efectivas de la semana
+  const fromDate = useMemo(
+    () => startOfISOWeek(isoRange ? parseLocalDateStrict(isoRange.from) : baseDate),
+    [isoRange, baseDate]
+  );
+  const toDate = useMemo(
+    () => endOfISOWeek(isoRange ? parseLocalDateStrict(isoRange.to) : baseDate),
+    [isoRange, baseDate]
+  );
 
   const label = useMemo(() => `${formatDateDisplay(fromDate)} – ${formatDateDisplay(toDate)}`, [fromDate, toDate]);
   const pretty = useMemo(() => prettyRange(formatDateISO(fromDate), formatDateISO(toDate)), [fromDate, toDate]);
 
   const go = useCallback(
     (delta: number) => {
+      if (disabled) return;
       const nextBase = shiftISOWeek(fromDate, delta);
       const nextFrom = startOfISOWeek(nextBase);
       const nextTo = endOfISOWeek(nextBase);
@@ -70,13 +89,14 @@ const WeekSwitcher: React.FC<WeekSwitcherProps> = ({
         direction: delta < 0 ? 'prev' : 'next',
       });
     },
-    [fromDate, onChange]
+    [fromDate, onChange, disabled]
   );
 
   // Atajos de teclado (← →) cuando el control tiene foco
   const containerRef = useRef<HTMLDivElement | null>(null);
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      if (disabled) return;
       if (e.key === 'ArrowLeft' && !disablePrev) {
         e.preventDefault();
         go(-1);
@@ -86,16 +106,19 @@ const WeekSwitcher: React.FC<WeekSwitcherProps> = ({
         go(1);
       }
     },
-    [disablePrev, disableNext, go]
+    [disablePrev, disableNext, go, disabled]
   );
 
   // Popover para “saltar” de semana con un date picker simple
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
-  const open = Boolean(anchorEl);
-  const handleOpen = (evt: React.MouseEvent<HTMLElement>) => setAnchorEl(evt.currentTarget);
+  const open = Boolean(anchorEl) && !disabled;
+  const handleOpen = (evt: React.MouseEvent<HTMLElement>) => {
+    if (showPicker && !disabled) setAnchorEl(evt.currentTarget);
+  };
   const handleClose = () => setAnchorEl(null);
 
   const jumpTo = (dateStr: string) => {
+    if (disabled) return;
     const d = parseLocalDateStrict(dateStr);
     if (Number.isNaN(d.getTime())) return;
     const s = startOfISOWeek(d);
@@ -117,41 +140,54 @@ const WeekSwitcher: React.FC<WeekSwitcherProps> = ({
       onKeyDown={onKeyDown}
       sx={{
         outline: 'none',
+        opacity: disabled ? 0.5 : 1,
+        pointerEvents: disabled ? 'none' : 'auto',
         '&:focus-visible': { boxShadow: (t) => `0 0 0 2px ${t.palette.primary.main}33`, borderRadius: 1 },
       }}
+      aria-label="Navegación de semana"
+      role="group"
+      aria-disabled={disabled}
     >
-      <Tooltip title="Semana anterior">
+      <Tooltip title="Semana anterior" disableHoverListener={disabled}>
         <span>
-          <IconButton size="small" onClick={() => go(-1)} disabled={disablePrev} aria-label="Semana anterior">
+          <IconButton
+            size="small"
+            onClick={() => go(-1)}
+            disabled={disabled || disablePrev}
+            aria-label="Semana anterior"
+          >
             <ChevronLeftIcon fontSize="small" />
           </IconButton>
         </span>
       </Tooltip>
 
-      {/* Etiqueta central, clickeable para abrir el date picker (opcional) */}
-      <Tooltip title={pretty}>
+      {/* Etiqueta central. En modo disabled no mostramos rango para evitar confundir: solo “—”. */}
+      <Tooltip title={disabled ? '' : pretty} disableHoverListener={disabled}>
         <Typography
           variant="body2"
           color="text.secondary"
-          onClick={showPicker ? handleOpen : undefined}
-          sx={{
-            cursor: showPicker ? 'pointer' : 'default',
-            userSelect: 'none',
-          }}
+          onClick={handleOpen}
+          sx={{ cursor: showPicker && !disabled ? 'pointer' : 'default', userSelect: 'none' }}
+          aria-live="polite"
         >
-          {label}
+          {disabled ? '—' : label}
         </Typography>
       </Tooltip>
 
-      <Tooltip title="Siguiente semana">
+      <Tooltip title="Siguiente semana" disableHoverListener={disabled}>
         <span>
-          <IconButton size="small" onClick={() => go(1)} disabled={disableNext} aria-label="Siguiente semana">
+          <IconButton
+            size="small"
+            onClick={() => go(1)}
+            disabled={disabled || disableNext}
+            aria-label="Siguiente semana"
+          >
             <ChevronRightIcon fontSize="small" />
           </IconButton>
         </span>
       </Tooltip>
 
-      {/* Popover interno (sin crear archivos nuevos) */}
+      {/* Popover interno */}
       <Popover
         open={open}
         anchorEl={anchorEl}

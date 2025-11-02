@@ -9,10 +9,11 @@ import { useSearchParams } from "react-router-dom";
 type Props = {
   alerts: AlertCardUI[];
   loading?: boolean;
+  error?: any;
   onNavigate?: (href: string) => void;
 };
 
-const MotionBox = motion(Box);
+const MotionBox = motion.create(Box);
 
 const itemAnim = {
   initial: { opacity: 0, y: 6 },
@@ -33,9 +34,17 @@ function ensureIsoSemana(href: string, isoSemana: string | null) {
   return url.pathname + (url.search ? url.search : "");
 }
 
-const AvisosPanel: React.FC<Props> = ({ alerts, loading, onNavigate }) => {
+const AvisosPanel: React.FC<Props> = ({ alerts, loading, error, onNavigate }) => {
   const [sp] = useSearchParams();
   const currentIso = sp.get("isoSemana");
+
+  if (error) {
+    return (
+      <Alert severity="info" variant="outlined">
+        No hay alertas disponibles en este momento.
+      </Alert>
+    );
+  }
 
   if (loading) {
     return (

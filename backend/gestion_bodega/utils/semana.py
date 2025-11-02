@@ -106,3 +106,49 @@ def semana_cerrada(bodega, temporada, f: date) -> bool:
     if not (bodega and temporada and f):
         return False
     return semana_cerrada_ids(getattr(bodega, "id", None), getattr(temporada, "id", None), f)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# NUEVOS HELPERS (mínimos) para Semanas Manuales (Tablero)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def semana_abierta_actual(bodega_id: int, temporada_id: int) -> Optional[CierreSemanal]:
+    """
+    Devuelve la semana manual ABIERTA (si existe) para (bodega, temporada).
+    Invariante del modelo: a lo sumo 1 abierta por contexto.
+    """
+    if not (bodega_id and temporada_id):
+        return None
+    return (
+        CierreSemanal.objects.filter(
+            bodega_id=bodega_id,
+            temporada_id=temporada_id,
+            is_active=True,
+            fecha_hasta__isnull=True,
+        )
+        .order_by("-fecha_desde")
+        .first()
+    )
+
+
+def rango_por_semana_id(semana_id: int) -> Tuple[date, date, Optional[str]]:
+    """
+    Resuelve el rango [desde, hasta] de un CierreSemanal por PK.
+    Si la semana está abierta (fecha_hasta = NULL), usamos:
+        hasta = min(fecha_desde + 6 días, hoy)
+    Devuelve (desde, hasta, iso_semana_label).
+    """
+    cierre = CierreSemanal.objects.filter(pk=semana_id, is_active=True).first()
+    if not cierre:
+        raise ValueError("CierreSemanal no encontrado o inactivo.")
+
+    desde: date = cierre.fecha_desde
+    if cierre.fecha_hasta:
+        hasta: date = cierre.fecha_hasta
+    else:
+        # Semana abierta: acotamos a desde+6 o hoy, lo que ocurra primero (máx. 7 días visibles).
+        hoy = tz_today_mx()
+        hasta = min(desde + timedelta(days=6), hoy)
+
+    label = getattr(cierre, "iso_semana", None) or iso_week_code(desde)
+    return desde, hasta, label

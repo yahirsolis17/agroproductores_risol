@@ -1,6 +1,5 @@
-// src/modules/gestion_bodega/components/tablero/ResumenRecepciones.tsx
 import React, { useMemo } from "react";
-import {  Tooltip } from "@mui/material";
+import { Tooltip } from "@mui/material";
 import { TableLayout, Column } from "../../../../components/common/TableLayout";
 import type { QueueRowUI } from "../../hooks/useTableroBodega";
 
@@ -14,7 +13,6 @@ type Props = {
   dense?: boolean;
 };
 
-
 const ResumenRecepciones: React.FC<Props> = ({
   rows,
   meta,
@@ -24,8 +22,7 @@ const ResumenRecepciones: React.FC<Props> = ({
   striped = true,
   dense = true,
 }) => {
-  // NOTA: Ref y Tags se quitaron para alinear con la vista principal:
-  // Fecha | Huertero | Tipo | Cajas | Notas | Estado
+  // Vista resumida alineada: Fecha | Huertero | Tipo | Cajas | Notas | Estado
   const columns = useMemo<Column<QueueRowUI>[]>(() => [
     { label: "Fecha", key: "fecha", render: (r) => r.fecha },
     { label: "Huertero", key: "huertero", render: (r) => r.huertero ?? "—" },
@@ -37,7 +34,15 @@ const ResumenRecepciones: React.FC<Props> = ({
       render: (r) =>
         r.notas ? (
           <Tooltip title={r.notas}>
-            <span style={{ display: "inline-block", maxWidth: 260, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <span
+              style={{
+                display: "inline-block",
+                maxWidth: 260,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
               {r.notas}
             </span>
           </Tooltip>

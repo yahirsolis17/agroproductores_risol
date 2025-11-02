@@ -1,10 +1,13 @@
 // frontend/src/global/store/tableroBodegaSlice.ts
 // Slice de UI para Tablero de Bodega con soporte de isoSemana (YYYY-Www)
 // - Mantiene compatibilidad con filtros actuales (fecha_desde/fecha_hasta)
-// - Permite setFilters({ isoSemana }) y deriva el rango en el hook (fase 3)
+// - Permite setFilters({ isoSemana }) y deriva el rango en el hook
 
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import type { QueueType, TableroUIState } from "../../modules/gestion_bodega/types/tableroBodegaTypes";
+import type {
+  QueueType,
+  TableroUIState,
+} from "../../modules/gestion_bodega/types/tableroBodegaTypes";
 import type { RootState } from "./store";
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -16,6 +19,16 @@ export type FiltersExt = FiltersBase & {
 };
 
 // Defaults (con isoSemana opcional). Se mantiene order_by por compatibilidad.
+// ⚠️ Alias válidos según backend/_ordering_from_alias:
+//   - recepciones: fecha_recepcion, id, huerta
+//   - inventarios: fecha, id
+//   - despachos:   fecha_programada, id
+const DEFAULT_ORDER_BY: Record<QueueType, string> = {
+  recepciones: "fecha_recepcion:desc,id:desc",
+  inventarios: "fecha:desc,id:desc",
+  despachos: "fecha_programada:desc,id:desc",
+};
+
 const DEFAULT_FILTERS: FiltersExt = {
   huerta_id: null,
   fecha_desde: null,
@@ -26,7 +39,7 @@ const DEFAULT_FILTERS: FiltersExt = {
   solo_pendientes: true,
   page: 1,
   page_size: 10,
-  order_by: "fecha_recepcion:asc,id:asc",
+  order_by: DEFAULT_ORDER_BY.recepciones,
   isoSemana: null,
 };
 
@@ -60,16 +73,11 @@ const tableroBodegaSlice = createSlice({
 
     setActiveQueue(state, action: PayloadAction<QueueType>) {
       state.activeQueue = action.payload;
-      // Ajusta order_by por cola si es el default genérico
-      if (!state.filters.order_by || state.filters.order_by.includes("fecha_recepcion")) {
-        if (action.payload === "inventarios") {
-          state.filters.order_by = "prioridad:desc,recepcion__fecha_recepcion:desc";
-        } else if (action.payload === "despachos") {
-          state.filters.order_by = "fecha_programada:asc,id:asc";
-        } else {
-          state.filters.order_by = "fecha_recepcion:asc,id:asc";
-        }
-      }
+      // Si no hay un order_by explícito del usuario o venimos del default anterior,
+      // reasignamos al default correspondiente a la cola activa.
+      state.filters.order_by = DEFAULT_ORDER_BY[action.payload];
+      // Al cambiar de cola, volvemos a la primera página
+      state.filters.page = 1;
     },
 
     // Permite parches parciales; acepta también isoSemana
@@ -89,7 +97,11 @@ const tableroBodegaSlice = createSlice({
     applyRefetch(state) {
       state.refreshSummaryAt = null;
       state.refreshAlertsAt = null;
-      state.refreshQueuesAt = { recepciones: null, inventarios: null, despachos: null };
+      state.refreshQueuesAt = {
+        recepciones: null,
+        inventarios: null,
+        despachos: null,
+      };
     },
 
     resetTablero(state) {
@@ -97,7 +109,11 @@ const tableroBodegaSlice = createSlice({
       state.activeQueue = "recepciones";
       state.refreshSummaryAt = null;
       state.refreshAlertsAt = null;
-      state.refreshQueuesAt = { recepciones: null, inventarios: null, despachos: null };
+      state.refreshQueuesAt = {
+        recepciones: null,
+        inventarios: null,
+        despachos: null,
+      };
       state.lastVisitedAt = Date.now();
     },
   },
@@ -114,6 +130,7 @@ export const {
 
 // Nota: mantenemos la firma original para no romper imports existentes.
 // A nivel de uso, el objeto real contiene filters: FiltersExt.
-export const selectTablero = (state: RootState) => state.tableroBodega as unknown as TableroStateExt;
+export const selectTablero = (state: RootState) =>
+  state.tableroBodega as unknown as TableroStateExt;
 
 export default tableroBodegaSlice.reducer;

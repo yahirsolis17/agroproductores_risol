@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.db.models import Sum, Q, UniqueConstraint, Index, Max
 from django.utils import timezone
+from datetime import timedelta
 
 
 # ───────────────────────────────────────────────────────────────────────────
@@ -188,6 +189,11 @@ class TemporadaBodega(TimeStampedModel):
                 name="uniq_temporadabodega_activa",
             ),
         ]
+        # 👇 Nuevo permiso para alinear con cierres_views._perm_map["temporada"]
+        permissions = (
+            ("finalize_temporadabodega", "Puede finalizar temporada de bodega"),
+        )
+
 
     def __str__(self):
         return f"{self.bodega.nombre} – Temporada {self.año}"
@@ -790,23 +796,45 @@ class Consumible(TimeStampedModel):
 
 class CierreSemanal(TimeStampedModel):
     """
-    Cierre de semana ISO (lunes–domingo) por bodega y temporada.
-    Bloquea edición de operaciones en ese rango (en vistas validaremos).
+    Semana operativa (manual) por bodega y temporada.
+    - Puede estar ABIERTA (fecha_hasta = null) o CERRADA (fecha_hasta != null).
+    - Duración máxima: 7 días (inclusive).
+    - Sin solapes entre semanas (regla por bodega+temporada).
+    - iso_semana es opcional y solo actúa como etiqueta si coincide con ISO.
     """
     bodega = models.ForeignKey(Bodega, on_delete=models.PROTECT, related_name="cierres")
     temporada = models.ForeignKey(TemporadaBodega, on_delete=models.CASCADE, related_name="cierres")
-    iso_semana = models.CharField(max_length=10)  # p.ej. "2025-W36"
+
+    # Etiqueta opcional; no se usa para unicidad
+    iso_semana = models.CharField(max_length=10, blank=True, default="")  # p.ej. "2025-W36"
+
     fecha_desde = models.DateField()
-    fecha_hasta = models.DateField()
-    locked_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="cierres_bodega_lock")
+    # Permite semana ABIERTA
+    fecha_hasta = models.DateField(null=True, blank=True)
+
+    locked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cierres_bodega_lock",
+    )
 
     class Meta:
         ordering = ["-fecha_desde", "-id"]
         constraints = [
-            UniqueConstraint(fields=["bodega", "temporada", "iso_semana"], name="uniq_cierre_semana_bod_temp"),
+            # A lo sumo 1 semana ABIERTA por (bodega, temporada)
+            UniqueConstraint(
+                fields=["bodega", "temporada"],
+                condition=Q(fecha_hasta__isnull=True),
+                name="uniq_cierre_semana_abierta_bod_temp",
+            ),
         ]
         indexes = [
+            # Búsquedas por rango y contexto
             Index(fields=["bodega", "temporada", "fecha_desde", "fecha_hasta"], name="idx_cierre_rango"),
+            # Útil si deseas buscar por etiqueta ISO (no clave)
+            Index(fields=["iso_semana"], name="idx_cierre_iso"),
         ]
         permissions = (
             ("close_week", "Puede cerrar semana"),
@@ -814,4 +842,56 @@ class CierreSemanal(TimeStampedModel):
         )
 
     def __str__(self) -> str:
-        return f"Cierre {self.iso_semana} ({self.fecha_desde}→{self.fecha_hasta})"
+        hasta = self.fecha_hasta or "—"
+        etiqueta = f" {self.iso_semana}" if self.iso_semana else ""
+        return f"Cierre{etiqueta} ({self.fecha_desde}→{hasta})"
+
+    def clean(self):
+        """
+        Reglas:
+        - fecha_hasta >= fecha_desde (si se proporciona).
+        - Duración máxima 7 días (inclusive) si fecha_hasta está definida.
+        - Sin solapes con otras semanas del mismo (bodega, temporada).
+          Para semanas ABIERTAS (sin fecha_hasta) se considera un fin teórico = fecha_desde + 6 días.
+        """
+        errors = {}
+
+        if self.fecha_hasta and self.fecha_hasta < self.fecha_desde:
+            errors["fecha_hasta"] = "La fecha de cierre no puede ser anterior a la fecha de inicio."
+
+        # Límite 7 días solo cuando cerramos
+        if self.fecha_hasta:
+            delta = (self.fecha_hasta - self.fecha_desde).days
+            if delta > 6:
+                errors["fecha_hasta"] = "La semana no puede exceder 7 días."
+
+        # Validación de solapes (en Python para contemplar semanas abiertas)
+        # Tomamos 'fin' teórico para abiertas
+        self_start = self.fecha_desde
+        self_end = self.fecha_hasta or (self.fecha_desde + timedelta(days=6))
+
+        # Buscar otras semanas del mismo contexto
+        qs = CierreSemanal.objects.filter(
+            bodega=self.bodega,
+            temporada=self.temporada,
+        ).exclude(pk=self.pk)
+
+        for other in qs:
+            other_start = other.fecha_desde
+            other_end = other.fecha_hasta or (other.fecha_desde + timedelta(days=6))
+            # Rango solapado si se intersecta
+            if self_start <= other_end and self_end >= other_start:
+                errors["fecha_desde"] = "El rango de la semana solapa con otra semana existente."
+                break
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        """
+        Alineado con el patrón del repo: validamos salvo updates de archivado.
+        """
+        update_fields = kwargs.get("update_fields")
+        if not _is_only_archival_fields(update_fields):
+            self.full_clean()
+        return super().save(*args, **kwargs)

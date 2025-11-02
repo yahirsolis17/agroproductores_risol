@@ -113,7 +113,7 @@ export const moduleRoutes: ModuleRoute[] = [
     path: '/bodega/tablero',
     module: 'gestion_bodega',
     allowedRoles: ['admin', 'usuario'],
-    element: lazyRoute(() => import('../../modules/gestion_bodega/pages/TableroBodega')),
+    element: lazyRoute(() => import('../../modules/gestion_bodega/pages/TableroBodegaPage')),
   },
 
   {

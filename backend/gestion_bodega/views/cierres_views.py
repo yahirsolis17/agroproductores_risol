@@ -18,8 +18,6 @@ from agroproductores_risol.utils.pagination import GenericPagination
 from gestion_bodega.utils.notification_handler import NotificationHandler
 from gestion_bodega.utils.semana import (
     tz_today_mx,
-    season_week_index,
-    season_week_bounds,
 )
 
 class NotificationMixin:
@@ -94,7 +92,7 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
         return self.notify(key="data_processed_success", data={"results": data}, status_code=status.HTTP_200_OK)
 
     # ──────────────────────────────────────────────────────────────────────
-    # NUEVO: índice de semanas de una temporada (rango, cerrada/abierta)
+    # NUEVO: índice real de semanas manuales registradas (no ISO infinitas)
     # GET /bodega/cierres/index/?temporada=:id
     # ──────────────────────────────────────────────────────────────────────
     @action(detail=False, methods=["get"], url_path="index")
@@ -109,45 +107,54 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
 
         temporada = get_object_or_404(TemporadaBodega, pk=temporada_id)
 
-        # Construcción de semanas desde el ancla (lunes ISO de la semana de inicio)
-        # hasta hoy (o fecha_fin si existe). Semana 1 es la que arranca en el lunes ISO
-        # que contiene a fecha_inicio (recortada al inicio real de temporada).
-        today = tz_today_mx()
-        last_day = min(temporada.fecha_fin or today, today)
+        # Traemos SOLO semanas realmente creadas para esta temporada/bodega
+        cierres = list(
+            CierreSemanal.objects
+            .filter(bodega=temporada.bodega, temporada=temporada, is_active=True)
+            .order_by("fecha_desde", "id")
+            .values("id", "fecha_desde", "fecha_hasta", "iso_semana")
+        )
 
-        weeks: List[Dict] = []
-        ix = 1
-        while True:
-            desde, hasta, code = season_week_bounds(temporada, ix)
-            # detener cuando el rango ya no intersecta la temporada
-            if desde > last_day:
+        if not cierres:
+            return self.notify(
+                key="data_processed_success",
+                data={
+                    "temporada": {"id": temporada.id, "año": temporada.año, "finalizada": temporada.finalizada},
+                    "current_semana_ix": None,
+                    "weeks": [],
+                },
+                status_code=status.HTTP_200_OK,
+            )
+
+        # Determinar índice "actual": preferimos semana abierta; si no, la última.
+        idx_actual = None
+        for i, s in enumerate(cierres):
+            if s["fecha_hasta"] is None:
+                idx_actual = i
                 break
+        if idx_actual is None:
+            idx_actual = len(cierres) - 1
 
-            # ¿Existe cierre activo que cubra este rango?
-            cerrada = CierreSemanal.objects.filter(
-                bodega=temporada.bodega,
-                temporada=temporada,
-                is_active=True,
-                fecha_desde__lte=hasta,
-                fecha_hasta__gte=desde,
-            ).exists()
-
+        # Construcción de salida homogénea
+        weeks: List[Dict] = []
+        for i, s in enumerate(cierres, start=1):
+            desde = s["fecha_desde"]
+            hasta = s["fecha_hasta"] or (s["fecha_desde"])
+            # si está abierta, mostramos hasta = desde + 6 o "hoy" en FE (el tablero ya lo acota)
             weeks.append({
-                "semana_ix": ix,
+                "semana_ix": i,
                 "desde": str(desde),
                 "hasta": str(hasta),
-                "iso_semana": code,
-                "is_closed": cerrada,
+                "iso_semana": s.get("iso_semana") or None,
+                "is_closed": s["fecha_hasta"] is not None,
+                "semana_id": s["id"],
             })
-            ix += 1
-
-        current_ix = season_week_index(last_day, temporada.fecha_inicio)
 
         return self.notify(
             key="data_processed_success",
             data={
                 "temporada": {"id": temporada.id, "año": temporada.año, "finalizada": temporada.finalizada},
-                "current_semana_ix": current_ix,
+                "current_semana_ix": idx_actual + 1,  # 1-based
                 "weeks": weeks,
             },
             status_code=status.HTTP_200_OK,
@@ -156,14 +163,14 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
     @action(detail=False, methods=["post"])
     def semanal(self, request):
         """
-        Cierra una semana ISO para una bodega+temporada.
+        Cierra una semana (manual) para una bodega+temporada.
         Body:
         {
           "bodega": id,
           "temporada": id,
-          "iso_semana": "YYYY-Www",
+          "iso_semana": "YYYY-Www",           # opcional, etiqueta
           "fecha_desde": "YYYY-MM-DD",
-          "fecha_hasta": "YYYY-MM-DD"
+          "fecha_hasta": "YYYY-MM-DD"         # opcional; si no viene, queda abierta
         }
         """
         ser = CierreSemanalSerializer(data=request.data)
