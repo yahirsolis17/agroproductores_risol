@@ -1,12 +1,4 @@
-// FUSIÓN PREMIUM: Diseño empresarial + animaciones fluidas + resúmenes integrados
-// - Semanas MANUALES: índice real (1..N) vía WeeksNav, no ISO del año
-// - Header muestra temporada_label y bodega_label desde backend (context)
-// - Botones Iniciar/Finalizar conectados a servicios startWeek/finishWeek
-// - WeekSwitcher: deshabilitado si no hay semanas; prev/next bloqueados según NAV
-// - URL sincronizada con ?isoSemana=YYYY-Www (solo etiqueta cuando hay semanas)
-// - Refetch sutil post-acciones para Summary/Queues/Alerts
-
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+﻿import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Box,
   Paper,
@@ -26,7 +18,6 @@ import { useDispatch } from "react-redux";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
-// Icons
 import RefreshIcon from "@mui/icons-material/Refresh";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import StopIcon from "@mui/icons-material/Stop";
@@ -42,7 +33,6 @@ import KpiCards from "../components/tablero/KpiCards";
 import WeekSwitcher from "../components/tablero/WeekSwitcher";
 import QuickActions from "../components/tablero/QuickActions";
 
-// Resúmenes integrados
 import ResumenRecepciones from "../components/tablero/ResumenRecepciones";
 import ResumenInventarios from "../components/tablero/ResumenInventarios";
 import ResumenLogistica from "../components/tablero/ResumenLogistica";
@@ -51,12 +41,33 @@ import type { QueueRowUI } from "../hooks/useTableroBodega";
 import { setBreadcrumbs } from "../../../global/store/breadcrumbsSlice";
 import { formatDateISO, parseLocalDateStrict } from "../../../global/utils/date";
 
-// Servicios semana (backend)
 import { getWeekCurrent, startWeek, finishWeek } from "../services/tableroBodegaService";
 import type { WeekCurrentResponse } from "../types/tableroBodegaTypes";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Animaciones
+function prettyRange(fromISO: string, toISO: string) {
+  const from = parseLocalDateStrict(fromISO);
+  const to = parseLocalDateStrict(toISO);
+  const fmt = (d: Date) =>
+    d.toLocaleDateString(undefined, {
+      day: "2-digit",
+      month: "short",
+      year: d.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined,
+    });
+  return `${fmt(from)} – ${fmt(to)}`;
+}
+
+function withPreservedParams(href: string, preserveKeys: string[] = ["temporada", "bodega", "week_id"]) {
+  const current = new URLSearchParams(window.location.search);
+  const url = new URL(href, window.location.origin);
+  preserveKeys.forEach((k) => {
+    if (current.has(k) && !url.searchParams.has(k)) {
+      url.searchParams.set(k, current.get(k)!);
+    }
+  });
+  return url.pathname + (url.searchParams.toString() ? `?${url.searchParams.toString()}` : "");
+}
+
+// Animaciones (framer-motion)
 const pageTransition = {
   initial: { opacity: 0, y: 8, scale: 0.99 },
   animate: {
@@ -88,79 +99,7 @@ const staggerChildren = {
   },
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Utilidades ISO WEEK (solo etiqueta visual cuando hay semanas)
-function pad2(n: number) {
-  return n < 10 ? `0${n}` : String(n);
-}
-function getISODay(d: Date) {
-  const day = d.getDay();
-  return day === 0 ? 7 : day;
-}
-function getISOWeekYear(d: Date) {
-  const date = new Date(d.getTime());
-  date.setHours(0, 0, 0, 0);
-  const thursday = new Date(date.getTime());
-  thursday.setDate(date.getDate() + (4 - getISODay(date)));
-  return thursday.getFullYear();
-}
-function getISOWeek(d: Date) {
-  const date = new Date(d.getTime());
-  date.setHours(0, 0, 0, 0);
-  const thursday = new Date(date.getTime());
-  thursday.setDate(date.getDate() + (4 - getISODay(date)));
-  const yearStart = new Date(thursday.getFullYear(), 0, 1);
-  const week = Math.floor(((thursday.getTime() - yearStart.getTime()) / 86400000 + getISODay(yearStart) + 3) / 7);
-  return week;
-}
-function dateToIsoKey(d: Date) {
-  const year = getISOWeekYear(d);
-  const week = getISOWeek(d);
-  return `${year}-W${pad2(week)}`;
-}
-function isoWeekToMonday(year: number, week: number) {
-  const jan4 = new Date(year, 0, 4);
-  const jan4ISODow = getISODay(jan4);
-  const mondayWeek1 = new Date(jan4);
-  mondayWeek1.setDate(jan4.getDate() - (jan4ISODow - 1));
-  const mondayTarget = new Date(mondayWeek1);
-  mondayTarget.setDate(mondayWeek1.getDate() + (week - 1) * 7);
-  return mondayTarget;
-}
-function isoKeyToRange(isoKey: string) {
-  const m = isoKey.match(/^(\d{4})-W(\d{2})$/);
-  if (!m) return null;
-  const year = Number(m[1]);
-  const week = Number(m[2]);
-  const monday = isoWeekToMonday(year, week);
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  return { from: formatDateISO(monday), to: formatDateISO(sunday) };
-}
-function prettyRange(fromISO: string, toISO: string) {
-  const from = parseLocalDateStrict(fromISO);
-  const to = parseLocalDateStrict(toISO);
-  const fmt = (d: Date) =>
-    d.toLocaleDateString(undefined, {
-      day: "2-digit",
-      month: "short",
-      year: d.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined,
-    });
-  return `${fmt(from)} – ${fmt(to)}`;
-}
-// Preservar query params
-function withPreservedParams(href: string, preserveKeys: string[] = ["temporada", "isoSemana", "bodega"]) {
-  const current = new URLSearchParams(window.location.search);
-  const url = new URL(href, window.location.origin);
-  preserveKeys.forEach((k) => {
-    if (current.has(k) && !url.searchParams.has(k)) {
-      url.searchParams.set(k, current.get(k)!);
-    }
-  });
-  return url.pathname + (url.searchParams.toString() ? `?${url.searchParams.toString()}` : "");
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
+// Componente principal
 // Componente principal
 const TableroBodegaPage: React.FC = () => {
   const theme = useTheme();
@@ -194,7 +133,6 @@ const TableroBodegaPage: React.FC = () => {
     isLoadingSummary,
     errorSummary,
     refetchSummary,
-    filters,
     onApplyFilters,
 
     // Semana/Nav expuesto por el hook
@@ -206,11 +144,12 @@ const TableroBodegaPage: React.FC = () => {
     applyMarkedRefetch,
   } = hookAny;
 
-  // Bandera central: ¿hay semanas creadas?
+  // Bandera central: Â¿hay semanas creadas?
   const hasWeeks: boolean = !!weekNav?.hasWeeks;
 
-  // ISO semana controlada por URL (solo etiqueta visual/navegación cuando hay semanas)
-  const [isoSemana, setIsoSemana] = useState<string | null>(() => sp.get("isoSemana"));
+  // ISO semana controlada por URL (solo etiqueta visual/navegaciÃ³n cuando hay semanas)
+  const weekIdParam = sp.get("week_id");
+  const urlWeekId = weekIdParam ? Number(weekIdParam) : null;
 
   // Estado: semana activa actual en backend
   const [weekState, setWeekState] = useState<WeekCurrentResponse | null>(null);
@@ -219,29 +158,24 @@ const TableroBodegaPage: React.FC = () => {
   const [busyFinish, setBusyFinish] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  // Seed inicial de isoSemana SOLO si hay semanas
-  useEffect(() => {
-    if (!hasWeeks) {
-      // limpiamos isoSemana de la URL si estaba
-      if (sp.get("isoSemana")) {
-        const next = new URLSearchParams(sp);
-        next.delete("isoSemana");
-        setSp(next, { replace: true });
-      }
-      setIsoSemana(null);
-      return;
+  // selectedWeek desde lista (por week_id) o fallback a nav.index/current
+  const selectedWeek = useMemo(() => {
+    const items = (hookAny?.weekNav?.items || []) as any[];
+    if (urlWeekId && items.length) {
+      const found = items.find((it) => it?.id === urlWeekId);
+      if (found) return found;
     }
-    if (!isoSemana) {
-      const baseISO = filters?.fecha_desde || filters?.fecha_hasta || formatDateISO(new Date());
-      const base = parseLocalDateStrict(baseISO);
-      const key = dateToIsoKey(base);
-      setIsoSemana(key);
-      const next = new URLSearchParams(sp);
-      next.set("isoSemana", key);
-      setSp(next, { replace: true });
+    const idx1 = hookAny?.weekNav?.indice ?? null;
+    if (items.length && idx1 && idx1 > 0) {
+      return items[Math.min(items.length - 1, Math.max(0, idx1 - 1))];
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasWeeks, isoSemana, filters?.fecha_desde, filters?.fecha_hasta]);
+    const wk = (weekState as any)?.week || null;
+    if (wk) return wk;
+    return null;
+  }, [hookAny?.weekNav?.items, hookAny?.weekNav?.indice, urlWeekId, weekState]);
+
+  // SincronizaciÃ³n ISO legacy eliminada: trabajamos con week_id
+  useEffect(() => {}, [hasWeeks]);
 
   // Traer estado de semana activa (para habilitar/deshabilitar acciones)
   const refetchWeekState = useCallback(async () => {
@@ -258,25 +192,18 @@ const TableroBodegaPage: React.FC = () => {
     refetchWeekState();
   }, [refetchWeekState]);
 
-  // Aplicar filtros cuando cambia isoSemana (solo si hay semanas)
-  useEffect(() => {
-    if (!hasWeeks || !isoSemana) return;
-    const range = isoKeyToRange(isoSemana);
-    if (!range) return;
-    onApplyFilters?.({
-      fecha_desde: range.from,
-      fecha_hasta: range.to,
-      isoSemana,
-    });
-  }, [hasWeeks, isoSemana, onApplyFilters]);
+  // Eliminado: no derivar rangos desde ISO en cliente
+  useEffect(() => {}, [hasWeeks]);
 
-  // Pretty range
+  // Pretty range desde selectedWeek (backend)
   const rangoPretty = useMemo(() => {
-    if (!filters?.fecha_desde || !filters?.fecha_hasta) return "";
-    return prettyRange(filters.fecha_desde, filters.fecha_hasta);
-  }, [filters?.fecha_desde, filters?.fecha_hasta]);
+    const from = (selectedWeek as any)?.fecha_desde || (selectedWeek as any)?.inicio;
+    const to = (selectedWeek as any)?.fecha_hasta || (selectedWeek as any)?.fin;
+    if (!from || !to) return "";
+    return prettyRange(from, to);
+  }, [selectedWeek]);
 
-  // Semana índice REAL (1..N) desde backend
+  // Semana Ã­ndice REAL (1..N) desde backend
   const semanaIndex = weekNav?.indice ?? null;
 
   // Etiquetas desde backend con fallback
@@ -284,82 +211,106 @@ const TableroBodegaPage: React.FC = () => {
     () => `Temporada ${weekNav?.context?.temporada_label ?? temporadaId}`,
     [weekNav?.context?.temporada_label, temporadaId]
   );
-  const bodegaCrumbLabel = useMemo(
-    () => `Bodegas — ${weekNav?.context?.bodega_label ?? `#${bodegaId ?? "-"}`}`,
-    [weekNav?.context?.bodega_label, bodegaId]
-  );
 
-  // Breadcrumbs con labels correctos (omitimos “Semana …” cuando no hay semanas)
+  // Breadcrumbs con labels del backend (bodega_label, temporada_label, índice de semana)
+  // Estilo: "Bodegas – {bodega} / Temporada {año} / Semana {N}"
+  // Mantiene rutas existentes: /bodega/:bodegaId/temporadas y el propio tablero con querys
   useEffect(() => {
+    const bLabel = weekNav?.context?.bodega_label || "Bodega";
+    const tLabel = weekNav?.context?.temporada_label || "";
+
     const crumbs = [
-      { label: bodegaCrumbLabel, path: "/bodega" },
       {
-        label: temporadaChipLabel,
-        path: `/bodega/${bodegaId ?? ""}/temporadas${bodegaId ? `?temporada=${temporadaId}` : ""}`,
+        label: `Bodegas – ${bLabel}`,
+        path: "/bodega",
       },
-    ];
+      {
+        label: `Temporada ${tLabel}`,
+        path:
+          typeof bodegaId === "number" && bodegaId > 0
+            ? `/bodega/${bodegaId}/temporadas${temporadaId ? `?temporada=${temporadaId}` : ""}`
+            : "/bodega",
+      },
+    ] as { label: string; path: string }[];
+
     if (hasWeeks) {
-      crumbs.push({ label: `Semana ${semanaIndex ?? "--"}`, path: "" });
+      crumbs.push({ label: `Semana ${semanaIndex ?? ""}`, path: "" });
     }
+
     dispatch(setBreadcrumbs(crumbs));
-  }, [dispatch, temporadaId, bodegaId, semanaIndex, temporadaChipLabel, bodegaCrumbLabel, hasWeeks]);
+  }, [dispatch, bodegaId, temporadaId, weekNav?.context?.bodega_label, weekNav?.context?.temporada_label, hasWeeks, semanaIndex]);
 
   // WeekSwitcher handler (ajusta etiqueta y rango). Si no hay semanas, ignoramos.
   const handleWeekChange = useCallback(
     (range: { from?: string; to?: string; isoSemana?: string | null }) => {
       if (!hasWeeks) return;
       if (!range.from || !range.to) return;
-      const key = range.isoSemana || dateToIsoKey(parseLocalDateStrict(range.from));
-      setIsoSemana(key);
-      const next = new URLSearchParams(sp);
-      next.set("isoSemana", key);
-      setSp(next, { replace: false });
+      const key = range.isoSemana ?? "MANUAL";
       onApplyFilters?.({ fecha_desde: range.from, fecha_hasta: range.to, isoSemana: key });
     },
-    [hasWeeks, onApplyFilters, sp, setSp]
+    [hasWeeks, onApplyFilters]
   );
 
-  // Navegación preservando query relevantes
+  // NavegaciÃ³n preservando query relevantes
   const goto = useCallback(
     (href: string) => {
-      navigate(withPreservedParams(href, ["temporada", "isoSemana", "bodega"]));
+      navigate(withPreservedParams(href, ["temporada", "bodega", "week_id"]));
     },
     [navigate]
   );
 
-  // Valor actual para WeekSwitcher
+  // Valor actual para WeekSwitcher (siempre desde backend)
   const weekValue = useMemo(() => {
-    if (!hasWeeks) {
-      // sin semanas: deshabilitamos switcher y no mostramos rango
-      const today = formatDateISO(new Date());
-      return { from: today, to: today };
+    const from = (selectedWeek as any)?.fecha_desde || (selectedWeek as any)?.inicio;
+    const to = (selectedWeek as any)?.fecha_hasta || (selectedWeek as any)?.fin;
+    if (from && to) return { from, to, isoSemana: "MANUAL" };
+    const today = formatDateISO(new Date());
+    return { from: today, to: today, isoSemana: null };
+  }, [selectedWeek]);
+
+  // Derivar estado del switcher y navegaciÃ³n
+  const currentIndex = useMemo(() => {
+    const items = (hookAny?.weekNav?.items || []) as any[];
+    if (!items.length) return -1;
+    if (urlWeekId) {
+      const idx = items.findIndex((it) => it?.id === urlWeekId);
+      if (idx >= 0) return idx;
     }
-    const fallback = isoSemana ? isoKeyToRange(isoSemana) : null;
-    const from = filters?.fecha_desde || fallback?.from || formatDateISO(new Date());
-    const to = filters?.fecha_hasta || fallback?.to || formatDateISO(new Date());
-    return { from, to };
-  }, [hasWeeks, filters?.fecha_desde, filters?.fecha_hasta, isoSemana]);
+    const idxFromNav = ((hookAny?.weekNav?.indice ?? 1) as number) - 1;
+    return Math.max(0, Math.min(items.length - 1, idxFromNav));
+  }, [hookAny?.weekNav?.items, hookAny?.weekNav?.indice, urlWeekId]);
 
-  // Derivar estado del switcher y navegación
-  const disableSwitcher = !hasWeeks;
-  const disablePrev = !hasWeeks || !(weekNav?.hasPrev ?? false);
-  const disableNext = !hasWeeks || !(weekNav?.hasNext ?? false);
+  const disablePrev = !hasWeeks || currentIndex <= 0;
+  const disableNext = !hasWeeks || currentIndex < 0 || currentIndex >= ((hookAny?.weekNav?.items || []) as any[]).length - 1;
 
-  // Derivar si hay semana abierta y si ya puede cerrarse (7 días completos)
-  const hasActiveOpenWeek = useMemo(() => {
-    const w = weekState?.active_week;
-    return !!(w && w.fecha_fin == null);
-  }, [weekState]);
+  const goPrevWeek = useCallback(() => {
+    const items = (hookAny?.weekNav?.items || []) as any[];
+    if (!items.length) return;
+    const idx = currentIndex <= 0 ? 0 : currentIndex - 1;
+    const target = items[idx];
+    if (target?.id) {
+      const next = new URLSearchParams(sp);
+      next.set("week_id", String(target.id));
+      setSp(next, { replace: false });
+    }
+  }, [hookAny?.weekNav?.items, currentIndex, sp, setSp]);
 
-  const canFinish = useMemo(() => {
-    if (!hasActiveOpenWeek) return false;
-    const to = (weekState as any)?.active_week?.rango_inferido?.to as string | undefined; // YYYY-MM-DD
-    if (!to) return false;
-    const todayISO = formatDateISO(new Date());
-    return todayISO >= to;
-  }, [hasActiveOpenWeek, weekState]);
+  const goNextWeek = useCallback(() => {
+    const items = (hookAny?.weekNav?.items || []) as any[];
+    if (!items.length) return;
+    const idx = currentIndex >= items.length - 1 ? items.length - 1 : currentIndex + 1;
+    const target = items[idx];
+    if (target?.id) {
+      const next = new URLSearchParams(sp);
+      next.set("week_id", String(target.id));
+      setSp(next, { replace: false });
+    }
+  }, [hookAny?.weekNav?.items, currentIndex, sp, setSp]);
+  // Estado de semana activa: según selectedWeek.activa (semana operativa)
+  const isActiveSelectedWeek = useMemo(() => Boolean((selectedWeek as any)?.activa), [selectedWeek]);
+  const canFinish = isActiveSelectedWeek;
 
-  // ────────────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Acciones: Iniciar / Finalizar (con backend)
   const handleStart = useCallback(async () => {
     setActionError(null);
@@ -367,20 +318,20 @@ const TableroBodegaPage: React.FC = () => {
     try {
       setBusyStart(true);
       const from = weekValue.from;
-      await startWeek({ bodega: bodegaId, temporada: temporadaId, fecha_desde: from });
+      const res = await startWeek({ bodega: bodegaId, temporada: temporadaId, fecha_desde: from });
 
       await refetchWeekState();
 
       // Refetch de todo (incluye weeksNav interno del hook)
       await refetchAll?.();
 
-      // Reposicionar isoSemana si ahora existen semanas
-      const base = parseLocalDateStrict(from);
-      const key = dateToIsoKey(base);
-      setIsoSemana(key);
-      const next = new URLSearchParams(sp);
-      next.set("isoSemana", key);
-      setSp(next, { replace: true });
+      // Sincronizar URL a la nueva semana si el backend la expone
+      const newWeekId = (res as any)?.week?.id ?? null;
+      if (newWeekId) {
+        const next = new URLSearchParams(sp);
+        next.set("week_id", String(newWeekId));
+        setSp(next, { replace: false });
+      }
 
       // Refetch sutil de tarjetas/colas
       markForRefetch?.("summary");
@@ -419,8 +370,8 @@ const TableroBodegaPage: React.FC = () => {
     }
   }, [bodegaId, temporadaId, weekValue.to, markForRefetch, applyMarkedRefetch, refetchAll, refetchWeekState]);
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // Datos para resúmenes
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Datos para resÃºmenes
   const emptyMeta = { page: 1, page_size: 10, total: 0 };
 
   const recepRows: QueueRowUI[] = (hookAny?.queueRecepciones?.rows ?? []) as QueueRowUI[];
@@ -440,11 +391,11 @@ const TableroBodegaPage: React.FC = () => {
 
   // Texto auxiliar para "Finalizar"
   const finishHint = useMemo(() => {
-    const to = (weekState as any)?.active_week?.rango_inferido?.to as string | undefined;
-    return to ? `Finaliza al completar 7 días (${to})` : "Finalizar semana";
+    const to = (selectedWeek as any)?.fecha_hasta || (selectedWeek as any)?.fin;
+    return to ? `Finaliza al completar 7 dÃ­as (${to})` : "Finalizar semana";
   }, [weekState]);
 
-  // ────────────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Render
   return (
     <Box
@@ -459,7 +410,7 @@ const TableroBodegaPage: React.FC = () => {
         minHeight: "100vh",
       }}
     >
-      {/* Shell único premium */}
+      {/* Shell Ãºnico premium */}
       <Paper
         elevation={1}
         sx={{
@@ -584,7 +535,9 @@ const TableroBodegaPage: React.FC = () => {
               <WeekSwitcher
                 value={weekValue}
                 onChange={handleWeekChange}
-                disabled={disableSwitcher}
+                onPrev={goPrevWeek}
+                onNext={goNextWeek}
+                disabled={!hasWeeks}
                 disablePrev={disablePrev}
                 disableNext={disableNext}
               />
@@ -598,11 +551,11 @@ const TableroBodegaPage: React.FC = () => {
                   sx={{ fontWeight: 500, display: "flex", alignItems: "center", gap: 1 }}
                 >
                   <CalendarTodayIcon fontSize="small" />
-                  {rangoPretty || "—"}
+                  {rangoPretty || "â€”"}
                 </Typography>
               )}
 
-              {hasWeeks && (hasActiveOpenWeek ? (
+              {hasWeeks && (isActiveSelectedWeek ? (
                 <Chip
                   label="Activa"
                   size="small"
@@ -638,13 +591,13 @@ const TableroBodegaPage: React.FC = () => {
             <Box flexGrow={1} />
 
             <Box display="flex" alignItems="center" gap={1} component={motion.div} variants={sectionTransition}>
-              <Tooltip title={hasActiveOpenWeek ? "Ya existe una semana abierta" : "Iniciar semana"}>
+              <Tooltip title={isActiveSelectedWeek ? "Ya existe una semana abierta" : "Iniciar semana"}>
                 <span>
                   <Button
                     size="small"
                     variant="contained"
                     startIcon={busyStart ? <CircularProgress size={16} /> : <PlayArrowIcon />}
-                    disabled={!bodegaId || busyStart || hasActiveOpenWeek}
+                    disabled={!bodegaId || busyStart || isActiveSelectedWeek}
                     onClick={handleStart}
                     sx={{
                       borderRadius: 3,
@@ -659,13 +612,13 @@ const TableroBodegaPage: React.FC = () => {
                 </span>
               </Tooltip>
 
-              <Tooltip title={!hasActiveOpenWeek ? "No hay semana abierta para cerrar" : finishHint}>
+              <Tooltip title={!isActiveSelectedWeek ? "No hay semana abierta para cerrar" : (finishHint ? finishHint.replace('d��as','dias').replace('dÃ­as','dias') : finishHint)}>
                 <span>
                   <Button
                     size="small"
                     variant="outlined"
                     startIcon={busyFinish ? <CircularProgress size={16} /> : <StopIcon />}
-                    disabled={!bodegaId || busyFinish || !hasActiveOpenWeek || !canFinish}
+                    disabled={!bodegaId || busyFinish || !isActiveSelectedWeek || !canFinish}
                     onClick={handleFinish}
                     sx={{
                       borderRadius: 3,
@@ -697,7 +650,7 @@ const TableroBodegaPage: React.FC = () => {
             </Box>
           </Box>
 
-          {/* Mensaje de error de acción */}
+          {/* Mensaje de error de acciÃ³n */}
           {!!actionError && (
             <Box mt={1}>
               <Alert
@@ -718,7 +671,7 @@ const TableroBodegaPage: React.FC = () => {
         {/* Cuerpo semanal con transiciones */}
         <Box sx={{ px: { xs: 2, md: 3 }, py: 1 }}>
           <AnimatePresence initial={false} mode="wait">
-            <Box component={motion.div} key={isoSemana || weekValue.from} {...pageTransition}>
+            <Box component={motion.div} key={weekValue.from} {...pageTransition}>
               {/* KPIs */}
               <Box sx={{ py: 3 }}>
                 {errorSummary ? (
@@ -746,12 +699,12 @@ const TableroBodegaPage: React.FC = () => {
 
               <Divider sx={{ my: 3, borderColor: alpha(theme.palette.divider, 0.1), borderWidth: 1 }} />
 
-              {/* Sección: Recepciones */}
+              {/* SecciÃ³n: Recepciones */}
               <Box sx={{ py: 3 }} component={motion.section} variants={sectionTransition} initial="initial" animate="animate">
                 <SectionHeader
                   icon={<InventoryIcon sx={{ color: "primary.main", fontSize: 28 }} />}
                   title="Recepciones"
-                  subtitle={hasWeeks ? `Semana ${semanaIndex ?? "—"}` : undefined}
+                  subtitle={hasWeeks ? `Semana ${semanaIndex ?? "â€”"}` : undefined}
                 />
                 <Paper variant="outlined" sx={{ p: { xs: 1.5, md: 2 }, borderRadius: 3 }}>
                   <ResumenRecepciones
@@ -765,12 +718,12 @@ const TableroBodegaPage: React.FC = () => {
 
               <Divider sx={{ my: 3, borderColor: alpha(theme.palette.divider, 0.1), borderWidth: 1 }} />
 
-              {/* Sección: Inventarios */}
+              {/* SecciÃ³n: Inventarios */}
               <Box sx={{ py: 3 }} component={motion.section} variants={sectionTransition} initial="initial" animate="animate">
                 <SectionHeader
                   icon={<WarehouseIcon sx={{ color: "primary.main", fontSize: 28 }} />}
                   title="Inventarios"
-                  subtitle={hasWeeks ? `Semana ${semanaIndex ?? "—"}` : undefined}
+                  subtitle={hasWeeks ? `Semana ${semanaIndex ?? "â€”"}` : undefined}
                 />
                 <Paper variant="outlined" sx={{ p: { xs: 1.5, md: 2 }, borderRadius: 3 }}>
                   <ResumenInventarios rows={invRows} meta={invMeta} loading={invLoading} onPageChange={onPageInv} />
@@ -779,12 +732,12 @@ const TableroBodegaPage: React.FC = () => {
 
               <Divider sx={{ my: 3, borderColor: alpha(theme.palette.divider, 0.1), borderWidth: 1 }} />
 
-              {/* Sección: Logística */}
+              {/* SecciÃ³n: LogÃ­stica */}
               <Box sx={{ py: 3 }} component={motion.section} variants={sectionTransition} initial="initial" animate="animate">
                 <SectionHeader
                   icon={<LocalShippingIcon sx={{ color: "primary.main", fontSize: 28 }} />}
-                  title="Despachos / Logística"
-                  subtitle={hasWeeks ? `Semana ${semanaIndex ?? "—"}` : undefined}
+                  title="Despachos / LogÃ­stica"
+                  subtitle={hasWeeks ? `Semana ${semanaIndex ?? "â€”"}` : undefined}
                 />
                 <Paper variant="outlined" sx={{ p: { xs: 1.5, md: 2 }, borderRadius: 3 }}>
                   <ResumenLogistica rows={logRows} meta={logMeta} loading={logLoading} onPageChange={onPageLog} />
@@ -840,3 +793,10 @@ const SectionHeader: React.FC<{ icon: React.ReactNode; title: string; subtitle?:
 };
 
 export default TableroBodegaPage;
+
+
+
+
+
+
+

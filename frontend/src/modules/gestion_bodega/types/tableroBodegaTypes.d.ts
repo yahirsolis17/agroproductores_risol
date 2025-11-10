@@ -1,5 +1,3 @@
-// frontend/src/modules/gestion_bodega/types/tableroBodegaTypes.d.ts
-
 export type QueueType = "recepciones" | "inventarios" | "despachos";
 export type AlertSeverity = "info" | "warning" | "critical";
 
@@ -131,6 +129,18 @@ export interface TableroFiltersDTO {
   order_by: string | null;
 }
 
+/**
+ * Extensión de filtros usados por el cliente (hook/servicios) para mapear a la API.
+ * - isoSemana: etiqueta ISO opcional (no se envía si es "MANUAL")
+ * - bodegaId: mapea a query param `bodega`
+ * - semanaId: identidad de CierreSemanal (prioridad máxima en backend)
+ */
+export type TableroClientFilters = Partial<TableroFiltersDTO> & {
+  isoSemana?: string | null;
+  bodegaId?: number | null;
+  semanaId?: number | null;
+};
+
 /** Estado de UI (Redux) */
 export interface TableroUIState {
   temporadaId: number | null;
@@ -150,6 +160,19 @@ export interface TableroUIState {
   lastVisitedAt: number | null;
 }
 
+/** Ítem de navegación de semanas (contrato estable) */
+export type WeeksNavItem = {
+  id: number;
+  iso_semana: string | null;
+  inicio: string; // yyyy-mm-dd
+  fin: string;    // yyyy-mm-dd
+  cerrada?: boolean; // legacy
+  // Nuevos campos estables
+  fecha_desde?: string; // yyyy-mm-dd
+  fecha_hasta?: string; // yyyy-mm-dd
+  activa?: boolean;
+};
+
 /** Respuesta para barra de navegación de semanas */
 export type WeeksNavResponse = {
   /** Semana ISO actual (YYYY-Www) o null si no hay semanas */
@@ -168,14 +191,8 @@ export type WeeksNavResponse = {
   inicio?: string;
   fin?: string;
 
-  /** Listado opcional de semanas con rangos (el backend puede enviarlo) */
-  items?: Array<{
-    id: number;
-    iso_semana: string | null;
-    inicio: string; // yyyy-mm-dd
-    fin: string;    // yyyy-mm-dd
-    cerrada: boolean;
-  }>;
+  /** Listado de semanas con rangos y bandera de activa */
+  items?: WeeksNavItem[];
 
   /** Contexto agregado por backend */
   context?: TableroContext;
@@ -183,6 +200,13 @@ export type WeeksNavResponse = {
 
 export interface WeekCurrentResponse {
   active_week: WeekActive | null;
+  /** Proyección estable de semana actual/abierta */
+  week?: {
+    id: number;
+    fecha_desde: string;
+    fecha_hasta: string | null;
+    activa: boolean;
+  };
   context?: TableroContext;
 }
 

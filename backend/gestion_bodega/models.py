@@ -276,13 +276,13 @@ class Cliente(TimeStampedModel):
 # ───────────────────────────────────────────────────────────────────────────
 # Operación (Recepciones / Clasificación)
 # ───────────────────────────────────────────────────────────────────────────
-
 class Recepcion(TimeStampedModel):
     """
     Entrada de mango de campo (sin empacar) — origen libre.
     """
     bodega = models.ForeignKey(Bodega, on_delete=models.PROTECT, related_name="recepciones")
     temporada = models.ForeignKey(TemporadaBodega, on_delete=models.CASCADE, related_name="recepciones")
+    semana = models.ForeignKey("CierreSemanal", on_delete=models.PROTECT, null=True, blank=True, related_name="recepciones")
     fecha = models.DateField()
     huertero_nombre = models.CharField(max_length=120, blank=True, default="")
     tipo_mango = models.CharField(max_length=80)
@@ -315,6 +315,7 @@ class Recepcion(TimeStampedModel):
         return super().save(*args, **kwargs)
 
 
+
 class ClasificacionEmpaque(TimeStampedModel):
     """
     Cajas empacadas por material/calidad/tipo_mango derivadas de una Recepción.
@@ -323,6 +324,7 @@ class ClasificacionEmpaque(TimeStampedModel):
     recepcion = models.ForeignKey(Recepcion, on_delete=models.PROTECT, related_name="clasificaciones")
     bodega = models.ForeignKey(Bodega, on_delete=models.PROTECT, related_name="clasificaciones")
     temporada = models.ForeignKey(TemporadaBodega, on_delete=models.CASCADE, related_name="clasificaciones")
+    semana = models.ForeignKey("CierreSemanal", on_delete=models.PROTECT, null=True, blank=True, related_name="clasificaciones")
     fecha = models.DateField()
     material = models.CharField(max_length=10, choices=Material.choices)
     calidad = models.CharField(max_length=12)  # madera/plástico (texto)

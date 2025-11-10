@@ -13,6 +13,7 @@ from rest_framework import status
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.views import APIView
+from django.db.models import Q  # ← para filtros de rango
 
 from agroproductores_risol.utils.pagination import GenericPagination
 from gestion_bodega.models import Bodega, TemporadaBodega, CierreSemanal
@@ -135,28 +136,50 @@ def _temporada_label(temporada_id: int) -> str:
         return str(temporada_id)
 
 
-def _active_week(bodega_id: Optional[int], temporada_id: int) -> Optional[Dict[str, Any]]:
+def _current_or_last_week_ctx(bodega_id: Optional[int], temporada_id: int) -> Optional[Dict[str, Any]]:
+    """
+    Devuelve la semana que contiene 'hoy'. Si no existe, devuelve la última semana (por fecha_desde).
+    Formato de retorno compatible con el 'active_week' legacy para no romper consumidores.
+    """
     if not bodega_id:
         return None
     try:
-        cw = CierreSemanal.objects.filter(
+        qs = CierreSemanal.objects.filter(
             bodega_id=bodega_id,
             temporada_id=temporada_id,
-            fecha_hasta__isnull=True,
-        ).order_by("-fecha_desde").first()
-        if not cw:
-            return None
-        end_theoretical = cw.fecha_desde + timedelta(days=6)
+            is_active=True,
+        )
+
+        hoy = date.today()
+        # Semana que contiene hoy (fecha_hasta o fin teórico +6)
+        week = (
+            qs.filter(
+                Q(fecha_desde__lte=hoy)
+                & (Q(fecha_hasta__gte=hoy) | Q(fecha_hasta__isnull=True))
+            )
+            .order_by("fecha_desde", "id")
+            .last()
+        )
+
+        # Si no hay semana que contenga hoy, tomar la última creada
+        if not week:
+            week = qs.order_by("fecha_desde", "id").last()
+            if not week:
+                return None
+
+        end_theoretical = week.fecha_hasta or (week.fecha_desde + timedelta(days=6))
+        contiene_hoy = week.fecha_desde <= hoy <= end_theoretical
+
         return {
-            "id": cw.id,
-            "fecha_inicio": cw.fecha_desde.isoformat(),
-            "fecha_fin": cw.fecha_hasta.isoformat() if cw.fecha_hasta else None,
+            "id": week.id,
+            "fecha_inicio": week.fecha_desde.isoformat(),
+            "fecha_fin": week.fecha_hasta.isoformat() if week.fecha_hasta else None,
             "rango_inferido": {
-                "from": cw.fecha_desde.isoformat(),
-                "to": (cw.fecha_hasta or end_theoretical).isoformat(),
+                "from": week.fecha_desde.isoformat(),
+                "to": end_theoretical.isoformat(),
             },
-            "estado": "ABIERTA" if cw.fecha_hasta is None else "CERRADA",
-            "iso_semana": cw.iso_semana or None,
+            "estado": "ACTUAL" if contiene_hoy else "PASADA",
+            "iso_semana": week.iso_semana or None,
         }
     except Exception:
         return None
@@ -172,7 +195,7 @@ def _resolve_range(
       1) semana_id (semana manual registrada)
       2) fecha_desde/fecha_hasta explícitos
       3) iso_semana válida (YYYY-Www)
-      4) semana activa (si hay bodega)
+      4) semana actual (la que contiene hoy) o, si no existe, la última
       5) None
     Devuelve (fdesde_str, fhasta_str, active_week_ctx)
     """
@@ -181,7 +204,7 @@ def _resolve_range(
     if semana_id:
         try:
             d1, d2, _ = rango_por_semana_id(semana_id)
-            return d1.isoformat(), d2.isoformat(), _active_week(bodega_id, temporada_id)
+            return d1.isoformat(), d2.isoformat(), _current_or_last_week_ctx(bodega_id, temporada_id)
         except Exception as e:
             logger.info("semana_id inválido: %s", e)
 
@@ -189,7 +212,7 @@ def _resolve_range(
     fdesde = request.query_params.get("fecha_desde")
     fhasta = request.query_params.get("fecha_hasta")
     if fdesde or fhasta:
-        return fdesde, fhasta, _active_week(bodega_id, temporada_id)
+        return fdesde, fhasta, _current_or_last_week_ctx(bodega_id, temporada_id)
 
     # 3) iso_semana
     iso_key = request.query_params.get("iso_semana")
@@ -197,10 +220,10 @@ def _resolve_range(
         rng = _iso_week_to_range(iso_key)
         if rng:
             a, b = rng
-            return a.isoformat(), b.isoformat(), _active_week(bodega_id, temporada_id)
+            return a.isoformat(), b.isoformat(), _current_or_last_week_ctx(bodega_id, temporada_id)
 
-    # 4) semana activa (si existe)
-    aw = _active_week(bodega_id, temporada_id)
+    # 4) semana actual (o última)
+    aw = _current_or_last_week_ctx(bodega_id, temporada_id)
     if aw and aw.get("rango_inferido"):
         r = aw["rango_inferido"]
         return r["from"], r["to"], aw
@@ -286,7 +309,7 @@ def _context_payload(temporada_id: int, bodega_id: Optional[int]) -> Dict[str, A
             ctx["bodega_label"] = b.nombre
         except Exception:
             ctx["bodega_label"] = str(bodega_id)
-    aw = _active_week(bodega_id, temporada_id)
+    aw = _current_or_last_week_ctx(bodega_id, temporada_id)
     if aw:
         ctx["active_week"] = aw
     return ctx
@@ -507,24 +530,45 @@ class BaseWeekAPIView(APIView):
 
 
 @method_decorator(never_cache, name="dispatch")
-class TableroBodegaWeekCurrentView(BaseWeekAPIView):
+class TableroBodegaWeekCurrentView(BaseDashboardAPIView):
     """
     GET /bodega/tablero/week/current/?bodega=:id&temporada=:id
     """
     throttle_scope = "bodega_dashboard"
 
     def get(self, request, *args, **kwargs):
-        bodega_id, temporada_id, t = self._require_ctx(request)
-        if not temporada_id or not bodega_id or not t:
+        bodega_id = _to_int(request.query_params.get("bodega"))
+        temporada_id = _require_temporada(request)
+        if not bodega_id or not temporada_id:
             return NotificationHandler.generate_response(
                 "validation_error",
                 data={"detail": "Parámetros inválidos o temporada/bodega no corresponden."},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
-        aw = _active_week(bodega_id, temporada_id)
+
+        aw = _current_or_last_week_ctx(bodega_id, temporada_id)
+        week_simple = None
+        if aw:
+            start = aw.get("rango_inferido", {}).get("from") or aw.get("fecha_inicio")
+            end = aw.get("rango_inferido", {}).get("to") or aw.get("fecha_fin")
+            try:
+                today = date.today().isoformat()
+                activa = bool(start <= today <= (end or start))
+            except Exception:
+                activa = False
+            week_simple = {
+                "id": aw.get("id"),
+                "fecha_desde": start,
+                "fecha_hasta": end,
+                "activa": activa,
+            }
         return NotificationHandler.generate_response(
             "data_processed_success",
-            data={"active_week": aw, "context": _context_payload(temporada_id, bodega_id)},
+            data={
+                "active_week": aw,
+                "week": week_simple,
+                "context": _context_payload(temporada_id, bodega_id),
+            },
             status_code=status.HTTP_200_OK,
         )
 
@@ -534,7 +578,7 @@ class TableroBodegaWeekStartView(BaseWeekAPIView):
     """
     POST /bodega/tablero/week/start/
       body/json: { "bodega": <id>, "temporada": <id>, "fecha_desde": "YYYY-MM-DD" }
-    Reglas: solo una abierta; sin solapes; fecha_hasta = null; máx 7 días al cerrar.
+    Política: al iniciar fijamos fecha_hasta = fecha_desde + 6 días.
     """
     throttle_scope = "bodega_dashboard"
 
@@ -559,13 +603,6 @@ class TableroBodegaWeekStartView(BaseWeekAPIView):
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        if CierreSemanal.objects.filter(bodega_id=bodega_id, temporada_id=temporada_id, fecha_hasta__isnull=True).exists():
-            return NotificationHandler.generate_response(
-                "validation_error",
-                data={"detail": "Ya existe una semana abierta."},
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
-
         f = _parse_date_str(fecha_desde_s)
         if not f:
             return NotificationHandler.generate_response(
@@ -574,26 +611,55 @@ class TableroBodegaWeekStartView(BaseWeekAPIView):
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Etiqueta opcional ISO de referencia (no afecta la lógica de manual)
+        # Etiqueta opcional ISO de referencia (no afecta la lógica manual)
         try:
             iso_tag = f"{f.isocalendar().year}-W{str(f.isocalendar().week).zfill(2)}"
         except Exception:
             iso_tag = None
 
         try:
+            # Política: al iniciar, fijamos fecha_hasta = fecha_desde + 6 días
+            fecha_hasta_def = f + timedelta(days=6)
+
+            # Solo una semana “activa” para la fecha actual: si la nueva contendrá hoy, validar conflicto
+            hoy = date.today()
+            if f <= hoy <= fecha_hasta_def:
+                # Existe alguna semana que ya contenga hoy
+                if CierreSemanal.objects.filter(
+                    bodega_id=bodega_id,
+                    temporada_id=temporada_id,
+                    fecha_desde__lte=hoy,
+                    is_active=True,
+                ).filter(
+                    Q(fecha_hasta__gte=hoy) | Q(fecha_hasta__isnull=True)
+                ).exists():
+
+                    return NotificationHandler.generate_response(
+                        "validation_error",
+                        data={"detail": "Ya existe una semana activa para hoy."},
+                        status_code=status.HTTP_409_CONFLICT,
+                    )
+
             cw = CierreSemanal.objects.create(
                 bodega_id=bodega_id,
                 temporada_id=temporada_id,
                 fecha_desde=f,
-                fecha_hasta=None,
+                fecha_hasta=fecha_hasta_def,
                 iso_semana=iso_tag,
                 locked_by=request.user,
             )
-            aw = _active_week(bodega_id, temporada_id)
+            aw = _current_or_last_week_ctx(bodega_id, temporada_id)
             return NotificationHandler.generate_response(
                 "data_processed_success",
                 data={"active_week": aw, "context": _context_payload(temporada_id, bodega_id)},
                 status_code=status.HTTP_201_CREATED,
+            )
+        except DjangoValidationError as e:
+            # Validaciones de modelo (p.ej., solapes) -> 400 controlado con detalle
+            return NotificationHandler.generate_response(
+                "validation_error",
+                data={"errors": getattr(e, "message_dict", None) or {"detail": str(e)}},
+                status_code=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:
             logger.exception("Error al iniciar semana: %s", e)
@@ -607,7 +673,7 @@ class TableroBodegaWeekFinishView(BaseWeekAPIView):
     """
     POST /bodega/tablero/week/finish/
       body/json: { "bodega": <id>, "temporada": <id>, "fecha_hasta": "YYYY-MM-DD" }
-    Reglas: cerrar semana abierta; no exceder 7 días; sin solapes.
+    Reglas: cerrar la semana vigente (la que contiene hoy) y no exceder 7 días.
     """
     throttle_scope = "bodega_dashboard"
 
@@ -623,19 +689,6 @@ class TableroBodegaWeekFinishView(BaseWeekAPIView):
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        try:
-            cw = CierreSemanal.objects.get(
-                bodega_id=bodega_id,
-                temporada_id=temporada_id,
-                fecha_hasta__isnull=True,
-            )
-        except CierreSemanal.DoesNotExist:
-            return NotificationHandler.generate_response(
-                "validation_error",
-                data={"detail": "No hay semana abierta para cerrar."},
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
-
         h = _parse_date_str(fecha_hasta_s)
         if not h:
             return NotificationHandler.generate_response(
@@ -644,18 +697,39 @@ class TableroBodegaWeekFinishView(BaseWeekAPIView):
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Validación de 7 días (inclusivo) previa al save (clean() también valida)
-        if (h - cw.fecha_desde).days > 6:
-            return NotificationHandler.generate_response(
-                "validation_error",
-                data={"detail": "La semana no puede exceder 7 días."},
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
-
         try:
+            hoy = date.today()
+            # Localizar semana que contenga hoy (o, si se decide, la última; aquí usamos “vigente”)
+            cw = (
+                CierreSemanal.objects.filter(
+                    bodega_id=bodega_id,
+                    temporada_id=temporada_id,
+                    is_active=True,
+                    fecha_desde__lte=hoy,
+                )
+                .filter(Q(fecha_hasta__gte=hoy) | Q(fecha_hasta__isnull=True))
+                .order_by("fecha_desde", "id")
+                .last()
+            )
+            if not cw:
+                return NotificationHandler.generate_response(
+                    "validation_error",
+                    data={"detail": "No hay semana vigente para cerrar."},
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Validación de 7 días (inclusivo) previa al save (clean() también valida)
+            if (h - cw.fecha_desde).days > 6:
+                return NotificationHandler.generate_response(
+                    "validation_error",
+                    data={"detail": "La semana no puede exceder 7 días."},
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+
             cw.fecha_hasta = h
             cw.save(update_fields=["fecha_hasta", "actualizado_en"])
-            aw = _active_week(bodega_id, temporada_id)
+
+            aw = _current_or_last_week_ctx(bodega_id, temporada_id)
             return NotificationHandler.generate_response(
                 "data_processed_success",
                 data={"active_week": aw, "context": _context_payload(temporada_id, bodega_id)},
@@ -717,9 +791,12 @@ class TableroBodegaWeeksNavView(BaseDashboardAPIView):
                     idx = i
                     break
         if idx is None:
-            # Si hay semana abierta, usarla; si no, la última
+            # Si hay semana que contenga hoy, usarla; si no, la última
+            hoy = date.today()
             for i, s in enumerate(semanas):
-                if s.get("fecha_hasta") is None:
+                d0 = s["fecha_desde"]
+                d1 = s["fecha_hasta"] or (s["fecha_desde"] + timedelta(days=6))
+                if d0 <= hoy <= d1:
                     idx = i
                     break
             if idx is None:
@@ -734,16 +811,21 @@ class TableroBodegaWeeksNavView(BaseDashboardAPIView):
 
         inicio, fin = _range_of(cur)
 
-        # items extendidos (no rompe FE si no los usa)
+        # items extendidos: ahora también exponemos {fecha_desde, fecha_hasta, activa}
         items = []
+        hoy = date.today().isoformat()
         for s in semanas:
             i0, i1 = _range_of(s)
+            activa = bool(i0 <= hoy <= i1)
             items.append({
                 "id": s["id"],
                 "iso_semana": s.get("iso_semana") or None,
                 "inicio": i0,
                 "fin": i1,
-                "cerrada": s["fecha_hasta"] is not None,
+                # contrato estable
+                "fecha_desde": i0,
+                "fecha_hasta": i1,
+                "activa": activa,
             })
 
         data = {

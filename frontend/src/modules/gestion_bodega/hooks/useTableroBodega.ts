@@ -1,12 +1,12 @@
-// frontend/src/modules/gestion_bodega/hooks/useTableroBodega.ts
-/* Hook maestro del Tablero — lógica reactiva y contratos estabilizados
-   - Consume contexto del backend (temporada_label y active_week).
-   - Semanas MANUALES: navega con /tablero/semanas y sincroniza rango inicio/fin al filtro.
-   - Siempre envía bodegaId para que el backend pueda inferir semana activa.
-   - Cuando NO hay semanas creadas, no fuerza rangos ni etiquetas ISO; expone hasWeeks=false.
+/* Hook maestro del Tablero — estado único de semana (week_id) y contratos estabilizados
+   - Fuente de verdad: CierreSemanal del backend.
+   - Navega por índice en weeksNav.items (prev/next) y sincroniza ?week_id en URL.
+   - Sin ISO en cliente; sin derivaciones locales. Filtros toman fecha_desde/hasta de la semana seleccionada.
+   - Todas las queries clavean y envían semanaId=selectedSemanaId.
 */
 
-import { useMemo, useCallback, useEffect, useState } from "react";
+import { useMemo, useCallback, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAppDispatch, useAppSelector } from "../../../global/store/store";
 
@@ -42,14 +42,14 @@ import {
 const LOCAL_TZ = "America/Mexico_City";
 
 const QUERY_KEYS = {
-  summary: (temporadaId: number, bodegaId: number, signature: string) =>
-    ["bodega", "dashboard", "summary", temporadaId, bodegaId, signature] as const,
+  summary: (temporadaId: number, bodegaId: number, semanaId: number | null, signature: string) =>
+    ["bodega", "dashboard", "summary", temporadaId, bodegaId, `sem:${semanaId ?? "none"}`, signature] as const,
   alerts: (temporadaId: number, bodegaId: number, stamp: number | null) =>
     ["bodega", "dashboard", "alerts", temporadaId, bodegaId, stamp] as const,
-  queue: (temporadaId: number, bodegaId: number, type: QueueType, signature: string) =>
-    ["bodega", "dashboard", "queue", temporadaId, bodegaId, type, signature] as const,
-  weeksNav: (temporadaId: number, bodegaId: number, iso: string | null) =>
-    ["bodega", "dashboard", "weeksNav", temporadaId, bodegaId, iso] as const,
+  queue: (temporadaId: number, bodegaId: number, type: QueueType, semanaId: number | null, signature: string) =>
+    ["bodega", "dashboard", "queue", temporadaId, bodegaId, type, `sem:${semanaId ?? "none"}`, signature] as const,
+  weeksNav: (temporadaId: number, bodegaId: number) =>
+    ["bodega", "dashboard", "weeksNav", temporadaId, bodegaId] as const,
 };
 
 const DEFAULTS = {
@@ -243,22 +243,20 @@ type UseTableroArgs = { temporadaId: number; bodegaId: number };
 export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
   const dispatch = useAppDispatch();
   const state = useAppSelector(selectTablero);
+  const [sp, setSp] = useSearchParams();
 
-  // Persistimos temporada en UI para deep-links consistentes
-  if (state.temporadaId !== temporadaId) {
-    dispatch(setTemporadaId(temporadaId));
-  }
-
-  // Estado local: ancla de navegación (iso_semana) o null → actual/última
-  const [navIso, setNavIso] = useState<string | null>(null);
-
-  // Normalización de filtros (no inferimos ISO cuando sea MANUAL)
-  const rawFilters = state.filters as typeof state.filters & { isoSemana?: string | null };
-  const filters = useMemo(() => ({ ...rawFilters } as any), [rawFilters]);
-
-  const queueType: QueueType = state.activeQueue;
+  // Persistimos temporada en UI para deep-links consistentes (una sola vez por cambio)
+  useEffect(() => {
+    if (state.temporadaId !== temporadaId) {
+      dispatch(setTemporadaId(temporadaId));
+    }
+  }, [dispatch, state.temporadaId, temporadaId]);
 
   // Firma de filtros (para cache/react-query)
+  const rawFilters = state.filters;
+  const filters = useMemo(() => ({ ...rawFilters } as any), [rawFilters]);
+  const queueType: QueueType = state.activeQueue;
+
   const filtersSignature = useMemo(
     () =>
       JSON.stringify({
@@ -272,77 +270,91 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
         page: filters.page ?? 1,
         page_size: filters.page_size ?? DEFAULTS.PAGE_SIZE,
         order_by: filters.order_by ?? DEFAULTS.ORDER_BY[queueType],
-        isoSemana: (filters as any).isoSemana ?? null,
-        semana_id: null,
       }),
     [filters, queueType]
   );
 
   // ===== WEEKS NAV =====
   const weeksNavQ = useQuery<WeeksNavResponse>({
-    queryKey: QUERY_KEYS.weeksNav(temporadaId, bodegaId, navIso),
-    queryFn: () => getWeeksNav(temporadaId, bodegaId, { isoSemana: navIso }),
+    queryKey: QUERY_KEYS.weeksNav(temporadaId, bodegaId),
+    queryFn: () => getWeeksNav(temporadaId, bodegaId),
     retry: DEFAULTS.RETRY,
     staleTime: DEFAULTS.STALE_MS,
   });
 
-  // ¿Hay semanas creadas?
-  const hasWeeks = useMemo(() => {
-    const items = weeksNavQ.data?.items ?? [];
-    return items.length > 0;
-  }, [weeksNavQ.data?.items]);
+  const items = weeksNavQ.data?.items ?? [];
+  const hasWeeks = items.length > 0;
 
-  // selectedSemanaId (si existe nav o actual); null si no hay semanas
-  const selectedSemanaId = useMemo(() => {
+  // === selectedWeek (desde URL ?week_id o fallback al índice reportado por backend) ===
+  const urlWeekIdStr = sp.get("week_id");
+  const urlWeekId = urlWeekIdStr ? Number(urlWeekIdStr) : null;
+
+  const selectedWeek = useMemo(() => {
     if (!hasWeeks) return null;
-    const d = weeksNavQ.data!;
-    const isoRef = navIso ?? d.actual ?? null;
-    const found = (d.items || []).find((it: any) => it?.iso_semana === isoRef);
-    return found?.id ?? null;
-  }, [hasWeeks, navIso, weeksNavQ.data]);
+    // 1) Por URL si existe y es válido
+    if (urlWeekId && items.some((it) => it.id === urlWeekId)) {
+      return items.find((it) => it.id === urlWeekId) || null;
+    }
+    // 2) Fallback al índice actual informado por backend (1-based)
+    const idx = Math.max(0, Math.min(items.length - 1, (weeksNavQ.data?.indice ?? 1) - 1));
+    return items[idx] || null;
+  }, [hasWeeks, items, urlWeekId, weeksNavQ.data?.indice]);
 
-  // Sincroniza rango cuando backend define inicio/fin (solo si hay semanas)
+  const selectedSemanaId = selectedWeek?.id ?? null;
+
+  // Normaliza URL → asegura ?week_id consistente con la semana seleccionada
   useEffect(() => {
-    if (!hasWeeks) return;
-    const inicio = weeksNavQ.data?.inicio;
-    const fin = weeksNavQ.data?.fin;
-    if (!inicio || !fin) return;
+    if (!selectedWeek) {
+      // No hay semanas → limpiar week_id si existe
+      if (sp.get("week_id")) {
+        const next = new URLSearchParams(sp);
+        next.delete("week_id");
+        setSp(next, { replace: true });
+      }
+      return;
+    }
+    if (String(selectedWeek.id) !== sp.get("week_id")) {
+      const next = new URLSearchParams(sp);
+      next.set("week_id", String(selectedWeek.id));
+      setSp(next, { replace: true });
+    }
+  }, [selectedWeek, sp, setSp]);
 
-    const changed =
-      filters.fecha_desde !== inicio ||
-      filters.fecha_hasta !== fin ||
-      (filters as any).isoSemana !== "MANUAL";
+  // Sincroniza filtros con la semana seleccionada (rango exacto de backend)
+  useEffect(() => {
+    if (!hasWeeks) {
+      // Sin semanas → limpiar rango en filtros si quedó algo colgado
+      if (filters.fecha_desde || filters.fecha_hasta) {
+        dispatch(setFilters({ fecha_desde: undefined, fecha_hasta: undefined } as any));
+      }
+      return;
+    }
+    if (!selectedWeek) return;
 
+    const inicio = selectedWeek.fecha_desde;
+    const fin = selectedWeek.fecha_hasta;
+
+    const changed = filters.fecha_desde !== inicio || filters.fecha_hasta !== fin;
     if (changed) {
       dispatch(
         setFilters({
           fecha_desde: inicio,
           fecha_hasta: fin,
-          isoSemana: "MANUAL",
           page: 1,
         } as any)
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasWeeks, weeksNavQ.data?.inicio, weeksNavQ.data?.fin]);
-
-  // Si NO hay semanas, limpiamos cualquier rastro de isoSemana/rango manual previo (evita mostrar rangos fantasma)
-  useEffect(() => {
-    if (hasWeeks) return;
-    if ((filters as any).isoSemana || filters.fecha_desde || filters.fecha_hasta) {
-      dispatch(setFilters({ isoSemana: undefined, fecha_desde: undefined, fecha_hasta: undefined } as any));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasWeeks]);
+  }, [hasWeeks, selectedWeek?.fecha_desde, selectedWeek?.fecha_hasta]);
 
   // ===== SUMMARY =====
   const summaryQ = useQuery<DashboardSummaryResponse>({
-    queryKey: QUERY_KEYS.summary(temporadaId, bodegaId, filtersSignature + `|sem:${selectedSemanaId ?? "none"}`),
+    queryKey: QUERY_KEYS.summary(temporadaId, bodegaId, selectedSemanaId, filtersSignature),
     queryFn: () =>
       getDashboardSummary(temporadaId, {
         ...filters,
         bodegaId,
-        semanaId: selectedSemanaId ?? null,
+        semanaId: selectedSemanaId,
       }),
     retry: DEFAULTS.RETRY,
     staleTime: DEFAULTS.STALE_MS,
@@ -356,7 +368,7 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
 
   const temporadaLabel = summaryQ.data?.context?.temporada_label ?? String(temporadaId);
 
-  // ===== ALERTS =====
+  // ===== ALERTS (por temporada; no dependen de semana) =====
   const alertsQ = useQuery<DashboardAlertResponse>({
     queryKey: QUERY_KEYS.alerts(temporadaId, bodegaId, state.refreshAlertsAt),
     queryFn: () => getDashboardAlerts(temporadaId, { bodegaId }),
@@ -393,12 +405,12 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
 
   // ===== QUEUE ACTIVA =====
   const queueQ = useQuery<DashboardQueueResponse>({
-    queryKey: QUERY_KEYS.queue(temporadaId, bodegaId, queueType, filtersSignature + `|sem:${selectedSemanaId ?? "none"}`),
+    queryKey: QUERY_KEYS.queue(temporadaId, bodegaId, queueType, selectedSemanaId, filtersSignature),
     queryFn: () =>
       getDashboardQueues(temporadaId, queueType, {
         ...filters,
         bodegaId,
-        semanaId: selectedSemanaId ?? null,
+        semanaId: selectedSemanaId,
         order_by: filters.order_by ?? DEFAULTS.ORDER_BY[queueType],
       }),
     retry: DEFAULTS.RETRY,
@@ -407,7 +419,6 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
 
   const queueUI = useMemo(() => {
     const data = queueQ.data as DashboardQueueResponse | undefined;
-
     const metaSrc = (data?.meta ?? {}) as any;
     const meta = {
       page: metaSrc.page ?? filters.page,
@@ -417,26 +428,26 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
       next: metaSrc.next,
       previous: metaSrc.previous,
     };
-
     return {
       meta,
       rows: mapQueueToUI(data?.results ?? []),
     };
   }, [queueQ.data, filters.page, filters.page_size]);
 
-  // ===== COLAS PARA RESÚMENES =====
+  // ===== COLAS PARA RESÚMENES (misma semana seleccionada) =====
   const recepcionesQ = useQuery<DashboardQueueResponse>({
     queryKey: QUERY_KEYS.queue(
       temporadaId,
       bodegaId,
       "recepciones",
-      filtersSignature + `|summary|sem:${selectedSemanaId ?? "none"}`
+      selectedSemanaId,
+      filtersSignature + "|summary"
     ),
     queryFn: () =>
       getDashboardQueues(temporadaId, "recepciones", {
         ...filters,
         bodegaId,
-        semanaId: selectedSemanaId ?? null,
+        semanaId: selectedSemanaId,
         order_by: DEFAULTS.ORDER_BY["recepciones"],
       }),
     retry: DEFAULTS.RETRY,
@@ -448,13 +459,14 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
       temporadaId,
       bodegaId,
       "inventarios",
-      filtersSignature + `|summary|sem:${selectedSemanaId ?? "none"}`
+      selectedSemanaId,
+      filtersSignature + "|summary"
     ),
     queryFn: () =>
       getDashboardQueues(temporadaId, "inventarios", {
         ...filters,
         bodegaId,
-        semanaId: selectedSemanaId ?? null,
+        semanaId: selectedSemanaId,
         order_by: DEFAULTS.ORDER_BY["inventarios"],
       }),
     retry: DEFAULTS.RETRY,
@@ -466,13 +478,14 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
       temporadaId,
       bodegaId,
       "despachos",
-      filtersSignature + `|summary|sem:${selectedSemanaId ?? "none"}`
+      selectedSemanaId,
+      filtersSignature + "|summary"
     ),
     queryFn: () =>
       getDashboardQueues(temporadaId, "despachos", {
         ...filters,
         bodegaId,
-        semanaId: selectedSemanaId ?? null,
+        semanaId: selectedSemanaId,
         order_by: DEFAULTS.ORDER_BY["despachos"],
       }),
     retry: DEFAULTS.RETRY,
@@ -542,76 +555,40 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
     [dispatch]
   );
 
-  // Filtros (acepta rango manual). Si viene rango sin iso, marcamos "MANUAL".
+  // Filtros arbitrarios (si vienen rangos externos, NO escribimos iso; ya no existe)
   const onApplyFilters = useCallback(
-    (partial: Partial<typeof filters> & { isoSemana?: string | null }) => {
+    (partial: Partial<typeof filters>) => {
       const next: any = { ...partial };
-      if (!next.isoSemana && (next.fecha_desde || next.fecha_hasta)) {
-        next.isoSemana = "MANUAL";
-      }
       if (!next.order_by) next.order_by = DEFAULTS.ORDER_BY[queueType];
       dispatch(setFilters({ ...next, page: 1 }));
     },
     [dispatch, queueType]
   );
 
-  // 🔸 Semanas manuales (helpers de UX)
-  const addDays = (isoDate: string, days: number) => {
-    const d = new Date(isoDate);
-    d.setDate(d.getDate() + days);
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    return `${yyyy}-${mm}-${dd}`;
-  };
-
-  const startManualWeek = useCallback(
-    (fromISO: string) => {
-      const toISO = addDays(fromISO, 6);
-      onApplyFilters({ fecha_desde: fromISO, fecha_hasta: toISO, isoSemana: "MANUAL", page: 1 });
-      setNavIso(null);
-    },
-    [onApplyFilters]
-  );
-
-  const finishManualWeek = useCallback(
-    (toISO: string) => {
-      onApplyFilters({ fecha_hasta: toISO, isoSemana: "MANUAL", page: 1 });
-      setNavIso(null);
-    },
-    [onApplyFilters]
-  );
-
-  const closeIfExceeded7 = useCallback(() => {
-    const { fecha_desde, fecha_hasta } = filters as any;
-    if (!fecha_desde || !fecha_hasta) return;
-    const d0 = new Date(fecha_desde);
-    const d1 = new Date(fecha_hasta);
-    const diff = Math.ceil((d1.getTime() - d0.getTime()) / (1000 * 60 * 60 * 24));
-    if (diff > 6) {
-      const toISO = addDays(fecha_desde, 6);
-      onApplyFilters({ fecha_hasta: toISO, isoSemana: "MANUAL" });
-    }
-  }, [filters, onApplyFilters]);
-
   // Backend: iniciar/cerrar semana real
   const apiStartWeek = useCallback(
     async (fromISO: string) => {
       await startWeek({ bodega: bodegaId, temporada: temporadaId, fecha_desde: fromISO });
-      setNavIso(null);
-      await weeksNavQ.refetch();
+      const { data } = await weeksNavQ.refetch();
+      // Seleccionar la semana recién creada (match por fecha_desde)
+      const hit = data?.items?.find((it) => it.fecha_desde === fromISO);
+      if (hit?.id) {
+        const next = new URLSearchParams(sp);
+        next.set("week_id", String(hit.id));
+        setSp(next, { replace: true });
+      }
+      // Marcar refetch para kpis/colas
       dispatch(scheduleRefetch("summary"));
       dispatch(scheduleRefetch("recepciones"));
       dispatch(scheduleRefetch("inventarios"));
       dispatch(scheduleRefetch("despachos"));
     },
-    [bodegaId, temporadaId, weeksNavQ, dispatch]
+    [bodegaId, temporadaId, weeksNavQ, sp, setSp, dispatch]
   );
 
   const apiFinishWeek = useCallback(
     async (toISO: string) => {
       await finishWeek({ bodega: bodegaId, temporada: temporadaId, fecha_hasta: toISO });
-      setNavIso(null);
       await weeksNavQ.refetch();
       dispatch(scheduleRefetch("summary"));
       dispatch(scheduleRefetch("recepciones"));
@@ -640,35 +617,58 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
   }, [dispatch, summaryQ, alertsQ, queueQ, recepcionesQ, inventariosQ, logisticaQ]);
 
   const dashboardHref = useMemo(
-    () => `/bodega/tablero?temporada=${temporadaId}&bodega=${bodegaId}`,
-    [temporadaId, bodegaId]
+    () => `/bodega/tablero?temporada=${temporadaId}&bodega=${bodegaId}${selectedSemanaId ? `&week_id=${selectedSemanaId}` : ""}`,
+    [temporadaId, bodegaId, selectedSemanaId]
   );
 
-  // Navegación por semanas creadas (usa weeksNav)
+  // Navegación por semanas creadas (usa weeksNav.items e index actual de selectedWeek)
+  const selectedIndex = useMemo(() => {
+    if (!selectedWeek) return -1;
+    return items.findIndex((it) => it.id === selectedWeek.id);
+  }, [items, selectedWeek]);
+
   const weekNav = useMemo(() => {
-    const d = weeksNavQ.data;
+    const idx = selectedIndex;
+    const cur = selectedWeek;
     return {
-      hasPrev: !!d?.has_prev,
-      hasNext: !!d?.has_next,
-      indice: d?.indice ?? null, // Semana 1, 2, 3...
-      inicio: d?.inicio ?? null,
-      fin: d?.fin ?? null,
-      actualIso: d?.actual ?? null,
-      items: d?.items ?? [],
-      hasWeeks, // ← bandera directa para UI
+      hasPrev: hasWeeks && idx > 0,
+      hasNext: hasWeeks && idx >= 0 && idx < items.length - 1,
+      indice: hasWeeks && idx >= 0 ? idx + 1 : null, // 1-based respecto a la selección
+      inicio: cur?.fecha_desde ?? null,
+      fin: cur?.fecha_hasta ?? null,
+      actualIso: null, // deprecado: ISO no se usa para navegación
+      items,
+      hasWeeks,
+      selected: cur ?? null,
+      // Propagamos el contexto del backend para headers/breadcrumbs (labels legibles)
+      context: (weeksNavQ.data?.context ?? summaryQ.data?.context ?? undefined) as any,
     };
-  }, [weeksNavQ.data, hasWeeks]);
+  }, [hasWeeks, items, selectedIndex, selectedWeek, weeksNavQ.data?.context, summaryQ.data?.context]);
+
+  const setSelectedWeekId = useCallback(
+    (weekId: number) => {
+      if (!items.some((it) => it.id === weekId)) return;
+      const next = new URLSearchParams(sp);
+      next.set("week_id", String(weekId));
+      setSp(next, { replace: true });
+    },
+    [items, sp, setSp]
+  );
 
   const goPrevWeek = useCallback(() => {
-    const prevIso = weeksNavQ.data?.prev ?? null;
-    setNavIso(prevIso);
-  }, [weeksNavQ.data?.prev]);
+    if (!hasWeeks || selectedIndex <= 0) return;
+    const prevId = items[selectedIndex - 1]?.id;
+    if (prevId) setSelectedWeekId(prevId);
+  }, [hasWeeks, selectedIndex, items, setSelectedWeekId]);
 
   const goNextWeek = useCallback(() => {
-    const nextIso = weeksNavQ.data?.next ?? null;
-    setNavIso(nextIso);
-  }, [weeksNavQ.data?.next]);
+    if (!hasWeeks || selectedIndex < 0 || selectedIndex >= items.length - 1) return;
+    const nextId = items[selectedIndex + 1]?.id;
+    if (nextId) setSelectedWeekId(nextId);
+  }, [hasWeeks, selectedIndex, items, setSelectedWeekId]);
 
+  // ───────────────────────────────────────────────────────────────────────────
+  // API pública del hook
   return {
     // Datos UI
     kpiCards,
@@ -709,17 +709,14 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
     temporadaLabel,
     filters,
     activeQueue: queueType,
+    selectedWeek,
+    selectedSemanaId,
 
     // Acciones listas para UI
     onChangeQueue,
     onApplyFilters,
     onChangePage,
     onChangePageSize,
-
-    // Semanas manuales (front)
-    startManualWeek,
-    finishManualWeek,
-    closeIfExceeded7,
 
     // Semanas reales (backend)
     apiStartWeek,
@@ -729,7 +726,7 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
     weekNav,
     goPrevWeek,
     goNextWeek,
-    setWeekIsoRef: setNavIso,
+    setSelectedWeekId,
 
     // Paginación por bloque (comparten page global)
     onPageChangeRecepciones: onChangePage,
@@ -754,7 +751,11 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
 
     // Navegación
     dashboardHref,
+
+    // ── Legacy stubs (no-ops) para no romper llamadas existentes en UI:
+    startManualWeek: useCallback((_fromISO: string) => {}, []),   // deprecado
+    finishManualWeek: useCallback((_toISO: string) => {}, []),     // deprecado
+    closeIfExceeded7: useCallback(() => {}, []),                   // deprecado
   };
 }
-
 export default useTableroBodega;

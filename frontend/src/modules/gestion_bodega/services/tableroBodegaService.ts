@@ -76,6 +76,7 @@ function toQueryParams(
     params.iso_semana = isoSemana;
   }
 
+  // Prioridad backend: semana_id > rango explícito > iso_semana > semana activa
   if (semanaId != null) {
     params.semana_id = semanaId;
   }
@@ -130,14 +131,44 @@ export async function getWeekCurrent(
 
 /** WEEK: iniciar */
 export async function startWeek(body: WeekStartRequest): Promise<WeekCurrentResponse> {
-  const resp = await apiClient.post(`${BASE}/week/start/`, body);
-  return ensureSuccess<WeekCurrentResponse>(resp.data);
+  try {
+    const resp = await apiClient.post(`${BASE}/week/start/`, body);
+    return ensureSuccess<WeekCurrentResponse>(resp.data);
+  } catch (err: any) {
+    const data = err?.response?.data;
+    const msg =
+      data?.errors?.fecha_desde?.[0] ||
+      data?.errors?.detail ||
+      data?.detail ||
+      data?.message ||
+      data?.notification?.message ||
+      err?.message ||
+      "No se pudo iniciar la semana.";
+    const e = new Error(msg);
+    (e as any).payload = data;
+    throw e;
+  }
 }
 
 /** WEEK: finalizar */
 export async function finishWeek(body: WeekFinishRequest): Promise<WeekCurrentResponse> {
-  const resp = await apiClient.post(`${BASE}/week/finish/`, body);
-  return ensureSuccess<WeekCurrentResponse>(resp.data);
+  try {
+    const resp = await apiClient.post(`${BASE}/week/finish/`, body);
+    return ensureSuccess<WeekCurrentResponse>(resp.data);
+  } catch (err: any) {
+    const data = err?.response?.data;
+    const msg =
+      data?.errors?.fecha_hasta?.[0] ||
+      data?.errors?.detail ||
+      data?.detail ||
+      data?.message ||
+      data?.notification?.message ||
+      err?.message ||
+      "No se pudo finalizar la semana.";
+    const e = new Error(msg);
+    (e as any).payload = data;
+    throw e;
+  }
 }
 
 /**

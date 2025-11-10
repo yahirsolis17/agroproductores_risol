@@ -40,6 +40,9 @@ interface WeekSwitcherProps {
 
   // Mostrar popover para saltar por fecha
   showPicker?: boolean;
+  // Delegar navegación (cuando se usa semana del backend)
+  onPrev?: () => void;
+  onNext?: () => void;
 }
 
 const WeekSwitcher: React.FC<WeekSwitcherProps> = ({
@@ -49,11 +52,14 @@ const WeekSwitcher: React.FC<WeekSwitcherProps> = ({
   disablePrev = false,
   disableNext = false,
   showPicker = true,
+  onPrev,
+  onNext,
 }) => {
   // Base de cálculo: preferimos isoSemana -> from -> to -> hoy
   const baseISOKey = value?.isoSemana || undefined;
   const baseDateStr = value?.from || value?.to || formatDateISO(new Date());
   const baseDate = parseLocalDateStrict(baseDateStr);
+  const isManual = !baseISOKey || baseISOKey === 'MANUAL';
 
   // Traducimos isoSemana a rango una sola vez (null-safe)
   const isoRange = useMemo(() => {
@@ -64,12 +70,20 @@ const WeekSwitcher: React.FC<WeekSwitcherProps> = ({
 
   // Fechas efectivas de la semana
   const fromDate = useMemo(
-    () => startOfISOWeek(isoRange ? parseLocalDateStrict(isoRange.from) : baseDate),
-    [isoRange, baseDate]
+    () => {
+      if (isManual && value?.from) return parseLocalDateStrict(value.from);
+      const seed = isoRange ? parseLocalDateStrict(isoRange.from) : baseDate;
+      return startOfISOWeek(seed);
+    },
+    [isManual, value?.from, isoRange, baseDate]
   );
   const toDate = useMemo(
-    () => endOfISOWeek(isoRange ? parseLocalDateStrict(isoRange.to) : baseDate),
-    [isoRange, baseDate]
+    () => {
+      if (isManual && value?.to) return parseLocalDateStrict(value.to);
+      const seed = isoRange ? parseLocalDateStrict(isoRange.to) : baseDate;
+      return endOfISOWeek(seed);
+    },
+    [isManual, value?.to, isoRange, baseDate]
   );
 
   const label = useMemo(() => `${formatDateDisplay(fromDate)} – ${formatDateDisplay(toDate)}`, [fromDate, toDate]);
@@ -78,6 +92,8 @@ const WeekSwitcher: React.FC<WeekSwitcherProps> = ({
   const go = useCallback(
     (delta: number) => {
       if (disabled) return;
+      // En modo MANUAL, delegamos navegación al padre (onChange recibe from/to directos)
+      // Aquí mantenemos el comportamiento ISO solo cuando no es manual
       const nextBase = shiftISOWeek(fromDate, delta);
       const nextFrom = startOfISOWeek(nextBase);
       const nextTo = endOfISOWeek(nextBase);
@@ -152,7 +168,7 @@ const WeekSwitcher: React.FC<WeekSwitcherProps> = ({
         <span>
           <IconButton
             size="small"
-            onClick={() => go(-1)}
+            onClick={() => (onPrev ? onPrev() : go(-1))}
             disabled={disabled || disablePrev}
             aria-label="Semana anterior"
           >
@@ -178,7 +194,7 @@ const WeekSwitcher: React.FC<WeekSwitcherProps> = ({
         <span>
           <IconButton
             size="small"
-            onClick={() => go(1)}
+            onClick={() => (onNext ? onNext() : go(1))}
             disabled={disabled || disableNext}
             aria-label="Siguiente semana"
           >
