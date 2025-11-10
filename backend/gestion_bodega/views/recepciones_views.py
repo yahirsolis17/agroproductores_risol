@@ -1,5 +1,5 @@
 ﻿# backend/gestion_bodega/views/recepciones_views.py
-from datetime import date, datetime
+from datetime import date, datetime, timedelta  # ⬅️ agrega timedelta
 
 from django.db import transaction
 from django.db.models import Q
@@ -14,7 +14,7 @@ from gestion_bodega.models import (
     TemporadaBodega,
     CierreSemanal,
 )
-from gestion_usuarios.permissions import HasModulePermission  # alineado con bodegas_views
+from gestion_bodega.permissions import HasModulePermission  # alineado con bodegas_views
 from gestion_bodega.serializers import RecepcionSerializer
 from gestion_bodega.utils.audit import ViewSetAuditMixin
 from gestion_bodega.utils.notification_handler import NotificationHandler
@@ -51,7 +51,6 @@ class NotificationMixin:
         )
 
     def get_pagination_meta(self):
-        # Igual que en huerta/bodega: contar y exponer números de página
         paginator = getattr(self, "paginator", None)
         page = getattr(paginator, "page", None) if paginator else None
         if not paginator or page is None:
@@ -94,6 +93,23 @@ def _map_recepcion_validation_errors(errors: dict) -> tuple[str, dict]:
     return "validation_error", {"errors": errors}
 
 
+def _resolve_semana_for_fecha(bodega, temporada, fecha):
+    """
+    Busca CierreSemanal activo que cubra la fecha.
+    Semana abierta: fin teórico = fecha_desde + 6.
+    """
+    qs = CierreSemanal.objects.filter(
+        bodega=bodega, temporada=temporada, is_active=True
+    ).order_by("-fecha_desde")
+
+    for c in qs:
+        start = c.fecha_desde
+        end = c.fecha_hasta or (c.fecha_desde + timedelta(days=6))
+        if start <= fecha <= end:
+            return c
+    return None
+
+
 # ───────────────────────────────────────────────────────────────────────────
 # ViewSet
 # ───────────────────────────────────────────────────────────────────────────
@@ -108,7 +124,11 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
       - Archivar antes de eliminar (patrón consistente del sistema).
     """
     serializer_class = RecepcionSerializer
-    queryset = Recepcion.objects.select_related("bodega", "temporada").order_by("-fecha", "-id")
+    queryset = (
+        Recepcion.objects
+        .select_related("bodega", "temporada", "semana")  # ⬅️ incluye semana
+        .order_by("-fecha", "-id")
+    )
     pagination_class = GenericPagination
 
     permission_classes = [IsAuthenticated, HasModulePermission]
@@ -125,7 +145,7 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
 
     # Filtros reducidos / ordenamiento
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = {"bodega": ["exact"], "temporada": ["exact"]}
+    filterset_fields = {"bodega": ["exact"], "temporada": ["exact"], "semana": ["exact"]}
     ordering = ["-fecha", "-id"]
 
     # ---------- permisos por acción ----------
@@ -136,11 +156,8 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
     # ---------- queryset dinámico ----------
     def get_queryset(self):
         qs = super().get_queryset()
-
-        # En acciones de detalle no aplicamos filtros de lista para evitar 404 por filtros
         if self.action in ["retrieve", "update", "partial_update", "destroy", "archivar", "restaurar"]:
             return qs
-
         return qs
 
     # ---------- LIST ----------
@@ -196,6 +213,11 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
 
         with transaction.atomic():
             obj = ser.save()
+            # ⬅️ Resolver y amarrar semana
+            semana = _resolve_semana_for_fecha(bodega, temporada, f)
+            if semana != obj.semana:
+                obj.semana = semana
+                obj.save(update_fields=["semana", "actualizado_en"])
 
         registrar_actividad(request.user, f"Creó recepción #{obj.id} (bodega {bodega.id}, temporada {temporada.id})")
         return self.notify(
@@ -257,6 +279,11 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
 
         with transaction.atomic():
             obj = ser.save()
+            # ⬅️ Recalcular semana si cambió la fecha (o bodega/temporada)
+            semana = _resolve_semana_for_fecha(bodega, temporada, f)
+            if semana != obj.semana:
+                obj.semana = semana
+                obj.save(update_fields=["semana", "actualizado_en"])
 
         registrar_actividad(request.user, f"Actualizó recepción #{obj.id}")
         return self.notify(
@@ -345,7 +372,3 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
             data={"recepcion": self.get_serializer(instance).data},
             status_code=status.HTTP_200_OK,
         )
-
-
-
-

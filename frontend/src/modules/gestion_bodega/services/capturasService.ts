@@ -7,7 +7,8 @@ import type {
   CapturaUpdateDTO,
   CapturaPatchDTO,
   CapturasListResponse,
-  CapturaSingleResponse
+  CapturaSingleResponse,
+  CapturaFilters,
 } from "../types/capturasTypes";
 
 const BASE = "/bodega/recepciones/";
@@ -74,9 +75,9 @@ function normalizeSinglePayload(res: any): CapturaSingleResponse {
 
   const dataLayer = res?.data?.data ?? res?.data ?? {};
   const captura: Captura =
-    dataLayer.recepcion ??  // backend actual
-    dataLayer.captura ??    // alias futuro
-    dataLayer.item ??       // fallback
+    dataLayer.recepcion ?? // backend actual
+    dataLayer.captura ?? // alias futuro
+    dataLayer.item ?? // fallback
     dataLayer;
 
   return { captura };
@@ -85,13 +86,15 @@ function normalizeSinglePayload(res: any): CapturaSingleResponse {
 // -------------------------------
 // Query builder
 // -------------------------------
-function buildQuery(params: any = {}): Record<string, any> {
+function buildQuery(params: CapturaFilters = {}): Record<string, any> {
   const q: Record<string, any> = {};
 
   if (params.page) q.page = params.page;
   if (params.page_size) q.page_size = params.page_size;
   if (params.bodega) q.bodega = params.bodega;
   if (params.temporada) q.temporada = params.temporada;
+  // NUEVO: pasar semana si viene desde el Tablero
+  if (params.semana) q.semana = params.semana;
 
   return q;
 }
@@ -100,7 +103,7 @@ function buildQuery(params: any = {}): Record<string, any> {
 // Service API
 // -------------------------------
 export const capturasService = {
-  async list(params: any = {} , opts?: { signal?: AbortSignal }): Promise<CapturasListResponse> {
+  async list(params: CapturaFilters = {}, opts?: { signal?: AbortSignal }): Promise<CapturasListResponse> {
     try {
       const res = await api.get(BASE, { params: buildQuery(params), signal: opts?.signal });
       return normalizeListPayload(res);
@@ -168,7 +171,7 @@ export const capturasService = {
   async restaurar(id: number): Promise<CapturaSingleResponse> {
     try {
       const res = await api.post(`${BASE}${id}/restaurar/`);
-      return normalizeSinglePayload(res);
+    return normalizeSinglePayload(res);
     } catch (err: any) {
       handleBackendNotification(err?.response?.data);
       throw err;
@@ -199,7 +202,3 @@ export const patchCaptura = capturasService.patch;
 export const archivarCaptura = capturasService.archivar;
 export const restaurarCaptura = capturasService.restaurar;
 export const deleteCaptura = capturasService.remove;
-
-
-
-

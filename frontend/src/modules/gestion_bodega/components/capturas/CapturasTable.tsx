@@ -9,25 +9,40 @@ import { formatDateDisplay } from "../../../../global/utils/date";
 
 import type { Captura, PaginationMeta } from "../../types/capturasTypes";
 
-type Props = {
-  items: Captura[];
+type BaseProps = {
+  /** Paginación/control */
   meta: PaginationMeta;
   loading: boolean;
-
   onPageChange: (page: number) => void;
 
-  onCreate: () => void;
-  onEdit: (row: Captura) => void;
-  onArchive: (row: Captura) => void;
-  onRestore: (row: Captura) => void;
-  onDelete: (row: Captura) => void;
-
-  blocked?: boolean; // semana cerrada / temporada finalizada
+  /** Acciones */
+  onEdit?: (row: Captura) => void;
+  onArchive?: (row: Captura) => void;
+  onRestore?: (row: Captura) => void;
+  onDelete?: (row: Captura) => void;
   onClassify?: (row: Captura) => void;
+
+  /** Estado contextual (semana cerrada / temporada finalizada) */
+  blocked?: boolean;
+
+  /** Ya no es requerida; la tabla no crea por sí misma */
+  onCreate?: () => void;
 };
+
+/**
+ * Compatibilidad: acepta `items` o `rows`.
+ * - Si usas esta tabla dentro del Tablero y tu data se llama `rows`, no truena.
+ */
+type Props =
+  & BaseProps
+  & (
+    | { items: Captura[]; rows?: never }
+    | { rows: Captura[]; items?: never }
+  );
 
 export default function CapturasTable({
   items,
+  rows,
   meta,
   loading,
   onPageChange,
@@ -38,6 +53,8 @@ export default function CapturasTable({
   blocked = false,
   onClassify,
 }: Props) {
+  const data: Captura[] = items ?? rows ?? [];
+
   const columns: Column<Captura>[] = useMemo(
     () => [
       {
@@ -78,7 +95,7 @@ export default function CapturasTable({
   return (
     <>
       <TableLayout<Captura>
-        data={items}
+        data={data}
         page={meta.page ?? 1}
         pageSize={meta.page_size ?? 10}
         count={meta.count ?? 0}
@@ -92,6 +109,8 @@ export default function CapturasTable({
         rowKey={(row) => row.id}
         renderActions={(row) => {
           const isArchived = !row.is_active;
+
+          // codenames alineados con tu backend
           const permEdit = 'change_recepcion';
           const permDelete = 'delete_recepcion';
           const permArch = 'archive_recepcion';
@@ -102,9 +121,11 @@ export default function CapturasTable({
             <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
               <ActionsMenu
                 isArchived={isArchived}
-                onEdit={(!blocked && !isArchived) ? () => onEdit(row) : undefined}
-                onArchiveOrRestore={!blocked ? () => (isArchived ? onRestore(row) : onArchive(row)) : undefined}
-                onDelete={isArchived ? () => onDelete(row) : undefined}
+                onEdit={(!blocked && !isArchived && onEdit) ? () => onEdit(row) : undefined}
+                onArchiveOrRestore={!blocked && (onArchive || onRestore)
+                  ? () => (isArchived ? onRestore?.(row) : onArchive?.(row))
+                  : undefined}
+                onDelete={isArchived && onDelete ? () => onDelete(row) : undefined}
                 permEdit={permEdit}
                 permArchiveOrRestore={permArchiveOrRestore}
                 permDelete={permDelete}
@@ -121,14 +142,17 @@ export default function CapturasTable({
 
       {/* Resumen semanal */}
       <Box display="flex" gap={3} justifyContent="flex-end" mt={2} sx={{ color: 'text.secondary', fontSize: 13 }}>
-        <span>Total recepciones: {items.length}</span>
-        <span>Total cajas: {items.reduce((acc, it) => acc + (Number(it.cantidad_cajas) || 0), 0)}</span>
-        <span>Prom. cajas/día: {(() => {
-          const total = items.reduce((acc, it) => acc + (Number(it.cantidad_cajas) || 0), 0);
-          return (total / 7).toFixed(1);
-        })()}</span>
+        <span>Total recepciones: {data.length}</span>
+        <span>
+          Total cajas: {data.reduce((acc, it) => acc + (Number(it.cantidad_cajas) || 0), 0)}
+        </span>
+        <span>
+          Prom. cajas/día: {(() => {
+            const total = data.reduce((acc, it) => acc + (Number(it.cantidad_cajas) || 0), 0);
+            return (total / 7).toFixed(1);
+          })()}
+        </span>
       </Box>
     </>
   );
 }
-

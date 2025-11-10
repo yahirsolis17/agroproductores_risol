@@ -5,15 +5,17 @@ from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
 from django.db.models import Sum
+from datetime import timedelta  # ⬅️ agrega esto
 
 from gestion_bodega.models import (
-    ClasificacionEmpaque, CierreSemanal
+    ClasificacionEmpaque, CierreSemanal, CierreSemanal as _Cierre,  # alias opcional
 )
 
 from gestion_bodega.permissions import HasModulePermission
 from gestion_bodega.utils.audit import ViewSetAuditMixin
 from agroproductores_risol.utils.pagination import GenericPagination
 from gestion_bodega.utils.notification_handler import NotificationHandler
+
 class NotificationMixin:
     """Shortcut para devolver respuestas con el formato del frontend."""
 
@@ -54,6 +56,16 @@ def _semana_cerrada(bodega_id: int, temporada_id: int, fecha) -> bool:
         is_active=True
     ).exists()
 
+def _resolve_semana_for_fecha(bodega, temporada, fecha):
+    """Misma heurística que recepciones: semana abierta = desde + 6."""
+    qs = _Cierre.objects.filter(bodega=bodega, temporada=temporada, is_active=True).order_by("-fecha_desde")
+    for c in qs:
+        start = c.fecha_desde
+        end = c.fecha_hasta or (c.fecha_desde + timedelta(days=6))
+        if start <= fecha <= end:
+            return c
+    return None
+
 
 class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
     """
@@ -62,7 +74,11 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
     - Inmutabilidad si la línea tiene consumos (SurtidoRenglon).
     - Acción bulk-upsert para captura rápida.
     """
-    queryset = ClasificacionEmpaque.objects.all().order_by("-fecha", "-id")
+    queryset = (
+        ClasificacionEmpaque.objects
+        .select_related("recepcion", "bodega", "temporada", "semana")  # ⬅️ incluye semana
+        .order_by("-fecha", "-id")
+    )
     pagination_class = GenericPagination
 
     permission_classes = [IsAuthenticated, HasModulePermission]
@@ -81,6 +97,7 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
         "bodega": ["exact"],
         "temporada": ["exact"],
         "recepcion": ["exact"],
+        "semana": ["exact"],   # NUEVO
         "material": ["exact"],
         "calidad": ["exact", "icontains"],
         "tipo_mango": ["exact", "icontains"],
@@ -113,6 +130,11 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
 
         with transaction.atomic():
             obj = ser.save()
+            # ⬅️ Semana: heredamos de la recepción si existe; si no, resolvemos por fecha
+            semana = getattr(obj.recepcion, "semana", None) or _resolve_semana_for_fecha(bodega, temporada, f)
+            if semana != obj.semana:
+                obj.semana = semana
+                obj.save(update_fields=["semana", "actualizado_en"])
 
         return self.notify(
             key="clasificacion_creada",
@@ -141,6 +163,10 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
 
         with transaction.atomic():
             obj = ser.save()
+            semana = getattr(obj.recepcion, "semana", None) or _resolve_semana_for_fecha(bodega, temporada, f)
+            if semana != obj.semana:
+                obj.semana = semana
+                obj.save(update_fields=["semana", "actualizado_en"])
 
         return self.notify(
             key="clasificacion_actualizada",
@@ -168,6 +194,10 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
 
         with transaction.atomic():
             obj = ser.save()
+            semana = getattr(obj.recepcion, "semana", None) or _resolve_semana_for_fecha(bodega, temporada, f)
+            if semana != obj.semana:
+                obj.semana = semana
+                obj.save(update_fields=["semana", "actualizado_en"])
 
         return self.notify(
             key="clasificacion_actualizada",
@@ -201,6 +231,8 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
           ]
         }
         """
+        from gestion_bodega.serializers import ClasificacionEmpaqueBulkUpsertSerializer, ClasificacionEmpaqueSerializer
+
         ser = ClasificacionEmpaqueBulkUpsertSerializer(data=request.data)
         try:
             ser.is_valid(raise_exception=True)
@@ -225,6 +257,13 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
                 })
                 line_ser.is_valid(raise_exception=True)
                 obj = line_ser.save()
+
+                # ⬅️ Asegurar semana para cada item creado
+                semana = getattr(obj.recepcion, "semana", None) or _resolve_semana_for_fecha(bodega, temporada, f)
+                if semana != obj.semana:
+                    obj.semana = semana
+                    obj.save(update_fields=["semana", "actualizado_en"])
+
                 created.append(obj.id)
 
         return self.notify(
@@ -232,4 +271,3 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
             data={"created_ids": created, "updated_ids": updated},
             status_code=status.HTTP_201_CREATED
         )
-

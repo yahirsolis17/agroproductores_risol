@@ -294,6 +294,7 @@ class Recepcion(TimeStampedModel):
         indexes = [
             Index(fields=["bodega", "temporada", "fecha"], name="idx_rec_bod_temp_fecha"),
             Index(fields=["tipo_mango"], name="idx_rec_tipo_mango"),
+            Index(fields=["bodega", "temporada", "semana", "fecha"], name="idx_rec_ctx_semana_fecha"),
         ]
 
     def __str__(self) -> str:
@@ -337,6 +338,7 @@ class ClasificacionEmpaque(TimeStampedModel):
             Index(fields=["bodega", "temporada", "fecha"], name="idx_emp_bod_temp_fecha"),
             Index(fields=["material", "calidad"], name="idx_emp_mat_cal"),
             Index(fields=["tipo_mango"], name="idx_emp_tipo_mango"),
+            Index(fields=["bodega", "temporada", "semana", "fecha"], name="idx_emp_ctx_semana_fecha"),
         ]
 
     def __str__(self) -> str:

@@ -1,4 +1,4 @@
-﻿// Meta de paginaciÃ³n uniforme (envelope o DRF)
+﻿// Meta de paginación uniforme (envelope o DRF)
 export type PaginationMeta = {
   count: number;
   next: string | null;
@@ -21,7 +21,7 @@ export interface Captura {
   temporada: number;
 
   // Datos de la captura
-  fecha: string;                 // "YYYY-MM-DD"
+  fecha: string; // "YYYY-MM-DD"
   huertero_nombre: string;
   tipo_mango: string;
   cantidad_cajas: number;
@@ -40,7 +40,7 @@ export interface Captura {
 export type CapturaCreateDTO = {
   bodega: number;
   temporada: number;
-  fecha: string;               // "YYYY-MM-DD"
+  fecha: string; // "YYYY-MM-DD"
   huertero_nombre: string;
   tipo_mango: string;
   cantidad_cajas: number;
@@ -51,7 +51,14 @@ export type CapturaUpdateDTO = CapturaCreateDTO;
 export type CapturaPatchDTO = Partial<CapturaUpdateDTO>;
 
 // ------------ Query Params (lista) ------------
-export type CapturaListParams = {\n  page?: number;\n  page_size?: number;\n  bodega?: number;\n  temporada?: number;\n};
+export type CapturaListParams = {
+  page?: number;
+  page_size?: number;
+  bodega?: number;
+  temporada?: number;
+  // NUEVO: filtro por semana (ID de CierreSemanal)
+  semana?: number;
+};
 
 // ------------ Responses normalizadas para el FE ------------
 export type CapturasListResponse = {
@@ -67,4 +74,3 @@ export type CapturaSingleResponse = {
 export type CapturaFilters = CapturaListParams;
 export type CapturaCreatePayload = CapturaCreateDTO;
 export type CapturaUpdatePayload = CapturaUpdateDTO;
-

@@ -66,7 +66,24 @@ class DateOrDateTimeField(serializers.Field):
             return value
         return None
 
-
+def _resolver_semana(bodega: Bodega, temporada: TemporadaBodega, f):
+    """
+    Devuelve el CierreSemanal cuyo rango cubre la fecha f.
+    Para semanas abiertas, tomamos fin teórico = fecha_desde + 6 días.
+    Si no hay semana que cubra la fecha, retorna None.
+    """
+    if not (bodega and temporada and f):
+        return None
+    qs = CierreSemanal.objects.filter(bodega=bodega, temporada=temporada, is_active=True)
+    # Resolución en Python para contemplar semanas abiertas (sin fecha_hasta)
+    chosen = None
+    for s in qs:
+        start = s.fecha_desde
+        end = s.fecha_hasta or (s.fecha_desde + timezone.timedelta(days=6))
+        if start <= f <= end:
+            if chosen is None or s.fecha_desde > chosen.fecha_desde:
+                chosen = s
+    return chosen
 # ───────────────────────────────────────────────────────────────────────────
 # Bodega / Temporada / Cliente
 # ───────────────────────────────────────────────────────────────────────────
@@ -196,27 +213,32 @@ class ClienteSerializer(serializers.ModelSerializer):
 # Recepciones y Clasificaciones (empaque)
 # ───────────────────────────────────────────────────────────────────────────
 
+# ───────────────────────────────────────────────────────────────────────────
+# Recepciones y Clasificaciones (empaque)
+# ───────────────────────────────────────────────────────────────────────────
+
 class RecepcionSerializer(serializers.ModelSerializer):
     bodega    = serializers.PrimaryKeyRelatedField(queryset=Bodega.objects.all())
     temporada = serializers.PrimaryKeyRelatedField(queryset=TemporadaBodega.objects.all())
     cantidad_cajas = serializers.IntegerField(source="cajas_campo", required=False)
+    # read-only para devolver al FE la semana asignada
+    semana = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = Recepcion
         fields = [
-            "id", "bodega", "temporada",
+            "id", "bodega", "temporada", "semana",
             "fecha", "huertero_nombre", "tipo_mango",
             "cajas_campo", "cantidad_cajas", "observaciones",
             "is_active", "archivado_en", "creado_en", "actualizado_en",
         ]
-        read_only_fields = ["is_active", "archivado_en", "creado_en", "actualizado_en", "cajas_campo"]
+        read_only_fields = ["is_active", "archivado_en", "creado_en", "actualizado_en", "cajas_campo", "semana"]
 
     def validate_cajas_campo(self, v):
         if v is None or v <= 0:
             raise serializers.ValidationError("La cantidad de cajas debe ser mayor a 0.")
         return v
 
-    # Validación equivalente para el alias de entrada
     def validate_cantidad_cajas(self, v):
         return self.validate_cajas_campo(v)
 
@@ -240,21 +262,35 @@ class RecepcionSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Esta semana está cerrada; no se permiten más cambios en ese rango.")
         return data
 
+    def create(self, validated_data):
+        semana = _resolver_semana(validated_data["bodega"], validated_data["temporada"], validated_data["fecha"])
+        validated_data["semana"] = semana
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        bodega = validated_data.get("bodega", instance.bodega)
+        temporada = validated_data.get("temporada", instance.temporada)
+        fecha = validated_data.get("fecha", instance.fecha)
+        semana = _resolver_semana(bodega, temporada, fecha)
+        validated_data["semana"] = semana
+        return super().update(instance, validated_data)
+
 
 class ClasificacionEmpaqueSerializer(serializers.ModelSerializer):
     recepcion_id  = serializers.PrimaryKeyRelatedField(queryset=Recepcion.objects.all(),        source="recepcion",  write_only=True)
     bodega_id     = serializers.PrimaryKeyRelatedField(queryset=Bodega.objects.all(),           source="bodega",     write_only=True)
     temporada_id  = serializers.PrimaryKeyRelatedField(queryset=TemporadaBodega.objects.all(),  source="temporada",  write_only=True)
+    semana = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = ClasificacionEmpaque
         fields = [
-            "id", "recepcion", "bodega", "temporada",
+            "id", "recepcion", "bodega", "temporada", "semana",
             "recepcion_id", "bodega_id", "temporada_id",
             "fecha", "material", "calidad", "tipo_mango", "cantidad_cajas",
             "is_active", "archivado_en", "creado_en", "actualizado_en",
         ]
-        read_only_fields = ["recepcion", "bodega", "temporada", "is_active", "archivado_en", "creado_en", "actualizado_en"]
+        read_only_fields = ["recepcion", "bodega", "temporada", "semana", "is_active", "archivado_en", "creado_en", "actualizado_en"]
 
     def validate_material(self, v):
         if v not in Material.values:
@@ -297,7 +333,18 @@ class ClasificacionEmpaqueSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Esta semana está cerrada; no se permiten más cambios en ese rango.")
         return data
 
+    def create(self, validated_data):
+        semana = _resolver_semana(validated_data["bodega"], validated_data["temporada"], validated_data["fecha"])
+        validated_data["semana"] = semana
+        return super().create(validated_data)
 
+    def update(self, instance, validated_data):
+        bodega = validated_data.get("bodega", instance.bodega)
+        temporada = validated_data.get("temporada", instance.temporada)
+        fecha = validated_data.get("fecha", instance.fecha)
+        semana = _resolver_semana(bodega, temporada, fecha)
+        validated_data["semana"] = semana
+        return super().update(instance, validated_data)
 class ClasificacionEmpaqueBulkItemSerializer(serializers.Serializer):
     material = serializers.ChoiceField(choices=Material.choices)
     calidad = serializers.CharField(max_length=12)

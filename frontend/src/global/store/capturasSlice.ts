@@ -18,10 +18,18 @@ import type {
 // -------------------------------
 // Estado
 // -------------------------------
+export interface CapturasFilters {
+  page: number;
+  page_size: number;
+  bodega?: number;
+  temporada?: number;
+  semana?: number; // 👈 nuevo: filtro por semana (ID de CierreSemanal)
+}
+
 export interface CapturasState {
   items: Captura[];
   meta: PaginationMeta;
-  filters: { page: number; page_size: number; bodega?: number; temporada?: number };
+  filters: CapturasFilters;
   status: 'idle' | 'loading' | 'succeeded' | 'failed';
   saving: boolean;
   error?: string | null;
@@ -31,7 +39,7 @@ export interface CapturasState {
 const initialState: CapturasState = {
   items: [],
   meta: { count: 0, next: null, previous: null, page: 1, page_size: 20, total_pages: 1 },
-  filters: { page: 1, page_size: 20, bodega: undefined, temporada: undefined },
+  filters: { page: 1, page_size: 20, bodega: undefined, temporada: undefined, semana: undefined },
   status: 'idle',
   saving: false,
   error: null,
@@ -131,6 +139,10 @@ const capturasSlice = createSlice({
       state.filters.temporada = action.payload;
       state.filters.page = 1;
     },
+    setSemana(state, action: PayloadAction<number | undefined>) { // 👈 nuevo
+      state.filters.semana = action.payload;
+      state.filters.page = 1;
+    },
     setPage(state, action: PayloadAction<number>) {
       state.filters.page = action.payload;
     },
@@ -207,7 +219,7 @@ const capturasSlice = createSlice({
         if (action.payload.captura) {
           state.items[idx] = action.payload.captura;
         } else {
-          state.items[idx].is_active = false as any;
+          (state.items[idx] as any).is_active = false;
         }
       }
     });
@@ -248,6 +260,7 @@ export const selectCapturaById = (id: number) => (s: RootState) =>
 export const {
   setBodega,
   setTemporada,
+  setSemana,   // 👈 export nuevo
   setPage,
   setPageSize,
   resetFilters,
