@@ -37,7 +37,11 @@ function ensureSuccess<T>(resp: any): T {
  */
 function toQueryParams(
   temporadaId: number,
-  filters?: Partial<TableroFiltersDTO> & { isoSemana?: string | null; bodegaId?: number | null; semanaId?: number | null }
+  filters?: Partial<TableroFiltersDTO> & {
+    isoSemana?: string | null;
+    bodegaId?: number | null;
+    semanaId?: number | null;
+  }
 ) {
   const params: Record<string, any> = { temporada: temporadaId };
   if (!filters) return params;
@@ -90,7 +94,11 @@ const BASE = "/bodega/tablero";
 /** SUMMARY */
 export async function getDashboardSummary(
   temporadaId: number,
-  filters?: Partial<TableroFiltersDTO> & { isoSemana?: string | null; bodegaId?: number | null; semanaId?: number | null }
+  filters?: Partial<TableroFiltersDTO> & {
+    isoSemana?: string | null;
+    bodegaId?: number | null;
+    semanaId?: number | null;
+  }
 ): Promise<DashboardSummaryResponse> {
   const params = toQueryParams(temporadaId, filters);
   const resp = await apiClient.get(`${BASE}/summary/`, { params });
@@ -101,7 +109,11 @@ export async function getDashboardSummary(
 export async function getDashboardQueues(
   temporadaId: number,
   type: QueueType,
-  filters?: Partial<TableroFiltersDTO> & { isoSemana?: string | null; bodegaId?: number | null; semanaId?: number | null }
+  filters?: Partial<TableroFiltersDTO> & {
+    isoSemana?: string | null;
+    bodegaId?: number | null;
+    semanaId?: number | null;
+  }
 ): Promise<DashboardQueueResponse> {
   const params = { ...toQueryParams(temporadaId, filters), type };
   const resp = await apiClient.get(`${BASE}/queues/`, { params });
@@ -135,7 +147,8 @@ export async function startWeek(body: WeekStartRequest): Promise<WeekCurrentResp
     const resp = await apiClient.post(`${BASE}/week/start/`, body);
     return ensureSuccess<WeekCurrentResponse>(resp.data);
   } catch (err: any) {
-    const data = err?.response?.data;
+    // Soportar tanto errores HTTP (err.response.data) como errores de ensureSuccess (err.payload)
+    const data = err?.response?.data ?? err?.payload;
     const msg =
       data?.errors?.fecha_desde?.[0] ||
       data?.errors?.detail ||
@@ -146,6 +159,9 @@ export async function startWeek(body: WeekStartRequest): Promise<WeekCurrentResp
       "No se pudo iniciar la semana.";
     const e = new Error(msg);
     (e as any).payload = data;
+    if (data?.message_key || err?.message_key) {
+      (e as any).message_key = data?.message_key ?? err?.message_key;
+    }
     throw e;
   }
 }
@@ -156,7 +172,7 @@ export async function finishWeek(body: WeekFinishRequest): Promise<WeekCurrentRe
     const resp = await apiClient.post(`${BASE}/week/finish/`, body);
     return ensureSuccess<WeekCurrentResponse>(resp.data);
   } catch (err: any) {
-    const data = err?.response?.data;
+    const data = err?.response?.data ?? err?.payload;
     const msg =
       data?.errors?.fecha_hasta?.[0] ||
       data?.errors?.detail ||
@@ -167,6 +183,9 @@ export async function finishWeek(body: WeekFinishRequest): Promise<WeekCurrentRe
       "No se pudo finalizar la semana.";
     const e = new Error(msg);
     (e as any).payload = data;
+    if (data?.message_key || err?.message_key) {
+      (e as any).message_key = data?.message_key ?? err?.message_key;
+    }
     throw e;
   }
 }

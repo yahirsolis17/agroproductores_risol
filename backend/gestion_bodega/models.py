@@ -279,9 +279,11 @@ class Cliente(TimeStampedModel):
 class Recepcion(TimeStampedModel):
     """
     Entrada de mango de campo (sin empacar) — origen libre.
+    Siempre debe pertenecer a una semana activa de la bodega/temporada.
     """
     bodega = models.ForeignKey(Bodega, on_delete=models.PROTECT, related_name="recepciones")
     temporada = models.ForeignKey(TemporadaBodega, on_delete=models.CASCADE, related_name="recepciones")
+    # Por ahora dejamos null=True/blank=True a nivel DB, pero el clean() lo hará obligatorio.
     semana = models.ForeignKey("CierreSemanal", on_delete=models.PROTECT, null=True, blank=True, related_name="recepciones")
     fecha = models.DateField()
     huertero_nombre = models.CharField(max_length=120, blank=True, default="")
@@ -302,10 +304,31 @@ class Recepcion(TimeStampedModel):
 
     def clean(self):
         errors = {}
+
+        # Temporada debe estar activa y no finalizada
         if self.temporada_id and (not self.temporada.is_active or self.temporada.finalizada):
             errors["temporada"] = "La temporada debe estar activa y no finalizada."
+
         if self.cajas_campo <= 0:
             errors["cajas_campo"] = "La cantidad de cajas debe ser positiva."
+
+        # 👇 NUEVO: siempre debe haber semana válida
+        if not self.semana_id:
+            errors["semana"] = "Debe seleccionar una semana activa para la recepción."
+        else:
+            # Misma bodega y temporada que la recepción
+            if self.semana.bodega_id != self.bodega_id or self.semana.temporada_id != self.temporada_id:
+                errors["semana"] = "La semana no pertenece a esta bodega y temporada."
+
+            # No se permite registrar/editar en semana cerrada
+            if self.semana.fecha_hasta is not None:
+                errors["semana"] = "No se pueden registrar recepciones en una semana cerrada."
+
+            # Fecha debe caer dentro del rango de la semana (hasta 7 días)
+            semana_fin = self.semana.fecha_hasta or (self.semana.fecha_desde + timedelta(days=6))
+            if not (self.semana.fecha_desde <= self.fecha <= semana_fin):
+                errors["fecha"] = "La fecha de la recepción debe estar dentro del rango de la semana."
+
         if errors:
             raise ValidationError(errors)
 
@@ -316,11 +339,11 @@ class Recepcion(TimeStampedModel):
         return super().save(*args, **kwargs)
 
 
-
 class ClasificacionEmpaque(TimeStampedModel):
     """
     Cajas empacadas por material/calidad/tipo_mango derivadas de una Recepción.
     En PLÁSTICO, 'SEGUNDA'/'EXTRA' → PRIMERA (normalización).
+    Siempre alineada a la semana/bodega/temporada de la recepción.
     """
     recepcion = models.ForeignKey(Recepcion, on_delete=models.PROTECT, related_name="clasificaciones")
     bodega = models.ForeignKey(Bodega, on_delete=models.PROTECT, related_name="clasificaciones")
@@ -346,8 +369,12 @@ class ClasificacionEmpaque(TimeStampedModel):
 
     def clean(self):
         errors = {}
+
+        # Temporada activa
         if self.temporada_id and (not self.temporada.is_active or self.temporada.finalizada):
             errors["temporada"] = "La temporada debe estar activa y no finalizada."
+
+        # Validación material/calidad (como ya tenías)
         if self.material == Material.PLASTICO:
             if self.calidad in {"SEGUNDA", "EXTRA"}:
                 self.calidad = CalidadPlastico.PRIMERA
@@ -356,8 +383,36 @@ class ClasificacionEmpaque(TimeStampedModel):
         else:
             if self.calidad not in set(CalidadMadera.values):
                 errors["calidad"] = "Calidad inválida para material MADERA."
+
         if self.cantidad_cajas <= 0:
             errors["cantidad_cajas"] = "La cantidad de cajas debe ser positiva."
+
+        # 👇 NUEVO: coherencia con recepción + semana
+        if self.recepcion_id:
+            # La clasificación debe usar misma bodega/temporada que la recepción
+            if self.recepcion.bodega_id != self.bodega_id or self.recepcion.temporada_id != self.temporada_id:
+                errors["recepcion"] = "La recepción debe pertenecer a la misma bodega y temporada."
+
+        if not self.semana_id:
+            errors["semana"] = "Debe seleccionar una semana activa para la clasificación."
+        else:
+            # La semana debe ser de la misma bodega/temporada
+            if self.semana.bodega_id != self.bodega_id or self.semana.temporada_id != self.temporada_id:
+                errors["semana"] = "La semana no pertenece a esta bodega y temporada."
+
+            # No permitir registrar/editar en semana cerrada
+            if self.semana.fecha_hasta is not None:
+                errors["semana"] = "No se pueden registrar clasificaciones en una semana cerrada."
+
+            # Fecha dentro del rango de la semana
+            semana_fin = self.semana.fecha_hasta or (self.semana.fecha_desde + timedelta(days=6))
+            if not (self.semana.fecha_desde <= self.fecha <= semana_fin):
+                errors["fecha"] = "La fecha debe estar dentro del rango de la semana."
+
+            # Si hay recepción con semana, deben coincidir
+            if self.recepcion_id and self.recepcion.semana_id and self.recepcion.semana_id != self.semana_id:
+                errors["semana"] = "La semana de la clasificación debe coincidir con la de la recepción."
+
         if errors:
             raise ValidationError(errors)
 
@@ -801,7 +856,8 @@ class Consumible(TimeStampedModel):
 class CierreSemanal(TimeStampedModel):
     """
     Semana operativa (manual) por bodega y temporada.
-    - Puede estar ABIERTA (fecha_hasta = null) o CERRADA (fecha_hasta != null).
+    - ABIERTA  => fecha_hasta = null
+    - CERRADA  => fecha_hasta != null (no se reabre).
     - Duración máxima: 7 días (inclusive).
     - Sin solapes entre semanas (regla por bodega+temporada).
     - iso_semana es opcional y solo actúa como etiqueta si coincide con ISO.
@@ -809,11 +865,10 @@ class CierreSemanal(TimeStampedModel):
     bodega = models.ForeignKey(Bodega, on_delete=models.PROTECT, related_name="cierres")
     temporada = models.ForeignKey(TemporadaBodega, on_delete=models.CASCADE, related_name="cierres")
 
-    # Etiqueta opcional; no se usa para unicidad
     iso_semana = models.CharField(max_length=10, blank=True, default="")  # p.ej. "2025-W36"
 
     fecha_desde = models.DateField()
-    # Permite semana ABIERTA
+    # Semana ABIERTA => fecha_hasta = null
     fecha_hasta = models.DateField(null=True, blank=True)
 
     locked_by = models.ForeignKey(
@@ -835,9 +890,7 @@ class CierreSemanal(TimeStampedModel):
             ),
         ]
         indexes = [
-            # Búsquedas por rango y contexto
             Index(fields=["bodega", "temporada", "fecha_desde", "fecha_hasta"], name="idx_cierre_rango"),
-            # Útil si deseas buscar por etiqueta ISO (no clave)
             Index(fields=["iso_semana"], name="idx_cierre_iso"),
         ]
         permissions = (
@@ -850,6 +903,11 @@ class CierreSemanal(TimeStampedModel):
         etiqueta = f" {self.iso_semana}" if self.iso_semana else ""
         return f"Cierre{etiqueta} ({self.fecha_desde}→{hasta})"
 
+    # 👇 NUEVO: semántica estándar de semana activa
+    @property
+    def activa(self) -> bool:
+        return self.fecha_hasta is None
+
     def clean(self):
         """
         Reglas:
@@ -857,6 +915,7 @@ class CierreSemanal(TimeStampedModel):
         - Duración máxima 7 días (inclusive) si fecha_hasta está definida.
         - Sin solapes con otras semanas del mismo (bodega, temporada).
           Para semanas ABIERTAS (sin fecha_hasta) se considera un fin teórico = fecha_desde + 6 días.
+        - No se permite reabrir una semana ya cerrada (fecha_hasta: no null -> null).
         """
         errors = {}
 
@@ -869,12 +928,16 @@ class CierreSemanal(TimeStampedModel):
             if delta > 6:
                 errors["fecha_hasta"] = "La semana no puede exceder 7 días."
 
+        # No permitir reabrir: si en BD ya estaba cerrada y ahora viene sin fecha_hasta
+        if self.pk:
+            old = CierreSemanal.objects.filter(pk=self.pk).only("fecha_hasta").first()
+            if old and old.fecha_hasta is not None and self.fecha_hasta is None:
+                errors["fecha_hasta"] = "No se puede reabrir una semana que ya fue cerrada."
+
         # Validación de solapes (en Python para contemplar semanas abiertas)
-        # Tomamos 'fin' teórico para abiertas
         self_start = self.fecha_desde
         self_end = self.fecha_hasta or (self.fecha_desde + timedelta(days=6))
 
-        # Buscar otras semanas del mismo contexto
         qs = CierreSemanal.objects.filter(
             bodega=self.bodega,
             temporada=self.temporada,
@@ -883,7 +946,6 @@ class CierreSemanal(TimeStampedModel):
         for other in qs:
             other_start = other.fecha_desde
             other_end = other.fecha_hasta or (other.fecha_desde + timedelta(days=6))
-            # Rango solapado si se intersecta
             if self_start <= other_end and self_end >= other_start:
                 errors["fecha_desde"] = "El rango de la semana solapa con otra semana existente."
                 break

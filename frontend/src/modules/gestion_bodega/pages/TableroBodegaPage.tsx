@@ -1,4 +1,5 @@
-﻿import React, { useCallback, useEffect, useMemo, useState } from "react";
+﻿// frontend/src/modules/gestion_bodega/pages/TableroBodegaPage.tsx
+import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import {
   Box,
   Paper,
@@ -22,7 +23,6 @@ import RefreshIcon from "@mui/icons-material/Refresh";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import StopIcon from "@mui/icons-material/Stop";
 import AssessmentIcon from "@mui/icons-material/Assessment";
-import WarehouseIcon from "@mui/icons-material/Warehouse";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
@@ -32,17 +32,17 @@ import { useTableroBodega } from "../hooks/useTableroBodega";
 import KpiCards from "../components/tablero/KpiCards";
 import WeekSwitcher from "../components/tablero/WeekSwitcher";
 import QuickActions from "../components/tablero/QuickActions";
-import ResumenInventarios from "../components/tablero/ResumenInventarios";
 import ResumenLogistica from "../components/tablero/ResumenLogistica";
 
 import RulesBanner from "../components/capturas/RulesBanner";
 import CapturasToolbar from "../components/capturas/CapturasToolbar";
 import CapturasTable from "../components/capturas/CapturasTable";
+import RecepcionFormModal from "../components/capturas/RecepcionFormModal";
 
 import { setBreadcrumbs } from "../../../global/store/breadcrumbsSlice";
 import { formatDateISO, parseLocalDateStrict } from "../../../global/utils/date";
 
-import { getWeekCurrent, startWeek, finishWeek } from "../services/tableroBodegaService";
+import { getWeekCurrent } from "../services/tableroBodegaService";
 import type { WeekCurrentResponse } from "../types/tableroBodegaTypes";
 
 import useCapturas from "../hooks/useCapturas";
@@ -62,7 +62,10 @@ function prettyRange(fromISO: string, toISO: string) {
   return `${fmt(from)} – ${fmt(to)}`;
 }
 
-function withPreservedParams(href: string, preserveKeys: string[] = ["temporada", "bodega", "week_id"]) {
+function withPreservedParams(
+  href: string,
+  preserveKeys: string[] = ["temporada", "bodega", "week_id"]
+) {
   const current = new URLSearchParams(window.location.search);
   const url = new URL(href, window.location.origin);
   preserveKeys.forEach((k) => {
@@ -72,14 +75,6 @@ function withPreservedParams(href: string, preserveKeys: string[] = ["temporada"
   });
   return url.pathname + (url.searchParams.toString() ? `?${url.searchParams.toString()}` : "");
 }
-
-// helpers robustos para detectar “semana activa”
-const inISO = (s?: string) => (s ? s.slice(0, 10) : "");
-const isDateInRange = (dateISO: string, fromISO?: string, toISO?: string) => {
-  if (!dateISO || !fromISO || !toISO) return false;
-  const d = inISO(dateISO), f = inISO(fromISO), t = inISO(toISO);
-  return d >= f && d <= t;
-};
 
 // Animaciones (framer-motion)
 const pageTransition = {
@@ -110,6 +105,8 @@ const sectionTransition = {
 const staggerChildren = {
   animate: { transition: { staggerChildren: 0.08 } },
 };
+
+type WeekValue = { from: string; to: string; isoSemana: string | null };
 
 // ───────────────────────────────────────────────────────────────────────────
 // Componente principal
@@ -148,24 +145,60 @@ const TableroBodegaPage: React.FC = () => {
     refetchSummary,
     onApplyFilters,
     weekNav,
-    refetchAll,
     markForRefetch,
     applyMarkedRefetch,
+    apiStartWeek,
+    apiFinishWeek,
   } = hookAny;
 
   const hasWeeks: boolean = !!weekNav?.hasWeeks;
+  const [weekSelectionInitialized, setWeekSelectionInitialized] = useState(false);
 
   // week_id en URL
   const weekIdParam = sp.get("week_id");
   const urlWeekId = weekIdParam ? Number(weekIdParam) : null;
 
-  // Estado: semana activa actual
+  // Estado: semana activa actual (desde backend /week/current/)
   const [weekState, setWeekState] = useState<WeekCurrentResponse | null>(null);
   const [busyStart, setBusyStart] = useState(false);
   const [busyFinish, setBusyFinish] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  // Semana seleccionada
+  // Semana seleccionada (combinando barra de semanas + fallback a /week/current/)
+  useEffect(() => {
+    const items = (weekNav?.items || []) as any[];
+    if (!items.length) return;
+    if (weekSelectionInitialized) return;
+
+    const openWeek = items.find((w: any) => w?.activa);
+    const currentId = urlWeekId && !Number.isNaN(urlWeekId) ? urlWeekId : null;
+    const currentWeek = currentId ? items.find((it: any) => it?.id === currentId) : undefined;
+
+    if (openWeek) {
+      const mustSwitch = !currentWeek || !currentWeek.activa || currentWeek.id !== openWeek.id;
+      if (mustSwitch) {
+        const next = new URLSearchParams(sp);
+        next.set("week_id", String(openWeek.id));
+        setSp(next, { replace: true });
+      }
+      setWeekSelectionInitialized(true);
+      return;
+    }
+
+    if (!currentWeek) {
+      const idxFromNav = ((weekNav?.indice ?? items.length) as number) - 1;
+      const safeIdx = Math.max(0, Math.min(items.length - 1, idxFromNav));
+      const fallback = items[safeIdx];
+      if (fallback?.id) {
+        const next = new URLSearchParams(sp);
+        next.set("week_id", String(fallback.id));
+        setSp(next, { replace: true });
+      }
+    }
+
+    setWeekSelectionInitialized(true);
+  }, [weekNav?.items, weekNav?.indice, urlWeekId, sp, setSp, weekSelectionInitialized]);
+
   const selectedWeek = useMemo(() => {
     const items = (weekNav?.items || []) as any[];
     if (urlWeekId && items.length) {
@@ -181,7 +214,50 @@ const TableroBodegaPage: React.FC = () => {
     return null;
   }, [weekNav?.items, weekNav?.indice, urlWeekId, weekState]);
 
-  // Estado de semana desde backend
+  // Si existe una semana ABIERTA en weeksNav y la URL apunta a una cerrada (o no hay selección), forzamos la activa
+  useEffect(() => {
+    const items = (weekNav?.items || []) as any[];
+    if (!items.length) return;
+
+    const openWeek = items.find((it: any) => it?.activa);
+    if (!openWeek) return;
+
+    const selId = (selectedWeek as any)?.id;
+    if (selId === openWeek.id) return;
+
+    const next = new URLSearchParams(sp);
+    next.set("week_id", String(openWeek.id));
+    setSp(next, { replace: true });
+  }, [weekNav?.items, selectedWeek, sp, setSp]);
+
+  // Estado local del rango que maneja WeekSwitcher (from/to/isoSemana)
+  const [weekValue, setWeekValue] = useState<WeekValue>(() => {
+    const sw: any = selectedWeek;
+    const from = sw?.fecha_desde || sw?.inicio;
+    const to = sw?.fecha_hasta || sw?.fin;
+    const today = formatDateISO(new Date());
+    return {
+      from: from || today,
+      to: to || today,
+      isoSemana: sw?.iso_semana ?? null,
+    };
+  });
+
+  // Sincronizar weekValue cuando cambia la semana seleccionada desde barra de semanas
+  useEffect(() => {
+    const sw: any = selectedWeek;
+    const from = sw?.fecha_desde || sw?.inicio;
+    const to = sw?.fecha_hasta || sw?.fin;
+    if (from && to) {
+      setWeekValue((prev) =>
+        prev.from === from && prev.to === to
+          ? prev
+          : { from, to, isoSemana: "MANUAL" }
+      );
+    }
+  }, [selectedWeek]);
+
+  // Estado de semana desde backend (/week/current/)
   const refetchWeekState = useCallback(async () => {
     if (!bodegaId || !temporadaId) return;
     try {
@@ -195,6 +271,16 @@ const TableroBodegaPage: React.FC = () => {
   useEffect(() => {
     refetchWeekState();
   }, [refetchWeekState]);
+
+  // Si backend reporta una semana activa diferente a la que marca la URL, forzamos URL a la activa
+  useEffect(() => {
+    const activeId = (weekState as any)?.active_week?.id;
+    if (!activeId) return;
+    if (urlWeekId === activeId) return;
+    const next = new URLSearchParams(sp);
+    next.set("week_id", String(activeId));
+    setSp(next, { replace: true });
+  }, [weekState?.active_week, urlWeekId, sp, setSp]);
 
   // Pretty range
   const rangoPretty = useMemo(() => {
@@ -240,30 +326,18 @@ const TableroBodegaPage: React.FC = () => {
     semanaIndex,
   ]);
 
-  // WeekSwitcher → aplica rango al tablero
+  // WeekSwitcher → aplica rango al tablero y sincroniza estado weekValue
   const handleWeekChange = useCallback(
     (range: { from?: string; to?: string; isoSemana?: string | null }) => {
-      if (!hasWeeks) return;
+      setWeekValue((prev) => ({ ...prev, ...range }));
       if (!range.from || !range.to) return;
       const key = range.isoSemana ?? "MANUAL";
       onApplyFilters?.({ fecha_desde: range.from, fecha_hasta: range.to, isoSemana: key });
     },
-    [hasWeeks, onApplyFilters]
+    [onApplyFilters]
   );
 
-  // Navegación con query preservado
-
-
-  // Valor del WeekSwitcher
-  const weekValue = useMemo(() => {
-    const from = (selectedWeek as any)?.fecha_desde || (selectedWeek as any)?.inicio;
-    const to = (selectedWeek as any)?.fecha_hasta || (selectedWeek as any)?.fin;
-    if (from && to) return { from, to, isoSemana: "MANUAL" };
-    const today = formatDateISO(new Date());
-    return { from: today, to: today, isoSemana: null };
-  }, [selectedWeek]);
-
-  // Índices prev/next
+  // Índices prev/next (para WeekSwitcher)
   const currentIndex = useMemo(() => {
     const items = (weekNav?.items || []) as any[];
     if (!items.length) return -1;
@@ -276,7 +350,10 @@ const TableroBodegaPage: React.FC = () => {
   }, [weekNav?.items, weekNav?.indice, urlWeekId]);
 
   const disablePrev = !hasWeeks || currentIndex <= 0;
-  const disableNext = !hasWeeks || currentIndex < 0 || currentIndex >= ((weekNav?.items || []) as any[]).length - 1;
+  const disableNext =
+    !hasWeeks ||
+    currentIndex < 0 ||
+    currentIndex >= ((weekNav?.items || []) as any[]).length - 1;
 
   const goPrevWeek = useCallback(() => {
     const items = (weekNav?.items || []) as any[];
@@ -302,77 +379,103 @@ const TableroBodegaPage: React.FC = () => {
     }
   }, [weekNav?.items, currentIndex, sp, setSp]);
 
-  // Estado semana activa (robusto: flag || estado global || rango del día local)
-  const isActiveSelectedWeek = useMemo(() => {
+  // Estado semana activa (robusto)
+  const { hasActiveWeek, isActiveSelectedWeek } = useMemo(() => {
     const wk = selectedWeek as any;
-    const flag = Boolean(wk?.activa);
-    const sameAsActive = Boolean(weekState?.active_week) && weekState?.week?.id === wk?.id;
-    const todayISO = formatDateISO(new Date());
-    const byRange = isDateInRange(
-      todayISO,
-      wk?.fecha_desde || wk?.inicio,
-      wk?.fecha_hasta || wk?.fin
-    );
-    return flag || sameAsActive || byRange;
-  }, [selectedWeek, weekState]);
+    const flagActiva = !!wk?.activa;
+
+    const active =
+      (weekState?.active_week as any) ??
+      ((weekNav?.context as any)?.active_week as any) ??
+      null;
+
+    const estado = (active?.estado || "").toString().toUpperCase();
+    const isActiveGlobal =
+      !!active && (estado === "ABIERTA" || estado === "ACTUAL" || !estado);
+
+    const selectedId = wk?.id ?? null;
+    const isSelectedActive =
+      isActiveGlobal && active?.id != null && selectedId != null && active.id === selectedId;
+
+    const hasAnyActive =
+      isActiveGlobal ||
+      flagActiva ||
+      ((weekNav?.items || []) as any[]).some((it) => it?.activa);
+
+    return {
+      hasActiveWeek: hasAnyActive,
+      isActiveSelectedWeek: isSelectedActive || flagActiva,
+    };
+  }, [weekState?.active_week, weekNav?.context, weekNav?.items, selectedWeek]);
 
   const canFinish = isActiveSelectedWeek;
 
   // ───────────────────────────────────────────────────────────────────────────
   // Acciones semana
   // ───────────────────────────────────────────────────────────────────────────
-  const handleStart = useCallback(async () => {
-    setActionError(null);
-    if (!bodegaId || !temporadaId) return;
-    try {
-      setBusyStart(true);
-      const from = weekValue.from;
-      const res = await startWeek({ bodega: bodegaId, temporada: temporadaId, fecha_desde: from });
+  const handleStart = useCallback(
+    async () => {
+      setActionError(null);
+      if (!bodegaId || !temporadaId) return;
+      try {
+        setBusyStart(true);
+        const from = weekValue.from;
+        await apiStartWeek?.(from);
 
-      await refetchWeekState();
-      await refetchAll?.();
+        await refetchWeekState();
 
-      const newWeekId = (res as any)?.week?.id ?? null;
-      if (newWeekId) {
-        const next = new URLSearchParams(sp);
-        next.set("week_id", String(newWeekId));
-        setSp(next, { replace: false });
+        markForRefetch?.("summary");
+        markForRefetch?.("recepciones");
+        markForRefetch?.("despachos");
+        applyMarkedRefetch?.();
+      } catch (e: any) {
+        setActionError(e?.message || "No se pudo iniciar la semana.");
+      } finally {
+        setBusyStart(false);
       }
+    },
+    [
+      apiStartWeek,
+      bodegaId,
+      temporadaId,
+      weekValue.from,
+      markForRefetch,
+      applyMarkedRefetch,
+      refetchWeekState,
+    ]
+  );
 
-      markForRefetch?.("summary");
-      markForRefetch?.("recepciones");
-      markForRefetch?.("inventarios");
-      markForRefetch?.("despachos");
-      applyMarkedRefetch?.();
-    } catch (e: any) {
-      setActionError(e?.message || "No se pudo iniciar la semana.");
-    } finally {
-      setBusyStart(false);
-    }
-  }, [bodegaId, temporadaId, weekValue.from, sp, setSp, markForRefetch, applyMarkedRefetch, refetchAll, refetchWeekState]);
+  const handleFinish = useCallback(
+    async () => {
+      setActionError(null);
+      if (!bodegaId || !temporadaId) return;
+      try {
+        setBusyFinish(true);
+        const to = weekValue.to;
+        await apiFinishWeek?.(to);
 
-  const handleFinish = useCallback(async () => {
-    setActionError(null);
-    if (!bodegaId || !temporadaId) return;
-    try {
-      setBusyFinish(true);
-      const to = weekValue.to;
-      await finishWeek({ bodega: bodegaId, temporada: temporadaId, fecha_hasta: to });
+        await refetchWeekState();
 
-      await refetchWeekState();
-      await refetchAll?.();
-
-      markForRefetch?.("summary");
-      markForRefetch?.("recepciones");
-      markForRefetch?.("inventarios");
-      markForRefetch?.("despachos");
-      applyMarkedRefetch?.();
-    } catch (e: any) {
-      setActionError(e?.message || "No se pudo finalizar la semana.");
-    } finally {
-           setBusyFinish(false);
-    }
-  }, [bodegaId, temporadaId, weekValue.to, markForRefetch, applyMarkedRefetch, refetchAll, refetchWeekState]);
+        markForRefetch?.("summary");
+        markForRefetch?.("recepciones");
+        markForRefetch?.("despachos");
+        applyMarkedRefetch?.();
+      } catch (e: any) {
+        setActionError(e?.message || "No se pudo finalizar la semana.");
+      } finally {
+        setBusyFinish(false);
+      }
+    },
+    [
+      apiFinishWeek,
+      bodegaId,
+      temporadaId,
+      weekValue.to,
+      markForRefetch,
+      applyMarkedRefetch,
+      refetchWeekState,
+    ]
+  );
 
   // ───────────────────────────────────────────────────────────────────────────
   // Recepciones (tabla completa gobernada por semana)
@@ -381,6 +484,7 @@ const TableroBodegaPage: React.FC = () => {
     items: capRows,
     meta: capMeta,
     loading: capLoading,
+    saving: capSaving,
     canOperate: capCanOperate,
     reasonDisabled: capReasonDisabled,
     setBodega: capSetBodega,
@@ -388,6 +492,11 @@ const TableroBodegaPage: React.FC = () => {
     setSemana: capSetSemana,
     setPage: capSetPage,
     refetch: capRefetch,
+    create: capCreate,
+    update: capUpdate,
+    archivar: capArchivar,
+    restaurar: capRestaurar,
+    remove: capRemove,
   } = useCapturas();
 
   // Sincronizar filtros con contexto
@@ -397,17 +506,24 @@ const TableroBodegaPage: React.FC = () => {
   }, [bodegaId, temporadaId, capSetBodega, capSetTemporada]);
 
   const selectedWeekId = (selectedWeek as any)?.id as number | undefined;
+  const lastSemanaRef = useRef<number | undefined>(undefined);
+
   useEffect(() => {
     capSetSemana(selectedWeekId);
-    if (capCanOperate) capRefetch();
+    if (!selectedWeekId || !capCanOperate) return;
+    if (lastSemanaRef.current === selectedWeekId) return;
+    lastSemanaRef.current = selectedWeekId;
+    capRefetch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedWeekId]);
+  }, [selectedWeekId, capCanOperate, capSetSemana, capRefetch]);
 
   // Botonera / banner en base a capacidad + semana activa robusta
-  const recepDisabled = !capCanOperate ? true : !isActiveSelectedWeek;
+  const recepDisabled = !capCanOperate ? true : !(isActiveSelectedWeek || hasActiveWeek);
   const recepReason = !capCanOperate
-    ? (capReasonDisabled || "Selecciona bodega y temporada.")
-    : (isActiveSelectedWeek ? undefined : "Semana cerrada o fuera de rango para hoy.");
+    ? capReasonDisabled || "Selecciona bodega y temporada."
+    : (isActiveSelectedWeek || hasActiveWeek)
+    ? undefined
+    : "Semana cerrada o fuera de rango para hoy.";
 
   const onPageCapturas = useCallback(
     (n: number) => {
@@ -417,12 +533,79 @@ const TableroBodegaPage: React.FC = () => {
     [capSetPage, capRefetch]
   );
 
-  // Handlers requeridos por CapturasToolbar
+  // ───────────────────────────────────────────────────────────────────────────
+  // Modal de Recepciones en tablero
+  // ───────────────────────────────────────────────────────────────────────────
+  const [openRecepcionModal, setOpenRecepcionModal] = useState(false);
+  const [editingRecepcion, setEditingRecepcion] = useState<any | null>(null);
+
+  const weekRange = useMemo(() => {
+    const sw: any = selectedWeek;
+    if (!sw) return undefined;
+    return {
+      from: sw.fecha_desde || sw.inicio,
+      to: sw.fecha_hasta || sw.fin,
+    };
+  }, [selectedWeek]);
+
+  // Nueva recepción → abre modal (sin navegar)
   const handleNewRecepcion = useCallback(() => {
     if (!bodegaId || !temporadaId) return;
-    // por ahora navegamos al flujo de capturas preservando contexto
-    navigate(withPreservedParams(`/bodega/${bodegaId}/capturas`, ["temporada", "bodega", "week_id"]));
-  }, [bodegaId, temporadaId, navigate]);
+    setEditingRecepcion(null);
+    setOpenRecepcionModal(true);
+  }, [bodegaId, temporadaId]);
+
+  // Edición desde la tabla
+  const handleEditRecepcion = useCallback((row: any) => {
+    setEditingRecepcion(row);
+    setOpenRecepcionModal(true);
+  }, []);
+
+  const handleArchiveRecepcion = useCallback(
+    async (row: any) => {
+      await capArchivar(row.id);
+      await capRefetch();
+    },
+    [capArchivar, capRefetch]
+  );
+
+  const handleRestoreRecepcion = useCallback(
+    async (row: any) => {
+      await capRestaurar(row.id);
+      await capRefetch();
+    },
+    [capRestaurar, capRefetch]
+  );
+
+  const handleDeleteRecepcion = useCallback(
+    async (row: any) => {
+      await capRemove(row.id);
+      await capRefetch();
+    },
+    [capRemove, capRefetch]
+  );
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Lógica de botón Iniciar (UX final)
+  // ───────────────────────────────────────────────────────────────────────────
+  const isSameRangeAsSelectedWeek = useMemo(() => {
+    const sw: any = selectedWeek;
+    if (!sw || !weekValue.from || !weekValue.to) return false;
+    const fromSel = sw.fecha_desde || sw.inicio;
+    const toSel = sw.fecha_hasta || sw.fin;
+    return fromSel === weekValue.from && toSel === weekValue.to;
+  }, [selectedWeek, weekValue.from, weekValue.to]);
+
+  const disableStartButton =
+    !bodegaId || busyStart || hasActiveWeek || isSameRangeAsSelectedWeek;
+
+  const startTooltip = !bodegaId
+    ? "Selecciona una bodega válida."
+    : hasActiveWeek
+    ? "Ya existe una semana abierta para esta bodega y temporada."
+    : isSameRangeAsSelectedWeek
+    ? "Esta semana ya está registrada. Ajusta el rango para iniciar una nueva."
+    : "Iniciar semana";
 
   // ───────────────────────────────────────────────────────────────────────────
   // Render
@@ -530,7 +713,13 @@ const TableroBodegaPage: React.FC = () => {
 
             {bodegaId && bodegaId > 0 && (
               <Box display="flex" justifyContent={{ xs: "flex-start", md: "flex-end" }}>
-                <QuickActions bodegaId={bodegaId} temporadaId={temporadaId} onNavigate={(href)=>navigate(withPreservedParams(href))} dense pill />
+                <QuickActions
+                  bodegaId={bodegaId}
+                  temporadaId={temporadaId}
+                  onNavigate={(href) => navigate(withPreservedParams(href))}
+                  dense
+                  pill
+                />
               </Box>
             )}
           </Box>
@@ -621,13 +810,13 @@ const TableroBodegaPage: React.FC = () => {
             <Box flexGrow={1} />
 
             <Box display="flex" alignItems="center" gap={1} component={motion.div} variants={sectionTransition}>
-              <Tooltip title={isActiveSelectedWeek ? "Ya existe una semana abierta" : "Iniciar semana"}>
+              <Tooltip title={startTooltip}>
                 <span>
                   <Button
                     size="small"
                     variant="contained"
                     startIcon={busyStart ? <CircularProgress size={16} /> : <PlayArrowIcon />}
-                    disabled={!bodegaId || busyStart || isActiveSelectedWeek}
+                    disabled={disableStartButton}
                     onClick={handleStart}
                     sx={{ borderRadius: 3, textTransform: "none", fontWeight: 600, px: 2, boxShadow: "none" }}
                   >
@@ -716,7 +905,12 @@ const TableroBodegaPage: React.FC = () => {
                       mb: 2,
                     }}
                     action={
-                      <Button color="inherit" size="small" onClick={() => refetchSummary()} sx={{ fontWeight: 600 }}>
+                      <Button
+                        color="inherit"
+                        size="small"
+                        onClick={() => refetchSummary()}
+                        sx={{ fontWeight: 600 }}
+                      >
                         Reintentar
                       </Button>
                     }
@@ -732,7 +926,13 @@ const TableroBodegaPage: React.FC = () => {
               <Divider sx={{ my: 3, borderColor: alpha(theme.palette.divider, 0.1), borderWidth: 1 }} />
 
               {/* Recepciones */}
-              <Box sx={{ py: 3 }} component={motion.section} variants={sectionTransition} initial="initial" animate="animate">
+              <Box
+                sx={{ py: 3 }}
+                component={motion.section}
+                variants={sectionTransition}
+                initial="initial"
+                animate="animate"
+              >
                 <SectionHeader
                   icon={<InventoryIcon sx={{ color: "primary.main", fontSize: 28 }} />}
                   title="Recepciones"
@@ -756,11 +956,41 @@ const TableroBodegaPage: React.FC = () => {
 
                 <Box sx={{ mb: 1.5 }}>
                   <CapturasToolbar
+                    bodegaId={bodegaId}
+                    temporadaId={temporadaId}
                     disabledActions={recepDisabled}
                     disabledReason={recepReason}
                     onNewRecepcion={handleNewRecepcion}
                   />
                 </Box>
+
+                {/* Modal de Recepción en Tablero */}
+                <RecepcionFormModal
+                  open={openRecepcionModal}
+                  onClose={() => {
+                    setOpenRecepcionModal(false);
+                    setEditingRecepcion(null);
+                  }}
+                  initial={editingRecepcion}
+                  bodegaId={bodegaId}
+                  temporadaId={temporadaId}
+                  weekRange={weekRange}
+                  blocked={recepDisabled}
+                  blockReason={recepReason}
+                  busy={!!capSaving}
+                  onCreate={async (payload: any) => {
+                    await capCreate(payload);
+                    await capRefetch();
+                    setOpenRecepcionModal(false);
+                    setEditingRecepcion(null);
+                  }}
+                  onUpdate={async (id: number, payload: any) => {
+                    await capUpdate(id, payload);
+                    await capRefetch();
+                    setOpenRecepcionModal(false);
+                    setEditingRecepcion(null);
+                  }}
+                />
 
                 <Paper variant="outlined" sx={{ p: { xs: 1.5, md: 2 }, borderRadius: 3 }}>
                   <CapturasTable
@@ -768,25 +998,11 @@ const TableroBodegaPage: React.FC = () => {
                     meta={capMeta}
                     loading={capLoading}
                     onPageChange={onPageCapturas}
-                  />
-                </Paper>
-              </Box>
-
-              <Divider sx={{ my: 3, borderColor: alpha(theme.palette.divider, 0.1), borderWidth: 1 }} />
-
-              {/* Inventarios */}
-              <Box sx={{ py: 3 }} component={motion.section} variants={sectionTransition} initial="initial" animate="animate">
-                <SectionHeader
-                  icon={<WarehouseIcon sx={{ color: "primary.main", fontSize: 28 }} />}
-                  title="Inventarios"
-                  subtitle={hasWeeks ? `Semana ${semanaIndex ?? "—"}` : undefined}
-                />
-                <Paper variant="outlined" sx={{ p: { xs: 1.5, md: 2 }, borderRadius: 3 }}>
-                  <ResumenInventarios
-                    rows={(hookAny?.queueInventarios?.rows ?? []) as any[]}
-                    meta={hookAny?.queueInventarios?.meta ?? { page: 1, page_size: 10, total: 0 }}
-                    loading={!!hookAny?.isLoadingInventarios}
-                    onPageChange={hookAny?.onPageChangeInventarios}
+                    onEdit={handleEditRecepcion}
+                    onArchive={handleArchiveRecepcion}
+                    onRestore={handleRestoreRecepcion}
+                    onDelete={handleDeleteRecepcion}
+                    blocked={recepDisabled}
                   />
                 </Paper>
               </Box>
@@ -794,7 +1010,13 @@ const TableroBodegaPage: React.FC = () => {
               <Divider sx={{ my: 3, borderColor: alpha(theme.palette.divider, 0.1), borderWidth: 1 }} />
 
               {/* Logística */}
-              <Box sx={{ py: 3 }} component={motion.section} variants={sectionTransition} initial="initial" animate="animate">
+              <Box
+                sx={{ py: 3 }}
+                component={motion.section}
+                variants={sectionTransition}
+                initial="initial"
+                animate="animate"
+              >
                 <SectionHeader
                   icon={<LocalShippingIcon sx={{ color: "primary.main", fontSize: 28 }} />}
                   title="Despachos / Logística"

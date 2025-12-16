@@ -81,12 +81,14 @@ def season_week_bounds(temporada: TemporadaBodega, semana_ix: int) -> Tuple[date
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Validaciones de cierre (manteniendo tus shortcuts originales)
+# Validaciones de cierre (semana CERRADA real, con fecha_hasta)
 # ──────────────────────────────────────────────────────────────────────────────
 
 def semana_cerrada_ids(bodega_id: int, temporada_id: int, f: date) -> bool:
     """
-    True si existe un CierreSemanal activo (bodega+temporada) que cubre la fecha f.
+    True si existe un CierreSemanal ACTIVO para (bodega, temporada) con
+    fecha_hasta definida cuyo rango [fecha_desde, fecha_hasta] cubre la fecha f.
+    (Las semanas abiertas –fecha_hasta = NULL– NO se consideran cerradas aquí).
     """
     if not (bodega_id and temporada_id and f):
         return False
@@ -101,11 +103,16 @@ def semana_cerrada_ids(bodega_id: int, temporada_id: int, f: date) -> bool:
 
 def semana_cerrada(bodega, temporada, f: date) -> bool:
     """
-    Variante que acepta instancias (o None). Hace el mismo check que semana_cerrada_ids.
+    Variante que acepta instancias (o None).
+    Hace el mismo check que semana_cerrada_ids, usando sus ids.
     """
     if not (bodega and temporada and f):
         return False
-    return semana_cerrada_ids(getattr(bodega, "id", None), getattr(temporada, "id", None), f)
+    return semana_cerrada_ids(
+        getattr(bodega, "id", None),
+        getattr(temporada, "id", None),
+        f,
+    )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -134,8 +141,11 @@ def semana_abierta_actual(bodega_id: int, temporada_id: int) -> Optional[CierreS
 def rango_por_semana_id(semana_id: int) -> Tuple[date, date, Optional[str]]:
     """
     Resuelve el rango [desde, hasta] de un CierreSemanal por PK.
-    Si la semana está abierta (fecha_hasta = NULL), usamos:
+
+    - Semana cerrada: [fecha_desde, fecha_hasta] tal cual.
+    - Semana abierta (fecha_hasta = NULL):
         hasta = min(fecha_desde + 6 días, hoy)
+
     Devuelve (desde, hasta, iso_semana_label).
     """
     cierre = CierreSemanal.objects.filter(pk=semana_id, is_active=True).first()

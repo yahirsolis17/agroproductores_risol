@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import List, Dict
+from datetime import date
 
 from rest_framework import viewsets, status, serializers
 from rest_framework.decorators import action
@@ -14,10 +15,12 @@ from gestion_bodega.models import CierreSemanal, TemporadaBodega
 from gestion_bodega.serializers import CierreSemanalSerializer, CierreTemporadaSerializer
 from gestion_bodega.permissions import HasModulePermission
 from gestion_bodega.utils.audit import ViewSetAuditMixin
+from gestion_bodega.utils.activity import registrar_actividad
 from agroproductores_risol.utils.pagination import GenericPagination
 from gestion_bodega.utils.notification_handler import NotificationHandler
 from gestion_bodega.utils.semana import (
     tz_today_mx,
+    rango_por_semana_id,
 )
 
 class NotificationMixin:
@@ -138,14 +141,13 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
         # Construcción de salida homogénea
         weeks: List[Dict] = []
         for i, s in enumerate(cierres, start=1):
-            desde = s["fecha_desde"]
-            hasta = s["fecha_hasta"] or (s["fecha_desde"])
-            # si está abierta, mostramos hasta = desde + 6 o "hoy" en FE (el tablero ya lo acota)
+            # Usamos helper centralizado para rango de semana (respeta +6 días y hoy)
+            desde, hasta, label = rango_por_semana_id(s["id"])
             weeks.append({
                 "semana_ix": i,
                 "desde": str(desde),
                 "hasta": str(hasta),
-                "iso_semana": s.get("iso_semana") or None,
+                "iso_semana": label,
                 "is_closed": s["fecha_hasta"] is not None,
                 "semana_id": s["id"],
             })
@@ -182,6 +184,10 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
         with transaction.atomic():
             cierre = ser.save(locked_by=request.user)
 
+        registrar_actividad(
+            request.user,
+            f"Creó/actualizó cierre semanal (bodega {cierre.bodega_id}, temporada {cierre.temporada_id}, semana {cierre.id})",
+        )
         return self.notify(
             key="cierre_semanal_creado",
             data={"cierre": CierreSemanalSerializer(cierre).data},
@@ -205,8 +211,60 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
         with transaction.atomic():
             temporada.finalizar()
 
+        registrar_actividad(
+            request.user,
+            f"Finalizó temporada de bodega #{temporada.id} ({temporada.año})",
+        )
         return self.notify(
             key="temporada_cerrada",
             data={"temporada": {"id": temporada.id, "año": temporada.año, "finalizada": True}},
             status_code=status.HTTP_200_OK
+        )
+
+    @action(detail=True, methods=["post"], url_path="cerrar")
+    def cerrar(self, request, pk=None):
+        """
+        Finaliza una semana abierta (CierreSemanal) asignándole fecha_hasta.
+        Si no se envía fecha_hasta, se usa la fecha local de hoy.
+        """
+        cierre: CierreSemanal = self.get_object()
+        if cierre.fecha_hasta is not None:
+            return self.notify(
+                key="cierre_semanal_ya_cerrado",
+                data={"errors": {"fecha_hasta": ["La semana ya está cerrada."]}},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        raw_fh = request.data.get("fecha_hasta")
+        fhasta = None
+        try:
+            if raw_fh:
+                fhasta = date.fromisoformat(str(raw_fh))
+            else:
+                fhasta = tz_today_mx()
+        except Exception:
+            return self.notify(
+                key="validation_error",
+                data={"errors": {"fecha_hasta": ["Formato de fecha inválido. Use YYYY-MM-DD."]}},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validamos con el serializer actual (respeta reglas de 7 días, solape y única abierta)
+        ser = CierreSemanalSerializer(instance=cierre, data={"fecha_hasta": fhasta}, partial=True)
+        try:
+            ser.is_valid(raise_exception=True)
+        except serializers.ValidationError:
+            return self.notify(key="validation_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            cierre = ser.save()
+
+        registrar_actividad(
+            request.user,
+            f"Cerró semana de bodega {cierre.bodega_id} temporada {cierre.temporada_id} (semana {cierre.id})",
+        )
+        return self.notify(
+            key="cierre_semanal_cerrado",
+            data={"cierre": CierreSemanalSerializer(cierre).data},
+            status_code=status.HTTP_200_OK,
         )

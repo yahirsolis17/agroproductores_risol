@@ -1,3 +1,4 @@
+// frontend/src/modules/gestion_bodega/hooks/useTableroBodega.ts
 /* Hook maestro del Tablero — estado único de semana (week_id) y contratos estabilizados
    - Fuente de verdad: CierreSemanal del backend.
    - Navega por índice en weeksNav.items (prev/next) y sincroniza ?week_id en URL.
@@ -42,12 +43,40 @@ import {
 const LOCAL_TZ = "America/Mexico_City";
 
 const QUERY_KEYS = {
-  summary: (temporadaId: number, bodegaId: number, semanaId: number | null, signature: string) =>
-    ["bodega", "dashboard", "summary", temporadaId, bodegaId, `sem:${semanaId ?? "none"}`, signature] as const,
+  summary: (
+    temporadaId: number,
+    bodegaId: number,
+    semanaId: number | null,
+    signature: string
+  ) =>
+    [
+      "bodega",
+      "dashboard",
+      "summary",
+      temporadaId,
+      bodegaId,
+      `sem:${semanaId ?? "none"}`,
+      signature,
+    ] as const,
   alerts: (temporadaId: number, bodegaId: number, stamp: number | null) =>
     ["bodega", "dashboard", "alerts", temporadaId, bodegaId, stamp] as const,
-  queue: (temporadaId: number, bodegaId: number, type: QueueType, semanaId: number | null, signature: string) =>
-    ["bodega", "dashboard", "queue", temporadaId, bodegaId, type, `sem:${semanaId ?? "none"}`, signature] as const,
+  queue: (
+    temporadaId: number,
+    bodegaId: number,
+    type: QueueType,
+    semanaId: number | null,
+    signature: string
+  ) =>
+    [
+      "bodega",
+      "dashboard",
+      "queue",
+      temporadaId,
+      bodegaId,
+      type,
+      `sem:${semanaId ?? "none"}`,
+      signature,
+    ] as const,
   weeksNav: (temporadaId: number, bodegaId: number) =>
     ["bodega", "dashboard", "weeksNav", temporadaId, bodegaId] as const,
 };
@@ -72,13 +101,19 @@ function clamp01(n: number) {
 
 function fmtCajas(n?: number) {
   const v = typeof n === "number" ? n : 0;
-  return new Intl.NumberFormat("es-MX", { maximumFractionDigits: 0 }).format(v) + " cajas";
+  return (
+    new Intl.NumberFormat("es-MX", { maximumFractionDigits: 0 }).format(v) +
+    " cajas"
+  );
 }
 
 function fmtPct01(n?: number | null) {
   if (n == null) return "N/A";
   const v = clamp01(n);
-  return new Intl.NumberFormat("es-MX", { style: "percent", maximumFractionDigits: 0 }).format(v);
+  return new Intl.NumberFormat("es-MX", {
+    style: "percent",
+    maximumFractionDigits: 0,
+  }).format(v);
 }
 
 // Si el backend devuelve solo “YYYY-MM-DD”, mostramos solo fecha.
@@ -93,7 +128,9 @@ function formatSmart(iso: string, timeZone = LOCAL_TZ) {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-    ...(hasTime ? { hour: "2-digit", minute: "2-digit", hour12: false as const } : {}),
+    ...(hasTime
+      ? ({ hour: "2-digit", minute: "2-digit", hour12: false } as const)
+      : {}),
   }).formatToParts(date);
 
   const get = (type: Intl.DateTimeFormatPartTypes) =>
@@ -122,7 +159,9 @@ function mapSummaryToKpiCards(kpis: KpiSummary): KpiCard[] {
       id: "recepcion",
       title: "Recepción",
       primary: fmtCajas(kpis.recepcion.kg_total),
-      secondary: `Apto ${fmtPct01(kpis.recepcion.apto_pct)} · Merma ${fmtPct01(kpis.recepcion.merma_pct)}`,
+      secondary: `Apto ${fmtPct01(
+        kpis.recepcion.apto_pct
+      )} · Merma ${fmtPct01(kpis.recepcion.merma_pct)}`,
     });
   }
   if (kpis.stock) {
@@ -133,7 +172,7 @@ function mapSummaryToKpiCards(kpis: KpiSummary): KpiCard[] {
       secondary:
         Object.entries(kpis.stock.por_madurez || {})
           .slice(0, 3)
-          .map(([k, v]) => `${k}: ${fmtCajas(v)}`)
+          .map(([k, v]) => `${k}: ${fmtCajas(v as number)}`)
           .join(" · ") || "—",
     });
   }
@@ -143,7 +182,10 @@ function mapSummaryToKpiCards(kpis: KpiSummary): KpiCard[] {
       title: "Ocupación",
       primary: fmtPct01(kpis.ocupacion.total_pct),
       secondary:
-        kpis.ocupacion.por_camara?.slice(0, 2).map((c) => `${c.camara} ${fmtPct01(c.pct)}`).join(" · ") || "—",
+        kpis.ocupacion.por_camara
+          ?.slice(0, 2)
+          .map((c) => `${c.camara} ${fmtPct01(c.pct)}`)
+          .join(" · ") || "—",
     });
   }
   if (kpis.rotacion) {
@@ -168,7 +210,10 @@ function mapSummaryToKpiCards(kpis: KpiSummary): KpiCard[] {
       title: "Rechazos QC",
       primary: fmtPct01(kpis.rechazos_qc.tasa_pct),
       secondary:
-        kpis.rechazos_qc.top_causas?.slice(0, 2).map((x) => `${x.causa} ${fmtPct01(x.pct)}`).join(" · ") || "—",
+        kpis.rechazos_qc.top_causas
+          ?.slice(0, 2)
+          .map((x) => `${x.causa} ${fmtPct01(x.pct)}`)
+          .join(" · ") || "—",
     });
   }
   if (kpis.lead_times) {
@@ -282,7 +327,8 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
     staleTime: DEFAULTS.STALE_MS,
   });
 
-  const items = weeksNavQ.data?.items ?? [];
+  const weeksNavData = weeksNavQ.data as any;
+  const items: any[] = weeksNavData?.items ?? [];
   const hasWeeks = items.length > 0;
 
   // === selectedWeek (desde URL ?week_id o fallback al índice reportado por backend) ===
@@ -291,14 +337,30 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
 
   const selectedWeek = useMemo(() => {
     if (!hasWeeks) return null;
-    // 1) Por URL si existe y es válido
-    if (urlWeekId && items.some((it) => it.id === urlWeekId)) {
-      return items.find((it) => it.id === urlWeekId) || null;
+
+    // Semana abierta reportada por backend (activa = true)
+    const openWeek = items.find((it: any) => it?.activa);
+
+    // 1) Si la URL apunta a una semana válida
+    if (urlWeekId && items.some((it: any) => it.id === urlWeekId)) {
+      const fromUrl = items.find((it: any) => it.id === urlWeekId) || null;
+      // Si la de la URL está cerrada pero existe una abierta, priorizamos la abierta
+      if (fromUrl && !fromUrl.activa && openWeek) {
+        return openWeek;
+      }
+      return fromUrl;
     }
-    // 2) Fallback al índice actual informado por backend (1-based)
-    const idx = Math.max(0, Math.min(items.length - 1, (weeksNavQ.data?.indice ?? 1) - 1));
+
+    // 2) Si no hay URL o no coincide, priorizamos la abierta
+    if (openWeek) return openWeek;
+
+    // 3) Fallback al índice actual informado por backend (1-based)
+    const idx = Math.max(
+      0,
+      Math.min(items.length - 1, (weeksNavData?.indice ?? 1) - 1)
+    );
     return items[idx] || null;
-  }, [hasWeeks, items, urlWeekId, weeksNavQ.data?.indice]);
+  }, [hasWeeks, items, urlWeekId, weeksNavData?.indice]);
 
   const selectedSemanaId = selectedWeek?.id ?? null;
 
@@ -320,21 +382,25 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
     }
   }, [selectedWeek, sp, setSp]);
 
+  // Sin semanas → limpiar filtros colgados
+  useEffect(() => {
+    if (!hasWeeks && (filters.fecha_desde || filters.fecha_hasta)) {
+      dispatch(
+        setFilters({ fecha_desde: undefined, fecha_hasta: undefined } as any)
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasWeeks]);
+
   // Sincroniza filtros con la semana seleccionada (rango exacto de backend)
   useEffect(() => {
-    if (!hasWeeks) {
-      // Sin semanas → limpiar rango en filtros si quedó algo colgado
-      if (filters.fecha_desde || filters.fecha_hasta) {
-        dispatch(setFilters({ fecha_desde: undefined, fecha_hasta: undefined } as any));
-      }
-      return;
-    }
-    if (!selectedWeek) return;
+    if (!hasWeeks || !selectedWeek) return;
 
     const inicio = selectedWeek.fecha_desde;
     const fin = selectedWeek.fecha_hasta;
 
-    const changed = filters.fecha_desde !== inicio || filters.fecha_hasta !== fin;
+    const changed =
+      filters.fecha_desde !== inicio || filters.fecha_hasta !== fin;
     if (changed) {
       dispatch(
         setFilters({
@@ -349,7 +415,12 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
 
   // ===== SUMMARY =====
   const summaryQ = useQuery<DashboardSummaryResponse>({
-    queryKey: QUERY_KEYS.summary(temporadaId, bodegaId, selectedSemanaId, filtersSignature),
+    queryKey: QUERY_KEYS.summary(
+      temporadaId,
+      bodegaId,
+      selectedSemanaId,
+      filtersSignature
+    ),
     queryFn: () =>
       getDashboardSummary(temporadaId, {
         ...filters,
@@ -360,13 +431,16 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
     staleTime: DEFAULTS.STALE_MS,
   });
 
+  const summaryData = summaryQ.data as any;
+
   const kpiCards = useMemo(() => {
-    const kpis = summaryQ.data?.kpis;
+    const kpis: KpiSummary | undefined = summaryData?.kpis;
     if (!kpis) return [];
     return mapSummaryToKpiCards(kpis);
-  }, [summaryQ.data]);
+  }, [summaryData]);
 
-  const temporadaLabel = summaryQ.data?.context?.temporada_label ?? String(temporadaId);
+  const temporadaLabel =
+    summaryData?.context?.temporada_label ?? String(temporadaId);
 
   // ===== ALERTS (por temporada; no dependen de semana) =====
   const alertsQ = useQuery<DashboardAlertResponse>({
@@ -377,19 +451,27 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
     staleTime: 30_000,
   });
 
-  const alertsUI = useMemo(() => {
-    const data = alertsQ.data;
-    if (!data) return [];
-    const sorted = (data.alerts || []).slice().sort((a, b) => {
-      const order = { critical: 0, warning: 1, info: 2 } as const;
-      return order[a.severity] - order[b.severity];
-    });
+  const alertsData = alertsQ.data as any;
 
-    return sorted.map((a) => ({
+  const alertsUI = useMemo(() => {
+    const data = alertsData;
+    if (!data) return [];
+    const sorted = (data.alerts || [])
+      .slice()
+      .sort((a: any, b: any) => {
+        const order: Record<string, number> = {
+          critical: 0,
+          warning: 1,
+          info: 2,
+        };
+        return (order[a.severity] ?? 99) - (order[b.severity] ?? 99);
+      });
+
+    return sorted.map((a: any) => ({
       code: a.code,
       title: a.title,
       description: a.description,
-      severity: a.severity,
+      severity: a.severity as "info" | "warning" | "critical",
       href: a.link?.path
         ? (() => {
             const qs = new URLSearchParams({
@@ -401,11 +483,17 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
           })()
         : "#",
     }));
-  }, [alertsQ.data, temporadaId, bodegaId]);
+  }, [alertsData, temporadaId, bodegaId]);
 
   // ===== QUEUE ACTIVA =====
   const queueQ = useQuery<DashboardQueueResponse>({
-    queryKey: QUERY_KEYS.queue(temporadaId, bodegaId, queueType, selectedSemanaId, filtersSignature),
+    queryKey: QUERY_KEYS.queue(
+      temporadaId,
+      bodegaId,
+      queueType,
+      selectedSemanaId,
+      filtersSignature
+    ),
     queryFn: () =>
       getDashboardQueues(temporadaId, queueType, {
         ...filters,
@@ -536,48 +624,49 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
   const onChangeQueue = useCallback(
     (type: QueueType) => {
       dispatch(setActiveQueue(type));
-      dispatch(setFilters({ order_by: DEFAULTS.ORDER_BY[type], page: 1 }));
+      dispatch(
+        setFilters({ order_by: DEFAULTS.ORDER_BY[type], page: 1 } as any)
+      );
     },
     [dispatch]
   );
 
   const onChangePage = useCallback(
     (page: number) => {
-      dispatch(setFilters({ page }));
+      dispatch(setFilters({ page } as any));
     },
     [dispatch]
   );
 
   const onChangePageSize = useCallback(
     (page_size: number) => {
-      dispatch(setFilters({ page_size, page: 1 }));
+      dispatch(setFilters({ page_size, page: 1 } as any));
     },
     [dispatch]
   );
 
-  // Filtros arbitrarios (si vienen rangos externos, NO escribimos iso; ya no existe)
+  // Filtros arbitrarios
   const onApplyFilters = useCallback(
     (partial: Partial<typeof filters>) => {
       const next: any = { ...partial };
       if (!next.order_by) next.order_by = DEFAULTS.ORDER_BY[queueType];
-      dispatch(setFilters({ ...next, page: 1 }));
+      dispatch(setFilters({ ...next, page: 1 } as any));
     },
     [dispatch, queueType]
   );
 
-  // Backend: iniciar/cerrar semana real
+  // Backend: iniciar semana real
   const apiStartWeek = useCallback(
     async (fromISO: string) => {
       await startWeek({ bodega: bodegaId, temporada: temporadaId, fecha_desde: fromISO });
       const { data } = await weeksNavQ.refetch();
-      // Seleccionar la semana recién creada (match por fecha_desde)
-      const hit = data?.items?.find((it) => it.fecha_desde === fromISO);
+      const navData = data as any;
+      const hit = navData?.items?.find((it: any) => it.fecha_desde === fromISO);
       if (hit?.id) {
         const next = new URLSearchParams(sp);
         next.set("week_id", String(hit.id));
         setSp(next, { replace: true });
       }
-      // Marcar refetch para kpis/colas
       dispatch(scheduleRefetch("summary"));
       dispatch(scheduleRefetch("recepciones"));
       dispatch(scheduleRefetch("inventarios"));
@@ -586,16 +675,27 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
     [bodegaId, temporadaId, weeksNavQ, sp, setSp, dispatch]
   );
 
+  // Backend: finalizar semana real (usa selectedSemanaId → semana_id)
   const apiFinishWeek = useCallback(
     async (toISO: string) => {
-      await finishWeek({ bodega: bodegaId, temporada: temporadaId, fecha_hasta: toISO });
+      if (!bodegaId || !temporadaId || !selectedSemanaId) {
+        throw new Error("No hay semana seleccionada para finalizar.");
+      }
+
+      await finishWeek({
+        bodega: bodegaId,
+        temporada: temporadaId,
+        semana_id: selectedSemanaId,
+        fecha_hasta: toISO,
+      });
+
       await weeksNavQ.refetch();
       dispatch(scheduleRefetch("summary"));
       dispatch(scheduleRefetch("recepciones"));
       dispatch(scheduleRefetch("inventarios"));
       dispatch(scheduleRefetch("despachos"));
     },
-    [bodegaId, temporadaId, weeksNavQ, dispatch]
+    [bodegaId, temporadaId, selectedSemanaId, weeksNavQ, dispatch]
   );
 
   // Refetch sutil
@@ -617,14 +717,17 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
   }, [dispatch, summaryQ, alertsQ, queueQ, recepcionesQ, inventariosQ, logisticaQ]);
 
   const dashboardHref = useMemo(
-    () => `/bodega/tablero?temporada=${temporadaId}&bodega=${bodegaId}${selectedSemanaId ? `&week_id=${selectedSemanaId}` : ""}`,
+    () =>
+      `/bodega/tablero?temporada=${temporadaId}&bodega=${bodegaId}${
+        selectedSemanaId ? `&week_id=${selectedSemanaId}` : ""
+      }`,
     [temporadaId, bodegaId, selectedSemanaId]
   );
 
   // Navegación por semanas creadas (usa weeksNav.items e index actual de selectedWeek)
   const selectedIndex = useMemo(() => {
     if (!selectedWeek) return -1;
-    return items.findIndex((it) => it.id === selectedWeek.id);
+    return items.findIndex((it: any) => it.id === selectedWeek.id);
   }, [items, selectedWeek]);
 
   const weekNav = useMemo(() => {
@@ -633,21 +736,22 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
     return {
       hasPrev: hasWeeks && idx > 0,
       hasNext: hasWeeks && idx >= 0 && idx < items.length - 1,
-      indice: hasWeeks && idx >= 0 ? idx + 1 : null, // 1-based respecto a la selección
+      indice: hasWeeks && idx >= 0 ? idx + 1 : null,
       inicio: cur?.fecha_desde ?? null,
       fin: cur?.fecha_hasta ?? null,
-      actualIso: null, // deprecado: ISO no se usa para navegación
+      actualIso: null,
       items,
       hasWeeks,
       selected: cur ?? null,
-      // Propagamos el contexto del backend para headers/breadcrumbs (labels legibles)
-      context: (weeksNavQ.data?.context ?? summaryQ.data?.context ?? undefined) as any,
+      context: (weeksNavData?.context ??
+        summaryData?.context ??
+        undefined) as any,
     };
-  }, [hasWeeks, items, selectedIndex, selectedWeek, weeksNavQ.data?.context, summaryQ.data?.context]);
+  }, [hasWeeks, items, selectedIndex, selectedWeek, weeksNavData?.context, summaryData?.context]);
 
   const setSelectedWeekId = useCallback(
     (weekId: number) => {
-      if (!items.some((it) => it.id === weekId)) return;
+      if (!items.some((it: any) => it.id === weekId)) return;
       const next = new URLSearchParams(sp);
       next.set("week_id", String(weekId));
       setSp(next, { replace: true });
@@ -662,7 +766,8 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
   }, [hasWeeks, selectedIndex, items, setSelectedWeekId]);
 
   const goNextWeek = useCallback(() => {
-    if (!hasWeeks || selectedIndex < 0 || selectedIndex >= items.length - 1) return;
+    if (!hasWeeks || selectedIndex < 0 || selectedIndex >= items.length - 1)
+      return;
     const nextId = items[selectedIndex + 1]?.id;
     if (nextId) setSelectedWeekId(nextId);
   }, [hasWeeks, selectedIndex, items, setSelectedWeekId]);
@@ -753,9 +858,10 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
     dashboardHref,
 
     // ── Legacy stubs (no-ops) para no romper llamadas existentes en UI:
-    startManualWeek: useCallback((_fromISO: string) => {}, []),   // deprecado
-    finishManualWeek: useCallback((_toISO: string) => {}, []),     // deprecado
-    closeIfExceeded7: useCallback(() => {}, []),                   // deprecado
+    startManualWeek: useCallback((_fromISO: string) => {}, []),
+    finishManualWeek: useCallback((_toISO: string) => {}, []),
+    closeIfExceeded7: useCallback(() => {}, []),
   };
 }
+
 export default useTableroBodega;

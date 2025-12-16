@@ -2,37 +2,27 @@ import { useMemo } from "react";
 import Chip from "@mui/material/Chip";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-
 import { TableLayout, Column } from "../../../../components/common/TableLayout";
 import ActionsMenu from "../common/ActionsMenu";
 import { formatDateDisplay } from "../../../../global/utils/date";
-
 import type { Captura, PaginationMeta } from "../../types/capturasTypes";
 
 type BaseProps = {
-  /** Paginación/control */
   meta: PaginationMeta;
   loading: boolean;
   onPageChange: (page: number) => void;
 
-  /** Acciones */
   onEdit?: (row: Captura) => void;
   onArchive?: (row: Captura) => void;
   onRestore?: (row: Captura) => void;
   onDelete?: (row: Captura) => void;
   onClassify?: (row: Captura) => void;
 
-  /** Estado contextual (semana cerrada / temporada finalizada) */
   blocked?: boolean;
 
-  /** Ya no es requerida; la tabla no crea por sí misma */
   onCreate?: () => void;
 };
 
-/**
- * Compatibilidad: acepta `items` o `rows`.
- * - Si usas esta tabla dentro del Tablero y tu data se llama `rows`, no truena.
- */
 type Props =
   & BaseProps
   & (
@@ -54,7 +44,6 @@ export default function CapturasTable({
   onClassify,
 }: Props) {
   const data: Captura[] = items ?? rows ?? [];
-
   const columns: Column<Captura>[] = useMemo(
     () => [
       {
@@ -109,8 +98,6 @@ export default function CapturasTable({
         rowKey={(row) => row.id}
         renderActions={(row) => {
           const isArchived = !row.is_active;
-
-          // codenames alineados con tu backend
           const permEdit = 'change_recepcion';
           const permDelete = 'delete_recepcion';
           const permArch = 'archive_recepcion';
@@ -140,7 +127,6 @@ export default function CapturasTable({
         }}
       />
 
-      {/* Resumen semanal */}
       <Box display="flex" gap={3} justifyContent="flex-end" mt={2} sx={{ color: 'text.secondary', fontSize: 13 }}>
         <span>Total recepciones: {data.length}</span>
         <span>

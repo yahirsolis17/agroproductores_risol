@@ -1,33 +1,41 @@
 ﻿# backend/gestion_bodega/views/recepciones_views.py
-from datetime import date, datetime, timedelta  # ⬅️ agrega timedelta
+from datetime import date, timedelta
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
-from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters, serializers, status, viewsets
+from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 
+from agroproductores_risol.utils.pagination import GenericPagination
 from gestion_bodega.models import (
     Bodega,
     Recepcion,
     TemporadaBodega,
     CierreSemanal,
 )
-from gestion_bodega.permissions import HasModulePermission  # alineado con bodegas_views
+from gestion_bodega.permissions import HasModulePermission
 from gestion_bodega.serializers import RecepcionSerializer
+from gestion_bodega.utils.activity import registrar_actividad
 from gestion_bodega.utils.audit import ViewSetAuditMixin
 from gestion_bodega.utils.notification_handler import NotificationHandler
-from gestion_bodega.utils.activity import registrar_actividad
-from agroproductores_risol.utils.pagination import GenericPagination
 from gestion_bodega.utils.semana import semana_cerrada_ids as _semana_cerrada
 
 
 # ───────────────────────────────────────────────────────────────────────────
-# Helpers / Mixin (alineado con huerta/bodega)
+# Helpers / Mixin
 # ───────────────────────────────────────────────────────────────────────────
 
+
 def _normalize_estado(raw, default: str = "activas") -> str:
+    """
+    Normaliza variantes de estado a uno de:
+      - 'activas'
+      - 'archivadas'
+      - 'todas'
+    (por si en el futuro se usa en filtros de estado).
+    """
     val = (raw or default).strip().lower()
     mapping = {
         "activos": "activas",
@@ -42,7 +50,8 @@ def _normalize_estado(raw, default: str = "activas") -> str:
 
 
 class NotificationMixin:
-    """Devolver respuestas con el formato esperado por el frontend."""
+    """Mixin para devolver respuestas con el formato estándar del sistema."""
+
     def notify(self, *, key: str, data=None, status_code=status.HTTP_200_OK):
         return NotificationHandler.generate_response(
             message_key=key,
@@ -51,6 +60,10 @@ class NotificationMixin:
         )
 
     def get_pagination_meta(self):
+        """
+        Devuelve el meta estándar basado en GenericPagination.
+        Si por alguna razón no hay paginator/page, devuelve un meta vacío seguro.
+        """
         paginator = getattr(self, "paginator", None)
         page = getattr(paginator, "page", None) if paginator else None
         if not paginator or page is None:
@@ -73,7 +86,7 @@ class NotificationMixin:
 
 
 def _msg_in(errors_dict, text_substring: str) -> bool:
-    """Busca substring en cualquier mensaje del dict de errores DRF."""
+    """Busca un substring en cualquier mensaje del dict de errores de DRF."""
     for _, msgs in (errors_dict or {}).items():
         if isinstance(msgs, (list, tuple)):
             for m in msgs:
@@ -85,22 +98,43 @@ def _msg_in(errors_dict, text_substring: str) -> bool:
 
 
 def _map_recepcion_validation_errors(errors: dict) -> tuple[str, dict]:
-    """Traductor a message_keys coherentes con el frontend."""
+    """
+    Traduce errores de validación del serializer a message_keys
+    coherentes con el frontend.
+    """
     if _msg_in(errors, "La temporada debe estar activa y no finalizada"):
         return "recepcion_temporada_invalida", {"errors": errors}
     if _msg_in(errors, "cantidad de cajas") or _msg_in(errors, "debe ser positiva"):
         return "recepcion_cantidad_invalida", {"errors": errors}
+    if (
+        _msg_in(errors, "semana activa")
+        or _msg_in(errors, "no pertenece a esta bodega y temporada")
+        or _msg_in(errors, "dentro del rango de la semana")
+        or _msg_in(errors, "semana cerrada")
+    ):
+        return "recepcion_semana_invalida", {"errors": errors}
     return "validation_error", {"errors": errors}
 
 
-def _resolve_semana_for_fecha(bodega, temporada, fecha):
+def _resolve_semana_for_fecha(bodega: Bodega, temporada: TemporadaBodega, fecha: date):
     """
     Busca CierreSemanal activo que cubra la fecha.
-    Semana abierta: fin teórico = fecha_desde + 6.
+
+    Regla de negocio compartida con el Tablero:
+      - Semana cerrada: usa fecha_hasta real.
+      - Semana abierta: fin teórico = fecha_desde + 6 días.
+
+    Si encuentra una semana cuyo rango [fecha_desde, fecha_hasta/teórico] incluya la fecha,
+    la devuelve; si no, devuelve None (la recepción queda sin semana asociada).
     """
-    qs = CierreSemanal.objects.filter(
-        bodega=bodega, temporada=temporada, is_active=True
-    ).order_by("-fecha_desde")
+    qs = (
+        CierreSemanal.objects.filter(
+            bodega=bodega,
+            temporada=temporada,
+            is_active=True,
+        )
+        .order_by("-fecha_desde")
+    )
 
     for c in qs:
         start = c.fecha_desde
@@ -114,38 +148,45 @@ def _resolve_semana_for_fecha(bodega, temporada, fecha):
 # ViewSet
 # ───────────────────────────────────────────────────────────────────────────
 
+
 class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
     """
     CRUD de Recepciones (entrada de mango desde campo).
+
     Reglas clave:
-      - Temporada activa y no finalizada.
-      - Bodega de la recepción debe coincidir con la bodega de la temporada.
+      - La temporada debe estar activa y no finalizada.
+      - La bodega de la recepción debe coincidir con la bodega de la temporada.
       - CierreSemanal bloquea crear/editar/archivar/restaurar en fechas cerradas.
-      - Archivar antes de eliminar (patrón consistente del sistema).
+      - Patrón global de soft delete: archivar antes de eliminar.
+      - Cada recepción intenta quedar amarrada a la semana (CierreSemanal) que cubre su fecha.
     """
+
     serializer_class = RecepcionSerializer
     queryset = (
-        Recepcion.objects
-        .select_related("bodega", "temporada", "semana")  # ⬅️ incluye semana
+        Recepcion.objects.select_related("bodega", "temporada", "semana")
         .order_by("-fecha", "-id")
     )
     pagination_class = GenericPagination
 
     permission_classes = [IsAuthenticated, HasModulePermission]
     _perm_map = {
-        "list":             ["view_recepcion"],
-        "retrieve":         ["view_recepcion"],
-        "create":           ["add_recepcion"],
-        "update":           ["change_recepcion"],
-        "partial_update":   ["change_recepcion"],
-        "destroy":          ["delete_recepcion"],
-        "archivar":         ["archive_recepcion"],
-        "restaurar":        ["restore_recepcion"],
+        "list": ["view_recepcion"],
+        "retrieve": ["view_recepcion"],
+        "create": ["add_recepcion"],
+        "update": ["change_recepcion"],
+        "partial_update": ["change_recepcion"],
+        "destroy": ["delete_recepcion"],
+        "archivar": ["archive_recepcion"],
+        "restaurar": ["restore_recepcion"],
     }
 
-    # Filtros reducidos / ordenamiento
+    # Filtros simples (bodega/temporada/semana)
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = {"bodega": ["exact"], "temporada": ["exact"], "semana": ["exact"]}
+    filterset_fields = {
+        "bodega": ["exact"],
+        "temporada": ["exact"],
+        "semana": ["exact"],
+    }
     ordering = ["-fecha", "-id"]
 
     # ---------- permisos por acción ----------
@@ -155,8 +196,19 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
 
     # ---------- queryset dinámico ----------
     def get_queryset(self):
+        """
+        Por ahora no modificamos el queryset según acción,
+        pero dejamos el hook por si más adelante se requiere.
+        """
         qs = super().get_queryset()
-        if self.action in ["retrieve", "update", "partial_update", "destroy", "archivar", "restaurar"]:
+        if self.action in [
+            "retrieve",
+            "update",
+            "partial_update",
+            "destroy",
+            "archivar",
+            "restaurar",
+        ]:
             return qs
         return qs
 
@@ -170,12 +222,21 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
             ser = self.get_serializer(qs, many=True)
 
         meta = self.get_pagination_meta()
-        payload = {"recepciones": ser.data, "results": ser.data, "meta": meta}
-        return self.notify(key="data_processed_success", data=payload, status_code=status.HTTP_200_OK)
+        payload = {
+            "recepciones": ser.data,  # alias específico
+            "results": ser.data,      # alias genérico para TableLayout
+            "meta": meta,
+        }
+        return self.notify(
+            key="data_processed_success",
+            data=payload,
+            status_code=status.HTTP_200_OK,
+        )
 
     # ---------- CREATE ----------
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
+
         # Normalización de payload desde el FE (alias comunes)
         if "bodega" in data and "bodega_id" not in data:
             data["bodega_id"] = data.get("bodega")
@@ -188,8 +249,14 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         try:
             ser.is_valid(raise_exception=True)
         except serializers.ValidationError as ex:
-            key, payload = _map_recepcion_validation_errors(getattr(ex, "detail", ser.errors))
-            return self.notify(key=key, data=payload, status_code=status.HTTP_400_BAD_REQUEST)
+            key, payload = _map_recepcion_validation_errors(
+                getattr(ex, "detail", ser.errors)
+            )
+            return self.notify(
+                key=key,
+                data=payload,
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
 
         temporada: TemporadaBodega = ser.validated_data["temporada"]
         bodega: Bodega = ser.validated_data["bodega"]
@@ -199,27 +266,49 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         if temporada.bodega_id != bodega.id:
             return self.notify(
                 key="recepcion_bodega_temporada_incongruente",
-                data={"info": "La bodega de la recepción debe coincidir con la bodega de la temporada."},
+                data={
+                    "info": "La bodega de la recepción debe coincidir con la bodega de la temporada."
+                },
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
         # Estado de temporada
         if not temporada.is_active or temporada.finalizada:
-            return self.notify(key="recepcion_temporada_invalida", status_code=status.HTTP_400_BAD_REQUEST)
+            return self.notify(
+                key="recepcion_temporada_invalida",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
 
-        # Cierre semanal
+        # Cierre semanal (regla de negocio compartida con tablero)
         if _semana_cerrada(bodega.id, temporada.id, f):
-            return self.notify(key="recepcion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
+            return self.notify(
+                key="recepcion_semana_cerrada",
+                status_code=status.HTTP_409_CONFLICT,
+            )
 
-        with transaction.atomic():
-            obj = ser.save()
-            # ⬅️ Resolver y amarrar semana
-            semana = _resolve_semana_for_fecha(bodega, temporada, f)
-            if semana != obj.semana:
-                obj.semana = semana
-                obj.save(update_fields=["semana", "actualizado_en"])
+        try:
+            with transaction.atomic():
+                obj: Recepcion = ser.save()
 
-        registrar_actividad(request.user, f"Creó recepción #{obj.id} (bodega {bodega.id}, temporada {temporada.id})")
+                # Resolver y amarrar semana según la fecha
+                semana = _resolve_semana_for_fecha(bodega, temporada, f)
+                if semana != obj.semana:
+                    obj.semana = semana
+                    obj.save(update_fields=["semana", "actualizado_en"])
+        except DjangoValidationError as ex:
+            errors = getattr(ex, "message_dict", {"non_field_errors": ex.messages})
+
+            key, payload = _map_recepcion_validation_errors(errors)
+            return self.notify(
+                key=key,
+                data=payload,
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        registrar_actividad(
+            request.user,
+            f"Creó recepción #{obj.id} (bodega {bodega.id}, temporada {temporada.id})",
+        )
         return self.notify(
             key="recepcion_create_success",
             data={"recepcion": self.get_serializer(obj).data},
@@ -231,7 +320,7 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         partial = kwargs.pop("partial", False)
         instance: Recepcion = self.get_object()
 
-        # ⛔ No editar archivadas
+        # No editar archivadas
         if not instance.is_active:
             return self.notify(
                 key="registro_archivado_no_editar",
@@ -240,7 +329,8 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
             )
 
         data = request.data.copy()
-        # Normalización de payload desde el FE (alias comunes)
+
+        # Normalización de payload desde el FE
         if "bodega" in data and "bodega_id" not in data:
             data["bodega_id"] = data.get("bodega")
         if "temporada" in data and "temporada_id" not in data:
@@ -252,10 +342,18 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         try:
             ser.is_valid(raise_exception=True)
         except serializers.ValidationError as ex:
-            key, payload = _map_recepcion_validation_errors(getattr(ex, "detail", ser.errors))
-            return self.notify(key=key, data=payload, status_code=status.HTTP_400_BAD_REQUEST)
+            key, payload = _map_recepcion_validation_errors(
+                getattr(ex, "detail", ser.errors)
+            )
+            return self.notify(
+                key=key,
+                data=payload,
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
 
-        temporada: TemporadaBodega = ser.validated_data.get("temporada", instance.temporada)
+        temporada: TemporadaBodega = ser.validated_data.get(
+            "temporada", instance.temporada
+        )
         bodega: Bodega = ser.validated_data.get("bodega", instance.bodega)
         f: date = ser.validated_data.get("fecha", instance.fecha)
 
@@ -263,27 +361,46 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         if temporada.bodega_id != bodega.id:
             return self.notify(
                 key="recepcion_bodega_temporada_incongruente",
-                data={"info": "La bodega de la recepción debe coincidir con la bodega de la temporada."},
+                data={
+                    "info": "La bodega de la recepción debe coincidir con la bodega de la temporada."
+                },
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
         # Estado de temporada
         if not temporada.is_active or temporada.finalizada:
-            return self.notify(key="recepcion_temporada_invalida", status_code=status.HTTP_400_BAD_REQUEST)
+            return self.notify(
+                key="recepcion_temporada_invalida",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
 
-        # Bloqueo por cierre (si la fecha original o la nueva están cerradas, bloqueamos)
-        if _semana_cerrada(instance.bodega_id, instance.temporada_id, instance.fecha) or _semana_cerrada(
-            bodega.id, temporada.id, f
-        ):
-            return self.notify(key="recepcion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
+        # Bloqueo por cierre: tanto fecha original como nueva
+        if _semana_cerrada(
+            instance.bodega_id, instance.temporada_id, instance.fecha
+        ) or _semana_cerrada(bodega.id, temporada.id, f):
+            return self.notify(
+                key="recepcion_semana_cerrada",
+                status_code=status.HTTP_409_CONFLICT,
+            )
 
-        with transaction.atomic():
-            obj = ser.save()
-            # ⬅️ Recalcular semana si cambió la fecha (o bodega/temporada)
-            semana = _resolve_semana_for_fecha(bodega, temporada, f)
-            if semana != obj.semana:
-                obj.semana = semana
-                obj.save(update_fields=["semana", "actualizado_en"])
+        try:
+            with transaction.atomic():
+                obj: Recepcion = ser.save()
+
+                # Recalcular semana si cambió fecha/bodega/temporada
+                semana = _resolve_semana_for_fecha(bodega, temporada, f)
+                if semana != obj.semana:
+                    obj.semana = semana
+                    obj.save(update_fields=["semana", "actualizado_en"])
+        except DjangoValidationError as ex:
+            errors = getattr(ex, "message_dict", {"non_field_errors": ex.messages})
+
+            key, payload = _map_recepcion_validation_errors(errors)
+            return self.notify(
+                key=key,
+                data=payload,
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
 
         registrar_actividad(request.user, f"Actualizó recepción #{obj.id}")
         return self.notify(
@@ -301,7 +418,7 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
     def destroy(self, request, *args, **kwargs):
         instance: Recepcion = self.get_object()
 
-        # Patrón: archivar antes de eliminar
+        # Patrón del sistema: archivar antes de eliminar
         if instance.is_active:
             return self.notify(
                 key="recepcion_debe_estar_archivada",
@@ -313,13 +430,20 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         if hasattr(instance, "clasificaciones") and instance.clasificaciones.exists():
             return self.notify(
                 key="recepcion_con_dependencias",
-                data={"error": "No se puede eliminar: existen clasificaciones asociadas."},
+                data={
+                    "error": "No se puede eliminar: existen clasificaciones asociadas."
+                },
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Cierre por la fecha del registro
-        if _semana_cerrada(instance.bodega_id, instance.temporada_id, instance.fecha):
-            return self.notify(key="recepcion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
+        # Bloqueo por semana cerrada, basado en la fecha del propio registro
+        if _semana_cerrada(
+            instance.bodega_id, instance.temporada_id, instance.fecha
+        ):
+            return self.notify(
+                key="recepcion_semana_cerrada",
+                status_code=status.HTTP_409_CONFLICT,
+            )
 
         rec_id = instance.id
         self.perform_destroy(instance)
@@ -336,16 +460,28 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         instance: Recepcion = self.get_object()
 
         if not instance.is_active:
-            return self.notify(key="recepcion_ya_archivada", status_code=status.HTTP_400_BAD_REQUEST)
+            return self.notify(
+                key="recepcion_ya_archivada",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
 
-        if _semana_cerrada(instance.bodega_id, instance.temporada_id, instance.fecha):
-            return self.notify(key="recepcion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
+        if _semana_cerrada(
+            instance.bodega_id, instance.temporada_id, instance.fecha
+        ):
+            return self.notify(
+                key="recepcion_semana_cerrada",
+                status_code=status.HTTP_409_CONFLICT,
+            )
 
         with transaction.atomic():
             instance.archivar()
 
         registrar_actividad(request.user, f"Archivó recepción #{instance.id}")
-        return self.notify(key="recepcion_archivada", data={"recepcion_id": instance.id})
+        return self.notify(
+            key="recepcion_archivada",
+            data={"recepcion_id": instance.id},
+            status_code=status.HTTP_200_OK,
+        )
 
     # ---------- RESTAURAR ----------
     @action(detail=True, methods=["post"], url_path="restaurar")
@@ -353,15 +489,26 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         instance: Recepcion = self.get_object()
 
         if instance.is_active:
-            return self.notify(key="recepcion_ya_activa", status_code=status.HTTP_400_BAD_REQUEST)
+            return self.notify(
+                key="recepcion_ya_activa",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
 
-        # Estado temporada (debe poder operar)
+        # Estado de temporada (debe poder operar)
         if not instance.temporada.is_active or instance.temporada.finalizada:
-            return self.notify(key="recepcion_temporada_invalida", status_code=status.HTTP_400_BAD_REQUEST)
+            return self.notify(
+                key="recepcion_temporada_invalida",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Cierre semanal (fecha del propio registro)
-        if _semana_cerrada(instance.bodega_id, instance.temporada_id, instance.fecha):
-            return self.notify(key="recepcion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
+        if _semana_cerrada(
+            instance.bodega_id, instance.temporada_id, instance.fecha
+        ):
+            return self.notify(
+                key="recepcion_semana_cerrada",
+                status_code=status.HTTP_409_CONFLICT,
+            )
 
         with transaction.atomic():
             instance.desarchivar()

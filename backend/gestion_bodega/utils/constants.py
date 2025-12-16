@@ -183,6 +183,11 @@ NOTIFICATION_MESSAGES = {
         "type": "success",
         "code": 200,
     },
+    "recepcion_semana_invalida": {
+        "message": "Revisa la semana y la fecha de la recepción.",
+        "type": "error",
+        "code": 400,
+    },
     "recepcion_restaurada": {
         "message": "Recepción restaurada.",
         "type": "success",

@@ -3,8 +3,8 @@ export type AlertSeverity = "info" | "warning" | "critical";
 
 export interface WeekActive {
   id: number;
-  fecha_inicio: string;                   // "YYYY-MM-DD"
-  fecha_fin: string | null;               // null si abierta
+  fecha_inicio: string; // "YYYY-MM-DD"
+  fecha_fin: string | null; // null si abierta
   rango_inferido: { from: string; to: string };
   estado: "ABIERTA" | "CERRADA";
   iso_semana: string | null;
@@ -25,10 +25,10 @@ export interface KpiSummary {
     kg_total: number;
     kg_apto: number;
     kg_merma: number;
-    apto_pct: number | null;   // backend puede mandar null
-    merma_pct: number | null;  // backend puede mandar null
-    hoy: number | null;        // backend puede mandar null
-    semana: number | null;     // backend puede mandar null
+    apto_pct: number | null; // backend puede mandar null
+    merma_pct: number | null; // backend puede mandar null
+    hoy: number | null; // backend puede mandar null
+    semana: number | null; // backend puede mandar null
   };
   stock?: {
     total_kg: number;
@@ -71,7 +71,7 @@ export interface QueueItem {
   ref: string;
   fecha: string; // ISO
   huerta: string | null;
-  kg: number;    // el backend manda "kg"; en UI lo mostramos como "cajas" si aplica
+  kg: number; // el backend manda "kg"; en UI lo mostramos como "cajas" si aplica
   estado: string;
   meta?: Record<string, any>;
 }
@@ -165,7 +165,7 @@ export type WeeksNavItem = {
   id: number;
   iso_semana: string | null;
   inicio: string; // yyyy-mm-dd
-  fin: string;    // yyyy-mm-dd
+  fin: string; // yyyy-mm-dd
   cerrada?: boolean; // legacy
   // Nuevos campos estables
   fecha_desde?: string; // yyyy-mm-dd
@@ -219,5 +219,6 @@ export interface WeekStartRequest {
 export interface WeekFinishRequest {
   bodega: number;
   temporada: number;
+  semana_id: number; // 🔹 requerido por backend
   fecha_hasta: string; // "YYYY-MM-DD" (máx 7d desde fecha_desde)
 }

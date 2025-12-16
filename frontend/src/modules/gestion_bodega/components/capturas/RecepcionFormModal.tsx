@@ -104,13 +104,24 @@ export default function RecepcionFormModal({
     if (!weekRange?.from || !weekRange?.to || !fechaValida) return false;
     const from = parseLocalDateStrict(weekRange.from);
     const to = parseLocalDateStrict(weekRange.to);
-    const d = parsedDate;
+    const d = new Date(parsedDate.getTime());
     // normalizamos a 00:00 para comparar solo fechas
     from.setHours(0, 0, 0, 0);
     to.setHours(0, 0, 0, 0);
     d.setHours(0, 0, 0, 0);
     return d < from || d > to;
   }, [weekRange?.from, weekRange?.to, parsedDate, fechaValida]);
+
+  const isTodayOrYesterday = useMemo(() => {
+    if (!fechaValida) return false;
+    const d = new Date(parsedDate.getTime());
+    const today = new Date();
+    d.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+    const diffMs = today.getTime() - d.getTime();
+    const diffDays = diffMs / (1000 * 60 * 60 * 24);
+    return diffDays === 0 || diffDays === 1;
+  }, [parsedDate, fechaValida]);
 
   const tipoValido = useMemo(() => typeof tipo === "string" && tipo.trim().length > 0, [tipo]);
   const cajasValidas = useMemo(() => Number.isFinite(cajas) && cajas > 0, [cajas]);
@@ -148,7 +159,7 @@ export default function RecepcionFormModal({
       huertero_nombre: huertero,
       tipo_mango: tipo.trim(),
       cantidad_cajas: cajas,
-      observaciones: obs ? obs : null,
+      observaciones: obs?.trim() ? obs.trim() : "",
     };
 
     try {
@@ -175,8 +186,11 @@ export default function RecepcionFormModal({
       const t = parseLocalDateStrict(weekRange.to).toLocaleDateString();
       return `Fuera del rango de la semana (${f} – ${t}).`;
     }
+    if (!isTodayOrYesterday) {
+      return "El sistema solo acepta capturas para HOY o AYER; otras fechas serán rechazadas por el backend.";
+    }
     return "";
-  }, [fechaValida, outOfWeekRange, weekRange?.from, weekRange?.to]);
+  }, [fechaValida, outOfWeekRange, weekRange?.from, weekRange?.to, isTodayOrYesterday]);
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm" aria-labelledby="recepcion-form-title">

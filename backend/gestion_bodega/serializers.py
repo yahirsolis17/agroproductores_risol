@@ -19,6 +19,7 @@ from .models import (
     CamionSalida, CamionItem,
     Consumible, CierreSemanal,
 )
+from gestion_bodega.utils.semana import semana_cerrada_ids
 
 # ───────────────────────────────────────────────────────────────────────────
 # Helpers (alineados con gestion_huerta)
@@ -34,14 +35,18 @@ def _is_today_or_yesterday(d):
     return d in {hoy, hoy - timedelta(days=1)}
 
 def _semana_bloqueada(bodega: Bodega, temporada: TemporadaBodega, fecha) -> bool:
-    """True si la fecha cae dentro de un CierreSemanal ACTIVO para esa bodega+temporada."""
-    return CierreSemanal.objects.filter(
-        bodega=bodega,
-        temporada=temporada,
-        fecha_desde__lte=fecha,
-        fecha_hasta__gte=fecha,
-        is_active=True,
-    ).exists()
+    """
+    True si la fecha cae dentro de una semana CERRADA para esa bodega+temporada.
+
+    Usa semana_cerrada_ids:
+      - Solo considera CierreSemanal con fecha_hasta definida (semana cerrada real).
+      - is_active=True.
+    """
+    return semana_cerrada_ids(
+        getattr(bodega, "id", None),
+        getattr(temporada, "id", None),
+        fecha,
+    )
 
 def _temporada_activa(temporada: TemporadaBodega) -> bool:
     return getattr(temporada, "is_active", True) and not getattr(temporada, "finalizada", False)
@@ -79,7 +84,7 @@ def _resolver_semana(bodega: Bodega, temporada: TemporadaBodega, f):
     chosen = None
     for s in qs:
         start = s.fecha_desde
-        end = s.fecha_hasta or (s.fecha_desde + timezone.timedelta(days=6))
+        end = s.fecha_hasta or (s.fecha_desde + timedelta(days=6))
         if start <= f <= end:
             if chosen is None or s.fecha_desde > chosen.fecha_desde:
                 chosen = s
@@ -89,16 +94,22 @@ def _resolver_semana(bodega: Bodega, temporada: TemporadaBodega, f):
 # ───────────────────────────────────────────────────────────────────────────
 
 class BodegaSerializer(serializers.ModelSerializer):
+    activa = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = Bodega
-        fields = ["id", "nombre", "ubicacion", "is_active", "archivado_en", "creado_en", "actualizado_en"]
-        read_only_fields = ["is_active", "archivado_en", "creado_en", "actualizado_en"]
+        fields = ["id", "nombre", "ubicacion", "is_active", "archivado_en", "creado_en", "actualizado_en", "activa"]
+        read_only_fields = ["is_active", "archivado_en", "creado_en", "actualizado_en", "activa"]
 
     def validate_nombre(self, val):
         v = (val or "").strip()
         if len(v) < 3:
             raise serializers.ValidationError("El nombre debe tener al menos 3 caracteres.")
         return v
+
+    def get_activa(self, obj) -> bool:
+        # Alias legible para consistencia con FE: activa == is_active
+        return bool(getattr(obj, "is_active", False))
 
 
 class TemporadaBodegaSerializer(serializers.ModelSerializer):
@@ -223,6 +234,7 @@ class RecepcionSerializer(serializers.ModelSerializer):
     cantidad_cajas = serializers.IntegerField(source="cajas_campo", required=False)
     # read-only para devolver al FE la semana asignada
     semana = serializers.PrimaryKeyRelatedField(read_only=True)
+    observaciones = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     class Meta:
         model = Recepcion
@@ -246,6 +258,9 @@ class RecepcionSerializer(serializers.ModelSerializer):
         bodega    = data.get("bodega")    or getattr(self.instance, "bodega", None)
         temporada = data.get("temporada") or getattr(self.instance, "temporada", None)
         fecha     = data.get("fecha")     or getattr(self.instance, "fecha", None)
+
+        if "observaciones" in data and data["observaciones"] is None:
+            data["observaciones"] = ""
 
         if not (bodega and temporada and fecha):
             return data
@@ -791,6 +806,8 @@ class CierreSemanalSerializer(serializers.ModelSerializer):
       - Coherencia: el Cierre debe pertenecer a la misma bodega de la Temporada.
       - `iso_semana` es etiqueta opcional (no gobierna la lógica).
     """
+    activa = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = CierreSemanal
         # Campos conservadores (evitamos suponer extras que no estén en tu modelo)
@@ -801,11 +818,16 @@ class CierreSemanalSerializer(serializers.ModelSerializer):
             "iso_semana",
             "fecha_desde",
             "fecha_hasta",
+            "activa",
             "locked_by",
             "creado_en",
             "actualizado_en",
         ]
         read_only_fields = ["locked_by", "creado_en", "actualizado_en"]
+
+    def get_activa(self, obj: CierreSemanal) -> bool:
+        # Semana abierta = sin fecha_hasta
+        return obj.fecha_hasta is None
 
     def validate(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
         bodega = attrs.get("bodega") or getattr(self.instance, "bodega", None)
