@@ -37,10 +37,6 @@ def _is_today_or_yesterday(d):
 def _semana_bloqueada(bodega: Bodega, temporada: TemporadaBodega, fecha) -> bool:
     """
     True si la fecha cae dentro de una semana CERRADA para esa bodega+temporada.
-
-    Usa semana_cerrada_ids:
-      - Solo considera CierreSemanal con fecha_hasta definida (semana cerrada real).
-      - is_active=True.
     """
     return semana_cerrada_ids(
         getattr(bodega, "id", None),
@@ -50,6 +46,52 @@ def _semana_bloqueada(bodega: Bodega, temporada: TemporadaBodega, fecha) -> bool
 
 def _temporada_activa(temporada: TemporadaBodega) -> bool:
     return getattr(temporada, "is_active", True) and not getattr(temporada, "finalizada", False)
+
+def _assert_bodega_temporada_operables(bodega: Bodega, temporada: TemporadaBodega):
+    """
+    Falla rápido con errores explícitos:
+      - bodega archivada → no se opera
+      - temporada archivada/finalizada → no se opera
+      - temporada no corresponde a bodega → no se opera
+    """
+    if bodega and not getattr(bodega, "is_active", True):
+        raise serializers.ValidationError("La bodega está archivada; no se pueden realizar operaciones.")
+
+    if temporada and not _temporada_activa(temporada):
+        raise serializers.ValidationError("No se puede operar en una temporada archivada o finalizada.")
+
+    if bodega and temporada and getattr(temporada, "bodega_id", None) and temporada.bodega_id != bodega.id:
+        raise serializers.ValidationError("La temporada no corresponde a la bodega indicada.")
+
+def _resolver_semana(bodega: Bodega, temporada: TemporadaBodega, f):
+    """
+    Devuelve el CierreSemanal cuyo rango cubre la fecha f.
+    Para semanas abiertas, fin teórico = fecha_desde + 6 días.
+    """
+    if not (bodega and temporada and f):
+        return None
+
+    qs = CierreSemanal.objects.filter(bodega=bodega, temporada=temporada, is_active=True)
+
+    chosen = None
+    for s in qs:
+        start = s.fecha_desde
+        end = s.fecha_hasta or (s.fecha_desde + timedelta(days=6))
+        if start <= f <= end:
+            if chosen is None or s.fecha_desde > chosen.fecha_desde:
+                chosen = s
+    return chosen
+
+def _require_semana(bodega: Bodega, temporada: TemporadaBodega, fecha):
+    """
+    Si no existe semana que cubra la fecha, rechazamos: evita registros sin semana.
+    """
+    semana = _resolver_semana(bodega, temporada, fecha)
+    if semana is None:
+        raise serializers.ValidationError(
+            {"fecha": "No existe una semana que cubra esta fecha. Inicia una semana desde el tablero."}
+        )
+    return semana
 
 class DateOrDateTimeField(serializers.Field):
     """
@@ -70,25 +112,6 @@ class DateOrDateTimeField(serializers.Field):
         if isinstance(value, str):
             return value
         return None
-
-def _resolver_semana(bodega: Bodega, temporada: TemporadaBodega, f):
-    """
-    Devuelve el CierreSemanal cuyo rango cubre la fecha f.
-    Para semanas abiertas, tomamos fin teórico = fecha_desde + 6 días.
-    Si no hay semana que cubra la fecha, retorna None.
-    """
-    if not (bodega and temporada and f):
-        return None
-    qs = CierreSemanal.objects.filter(bodega=bodega, temporada=temporada, is_active=True)
-    # Resolución en Python para contemplar semanas abiertas (sin fecha_hasta)
-    chosen = None
-    for s in qs:
-        start = s.fecha_desde
-        end = s.fecha_hasta or (s.fecha_desde + timedelta(days=6))
-        if start <= f <= end:
-            if chosen is None or s.fecha_desde > chosen.fecha_desde:
-                chosen = s
-    return chosen
 # ───────────────────────────────────────────────────────────────────────────
 # Bodega / Temporada / Cliente
 # ───────────────────────────────────────────────────────────────────────────
@@ -231,8 +254,8 @@ class ClienteSerializer(serializers.ModelSerializer):
 class RecepcionSerializer(serializers.ModelSerializer):
     bodega    = serializers.PrimaryKeyRelatedField(queryset=Bodega.objects.all())
     temporada = serializers.PrimaryKeyRelatedField(queryset=TemporadaBodega.objects.all())
-    cantidad_cajas = serializers.IntegerField(source="cajas_campo", required=False)
-    # read-only para devolver al FE la semana asignada
+    # Mantener alias del FE pero hacerlo obligatorio en creación/validación
+    cantidad_cajas = serializers.IntegerField(source="cajas_campo", required=True)
     semana = serializers.PrimaryKeyRelatedField(read_only=True)
     observaciones = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
@@ -265,29 +288,37 @@ class RecepcionSerializer(serializers.ModelSerializer):
         if not (bodega and temporada and fecha):
             return data
 
-        if not _temporada_activa(temporada):
-            raise serializers.ValidationError("No se pueden registrar recepciones en una temporada archivada o finalizada.")
+        # 1) reglas duras bodega/temporada
+        _assert_bodega_temporada_operables(bodega, temporada)
 
+        # 2) fecha no futura
         if fecha > timezone.localdate():
-            raise serializers.ValidationError("La fecha no puede ser futura.")
-        if not _is_today_or_yesterday(fecha):
-            raise serializers.ValidationError("La fecha de recepción solo puede ser HOY o AYER (máx. 24 h).")
+            raise serializers.ValidationError({"fecha": "La fecha no puede ser futura."})
 
+        # 3) debe existir semana que cubra la fecha (aunque luego se bloquee por cerrada)
+        _require_semana(bodega, temporada, fecha)
+
+        # 4) prioridad: semana cerrada (mensaje más relevante)
         if _semana_bloqueada(bodega, temporada, fecha):
             raise serializers.ValidationError("Esta semana está cerrada; no se permiten más cambios en ese rango.")
+
+        # 5) regla operativa: hoy/ayer
+        if not _is_today_or_yesterday(fecha):
+            raise serializers.ValidationError({"fecha": "La fecha de recepción solo puede ser HOY o AYER (máx. 24 h)."})
         return data
 
     def create(self, validated_data):
-        semana = _resolver_semana(validated_data["bodega"], validated_data["temporada"], validated_data["fecha"])
-        validated_data["semana"] = semana
+        bodega = validated_data["bodega"]
+        temporada = validated_data["temporada"]
+        fecha = validated_data["fecha"]
+        validated_data["semana"] = _require_semana(bodega, temporada, fecha)
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
         bodega = validated_data.get("bodega", instance.bodega)
         temporada = validated_data.get("temporada", instance.temporada)
         fecha = validated_data.get("fecha", instance.fecha)
-        semana = _resolver_semana(bodega, temporada, fecha)
-        validated_data["semana"] = semana
+        validated_data["semana"] = _require_semana(bodega, temporada, fecha)
         return super().update(instance, validated_data)
 
 
@@ -309,7 +340,7 @@ class ClasificacionEmpaqueSerializer(serializers.ModelSerializer):
 
     def validate_material(self, v):
         if v not in Material.values:
-            raise serializers.ValidationError("Material inválido.")
+            raise serializers.ValidationError("Material inv?lido.")
         return v
 
     def validate(self, data):
@@ -324,42 +355,77 @@ class ClasificacionEmpaqueSerializer(serializers.ModelSerializer):
         if not all([recepcion, bodega, temporada, fecha, material, calidad, cantidad]):
             return data
 
-        if not _temporada_activa(temporada):
-            raise serializers.ValidationError("No se pueden clasificar empaques en temporada archivada o finalizada.")
+        _assert_bodega_temporada_operables(bodega, temporada)
+
+        # Recepcion debe pertenecer a la misma bodega/temporada
+        if getattr(recepcion, "bodega_id", None) != bodega.id:
+            raise serializers.ValidationError({"recepcion_id": "La recepci?n no pertenece a esta bodega."})
+        if getattr(recepcion, "temporada_id", None) != temporada.id:
+            raise serializers.ValidationError({"recepcion_id": "La recepci?n no pertenece a esta temporada."})
 
         if cantidad <= 0:
             raise serializers.ValidationError({"cantidad_cajas": "Debe ser mayor a 0."})
 
+        # Normalizaci?n de calidades seg?n material
         if material == Material.PLASTICO:
             if calidad in {"SEGUNDA", "EXTRA"}:
                 data["calidad"] = CalidadPlastico.PRIMERA
             if data.get("calidad", calidad) not in set(CalidadPlastico.values):
-                raise serializers.ValidationError({"calidad": "Calidad inválida para PLÁSTICO."})
+                raise serializers.ValidationError({"calidad": "Calidad inv?lida para PL?STICO."})
         else:
             if calidad not in set(CalidadMadera.values):
-                raise serializers.ValidationError({"calidad": "Calidad inválida para MADERA."})
+                raise serializers.ValidationError({"calidad": "Calidad inv?lida para MADERA."})
 
         if fecha > timezone.localdate():
             raise serializers.ValidationError({"fecha": "La fecha no puede ser futura."})
-        if not _is_today_or_yesterday(fecha):
-            raise serializers.ValidationError({"fecha": "La fecha solo puede ser HOY o AYER (máx. 24 h)."})
 
+        # Debe existir semana que cubra la fecha
+        semana = _require_semana(bodega, temporada, fecha)
+
+        # Prioridad: semana cerrada
         if _semana_bloqueada(bodega, temporada, fecha):
-            raise serializers.ValidationError("Esta semana está cerrada; no se permiten más cambios en ese rango.")
+            raise serializers.ValidationError("Esta semana est? cerrada; no se permiten m?s cambios en ese rango.")
+
+        # Regla operativa: hoy/ayer
+        if not _is_today_or_yesterday(fecha):
+            raise serializers.ValidationError({"fecha": "La fecha solo puede ser HOY o AYER (m?x. 24 h)."})
+
+        # Consistencia contra la recepcion:
+        if recepcion.fecha and fecha < recepcion.fecha:
+            raise serializers.ValidationError({"fecha": "La fecha de clasificaci?n no puede ser anterior a la recepci?n."})
+
+        # La semana resuelta debe coincidir con la semana de la recepci?n (si existe)
+        if getattr(recepcion, "semana_id", None) and recepcion.semana_id != semana.id:
+            raise serializers.ValidationError({"fecha": "La fecha cae en una semana distinta a la de la recepci?n."})
+
+        # No exceder cajas disponibles de la recepci?n (considerando otras clasificaciones activas)
+        qs = ClasificacionEmpaque.objects.filter(recepcion=recepcion, is_active=True)
+        if self.instance is not None:
+            qs = qs.exclude(pk=self.instance.pk)
+        ya_clasificado = qs.aggregate(total=Sum("cantidad_cajas"))["total"] or 0
+
+        cajas_recepcion = getattr(recepcion, "cajas_campo", 0) or 0
+        if (ya_clasificado + cantidad) > cajas_recepcion:
+            raise serializers.ValidationError(
+                {"cantidad_cajas": "La clasificaci?n excede las cajas disponibles de la recepci?n."}
+            )
+
         return data
 
     def create(self, validated_data):
-        semana = _resolver_semana(validated_data["bodega"], validated_data["temporada"], validated_data["fecha"])
-        validated_data["semana"] = semana
+        bodega = validated_data["bodega"]
+        temporada = validated_data["temporada"]
+        fecha = validated_data["fecha"]
+        validated_data["semana"] = _require_semana(bodega, temporada, fecha)
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
         bodega = validated_data.get("bodega", instance.bodega)
         temporada = validated_data.get("temporada", instance.temporada)
         fecha = validated_data.get("fecha", instance.fecha)
-        semana = _resolver_semana(bodega, temporada, fecha)
-        validated_data["semana"] = semana
+        validated_data["semana"] = _require_semana(bodega, temporada, fecha)
         return super().update(instance, validated_data)
+
 class ClasificacionEmpaqueBulkItemSerializer(serializers.Serializer):
     material = serializers.ChoiceField(choices=Material.choices)
     calidad = serializers.CharField(max_length=12)
@@ -388,15 +454,45 @@ class ClasificacionEmpaqueBulkUpsertSerializer(serializers.Serializer):
     items = ClasificacionEmpaqueBulkItemSerializer(many=True)
 
     def validate(self, data):
+        recepcion = data["recepcion"]
+        bodega = data["bodega"]
+        temporada = data["temporada"]
         f = data.get("fecha")
+
+        _assert_bodega_temporada_operables(bodega, temporada)
+
+        # Recepcion consistente
+        if getattr(recepcion, "bodega_id", None) != bodega.id:
+            raise serializers.ValidationError({"recepcion": "La recepci?n no pertenece a esta bodega."})
+        if getattr(recepcion, "temporada_id", None) != temporada.id:
+            raise serializers.ValidationError({"recepcion": "La recepci?n no pertenece a esta temporada."})
+
         if f > timezone.localdate():
             raise serializers.ValidationError({"fecha": "La fecha no puede ser futura."})
+
+        _require_semana(bodega, temporada, f)
+
+        if _semana_bloqueada(bodega, temporada, f):
+            raise serializers.ValidationError("Esta semana est? cerrada; no se permiten m?s cambios en ese rango.")
+
         if not _is_today_or_yesterday(f):
-            raise serializers.ValidationError({"fecha": "La fecha solo puede ser HOY o AYER (máx. 24 h)."})
-        if _semana_bloqueada(data["bodega"], data["temporada"], f):
-            raise serializers.ValidationError("Esta semana está cerrada; no se permiten más cambios en ese rango.")
+            raise serializers.ValidationError({"fecha": "La fecha solo puede ser HOY o AYER (m?x. 24 h)."})
+
         if not data.get("items"):
-            raise serializers.ValidationError({"items": "Debe incluir al menos un ítem."})
+            raise serializers.ValidationError({"items": "Debe incluir al menos un ?tem."})
+
+        # suma de ?tems no excede disponible
+        total_items = sum(int(i.get("cantidad_cajas") or 0) for i in data["items"])
+
+        qs = ClasificacionEmpaque.objects.filter(recepcion=recepcion, is_active=True)
+        ya_clasificado = qs.aggregate(total=Sum("cantidad_cajas"))["total"] or 0
+        cajas_recepcion = getattr(recepcion, "cajas_campo", 0) or 0
+
+        if (ya_clasificado + total_items) > cajas_recepcion:
+            raise serializers.ValidationError(
+                {"items": "La suma de clasificaciones excede las cajas disponibles de la recepci?n."}
+            )
+
         return data
 
 # ───────────────────────────────────────────────────────────────────────────
@@ -799,18 +895,17 @@ class ConsumibleSerializer(serializers.ModelSerializer):
 
 class CierreSemanalSerializer(serializers.ModelSerializer):
     """
-    Crea/valida semanas MANUALES con las reglas:
-      - Duración máxima 7 días (inclusive).
-      - No puede haber más de UNA semana abierta por bodega+temporada.
-      - No se permiten solapes de rangos con semanas existentes.
-      - Coherencia: el Cierre debe pertenecer a la misma bodega de la Temporada.
-      - `iso_semana` es etiqueta opcional (no gobierna la lógica).
+    Semanas MANUALES:
+      - M?ximo 7 d?as (inclusive).
+      - UNA abierta por bodega+temporada.
+      - Sin solapes con semanas activas.
+      - Temporada/bodega deben estar operables.
+      - No se puede reabrir ni editar una semana ya cerrada.
     """
     activa = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = CierreSemanal
-        # Campos conservadores (evitamos suponer extras que no estén en tu modelo)
         fields = [
             "id",
             "bodega",
@@ -826,7 +921,6 @@ class CierreSemanalSerializer(serializers.ModelSerializer):
         read_only_fields = ["locked_by", "creado_en", "actualizado_en"]
 
     def get_activa(self, obj: CierreSemanal) -> bool:
-        # Semana abierta = sin fecha_hasta
         return obj.fecha_hasta is None
 
     def validate(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
@@ -844,69 +938,66 @@ class CierreSemanalSerializer(serializers.ModelSerializer):
             if not fdesde:
                 raise serializers.ValidationError({"fecha_desde": _("Este campo es obligatorio.")})
 
-        # Coherencia temporada–bodega
-        if temporada and isinstance(temporada, TemporadaBodega):
-            if temporada.bodega_id != bodega.id:
-                raise serializers.ValidationError(
-                    {"temporada": _("La temporada no corresponde a la bodega indicada.")}
-                )
+        # Temporada/bodega operables + coherencia bodega-temporada
+        _assert_bodega_temporada_operables(bodega, temporada)
 
-        # Orden de fechas y máximo 7 días
+        # No permitir editar/reabrir semana ya cerrada
+        if self.instance is not None and getattr(self.instance, "fecha_hasta", None) is not None:
+            if "fecha_desde" in attrs or "fecha_hasta" in attrs:
+                raise serializers.ValidationError({"non_field_errors": ["Una semana cerrada no se puede editar ni reabrir."]})
+            return attrs
+
+        # Evitar semanas en futuro
+        hoy = timezone.localdate()
+        if fdesde and fdesde > hoy:
+            raise serializers.ValidationError({"fecha_desde": _("No se puede crear una semana en fecha futura.")})
+        if fhasta is not None and fhasta > hoy:
+            raise serializers.ValidationError({"fecha_hasta": _("No se puede cerrar una semana con fecha futura.")})
+
+        # Orden de fechas y m?ximo 7 d?as
         if fhasta is not None:
             if fhasta < fdesde:
-                raise serializers.ValidationError(
-                    {"fecha_hasta": _("No puede ser menor que fecha_desde.")}
-                )
+                raise serializers.ValidationError({"fecha_hasta": _("No puede ser menor que fecha_desde.")})
             if (fhasta - fdesde).days > 6:
-                raise serializers.ValidationError(
-                    {"fecha_hasta": _("La semana no puede exceder 7 días.")}
-                )
+                raise serializers.ValidationError({"fecha_hasta": _("La semana no puede exceder 7 d?as.")})
 
-        # Solo una abierta a la vez (fecha_hasta = NULL)
-        # Aplica al crear una nueva abierta o al actualizar a abierta.
+        # Solo una abierta a la vez (fecha_hasta = NULL) en semanas activas
         target_open = fhasta is None
         if target_open:
             qs_open = CierreSemanal.objects.filter(
                 bodega=bodega,
                 temporada=temporada,
+                is_active=True,
                 fecha_hasta__isnull=True,
             )
             if self.instance is not None:
                 qs_open = qs_open.exclude(pk=self.instance.pk)
             if qs_open.exists():
-                raise serializers.ValidationError(
-                    {"fecha_hasta": _("Ya existe una semana abierta para esta bodega y temporada.")}
-                )
+                raise serializers.ValidationError({"fecha_hasta": _("Ya existe una semana abierta para esta bodega y temporada.")})
 
-        # Solapes de rango (para semanas cerradas)
-        # Semana abierta no se solapa "hacia el futuro" aún, pero bloqueamos crear otra que la cruce.
-        # Para la semana abierta asumimos un fin teórico de +6 días para verificar que no invada.
         def _end_or_theoretical(c: CierreSemanal):
             return c.fecha_hasta or (c.fecha_desde + timedelta(days=6))
 
         def _overlaps(a0, a1, b0, b1) -> bool:
-            # Rango inclusivo [a0,a1] con [b0,b1]
             return not (a1 < b0 or b1 < a0)
 
         qs_all = CierreSemanal.objects.filter(
             bodega=bodega,
             temporada=temporada,
+            is_active=True,
         )
         if self.instance is not None:
             qs_all = qs_all.exclude(pk=self.instance.pk)
 
         if fdesde:
             new_end = (fhasta or (fdesde + timedelta(days=6)))
-            for c in qs_all:  # iteramos en Python para no depender de campos opcionales
+            for c in qs_all:
                 if _overlaps(fdesde, new_end, c.fecha_desde, _end_or_theoretical(c)):
-                    raise serializers.ValidationError(
-                        {"fecha_desde": _("El rango propuesto se solapa con otra semana existente.")}
-                    )
+                    raise serializers.ValidationError({"fecha_desde": _("El rango propuesto se solapa con otra semana existente.")})
 
         return attrs
 
     def create(self, validated_data: Dict[str, Any]) -> CierreSemanal:
-        # Etiqueta opcional si no viene (no gobierna la lógica de consultas)
         iso_semana = validated_data.get("iso_semana")
         fdesde = validated_data.get("fecha_desde")
         if not iso_semana and fdesde:
@@ -915,8 +1006,6 @@ class CierreSemanalSerializer(serializers.ModelSerializer):
                 validated_data["iso_semana"] = iso_semana
             except Exception:
                 pass
-
-        # `locked_by` lo puede setear la vista con request.user
         return super().create(validated_data)
 
 

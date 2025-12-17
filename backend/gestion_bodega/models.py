@@ -2,6 +2,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Dict, Optional
 
 from django.conf import settings
+from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.db.models import Sum, Q, UniqueConstraint, Index, Max
@@ -29,6 +30,38 @@ def _is_only_archival_fields(update_fields):
         return False
     allowed = {"is_active", "archivado_en", "archivado_por_cascada"}
     return set(update_fields).issubset(allowed)
+
+# Resolver semanas sin depender de serializers (alineado a la lógíca de negocio)
+def _resolver_semana_por_fecha(bodega_id: int, temporada_id: int, fecha):
+    """
+    Resuelve el CierreSemanal que cubre 'fecha'.
+    Contempla semanas abiertas: end_teorico = fecha_desde + 6 días.
+    Devuelve la más reciente por fecha_desde que cubra la fecha.
+    """
+    if not (bodega_id and temporada_id and fecha):
+        return None
+
+    CierreSemanal = apps.get_model("gestion_bodega", "CierreSemanal")
+
+    qs = CierreSemanal.objects.filter(
+        bodega_id=bodega_id,
+        temporada_id=temporada_id,
+        is_active=True,
+    )
+
+    chosen = None
+    for s in qs:
+        start = s.fecha_desde
+        end = s.fecha_hasta or (s.fecha_desde + timedelta(days=6))
+        if start <= fecha <= end:
+            if chosen is None or s.fecha_desde > chosen.fecha_desde:
+                chosen = s
+    return chosen
+
+
+def _is_today_or_yesterday_date(d):
+    hoy = timezone.localdate()
+    return d in {hoy, hoy - timedelta(days=1)}
 
 
 # ───────────────────────────────────────────────────────────────────────────
@@ -132,34 +165,36 @@ class Bodega(TimeStampedModel):
     def archivar(self) -> dict:
         if not self.is_active:
             return {"bodegas": 0, "temporadas": 0, "recepciones": 0, "clasificaciones": 0,
-                    "pedidos": 0, "camiones": 0, "compras_madera": 0, "consumibles": 0}
+                    "pedidos": 0, "camiones": 0, "compras_madera": 0, "consumibles": 0, "semanas": 0}
+
         super().archivar(via_cascada=False)
 
         counts = {"bodegas": 1, "temporadas": 0, "recepciones": 0, "clasificaciones": 0,
-                  "pedidos": 0, "camiones": 0, "compras_madera": 0, "consumibles": 0}
+                  "pedidos": 0, "camiones": 0, "compras_madera": 0, "consumibles": 0, "semanas": 0}
+
         for t in self.temporadas.all():
-            c = t.archivar(via_cascada=True)
-            counts = _sum_counts(counts, c)
-        for c in self.consumibles.all():
-            c.archivar(via_cascada=True)
-            counts["consumibles"] += 1
+            if t.is_active:
+                c = t.archivar(via_cascada=True)
+                counts = _sum_counts(counts, c)
+
         return counts
 
     @transaction.atomic
     def desarchivar(self) -> dict:
         if self.is_active:
             return {"bodegas": 0, "temporadas": 0, "recepciones": 0, "clasificaciones": 0,
-                    "pedidos": 0, "camiones": 0, "compras_madera": 0, "consumibles": 0}
+                    "pedidos": 0, "camiones": 0, "compras_madera": 0, "consumibles": 0, "semanas": 0}
+
         super().desarchivar(via_cascada=False)
 
         counts = {"bodegas": 1, "temporadas": 0, "recepciones": 0, "clasificaciones": 0,
-                  "pedidos": 0, "camiones": 0, "compras_madera": 0, "consumibles": 0}
+                  "pedidos": 0, "camiones": 0, "compras_madera": 0, "consumibles": 0, "semanas": 0}
+
         for t in self.temporadas.all():
-            c = t.desarchivar(via_cascada=True)
-            counts = _sum_counts(counts, c)
-        for c in self.consumibles.all():
-            c.desarchivar(via_cascada=True)
-            counts["consumibles"] += 1
+            if (not t.is_active) and t.archivado_por_cascada:
+                c = t.desarchivar(via_cascada=True)
+                counts = _sum_counts(counts, c)
+
         return counts
 
 
@@ -199,50 +234,108 @@ class TemporadaBodega(TimeStampedModel):
         return f"{self.bodega.nombre} – Temporada {self.año}"
 
     def finalizar(self):
-        if not self.finalizada:
-            self.finalizada = True
-            self.fecha_fin = timezone.now().date()
-            self.save(update_fields=["finalizada", "fecha_fin"])
+        if self.finalizada:
+            return
+
+        self.finalizada = True
+        self.fecha_fin = timezone.now().date()
+        self.save(update_fields=["finalizada", "fecha_fin"])
+
+        # cerrar semana abierta si existe (opcional pero recomendado)
+        abierta = (
+            self.cierres
+            .filter(is_active=True, fecha_hasta__isnull=True)
+            .order_by("-fecha_desde")
+            .first()
+        )
+        if abierta:
+            abierta.fecha_hasta = min(timezone.localdate(), abierta.fecha_desde + timedelta(days=6))
+            abierta.save(update_fields=["fecha_hasta", "actualizado_en"])
 
     @transaction.atomic
     def archivar(self, via_cascada: bool = False) -> dict:
         if not self.is_active:
-            return {"temporadas": 0, "recepciones": 0, "clasificaciones": 0, "pedidos": 0, "camiones": 0, "compras_madera": 0}
+            return {"temporadas": 0, "recepciones": 0, "clasificaciones": 0, "pedidos": 0,
+                    "camiones": 0, "compras_madera": 0, "consumibles": 0, "semanas": 0}
+
         super().archivar(via_cascada=via_cascada)
 
-        counts = {"temporadas": 1, "recepciones": 0, "clasificaciones": 0, "pedidos": 0, "camiones": 0, "compras_madera": 0}
+        counts = {"temporadas": 1, "recepciones": 0, "clasificaciones": 0, "pedidos": 0,
+                  "camiones": 0, "compras_madera": 0, "consumibles": 0, "semanas": 0}
+
         for r in self.recepciones.all():
-            r.archivar(via_cascada=True); counts["recepciones"] += 1
+            if r.is_active:
+                r.archivar(via_cascada=True); counts["recepciones"] += 1
+
         for cl in self.clasificaciones.all():
-            cl.archivar(via_cascada=True); counts["clasificaciones"] += 1
+            if cl.is_active:
+                cl.archivar(via_cascada=True); counts["clasificaciones"] += 1
+
         for p in self.pedidos.all():
-            p.archivar(via_cascada=True); counts["pedidos"] += 1
+            if p.is_active:
+                p.archivar(via_cascada=True); counts["pedidos"] += 1
+
         for c in self.camiones.all():
-            c.archivar(via_cascada=True); counts["camiones"] += 1
+            if c.is_active:
+                c.archivar(via_cascada=True); counts["camiones"] += 1
+
         for cm in self.compras_madera.all():
-            cm.archivar(via_cascada=True); counts["compras_madera"] += 1
+            if cm.is_active:
+                cm.archivar(via_cascada=True); counts["compras_madera"] += 1
+
+        for con in self.consumibles.all():
+            if con.is_active:
+                con.archivar(via_cascada=True); counts["consumibles"] += 1
+
+        for s in self.cierres.all():
+            if s.is_active:
+                s.archivar(via_cascada=True); counts["semanas"] += 1
+
         return counts
 
     @transaction.atomic
     def desarchivar(self, via_cascada: bool = False) -> dict:
         if via_cascada and not self.archivado_por_cascada:
-            return {"temporadas": 0, "recepciones": 0, "clasificaciones": 0, "pedidos": 0, "camiones": 0, "compras_madera": 0}
+            return {"temporadas": 0, "recepciones": 0, "clasificaciones": 0, "pedidos": 0,
+                    "camiones": 0, "compras_madera": 0, "consumibles": 0, "semanas": 0}
+
         if self.is_active:
-            return {"temporadas": 0, "recepciones": 0, "clasificaciones": 0, "pedidos": 0, "camiones": 0, "compras_madera": 0}
+            return {"temporadas": 0, "recepciones": 0, "clasificaciones": 0, "pedidos": 0,
+                    "camiones": 0, "compras_madera": 0, "consumibles": 0, "semanas": 0}
 
         super().desarchivar(via_cascada=via_cascada)
 
-        counts = {"temporadas": 1, "recepciones": 0, "clasificaciones": 0, "pedidos": 0, "camiones": 0, "compras_madera": 0}
+        counts = {"temporadas": 1, "recepciones": 0, "clasificaciones": 0, "pedidos": 0,
+                  "camiones": 0, "compras_madera": 0, "consumibles": 0, "semanas": 0}
+
         for r in self.recepciones.all():
-            r.desarchivar(via_cascada=True); counts["recepciones"] += 1
+            if (not r.is_active) and r.archivado_por_cascada:
+                r.desarchivar(via_cascada=True); counts["recepciones"] += 1
+
         for cl in self.clasificaciones.all():
-            cl.desarchivar(via_cascada=True); counts["clasificaciones"] += 1
+            if (not cl.is_active) and cl.archivado_por_cascada:
+                cl.desarchivar(via_cascada=True); counts["clasificaciones"] += 1
+
         for p in self.pedidos.all():
-            p.desarchivar(via_cascada=True); counts["pedidos"] += 1
+            if (not p.is_active) and p.archivado_por_cascada:
+                p.desarchivar(via_cascada=True); counts["pedidos"] += 1
+
         for c in self.camiones.all():
-            c.desarchivar(via_cascada=True); counts["camiones"] += 1
+            if (not c.is_active) and c.archivado_por_cascada:
+                c.desarchivar(via_cascada=True); counts["camiones"] += 1
+
         for cm in self.compras_madera.all():
-            cm.desarchivar(via_cascada=True); counts["compras_madera"] += 1
+            if (not cm.is_active) and cm.archivado_por_cascada:
+                cm.desarchivar(via_cascada=True); counts["compras_madera"] += 1
+
+        for con in self.consumibles.all():
+            if (not con.is_active) and con.archivado_por_cascada:
+                con.desarchivar(via_cascada=True); counts["consumibles"] += 1
+
+        for s in self.cierres.all():
+            if (not s.is_active) and s.archivado_por_cascada:
+                s.desarchivar(via_cascada=True); counts["semanas"] += 1
+
         return counts
 
 
@@ -305,29 +398,50 @@ class Recepcion(TimeStampedModel):
     def clean(self):
         errors = {}
 
-        # Temporada debe estar activa y no finalizada
-        if self.temporada_id and (not self.temporada.is_active or self.temporada.finalizada):
-            errors["temporada"] = "La temporada debe estar activa y no finalizada."
+        # Bodega activa
+        if self.bodega_id and not self.bodega.is_active:
+            errors["bodega"] = "La bodega debe estar activa."
 
-        if self.cajas_campo <= 0:
+        # Temporada activa y no finalizada + coherencia con bodega
+        if self.temporada_id:
+            if (not self.temporada.is_active) or self.temporada.finalizada:
+                errors["temporada"] = "La temporada debe estar activa y no finalizada."
+            if self.bodega_id and self.temporada.bodega_id != self.bodega_id:
+                errors["temporada"] = "La temporada no corresponde a la bodega indicada."
+
+        # Cantidad de cajas defensiva (evita TypeError cuando viene None)
+        if not self.cajas_campo or self.cajas_campo <= 0:
             errors["cajas_campo"] = "La cantidad de cajas debe ser positiva."
 
-        # 👇 NUEVO: siempre debe haber semana válida
+        # Fecha no futura + regla hoy/ayer
+        if self.fecha:
+            if self.fecha > timezone.localdate():
+                errors["fecha"] = "La fecha no puede ser futura."
+            if not _is_today_or_yesterday_date(self.fecha):
+                errors["fecha"] = "La fecha de recepción solo puede ser HOY o AYER (máx. 24 h)."
+
+        # Resolver semana si no viene (alineado a lo que ya haces en serializer)
+        if not self.semana_id and self.bodega_id and self.temporada_id and self.fecha:
+            self.semana = _resolver_semana_por_fecha(self.bodega_id, self.temporada_id, self.fecha)
+
         if not self.semana_id:
-            errors["semana"] = "Debe seleccionar una semana activa para la recepción."
+            errors["semana"] = "Debe existir una semana que cubra la fecha (inicia una semana desde el tablero)."
         else:
-            # Misma bodega y temporada que la recepción
+            # Misma bodega/temporada + semana activa
+            if not self.semana.is_active:
+                errors["semana"] = "La semana está archivada; no es válida para operar."
             if self.semana.bodega_id != self.bodega_id or self.semana.temporada_id != self.temporada_id:
                 errors["semana"] = "La semana no pertenece a esta bodega y temporada."
 
-            # No se permite registrar/editar en semana cerrada
+            # Semana cerrada
             if self.semana.fecha_hasta is not None:
                 errors["semana"] = "No se pueden registrar recepciones en una semana cerrada."
 
-            # Fecha debe caer dentro del rango de la semana (hasta 7 días)
-            semana_fin = self.semana.fecha_hasta or (self.semana.fecha_desde + timedelta(days=6))
-            if not (self.semana.fecha_desde <= self.fecha <= semana_fin):
-                errors["fecha"] = "La fecha de la recepción debe estar dentro del rango de la semana."
+            # Fecha dentro del rango de la semana
+            if self.fecha:
+                semana_fin = self.semana.fecha_hasta or (self.semana.fecha_desde + timedelta(days=6))
+                if not (self.semana.fecha_desde <= self.fecha <= semana_fin):
+                    errors["fecha"] = "La fecha de la recepción debe estar dentro del rango de la semana."
 
         if errors:
             raise ValidationError(errors)
@@ -370,11 +484,18 @@ class ClasificacionEmpaque(TimeStampedModel):
     def clean(self):
         errors = {}
 
-        # Temporada activa
-        if self.temporada_id and (not self.temporada.is_active or self.temporada.finalizada):
-            errors["temporada"] = "La temporada debe estar activa y no finalizada."
+        # Bodega activa
+        if self.bodega_id and not self.bodega.is_active:
+            errors["bodega"] = "La bodega debe estar activa."
 
-        # Validación material/calidad (como ya tenías)
+        # Temporada activa + coherencia bodega
+        if self.temporada_id:
+            if (not self.temporada.is_active) or self.temporada.finalizada:
+                errors["temporada"] = "La temporada debe estar activa y no finalizada."
+            if self.bodega_id and self.temporada.bodega_id != self.bodega_id:
+                errors["temporada"] = "La temporada no corresponde a la bodega indicada."
+
+        # Material/Calidad
         if self.material == Material.PLASTICO:
             if self.calidad in {"SEGUNDA", "EXTRA"}:
                 self.calidad = CalidadPlastico.PRIMERA
@@ -387,31 +508,54 @@ class ClasificacionEmpaque(TimeStampedModel):
         if self.cantidad_cajas <= 0:
             errors["cantidad_cajas"] = "La cantidad de cajas debe ser positiva."
 
-        # 👇 NUEVO: coherencia con recepción + semana
+        # Fecha no futura + regla hoy/ayer
+        if self.fecha:
+            if self.fecha > timezone.localdate():
+                errors["fecha"] = "La fecha no puede ser futura."
+            if not _is_today_or_yesterday_date(self.fecha):
+                errors["fecha"] = "La fecha solo puede ser HOY o AYER (máx. 24 h)."
+
+        # Coherencia con recepción
         if self.recepcion_id:
-            # La clasificación debe usar misma bodega/temporada que la recepción
             if self.recepcion.bodega_id != self.bodega_id or self.recepcion.temporada_id != self.temporada_id:
                 errors["recepcion"] = "La recepción debe pertenecer a la misma bodega y temporada."
+            if self.fecha and self.recepcion.fecha and self.fecha < self.recepcion.fecha:
+                errors["fecha"] = "La fecha de clasificación no puede ser anterior a la recepción."
+
+        # Resolver semana si no viene
+        if not self.semana_id and self.bodega_id and self.temporada_id and self.fecha:
+            # preferimos la semana de la recepción si existe
+            if self.recepcion_id and self.recepcion.semana_id:
+                self.semana_id = self.recepcion.semana_id
+            else:
+                self.semana = _resolver_semana_por_fecha(self.bodega_id, self.temporada_id, self.fecha)
 
         if not self.semana_id:
-            errors["semana"] = "Debe seleccionar una semana activa para la clasificación."
+            errors["semana"] = "Debe existir una semana que cubra la fecha (inicia una semana desde el tablero)."
         else:
-            # La semana debe ser de la misma bodega/temporada
+            if not self.semana.is_active:
+                errors["semana"] = "La semana está archivada; no es válida para operar."
             if self.semana.bodega_id != self.bodega_id or self.semana.temporada_id != self.temporada_id:
                 errors["semana"] = "La semana no pertenece a esta bodega y temporada."
-
-            # No permitir registrar/editar en semana cerrada
             if self.semana.fecha_hasta is not None:
                 errors["semana"] = "No se pueden registrar clasificaciones en una semana cerrada."
 
-            # Fecha dentro del rango de la semana
-            semana_fin = self.semana.fecha_hasta or (self.semana.fecha_desde + timedelta(days=6))
-            if not (self.semana.fecha_desde <= self.fecha <= semana_fin):
-                errors["fecha"] = "La fecha debe estar dentro del rango de la semana."
+            if self.fecha:
+                semana_fin = self.semana.fecha_hasta or (self.semana.fecha_desde + timedelta(days=6))
+                if not (self.semana.fecha_desde <= self.fecha <= semana_fin):
+                    errors["fecha"] = "La fecha debe estar dentro del rango de la semana."
 
-            # Si hay recepción con semana, deben coincidir
             if self.recepcion_id and self.recepcion.semana_id and self.recepcion.semana_id != self.semana_id:
                 errors["semana"] = "La semana de la clasificación debe coincidir con la de la recepción."
+
+        # ✅ Regla crítica: no exceder cajas disponibles de la recepción (solo activas)
+        if self.recepcion_id and self.cantidad_cajas and self.recepcion.cajas_campo:
+            qs = ClasificacionEmpaque.objects.filter(recepcion_id=self.recepcion_id, is_active=True)
+            if self.pk:
+                qs = qs.exclude(pk=self.pk)
+            ya = qs.aggregate(total=Sum("cantidad_cajas"))["total"] or 0
+            if (ya + self.cantidad_cajas) > (self.recepcion.cajas_campo or 0):
+                errors["cantidad_cajas"] = "La clasificación excede las cajas disponibles de la recepción."
 
         if errors:
             raise ValidationError(errors)
@@ -685,7 +829,11 @@ class SurtidoRenglon(TimeStampedModel):
         if self.renglon.calidad != self.origen_clasificacion.calidad:
             raise ValidationError("La calidad del renglón y de la clasificación no coincide.")
 
-        consumido = self.origen_clasificacion.surtidos.aggregate(total=Sum("cantidad"))["total"] or 0
+        cons_qs = self.origen_clasificacion.surtidos.all()
+        if self.pk:
+            cons_qs = cons_qs.exclude(pk=self.pk)
+
+        consumido = cons_qs.aggregate(total=Sum("cantidad"))["total"] or 0
         disponible = (self.origen_clasificacion.cantidad_cajas or 0) - consumido
         if self.cantidad > disponible:
             raise ValidationError("No hay suficiente disponible en esa clasificación (overpicking origen).")
@@ -885,7 +1033,7 @@ class CierreSemanal(TimeStampedModel):
             # A lo sumo 1 semana ABIERTA por (bodega, temporada)
             UniqueConstraint(
                 fields=["bodega", "temporada"],
-                condition=Q(fecha_hasta__isnull=True),
+                condition=Q(fecha_hasta__isnull=True, is_active=True),
                 name="uniq_cierre_semana_abierta_bod_temp",
             ),
         ]
@@ -909,38 +1057,52 @@ class CierreSemanal(TimeStampedModel):
         return self.fecha_hasta is None
 
     def clean(self):
-        """
-        Reglas:
-        - fecha_hasta >= fecha_desde (si se proporciona).
-        - Duración máxima 7 días (inclusive) si fecha_hasta está definida.
-        - Sin solapes con otras semanas del mismo (bodega, temporada).
-          Para semanas ABIERTAS (sin fecha_hasta) se considera un fin teórico = fecha_desde + 6 días.
-        - No se permite reabrir una semana ya cerrada (fecha_hasta: no null -> null).
-        """
         errors = {}
+
+        # Bloqueos por bodega/temporada
+        if self.bodega_id and not self.bodega.is_active:
+            errors["bodega"] = "La bodega debe estar activa."
+
+        if self.temporada_id:
+            if (not self.temporada.is_active) or self.temporada.finalizada:
+                errors["temporada"] = "La temporada debe estar activa y no finalizada."
+            if self.bodega_id and self.temporada.bodega_id != self.bodega_id:
+                errors["temporada"] = "La temporada no corresponde a la bodega indicada."
+
+        # No permitir fechas futuras
+        hoy = timezone.localdate()
+        if self.fecha_desde and self.fecha_desde > hoy:
+            errors["fecha_desde"] = "No se puede iniciar una semana en fecha futura."
+        if self.fecha_hasta and self.fecha_hasta > hoy:
+            errors["fecha_hasta"] = "No se puede cerrar una semana con fecha futura."
 
         if self.fecha_hasta and self.fecha_hasta < self.fecha_desde:
             errors["fecha_hasta"] = "La fecha de cierre no puede ser anterior a la fecha de inicio."
 
-        # Límite 7 días solo cuando cerramos
+        # Máximo 7 días al cerrar
         if self.fecha_hasta:
             delta = (self.fecha_hasta - self.fecha_desde).days
             if delta > 6:
                 errors["fecha_hasta"] = "La semana no puede exceder 7 días."
 
-        # No permitir reabrir: si en BD ya estaba cerrada y ahora viene sin fecha_hasta
+        # No permitir reabrir NI editar rangos de una semana ya cerrada
         if self.pk:
-            old = CierreSemanal.objects.filter(pk=self.pk).only("fecha_hasta").first()
+            old = CierreSemanal.objects.filter(pk=self.pk).only("fecha_desde", "fecha_hasta").first()
+            if old and old.fecha_hasta is not None:
+                if (self.fecha_desde != old.fecha_desde) or (self.fecha_hasta != old.fecha_hasta):
+                    errors["fecha_hasta"] = "Una semana cerrada no se puede editar ni reabrir."
+
             if old and old.fecha_hasta is not None and self.fecha_hasta is None:
                 errors["fecha_hasta"] = "No se puede reabrir una semana que ya fue cerrada."
 
-        # Validación de solapes (en Python para contemplar semanas abiertas)
+        # Solapes (ignoramos semanas archivadas)
         self_start = self.fecha_desde
         self_end = self.fecha_hasta or (self.fecha_desde + timedelta(days=6))
 
         qs = CierreSemanal.objects.filter(
             bodega=self.bodega,
             temporada=self.temporada,
+            is_active=True,
         ).exclude(pk=self.pk)
 
         for other in qs:
@@ -954,10 +1116,13 @@ class CierreSemanal(TimeStampedModel):
             raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
-        """
-        Alineado con el patrón del repo: validamos salvo updates de archivado.
-        """
         update_fields = kwargs.get("update_fields")
+        if not self.iso_semana and self.fecha_desde:
+            try:
+                iso = self.fecha_desde.isocalendar()
+                self.iso_semana = f"{iso.year}-W{str(iso.week).zfill(2)}"
+            except Exception:
+                pass
         if not _is_only_archival_fields(update_fields):
             self.full_clean()
         return super().save(*args, **kwargs)

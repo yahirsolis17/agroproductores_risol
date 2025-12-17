@@ -1,3 +1,4 @@
+# gestion_bodega/utils/kpis.py
 from __future__ import annotations
 
 import logging
@@ -7,7 +8,6 @@ from typing import Any, Dict, List, Optional
 from django.db.models import Sum, F, QuerySet
 from django.utils import timezone
 
-# Modelos disponibles en tu repo
 from gestion_bodega.models import (
     Recepcion,
     ClasificacionEmpaque,
@@ -54,15 +54,18 @@ def kpi_recepcion(
     fecha_desde: Optional[str],
     fecha_hasta: Optional[str],
     huerta_id: Optional[int],
+    semana_id: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
     Suma de cajas de Recepcion.cajas_campo restringida EXCLUSIVAMENTE al rango recibido.
-    Mantiene shape esperado por el FE:
-      - 'kg_total' → realmente CAJAS (se renombrará en UI)
-      - 'hoy' y 'semana' quedan en None (para no inducir a error con ISO implícito).
+    NOTA: 'kg_total' aquí representa CAJAS (compat con UI actual).
     """
-    qs = Recepcion.objects.filter(temporada_id=temporada_id)
+    qs = Recepcion.objects.filter(temporada_id=temporada_id, is_active=True)
+
     # huerta_id no aplica hoy (no hay FK a huerta en el modelo actual)
+    if semana_id:
+        qs = qs.filter(semana_id=semana_id)
+
     qs = _apply_date_range(qs, "fecha", fecha_desde, fecha_hasta)
 
     total_cajas = qs.aggregate(v=Sum(F("cajas_campo")))["v"] or 0
@@ -73,7 +76,7 @@ def kpi_recepcion(
         "kg_merma": 0.0,
         "apto_pct": None,
         "merma_pct": None,
-        "hoy": None,     # ahora no inferimos ISO (evita inconsistencias con semanas manuales)
+        "hoy": None,     # no inferimos ISO (evita inconsistencias con semanas manuales)
         "semana": None,  # idem
     }
 
@@ -125,13 +128,14 @@ def build_summary(
     fecha_desde: Optional[str],
     fecha_hasta: Optional[str],
     huerta_id: Optional[int],
+    semana_id: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
     Ensambla el objeto de KPIs esperado por el serializer del tablero usando SOLO el rango resuelto.
     """
     return {
         "kpis": {
-            "recepcion": kpi_recepcion(temporada_id, fecha_desde, fecha_hasta, huerta_id),
+            "recepcion": kpi_recepcion(temporada_id, fecha_desde, fecha_hasta, huerta_id, semana_id=semana_id),
             "stock": kpi_stock(temporada_id, huerta_id),
             "ocupacion": kpi_ocupacion(temporada_id),
             "rotacion": kpi_rotacion(temporada_id),
@@ -143,7 +147,7 @@ def build_summary(
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Colas (QuerySets) con filtros opcionales — ya respetan el rango entrante
+# Colas (QuerySets) con filtros opcionales — respetan rango + soft-delete + semana
 # ──────────────────────────────────────────────────────────────────────────────
 
 def queue_recepciones_qs(
@@ -155,16 +159,21 @@ def queue_recepciones_qs(
     calidad: Optional[str] = None,             # no aplicable hoy
     madurez: Optional[str] = None,             # no aplicable hoy
     solo_pendientes: Optional[bool] = None,    # no aplicable hoy
+    semana_id: Optional[int] = None,
 ) -> QuerySet:
     """
     Cola de recepciones basada en el modelo real Recepcion.
     Soporta rango de fechas; el resto de filtros no aplica al modelo actual.
     """
-    qs = Recepcion.objects.filter(temporada_id=temporada_id)
+    qs = Recepcion.objects.filter(temporada_id=temporada_id, is_active=True)
+
+    if semana_id:
+        qs = qs.filter(semana_id=semana_id)
+
     qs = _apply_date_range(qs, "fecha", fecha_desde, fecha_hasta)
 
     return (
-        qs.values("id", "fecha", "huertero_nombre", "cajas_campo", "tipo_mango")
+        qs.values("id", "fecha", "huertero_nombre", "cajas_campo", "tipo_mango", "semana_id")
           .order_by("-fecha", "-id")
     )
 
@@ -176,12 +185,17 @@ def queue_inventarios_qs(
     huerta_id: Optional[int] = None,   # no aplicable hoy
     calidad: Optional[str] = None,
     madurez: Optional[str] = None,
+    semana_id: Optional[int] = None,
 ) -> QuerySet:
     """
     Usamos ClasificacionEmpaque como “inventarios” (cajas empacadas).
     Filtros soportados: rango y calidad/madurez (ambos caen en 'calidad').
     """
-    qs = ClasificacionEmpaque.objects.filter(temporada_id=temporada_id)
+    qs = ClasificacionEmpaque.objects.filter(temporada_id=temporada_id, is_active=True)
+
+    if semana_id:
+        qs = qs.filter(semana_id=semana_id)
+
     qs = _apply_date_range(qs, "fecha", fecha_desde, fecha_hasta)
 
     if madurez:
@@ -192,7 +206,7 @@ def queue_inventarios_qs(
     return (
         qs.values(
             "id", "fecha", "material", "calidad", "tipo_mango", "cantidad_cajas",
-            "recepcion__huertero_nombre",
+            "recepcion__huertero_nombre", "semana_id",
         ).order_by("-fecha", "-id")
     )
 
@@ -206,7 +220,7 @@ def queue_despachos_qs(
     Usa CamionSalida para la vista mínima de 'despachos':
     fecha_salida y suma de cajas del manifiesto (CamionItem).
     """
-    qs = CamionSalida.objects.filter(temporada_id=temporada_id)
+    qs = CamionSalida.objects.filter(temporada_id=temporada_id, is_active=True)
     qs = _apply_date_range(qs, "fecha_salida", fecha_desde, fecha_hasta)
 
     return (
@@ -225,23 +239,30 @@ def build_queue_items(tipo: str, raw_rows) -> List[Dict[str, Any]]:
 
     if tipo == "recepciones":
         for r in raw_rows:
+            h = r.get("huertero_nombre") or None
             items.append({
                 "id": r["id"],
                 "ref": f"REC-{r['id']}",
                 "fecha": r["fecha"],  # DateField → DRF lo serializa a ISO
-                "huerta": r.get("huertero_nombre") or None,
+                "huertero": h,
+                "huerta": h,  # alias compat
                 "kg": float(r.get("cajas_campo") or 0.0),  # realmente 'cajas'
                 "estado": "REGISTRADA",
-                "meta": {"tipo": r.get("tipo_mango")},
+                "meta": {
+                    "tipo": r.get("tipo_mango"),
+                    "semana_id": r.get("semana_id"),
+                },
             })
 
     elif tipo == "inventarios":
         for r in raw_rows:
+            h = r.get("recepcion__huertero_nombre") or None
             items.append({
                 "id": r["id"],
                 "ref": f"EMP-{r['id']}",
                 "fecha": r["fecha"],
-                "huerta": r.get("recepcion__huertero_nombre") or None,
+                "huertero": h,
+                "huerta": h,  # alias compat
                 "kg": float(r.get("cantidad_cajas") or 0.0),
                 "estado": "CLASIFICADO",
                 "meta": {
@@ -249,6 +270,7 @@ def build_queue_items(tipo: str, raw_rows) -> List[Dict[str, Any]]:
                     "madurez": r.get("calidad"),
                     "tipo": r.get("tipo_mango"),
                     "material": r.get("material"),
+                    "semana_id": r.get("semana_id"),
                 },
             })
 
@@ -258,7 +280,8 @@ def build_queue_items(tipo: str, raw_rows) -> List[Dict[str, Any]]:
                 "id": r["id"],
                 "ref": f"CAM-{r['id']}",
                 "fecha": r["fecha_salida"],
-                "huerta": None,
+                "huertero": None,
+                "huerta": None,  # alias compat
                 "kg": float(r.get("cajas_total") or 0.0),
                 "estado": r.get("estado") or "BORRADOR",
                 "meta": {},
@@ -268,7 +291,7 @@ def build_queue_items(tipo: str, raw_rows) -> List[Dict[str, Any]]:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Alertas del tablero
+# Alertas del tablero (con soft-delete)
 # ──────────────────────────────────────────────────────────────────────────────
 
 def build_alerts(
@@ -292,16 +315,19 @@ def build_alerts(
     - Las alertas se evalúan a nivel de temporada (no forzamos ISO semana aquí).
     - Usamos reglas conservadoras y seguras con los modelos disponibles.
     """
-
     alerts: List[Dict[str, Any]] = []
 
     today = timezone.localdate()
     d72 = today - timedelta(days=3)
     d24 = today - timedelta(days=1)
-    d7  = today - timedelta(days=7)
+    d7 = today - timedelta(days=7)
 
     # 1) Sin recepciones en 72h
-    rec_72h = Recepcion.objects.filter(temporada_id=temporada_id, fecha__gte=d72).exists()
+    rec_72h = Recepcion.objects.filter(
+        temporada_id=temporada_id,
+        is_active=True,
+        fecha__gte=d72,
+    ).exists()
     if not rec_72h:
         alerts.append({
             "code": "NO_RECEPCIONES_72H",
@@ -317,6 +343,7 @@ def build_alerts(
     # 2) Despachos en BORRADOR con fecha pasada (>24h)
     despachos_atrasados = CamionSalida.objects.filter(
         temporada_id=temporada_id,
+        is_active=True,
         estado="BORRADOR",
         fecha_salida__lt=d24,
     ).exists()
@@ -333,7 +360,11 @@ def build_alerts(
         })
 
     # 3) Sin inventarios en los últimos 7 días
-    emp_7d = ClasificacionEmpaque.objects.filter(temporada_id=temporada_id, fecha__gte=d7).exists()
+    emp_7d = ClasificacionEmpaque.objects.filter(
+        temporada_id=temporada_id,
+        is_active=True,
+        fecha__gte=d7,
+    ).exists()
     if not emp_7d:
         alerts.append({
             "code": "SIN_INVENTARIO_7D",

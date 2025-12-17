@@ -10,11 +10,11 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.cache import never_cache
 from django.utils.translation import gettext_lazy as _
 from rest_framework import status
-from django.core.exceptions import ValidationError as DjangoValidationError
+from django.core.exceptions import ValidationError as DjangoValidationError, ObjectDoesNotExist, FieldError
 from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.views import APIView
 from django.db.models import Q
-from django.db import transaction
+from django.db import transaction, IntegrityError
 
 from agroproductores_risol.utils.pagination import GenericPagination
 from gestion_bodega.models import Bodega, TemporadaBodega, CierreSemanal
@@ -34,7 +34,6 @@ from gestion_bodega.utils.kpis import (
     queue_recepciones_qs,
 )
 from gestion_bodega.utils.notification_handler import NotificationHandler
-from gestion_bodega.utils.semana import rango_por_semana_id
 from gestion_bodega.utils.activity import registrar_actividad
 
 logger = logging.getLogger(__name__)
@@ -241,11 +240,23 @@ def _resolve_range(
     semana_id = _to_int(request.query_params.get("semana_id"))
     if semana_id:
         try:
-            d1, d2, _ = rango_por_semana_id(semana_id)
-            return d1.isoformat(), d2.isoformat(), _current_or_last_week_ctx(
+            qs = CierreSemanal.objects.filter(
+                id=semana_id,
+                temporada_id=temporada_id,
+                is_active=True,
+            )
+            if bodega_id:
+                qs = qs.filter(bodega_id=bodega_id)
+
+            week = qs.get()
+            start = week.fecha_desde
+            end = week.fecha_hasta or (start + timedelta(days=6))
+            return start.isoformat(), end.isoformat(), _current_or_last_week_ctx(
                 bodega_id,
                 temporada_id,
             )
+        except ObjectDoesNotExist:
+            logger.info("semana_id no corresponde a este contexto")
         except Exception as e:
             logger.info("semana_id inválido: %s", e)
 
@@ -487,7 +498,14 @@ class TableroBodegaQueuesView(BaseDashboardAPIView):
                 )
 
             if ordering:
-                base_qs = base_qs.order_by(*ordering)
+                try:
+                    base_qs = base_qs.order_by(*ordering)
+                except FieldError as fe:
+                    return NotificationHandler.generate_response(
+                        "validation_error",
+                        data={"detail": f"ordering_not_supported:{str(fe)}"},
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                    )
 
             paginator = GenericPagination()
             page_qs = paginator.paginate_queryset(base_qs, request, view=self)
@@ -546,6 +564,20 @@ class TableroBodegaAlertsView(BaseDashboardAPIView):
             bodega_id = int(bodega_raw)
             if temporada_id <= 0 or bodega_id <= 0:
                 raise DjangoValidationError("IDs inválidos para temporada/bodega")
+
+            try:
+                TemporadaBodega.objects.get(
+                    id=temporada_id,
+                    bodega_id=bodega_id,
+                    is_active=True,
+                    finalizada=False,
+                )
+            except TemporadaBodega.DoesNotExist:
+                return NotificationHandler.generate_response(
+                    "validation_error",
+                    data={"detail": "Temporada inválida o no activa para esta bodega."},
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
 
             alerts = build_alerts(
                 temporada_id=temporada_id,
@@ -756,6 +788,12 @@ class TableroBodegaWeekStartView(BaseWeekAPIView):
                 "validation_error",
                 data={"errors": getattr(e, "message_dict", None) or {"detail": str(e)}},
                 status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        except IntegrityError:
+            return NotificationHandler.generate_response(
+                "validation_error",
+                data={"detail": "Ya existe una semana abierta para esta bodega y temporada."},
+                status_code=status.HTTP_409_CONFLICT,
             )
         except Exception as e:
             logger.exception("Error al iniciar semana: %s", e)
@@ -983,6 +1021,9 @@ class TableroBodegaWeeksNavView(BaseDashboardAPIView):
             "has_next": idx < (total - 1),
             "inicio": inicio,
             "fin": fin,
+            "actual_id": cur.get("id"),
+            "prev_id": semanas[idx - 1].get("id") if idx > 0 else None,
+            "next_id": semanas[idx + 1].get("id") if idx < (total - 1) else None,
             "indice": idx + 1,  # 1-based
             "context": _context_payload(temporada_id, bodega_id),
             "items": items,

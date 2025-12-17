@@ -510,20 +510,28 @@ const TableroBodegaPage: React.FC = () => {
 
   useEffect(() => {
     capSetSemana(selectedWeekId);
-    if (!selectedWeekId || !capCanOperate) return;
+    if (!capCanOperate) return;
+
+    // Si no hay semanas publicadas en backend, cargamos sin filtro de semana.
+    if (!hasWeeks) {
+      capRefetch();
+      return;
+    }
+
+    if (!selectedWeekId) return;
     if (lastSemanaRef.current === selectedWeekId) return;
     lastSemanaRef.current = selectedWeekId;
     capRefetch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedWeekId, capCanOperate, capSetSemana, capRefetch]);
+  }, [selectedWeekId, capCanOperate, capSetSemana, capRefetch, hasWeeks]);
 
   // Botonera / banner en base a capacidad + semana activa robusta
-  const recepDisabled = !capCanOperate ? true : !(isActiveSelectedWeek || hasActiveWeek);
+  const recepDisabled = !capCanOperate ? true : (hasWeeks ? !isActiveSelectedWeek : false);
   const recepReason = !capCanOperate
     ? capReasonDisabled || "Selecciona bodega y temporada."
-    : (isActiveSelectedWeek || hasActiveWeek)
-    ? undefined
-    : "Semana cerrada o fuera de rango para hoy.";
+    : (hasWeeks && !isActiveSelectedWeek)
+    ? "Semana cerrada o no iniciada."
+    : undefined;
 
   const onPageCapturas = useCallback(
     (n: number) => {
@@ -979,16 +987,24 @@ const TableroBodegaPage: React.FC = () => {
                   blockReason={recepReason}
                   busy={!!capSaving}
                   onCreate={async (payload: any) => {
-                    await capCreate(payload);
-                    await capRefetch();
-                    setOpenRecepcionModal(false);
-                    setEditingRecepcion(null);
+                    try {
+                      await capCreate(payload);
+                      await capRefetch();
+                      setOpenRecepcionModal(false);
+                      setEditingRecepcion(null);
+                    } catch {
+                      // toast ya mostrado por servicio; mantenemos modal abierto
+                    }
                   }}
                   onUpdate={async (id: number, payload: any) => {
-                    await capUpdate(id, payload);
-                    await capRefetch();
-                    setOpenRecepcionModal(false);
-                    setEditingRecepcion(null);
+                    try {
+                      await capUpdate(id, payload);
+                      await capRefetch();
+                      setOpenRecepcionModal(false);
+                      setEditingRecepcion(null);
+                    } catch {
+                      // toast ya mostrado por servicio; mantenemos modal abierto
+                    }
                   }}
                 />
 

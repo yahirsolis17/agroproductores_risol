@@ -85,36 +85,54 @@ class NotificationMixin:
         }
 
 
-def _msg_in(errors_dict, text_substring: str) -> bool:
-    """Busca un substring en cualquier mensaje del dict de errores de DRF."""
-    for _, msgs in (errors_dict or {}).items():
-        if isinstance(msgs, (list, tuple)):
-            for m in msgs:
-                if text_substring.lower() in str(m).lower():
+def _msg_in(errors, text_substring: str) -> bool:
+    """
+    Busca un substring en mensajes de error (dict/list/str) de DRF.
+    Evita 500 cuando el serializer devuelve lista o string plano.
+    """
+    target = text_substring.lower()
+    if errors is None:
+        return False
+
+    if isinstance(errors, (list, tuple)):
+        return any(target in str(m).lower() for m in errors)
+
+    if isinstance(errors, str):
+        return target in errors.lower()
+
+    if isinstance(errors, dict):
+        for msgs in errors.values():
+            if isinstance(msgs, (list, tuple)):
+                if any(target in str(m).lower() for m in msgs):
                     return True
-        elif isinstance(msgs, str) and text_substring.lower() in msgs.lower():
-            return True
-    return False
+            else:
+                if target in str(msgs).lower():
+                    return True
+
+    return target in str(errors).lower()
 
 
-def _map_recepcion_validation_errors(errors: dict) -> tuple[str, dict]:
+def _map_recepcion_validation_errors(errors) -> tuple[str, dict, int]:
     """
-    Traduce errores de validación del serializer a message_keys
-    coherentes con el frontend.
+    Traduce errores de validaci?n del serializer a message_keys
+    coherentes con el frontend y status HTTP adecuado.
     """
+    if _msg_in(errors, "semana est") and _msg_in(errors, "cerrad"):
+        return "recepcion_semana_cerrada", {"errors": errors}, status.HTTP_409_CONFLICT
     if _msg_in(errors, "La temporada debe estar activa y no finalizada"):
-        return "recepcion_temporada_invalida", {"errors": errors}
+        return "recepcion_temporada_invalida", {"errors": errors}, status.HTTP_400_BAD_REQUEST
     if _msg_in(errors, "cantidad de cajas") or _msg_in(errors, "debe ser positiva"):
-        return "recepcion_cantidad_invalida", {"errors": errors}
+        return "recepcion_cantidad_invalida", {"errors": errors}, status.HTTP_400_BAD_REQUEST
     if (
         _msg_in(errors, "semana activa")
         or _msg_in(errors, "no pertenece a esta bodega y temporada")
         or _msg_in(errors, "dentro del rango de la semana")
         or _msg_in(errors, "semana cerrada")
     ):
-        return "recepcion_semana_invalida", {"errors": errors}
-    return "validation_error", {"errors": errors}
-
+        return "recepcion_semana_invalida", {"errors": errors}, status.HTTP_400_BAD_REQUEST
+    if _msg_in(errors, "No existe una semana") or _msg_in(errors, "Inicia una semana"):
+        return "recepcion_semana_invalida", {"errors": errors}, status.HTTP_400_BAD_REQUEST
+    return "validation_error", {"errors": errors}, status.HTTP_400_BAD_REQUEST
 
 def _resolve_semana_for_fecha(bodega: Bodega, temporada: TemporadaBodega, fecha: date):
     """
@@ -218,10 +236,17 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         page = self.paginate_queryset(qs)
         if page is not None:
             ser = self.get_serializer(page, many=True)
+            meta = self.get_pagination_meta()
         else:
             ser = self.get_serializer(qs, many=True)
-
-        meta = self.get_pagination_meta()
+            meta = {
+                "count": len(ser.data),
+                "next": None,
+                "previous": None,
+                "page": 1,
+                "page_size": len(ser.data),
+                "total_pages": 1,
+            }
         payload = {
             "recepciones": ser.data,  # alias específico
             "results": ser.data,      # alias genérico para TableLayout
@@ -238,24 +263,24 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         data = request.data.copy()
 
         # Normalización de payload desde el FE (alias comunes)
-        if "bodega" in data and "bodega_id" not in data:
-            data["bodega_id"] = data.get("bodega")
-        if "temporada" in data and "temporada_id" not in data:
-            data["temporada_id"] = data.get("temporada")
-        if "cantidad_cajas" in data and "cajas_campo" not in data:
-            data["cajas_campo"] = data.get("cantidad_cajas")
+        if "bodega_id" in data and "bodega" not in data:
+            data["bodega"] = data.get("bodega_id")
+        if "temporada_id" in data and "temporada" not in data:
+            data["temporada"] = data.get("temporada_id")
+        if "cajas_campo" in data and "cantidad_cajas" not in data:
+            data["cantidad_cajas"] = data.get("cajas_campo")
 
         ser = self.get_serializer(data=data)
         try:
             ser.is_valid(raise_exception=True)
         except serializers.ValidationError as ex:
-            key, payload = _map_recepcion_validation_errors(
+            key, payload, sc = _map_recepcion_validation_errors(
                 getattr(ex, "detail", ser.errors)
             )
             return self.notify(
                 key=key,
                 data=payload,
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=sc,
             )
 
         temporada: TemporadaBodega = ser.validated_data["temporada"]
@@ -289,20 +314,14 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         try:
             with transaction.atomic():
                 obj: Recepcion = ser.save()
-
-                # Resolver y amarrar semana según la fecha
-                semana = _resolve_semana_for_fecha(bodega, temporada, f)
-                if semana != obj.semana:
-                    obj.semana = semana
-                    obj.save(update_fields=["semana", "actualizado_en"])
         except DjangoValidationError as ex:
             errors = getattr(ex, "message_dict", {"non_field_errors": ex.messages})
 
-            key, payload = _map_recepcion_validation_errors(errors)
+            key, payload, sc = _map_recepcion_validation_errors(errors)
             return self.notify(
                 key=key,
                 data=payload,
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=sc,
             )
 
         registrar_actividad(
@@ -324,31 +343,31 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         if not instance.is_active:
             return self.notify(
                 key="registro_archivado_no_editar",
-                data={"info": "No puedes editar una recepción archivada."},
+                data={"info": "No puedes editar una recepci?n archivada."},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
         data = request.data.copy()
 
-        # Normalización de payload desde el FE
-        if "bodega" in data and "bodega_id" not in data:
-            data["bodega_id"] = data.get("bodega")
-        if "temporada" in data and "temporada_id" not in data:
-            data["temporada_id"] = data.get("temporada")
-        if "cantidad_cajas" in data and "cajas_campo" not in data:
-            data["cajas_campo"] = data.get("cantidad_cajas")
+        # Normalizaci?n de payload desde el FE
+        if "bodega_id" in data and "bodega" not in data:
+            data["bodega"] = data.get("bodega_id")
+        if "temporada_id" in data and "temporada" not in data:
+            data["temporada"] = data.get("temporada_id")
+        if "cajas_campo" in data and "cantidad_cajas" not in data:
+            data["cantidad_cajas"] = data.get("cajas_campo")
 
         ser = self.get_serializer(instance, data=data, partial=partial)
         try:
             ser.is_valid(raise_exception=True)
         except serializers.ValidationError as ex:
-            key, payload = _map_recepcion_validation_errors(
+            key, payload, sc = _map_recepcion_validation_errors(
                 getattr(ex, "detail", ser.errors)
             )
             return self.notify(
                 key=key,
                 data=payload,
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=sc,
             )
 
         temporada: TemporadaBodega = ser.validated_data.get(
@@ -362,7 +381,7 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
             return self.notify(
                 key="recepcion_bodega_temporada_incongruente",
                 data={
-                    "info": "La bodega de la recepción debe coincidir con la bodega de la temporada."
+                    "info": "La bodega de la recepci?n debe coincidir con la bodega de la temporada."
                 },
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
@@ -386,23 +405,17 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         try:
             with transaction.atomic():
                 obj: Recepcion = ser.save()
-
-                # Recalcular semana si cambió fecha/bodega/temporada
-                semana = _resolve_semana_for_fecha(bodega, temporada, f)
-                if semana != obj.semana:
-                    obj.semana = semana
-                    obj.save(update_fields=["semana", "actualizado_en"])
         except DjangoValidationError as ex:
             errors = getattr(ex, "message_dict", {"non_field_errors": ex.messages})
 
-            key, payload = _map_recepcion_validation_errors(errors)
+            key, payload, sc = _map_recepcion_validation_errors(errors)
             return self.notify(
                 key=key,
                 data=payload,
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=sc,
             )
 
-        registrar_actividad(request.user, f"Actualizó recepción #{obj.id}")
+        registrar_actividad(request.user, f"Actualiz? recepci?n #{obj.id}")
         return self.notify(
             key="recepcion_update_success",
             data={"recepcion": self.get_serializer(obj).data},

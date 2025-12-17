@@ -1,6 +1,7 @@
 // frontend/src/modules/gestion_bodega/services/tableroBodegaService.ts
 
 import apiClient from "../../../global/api/apiClient";
+import { handleBackendNotification } from "../../../global/utils/NotificationEngine";
 import type {
   DashboardSummaryResponse,
   DashboardQueueResponse,
@@ -14,31 +15,67 @@ import type {
 } from "../types/tableroBodegaTypes";
 
 /**
- * Enforce backend envelope and throw on !success.
- * Backend schema esperado:
- * { success: boolean, message: string, message_key: string, data: T }
- * (Soporta fallback legacy con { notification: { message, key } })
+ * Backend real (NotificationHandler):
+ * {
+ *   success: boolean,
+ *   notification: { key, message, type, action?, target? },
+ *   data: T,
+ *   ...extra_data
+ * }
+ *
+ * Soporta fallback legacy:
+ * - { message, message_key, data }
+ * - DRF puro: { results, count, next, previous } (sin success)
  */
-function ensureSuccess<T>(resp: any): T {
-  const { success, data, message, message_key, notification } = resp || {};
+function unwrapEnvelope<T>(payload: any): T {
+  const root = payload ?? {};
+
+  // ⚠️ Notificación centralizada (si tu engine decide “silenciar” GET, perfecto)
+  handleBackendNotification(root);
+
+  const hasSuccess = typeof root?.success === "boolean";
+  const success = hasSuccess ? Boolean(root.success) : true;
+
   if (!success) {
-    const msg = message || notification?.message || "Operación no exitosa";
-    const error = new Error(msg);
-    (error as any).message_key = message_key || notification?.key;
-    (error as any).payload = resp;
-    throw error;
+    const msg =
+      root?.notification?.message ||
+      root?.message ||
+      root?.detail ||
+      "Operación no exitosa";
+
+    const err = new Error(msg);
+    (err as any).message_key = root?.notification?.key || root?.message_key;
+    (err as any).payload = root;
+    throw err;
   }
-  return data as T;
+
+  // NotificationHandler: root.data
+  // DRF puro: root (no tiene .data)
+  return (root?.data ?? root) as T;
+}
+
+function pickMsg(...values: any[]) {
+  for (const v of values) {
+    if (typeof v === "string" && v.trim()) return v;
+  }
+  return null;
+}
+
+function fieldErr(payload: any, field: string) {
+  return (
+    payload?.errors?.[field]?.[0] ||
+    payload?.data?.errors?.[field]?.[0] ||
+    null
+  );
 }
 
 /**
  * Mapea filtros de UI a DTO de querystring (cliente → API).
- * Acepta también isoSemana (FE) → iso_semana (API), y bodegaId → bodega (API).
+ * Fuente de verdad: semana_id (CierreSemanal). Sin ISO en cliente.
  */
 function toQueryParams(
   temporadaId: number,
   filters?: Partial<TableroFiltersDTO> & {
-    isoSemana?: string | null;
     bodegaId?: number | null;
     semanaId?: number | null;
   }
@@ -59,11 +96,11 @@ function toQueryParams(
     order_by,
   } = filters;
 
-  const isoSemana = filters.isoSemana;
-  const bodegaId = filters.bodegaId;
+  const bodegaId = filters.bodegaId ?? null;
   const semanaId = (filters as any).semanaId ?? null;
 
   if (bodegaId != null) params.bodega = bodegaId;
+
   if (huerta_id != null) params.huerta_id = huerta_id;
   if (fecha_desde) params.fecha_desde = fecha_desde; // yyyy-mm-dd
   if (fecha_hasta) params.fecha_hasta = fecha_hasta;
@@ -75,15 +112,8 @@ function toQueryParams(
   if (page_size != null) params.page_size = page_size;
   if (order_by) params.order_by = order_by;
 
-  // ⚠️ Nunca mandamos iso_semana cuando es una semana MANUAL
-  if (isoSemana && isoSemana !== "MANUAL") {
-    params.iso_semana = isoSemana;
-  }
-
-  // Prioridad backend: semana_id > rango explícito > iso_semana > semana activa
-  if (semanaId != null) {
-    params.semana_id = semanaId;
-  }
+  // Prioridad backend: semana_id > rango explícito > semana activa
+  if (semanaId != null) params.semana_id = semanaId;
 
   return params;
 }
@@ -95,14 +125,13 @@ const BASE = "/bodega/tablero";
 export async function getDashboardSummary(
   temporadaId: number,
   filters?: Partial<TableroFiltersDTO> & {
-    isoSemana?: string | null;
     bodegaId?: number | null;
     semanaId?: number | null;
   }
 ): Promise<DashboardSummaryResponse> {
   const params = toQueryParams(temporadaId, filters);
   const resp = await apiClient.get(`${BASE}/summary/`, { params });
-  return ensureSuccess<DashboardSummaryResponse>(resp.data);
+  return unwrapEnvelope<DashboardSummaryResponse>(resp.data);
 }
 
 /** QUEUES */
@@ -110,14 +139,13 @@ export async function getDashboardQueues(
   temporadaId: number,
   type: QueueType,
   filters?: Partial<TableroFiltersDTO> & {
-    isoSemana?: string | null;
     bodegaId?: number | null;
     semanaId?: number | null;
   }
 ): Promise<DashboardQueueResponse> {
   const params = { ...toQueryParams(temporadaId, filters), type };
   const resp = await apiClient.get(`${BASE}/queues/`, { params });
-  return ensureSuccess<DashboardQueueResponse>(resp.data);
+  return unwrapEnvelope<DashboardQueueResponse>(resp.data);
 }
 
 /** ALERTS */
@@ -125,9 +153,11 @@ export async function getDashboardAlerts(
   temporadaId: number,
   filters?: { bodegaId?: number | null }
 ): Promise<DashboardAlertResponse> {
-  const params = toQueryParams(temporadaId, { bodegaId: filters?.bodegaId ?? null });
+  const params = toQueryParams(temporadaId, {
+    bodegaId: filters?.bodegaId ?? null,
+  });
   const resp = await apiClient.get(`${BASE}/alerts/`, { params });
-  return ensureSuccess<DashboardAlertResponse>(resp.data);
+  return unwrapEnvelope<DashboardAlertResponse>(resp.data);
 }
 
 /** WEEK: estado actual (activa/última) */
@@ -138,30 +168,34 @@ export async function getWeekCurrent(
   const resp = await apiClient.get(`${BASE}/week/current/`, {
     params: { temporada: temporadaId, bodega: bodegaId },
   });
-  return ensureSuccess<WeekCurrentResponse>(resp.data);
+  return unwrapEnvelope<WeekCurrentResponse>(resp.data);
 }
 
 /** WEEK: iniciar */
 export async function startWeek(body: WeekStartRequest): Promise<WeekCurrentResponse> {
   try {
     const resp = await apiClient.post(`${BASE}/week/start/`, body);
-    return ensureSuccess<WeekCurrentResponse>(resp.data);
+    return unwrapEnvelope<WeekCurrentResponse>(resp.data);
   } catch (err: any) {
-    // Soportar tanto errores HTTP (err.response.data) como errores de ensureSuccess (err.payload)
-    const data = err?.response?.data ?? err?.payload;
+    const data = err?.response?.data ?? err?.payload ?? null;
+
+    // ✅ Notificación backend en error
+    handleBackendNotification(data);
+
     const msg =
-      data?.errors?.fecha_desde?.[0] ||
-      data?.errors?.detail ||
-      data?.detail ||
-      data?.message ||
-      data?.notification?.message ||
-      err?.message ||
-      "No se pudo iniciar la semana.";
+      pickMsg(
+        fieldErr(data, "fecha_desde"),
+        data?.errors?.detail,
+        data?.data?.errors?.detail,
+        data?.detail,
+        data?.message,
+        data?.notification?.message,
+        err?.message
+      ) || "No se pudo iniciar la semana.";
+
     const e = new Error(msg);
     (e as any).payload = data;
-    if (data?.message_key || err?.message_key) {
-      (e as any).message_key = data?.message_key ?? err?.message_key;
-    }
+    (e as any).message_key = data?.notification?.key || data?.message_key || err?.message_key;
     throw e;
   }
 }
@@ -170,36 +204,40 @@ export async function startWeek(body: WeekStartRequest): Promise<WeekCurrentResp
 export async function finishWeek(body: WeekFinishRequest): Promise<WeekCurrentResponse> {
   try {
     const resp = await apiClient.post(`${BASE}/week/finish/`, body);
-    return ensureSuccess<WeekCurrentResponse>(resp.data);
+    return unwrapEnvelope<WeekCurrentResponse>(resp.data);
   } catch (err: any) {
-    const data = err?.response?.data ?? err?.payload;
+    const data = err?.response?.data ?? err?.payload ?? null;
+
+    // ✅ Notificación backend en error
+    handleBackendNotification(data);
+
     const msg =
-      data?.errors?.fecha_hasta?.[0] ||
-      data?.errors?.detail ||
-      data?.detail ||
-      data?.message ||
-      data?.notification?.message ||
-      err?.message ||
-      "No se pudo finalizar la semana.";
+      pickMsg(
+        fieldErr(data, "fecha_hasta"),
+        data?.errors?.detail,
+        data?.data?.errors?.detail,
+        data?.detail,
+        data?.message,
+        data?.notification?.message,
+        err?.message
+      ) || "No se pudo finalizar la semana.";
+
     const e = new Error(msg);
     (e as any).payload = data;
-    if (data?.message_key || err?.message_key) {
-      (e as any).message_key = data?.message_key ?? err?.message_key;
-    }
+    (e as any).message_key = data?.notification?.key || data?.message_key || err?.message_key;
     throw e;
   }
 }
 
 /**
  * WEEKS NAV (barra sticky de semanas: prev/next/total/actual)
- * Endpoint: GET /bodega/tablero/semanas/?bodega=:id&temporada=:id&iso_semana=YYYY-Www
+ * Endpoint: GET /bodega/tablero/semanas/?bodega=:id&temporada=:id
  */
 export async function getWeeksNav(
   temporadaId: number,
-  bodegaId: number,
-  opts?: { isoSemana?: string | null }
+  bodegaId: number
 ): Promise<WeeksNavResponse> {
-  const params = toQueryParams(temporadaId, { bodegaId, isoSemana: opts?.isoSemana ?? null });
+  const params = toQueryParams(temporadaId, { bodegaId });
   const resp = await apiClient.get(`${BASE}/semanas/`, { params });
-  return ensureSuccess<WeeksNavResponse>(resp.data);
+  return unwrapEnvelope<WeeksNavResponse>(resp.data);
 }

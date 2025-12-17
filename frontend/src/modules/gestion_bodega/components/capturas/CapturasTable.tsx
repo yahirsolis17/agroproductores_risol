@@ -44,6 +44,11 @@ export default function CapturasTable({
   onClassify,
 }: Props) {
   const data: Captura[] = items ?? rows ?? [];
+
+  const page = meta.page ?? 1;
+  const pageSize = meta.page_size ?? 10;
+  const total = meta.count ?? 0;
+
   const columns: Column<Captura>[] = useMemo(
     () => [
       {
@@ -85,9 +90,9 @@ export default function CapturasTable({
     <>
       <TableLayout<Captura>
         data={data}
-        page={meta.page ?? 1}
-        pageSize={meta.page_size ?? 10}
-        count={meta.count ?? 0}
+        page={page}
+        pageSize={pageSize}
+        count={total}
         onPageChange={onPageChange}
         columns={columns}
         loading={loading}
@@ -98,25 +103,36 @@ export default function CapturasTable({
         rowKey={(row) => row.id}
         renderActions={(row) => {
           const isArchived = !row.is_active;
-          const permEdit = 'change_recepcion';
-          const permDelete = 'delete_recepcion';
-          const permArch = 'archive_recepcion';
-          const permRest = 'restore_recepcion';
+          const permEdit = "change_recepcion";
+          const permDelete = "delete_recepcion";
+          const permArch = "archive_recepcion";
+          const permRest = "restore_recepcion";
           const permArchiveOrRestore = isArchived ? permRest : permArch;
 
           return (
-            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 1,
+                width: "100%",
+              }}
+            >
               <ActionsMenu
                 isArchived={isArchived}
                 onEdit={(!blocked && !isArchived && onEdit) ? () => onEdit(row) : undefined}
-                onArchiveOrRestore={!blocked && (onArchive || onRestore)
-                  ? () => (isArchived ? onRestore?.(row) : onArchive?.(row))
-                  : undefined}
+                onArchiveOrRestore={
+                  !blocked && (onArchive || onRestore)
+                    ? () => (isArchived ? onRestore?.(row) : onArchive?.(row))
+                    : undefined
+                }
                 onDelete={isArchived && onDelete ? () => onDelete(row) : undefined}
                 permEdit={permEdit}
                 permArchiveOrRestore={permArchiveOrRestore}
                 permDelete={permDelete}
               />
+
               {!!onClassify && row.is_active && (
                 <Button size="small" variant="text" onClick={() => onClassify(row)}>
                   Clasificar
@@ -127,16 +143,11 @@ export default function CapturasTable({
         }}
       />
 
-      <Box display="flex" gap={3} justifyContent="flex-end" mt={2} sx={{ color: 'text.secondary', fontSize: 13 }}>
-        <span>Total recepciones: {data.length}</span>
+      <Box display="flex" gap={3} justifyContent="flex-end" mt={2} sx={{ color: "text.secondary", fontSize: 13 }}>
+        <span>Total recepciones: {total}</span>
+        <span>Recepciones en esta página: {data.length}</span>
         <span>
-          Total cajas: {data.reduce((acc, it) => acc + (Number(it.cantidad_cajas) || 0), 0)}
-        </span>
-        <span>
-          Prom. cajas/día: {(() => {
-            const total = data.reduce((acc, it) => acc + (Number(it.cantidad_cajas) || 0), 0);
-            return (total / 7).toFixed(1);
-          })()}
+          Cajas (página): {data.reduce((acc, it) => acc + (Number(it.cantidad_cajas) || 0), 0)}
         </span>
       </Box>
     </>

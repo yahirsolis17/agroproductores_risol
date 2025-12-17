@@ -343,12 +343,7 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
 
     // 1) Si la URL apunta a una semana válida
     if (urlWeekId && items.some((it: any) => it.id === urlWeekId)) {
-      const fromUrl = items.find((it: any) => it.id === urlWeekId) || null;
-      // Si la de la URL está cerrada pero existe una abierta, priorizamos la abierta
-      if (fromUrl && !fromUrl.activa && openWeek) {
-        return openWeek;
-      }
-      return fromUrl;
+      return items.find((it: any) => it.id === urlWeekId) || null;
     }
 
     // 2) Si no hay URL o no coincide, priorizamos la abierta
@@ -714,7 +709,8 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
     recepcionesQ.refetch();
     inventariosQ.refetch();
     logisticaQ.refetch();
-  }, [dispatch, summaryQ, alertsQ, queueQ, recepcionesQ, inventariosQ, logisticaQ]);
+    weeksNavQ.refetch();
+  }, [dispatch, summaryQ, alertsQ, queueQ, recepcionesQ, inventariosQ, logisticaQ, weeksNavQ]);
 
   const dashboardHref = useMemo(
     () =>

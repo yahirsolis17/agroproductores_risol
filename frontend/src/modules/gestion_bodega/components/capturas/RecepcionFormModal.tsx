@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Stack from "@mui/material/Stack";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
@@ -10,42 +10,21 @@ import Alert from "@mui/material/Alert";
 import AlertTitle from "@mui/material/AlertTitle";
 import { Save, Add } from "@mui/icons-material";
 
-import {
-  formatDateISO,
-  parseLocalDateStrict,
-} from "../../../../global/utils/date";
+import { formatDateISO, parseLocalDateStrict } from "../../../../global/utils/date";
 
-import type {
-  Captura,
-  CapturaCreateDTO,
-  CapturaUpdateDTO,
-} from "../../types/capturasTypes";
+import type { Captura, CapturaCreateDTO, CapturaUpdateDTO } from "../../types/capturasTypes";
 
-/**
- * Modal de creación/edición de Recepciones (Capturas).
- * Pensado para integrarse con la lógica semanal del Tablero.
- */
 type Props = {
   open: boolean;
   onClose: () => void;
-
-  /** Si viene `initial` => modo edición */
   initial?: Captura | null;
-
-  /** Contexto obligatorio en creación; en edición se toma de `initial` */
   bodegaId?: number;
   temporadaId?: number;
-
-  /** Callbacks CRUD */
   onCreate: (payload: CapturaCreateDTO) => Promise<any> | void;
   onUpdate: (id: number, payload: CapturaUpdateDTO) => Promise<any> | void;
-
-  /** Integración con semanas/temporadas (opcional) */
-  blocked?: boolean; // ejemplo: semana cerrada / temporada finalizada
-  blockReason?: string; // texto para alerta
-  weekRange?: { from?: string; to?: string }; // rango visible (para hints)
-
-  /** Deshabilitar submit mientras guardas desde arriba (slice/hook) */
+  blocked?: boolean;
+  blockReason?: string;
+  weekRange?: { from?: string; to?: string };
   busy?: boolean;
 };
 
@@ -64,48 +43,47 @@ export default function RecepcionFormModal({
 }: Props) {
   const isEdit = !!initial;
 
-  // -----------------------------
-  // Estado local
-  // -----------------------------
-  const [fecha, setFecha] = useState<string>(() =>
-    initial?.fecha ? initial.fecha : formatDateISO(new Date())
-  );
+  const [fecha, setFecha] = useState<string>(() => (initial?.fecha ? initial.fecha : formatDateISO(new Date())));
   const [huertero, setHuertero] = useState<string>(initial?.huertero_nombre ?? "");
   const [tipo, setTipo] = useState<string>(initial?.tipo_mango ?? "");
-  const [cajas, setCajas] = useState<number>(initial?.cantidad_cajas ?? 1);
+  const [cajasInput, setCajasInput] = useState<string>(() =>
+    initial?.cantidad_cajas != null ? String(initial.cantidad_cajas) : ""
+  );
   const [obs, setObs] = useState<string>(initial?.observaciones ?? "");
 
-  // Reset controlado en open / initial
+  const [touchedTipo, setTouchedTipo] = useState(false);
+  const [touchedCajas, setTouchedCajas] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
   useEffect(() => {
     if (!open) return;
+    setTouchedTipo(false);
+    setTouchedCajas(false);
+    setSubmitted(false);
+
     if (initial) {
       setFecha(initial.fecha);
       setHuertero(initial.huertero_nombre ?? "");
       setTipo(initial.tipo_mango ?? "");
-      setCajas(initial.cantidad_cajas ?? 1);
+      setCajasInput(initial.cantidad_cajas != null ? String(initial.cantidad_cajas) : "");
       setObs(initial.observaciones ?? "");
     } else {
       setFecha(formatDateISO(new Date()));
       setHuertero("");
       setTipo("");
-      setCajas(1);
+      setCajasInput("");
       setObs("");
     }
   }, [open, initial]);
 
-  // -----------------------------
-  // Validaciones
-  // -----------------------------
   const parsedDate = useMemo(() => parseLocalDateStrict(fecha), [fecha]);
   const fechaValida = useMemo(() => !isNaN(parsedDate.getTime()), [parsedDate]);
 
-  // Validación por rango semanal (si se provee)
   const outOfWeekRange = useMemo(() => {
     if (!weekRange?.from || !weekRange?.to || !fechaValida) return false;
     const from = parseLocalDateStrict(weekRange.from);
     const to = parseLocalDateStrict(weekRange.to);
     const d = new Date(parsedDate.getTime());
-    // normalizamos a 00:00 para comparar solo fechas
     from.setHours(0, 0, 0, 0);
     to.setHours(0, 0, 0, 0);
     d.setHours(0, 0, 0, 0);
@@ -124,41 +102,39 @@ export default function RecepcionFormModal({
   }, [parsedDate, fechaValida]);
 
   const tipoValido = useMemo(() => typeof tipo === "string" && tipo.trim().length > 0, [tipo]);
-  const cajasValidas = useMemo(() => Number.isFinite(cajas) && cajas > 0, [cajas]);
 
-  const creationHasContext = useMemo(
-    () => !!bodegaId && !!temporadaId,
-    [bodegaId, temporadaId]
-  );
+  const cajasParsed = useMemo(() => {
+    const raw = (cajasInput ?? "").trim();
+    if (raw === "") return null;
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return null;
+    return Math.trunc(n);
+  }, [cajasInput]);
+
+  const cajasValidas = useMemo(() => cajasParsed != null && cajasParsed > 0, [cajasParsed]);
+
+  const creationHasContext = useMemo(() => !!bodegaId && !!temporadaId, [bodegaId, temporadaId]);
 
   const disabledSubmit = useMemo(() => {
     if (blocked || busy) return true;
-    if (!fechaValida || !tipoValido || !cajasValidas) return true;
+    if (!fechaValida || outOfWeekRange) return true;
+    if (!tipoValido || !cajasValidas) return true;
     if (!isEdit && !creationHasContext) return true;
-    if (outOfWeekRange) return true;
+    if (!isTodayOrYesterday) return true;
     return false;
-  }, [
-    blocked,
-    busy,
-    fechaValida,
-    tipoValido,
-    cajasValidas,
-    isEdit,
-    creationHasContext,
-    outOfWeekRange,
-  ]);
+  }, [blocked, busy, fechaValida, outOfWeekRange, tipoValido, cajasValidas, isEdit, creationHasContext, isTodayOrYesterday]);
 
-  // -----------------------------
-  // Submit
-  // -----------------------------
   const handleSubmit = async () => {
+    setSubmitted(true);
+    if (disabledSubmit) return;
+
     const payloadBase = {
       bodega: initial?.bodega ?? (bodegaId as number),
       temporada: initial?.temporada ?? (temporadaId as number),
       fecha,
       huertero_nombre: huertero,
       tipo_mango: tipo.trim(),
-      cantidad_cajas: cajas,
+      cantidad_cajas: cajasParsed as number,
       observaciones: obs?.trim() ? obs.trim() : "",
     };
 
@@ -172,25 +148,23 @@ export default function RecepcionFormModal({
       }
       onClose();
     } catch {
-      // Se asume que el servicio ya muestra notificación; mantenemos el modal abierto.
+      // Notificación ya mostrada por el servicio; mantener modal abierto.
     }
   };
 
-  // -----------------------------
-  // UI
-  // -----------------------------
   const fechaHelperText = useMemo(() => {
     if (!fechaValida) return "Fecha inválida.";
     if (outOfWeekRange && weekRange?.from && weekRange?.to) {
       const f = parseLocalDateStrict(weekRange.from).toLocaleDateString();
       const t = parseLocalDateStrict(weekRange.to).toLocaleDateString();
-      return `Fuera del rango de la semana (${f} – ${t}).`;
+      return `Fuera del rango de la semana (${f} - ${t}).`;
     }
-    if (!isTodayOrYesterday) {
-      return "El sistema solo acepta capturas para HOY o AYER; otras fechas serán rechazadas por el backend.";
-    }
-    return "";
+    if (!isTodayOrYesterday) return "El sistema solo acepta capturas para HOY o AYER.";
+    return "Solo HOY o AYER según reglas del backend.";
   }, [fechaValida, outOfWeekRange, weekRange?.from, weekRange?.to, isTodayOrYesterday]);
+
+  const tipoError = (!tipoValido && (touchedTipo || submitted)) || false;
+  const cajasError = (!cajasValidas && (touchedCajas || submitted)) || false;
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm" aria-labelledby="recepcion-form-title">
@@ -199,7 +173,6 @@ export default function RecepcionFormModal({
       </DialogTitle>
 
       <DialogContent dividers>
-        {/* Banner de bloqueo contextual */}
         {blocked && (
           <Alert severity="warning" variant="outlined" sx={{ mb: 2, borderRadius: 2 }}>
             <AlertTitle>Operación bloqueada</AlertTitle>
@@ -215,8 +188,8 @@ export default function RecepcionFormModal({
             InputLabelProps={{ shrink: true }}
             value={fecha}
             onChange={(e) => setFecha(e.target.value)}
-            error={!fechaValida || outOfWeekRange}
-            helperText={fechaHelperText || "Solo HOY o AYER según reglas del backend."}
+            error={!fechaValida || outOfWeekRange || !isTodayOrYesterday}
+            helperText={fechaHelperText}
             disabled={blocked || busy}
           />
 
@@ -233,8 +206,9 @@ export default function RecepcionFormModal({
             size="small"
             value={tipo}
             onChange={(e) => setTipo(e.target.value)}
-            error={!tipoValido}
-            helperText={!tipoValido ? "El tipo es requerido." : " "}
+            onBlur={() => setTouchedTipo(true)}
+            error={tipoError}
+            helperText={tipoError ? "El tipo es requerido." : " "}
             disabled={blocked || busy}
           />
 
@@ -243,19 +217,11 @@ export default function RecepcionFormModal({
             type="number"
             size="small"
             inputProps={{ min: 1, step: 1 }}
-            value={Number.isFinite(cajas) ? cajas : ""}
-            onChange={(e) => {
-              const raw = e.target.value;
-              // tolerante a cadena vacía para no pelear con el input controlado
-              if (raw === "") {
-                setCajas(NaN as any);
-                return;
-              }
-              const v = Math.trunc(Number(raw));
-              setCajas(Number.isFinite(v) && v > 0 ? v : 0);
-            }}
-            error={!cajasValidas}
-            helperText={!cajasValidas ? "Debe ser un entero mayor a 0." : " "}
+            value={cajasInput}
+            onChange={(e) => setCajasInput(e.target.value)}
+            onBlur={() => setTouchedCajas(true)}
+            error={cajasError}
+            helperText={cajasError ? "Debe ser un entero mayor a 0." : " "}
             disabled={blocked || busy}
           />
 
@@ -288,3 +254,4 @@ export default function RecepcionFormModal({
     </Dialog>
   );
 }
+

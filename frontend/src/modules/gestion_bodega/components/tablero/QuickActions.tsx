@@ -1,6 +1,10 @@
 import React, { useMemo } from "react";
 import { Box } from "@mui/material";
-import { Add as AddIcon, LocalShipping as TruckIcon, GridView as GridIcon } from "@mui/icons-material";
+import {
+  Add as AddIcon,
+  LocalShipping as TruckIcon,
+  GridView as GridIcon,
+} from "@mui/icons-material";
 import { PermissionButton } from "../../../../components/common/PermissionButton";
 import { useSearchParams } from "react-router-dom";
 
@@ -18,29 +22,28 @@ type Props = {
   temporadaId: number;
   onNavigate: (href: string) => void;
   actions?: QuickAction[];
-  dense?: boolean;  // compacto
-  pill?: boolean;   // esquinas tipo píldora
+  dense?: boolean;
+  pill?: boolean;
 };
 
 /**
- * Mezcla el path base con el contexto actual (bodega + temporada + isoSemana) y query extra.
- * - Prioridad: extra > contexto actual (permite overrides específicos).
- * - Incluimos 'bodega' en query para preservar el contexto completo (además del path).
+ * Mezcla el path base con el contexto actual (bodega + temporada + week_id) y query extra.
+ * - Prioridad: extra > contexto actual.
  */
 function composeHref(
   basePath: string,
-  ctx: { bodegaId?: number; temporadaId?: number; isoSemana?: string | null },
+  ctx: { bodegaId?: number; temporadaId?: number; weekId?: string | null },
   extra?: Record<string, string | number | boolean | undefined>
 ) {
   const qs = new URLSearchParams();
   if (ctx?.bodegaId) qs.set("bodega", String(ctx.bodegaId));
   if (ctx?.temporadaId) qs.set("temporada", String(ctx.temporadaId));
-  if (ctx?.isoSemana) qs.set("isoSemana", String(ctx.isoSemana));
+  if (ctx?.weekId) qs.set("week_id", String(ctx.weekId));
 
   if (extra) {
     Object.entries(extra).forEach(([k, v]) => {
       if (v === undefined || v === null) return;
-      qs.set(k, String(v)); // override si ya existe
+      qs.set(k, String(v));
     });
   }
 
@@ -48,17 +51,29 @@ function composeHref(
   return tail ? `${basePath}?${tail}` : basePath;
 }
 
-const QuickActions: React.FC<Props> = ({ bodegaId, temporadaId, onNavigate, actions, dense = false, pill = false }) => {
+const QuickActions: React.FC<Props> = ({
+  bodegaId,
+  temporadaId,
+  onNavigate,
+  actions,
+  dense = false,
+  pill = false,
+}) => {
   const [sp] = useSearchParams();
-  const isoSemana = sp.get("isoSemana"); // preserva semana visible en navegación
+  const weekId = sp.get("week_id"); // ✅ deep-link semana seleccionada
 
-  const ctx = useMemo(() => ({ bodegaId, temporadaId, isoSemana }), [bodegaId, temporadaId, isoSemana]);
+  const ctx = useMemo(
+    () => ({ bodegaId, temporadaId, weekId }),
+    [bodegaId, temporadaId, weekId]
+  );
 
   const defaults = useMemo<QuickAction[]>(
     () => [
       {
         label: "Nueva recepción",
-        href: composeHref(`/bodega/${bodegaId}/capturas`, ctx, { modal: "recepcion" }),
+        href: composeHref(`/bodega/${bodegaId}/capturas`, ctx, {
+          modal: "recepcion",
+        }),
         icon: <AddIcon />,
         perm: "add_recepcion",
         variant: "contained",
@@ -66,7 +81,9 @@ const QuickActions: React.FC<Props> = ({ bodegaId, temporadaId, onNavigate, acti
       },
       {
         label: "Inventario crítico",
-        href: composeHref(`/bodega/${bodegaId}/inventarios`, ctx, { solo_criticas: 1 }),
+        href: composeHref(`/bodega/${bodegaId}/inventarios`, ctx, {
+          solo_criticas: 1,
+        }),
         icon: <GridIcon />,
         perm: "view_inventario_plastico",
         variant: "outlined",

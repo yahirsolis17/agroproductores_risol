@@ -16,6 +16,20 @@ import type {
 } from '../../modules/gestion_bodega/types/capturasTypes';
 
 // -------------------------------
+// Helpers
+// -------------------------------
+function extractErrorMessage(payload: any, fallback: string) {
+  // NotificationHandler suele traer: { message, message_key, success, data }
+  return (
+    payload?.message ||
+    payload?.detail ||
+    payload?.error ||
+    payload?.message?.toString?.() ||
+    fallback
+  );
+}
+
+// -------------------------------
 // Estado
 // -------------------------------
 export interface CapturasFilters {
@@ -23,7 +37,7 @@ export interface CapturasFilters {
   page_size: number;
   bodega?: number;
   temporada?: number;
-  semana?: number; // 👈 nuevo: filtro por semana (ID de CierreSemanal)
+  semana?: number; // filtro por semana (ID de CierreSemanal)
 }
 
 export interface CapturasState {
@@ -38,8 +52,8 @@ export interface CapturasState {
 
 const initialState: CapturasState = {
   items: [],
-  meta: { count: 0, next: null, previous: null, page: 1, page_size: 20, total_pages: 1 },
-  filters: { page: 1, page_size: 20, bodega: undefined, temporada: undefined, semana: undefined },
+  meta: { count: 0, next: null, previous: null, page: 1, page_size: 10, total_pages: 1 },
+  filters: { page: 1, page_size: 10, bodega: undefined, temporada: undefined, semana: undefined },
   status: 'idle',
   saving: false,
   error: null,
@@ -57,10 +71,13 @@ export const fetchCapturas = createAsyncThunk<
   try {
     const { filters } = (getState().capturas as CapturasState);
     const resp = await listCapturas(filters as any, { signal });
-    // resp ya viene normalizado: { capturas, meta }
     return resp;
   } catch (err: any) {
-    return rejectWithValue(err?.response?.data ?? { message: 'Error listando capturas' });
+    return rejectWithValue({
+      ...(err?.response?.data ?? {}),
+      status: err?.response?.status,
+      message: extractErrorMessage(err?.response?.data, 'Error listando capturas'),
+    });
   }
 });
 
@@ -71,7 +88,11 @@ export const createCapturaThunk = createAsyncThunk<Captura, CapturaCreatePayload
       const resp = await createCaptura(payload);
       return resp.captura;
     } catch (err: any) {
-      return rejectWithValue(err?.response?.data ?? { message: 'Error creando captura' });
+      return rejectWithValue({
+        ...(err?.response?.data ?? {}),
+        status: err?.response?.status,
+        message: extractErrorMessage(err?.response?.data, 'Error creando captura'),
+      });
     }
   }
 );
@@ -83,7 +104,11 @@ export const updateCapturaThunk = createAsyncThunk<Captura, { id: number; data: 
       const resp = await updateCaptura(id, data);
       return resp.captura;
     } catch (err: any) {
-      return rejectWithValue(err?.response?.data ?? { message: 'Error actualizando captura' });
+      return rejectWithValue({
+        ...(err?.response?.data ?? {}),
+        status: err?.response?.status,
+        message: extractErrorMessage(err?.response?.data, 'Error actualizando captura'),
+      });
     }
   }
 );
@@ -95,7 +120,11 @@ export const archivarCapturaThunk = createAsyncThunk<{ id: number; captura?: Cap
       const resp = await archivarCaptura(id);
       return { id: resp.captura_id, captura: (resp as any).captura };
     } catch (err: any) {
-      return rejectWithValue(err?.response?.data ?? { message: 'Error archivando captura' });
+      return rejectWithValue({
+        ...(err?.response?.data ?? {}),
+        status: err?.response?.status,
+        message: extractErrorMessage(err?.response?.data, 'Error archivando captura'),
+      });
     }
   }
 );
@@ -107,7 +136,11 @@ export const restaurarCapturaThunk = createAsyncThunk<Captura, { id: number }>(
       const resp = await restaurarCaptura(id);
       return resp.captura;
     } catch (err: any) {
-      return rejectWithValue(err?.response?.data ?? { message: 'Error restaurando captura' });
+      return rejectWithValue({
+        ...(err?.response?.data ?? {}),
+        status: err?.response?.status,
+        message: extractErrorMessage(err?.response?.data, 'Error restaurando captura'),
+      });
     }
   }
 );
@@ -119,7 +152,11 @@ export const deleteCapturaThunk = createAsyncThunk<{ id: number }, { id: number 
       const resp = await deleteCaptura(id);
       return { id: resp.deleted_id };
     } catch (err: any) {
-      return rejectWithValue(err?.response?.data ?? { message: 'Error eliminando captura' });
+      return rejectWithValue({
+        ...(err?.response?.data ?? {}),
+        status: err?.response?.status,
+        message: extractErrorMessage(err?.response?.data, 'Error eliminando captura'),
+      });
     }
   }
 );
@@ -139,7 +176,7 @@ const capturasSlice = createSlice({
       state.filters.temporada = action.payload;
       state.filters.page = 1;
     },
-    setSemana(state, action: PayloadAction<number | undefined>) { // 👈 nuevo
+    setSemana(state, action: PayloadAction<number | undefined>) {
       state.filters.semana = action.payload;
       state.filters.page = 1;
     },
@@ -178,7 +215,7 @@ const capturasSlice = createSlice({
     });
     builder.addCase(fetchCapturas.rejected, (state, action: any) => {
       state.status = 'failed';
-      state.error = action.payload?.message ?? 'Error al cargar capturas';
+      state.error = extractErrorMessage(action.payload, 'Error al cargar capturas');
     });
 
     // create
@@ -188,12 +225,18 @@ const capturasSlice = createSlice({
     });
     builder.addCase(createCapturaThunk.fulfilled, (state, action) => {
       state.saving = false;
-      state.items.unshift(action.payload);
+
+      // Server-side pagination friendly: solo insertamos visualmente si estás en page 1
+      if ((state.filters.page ?? 1) === 1) {
+        state.items.unshift(action.payload);
+      }
+
       state.meta.count = (state.meta.count ?? 0) + 1;
+      state.current = action.payload;
     });
     builder.addCase(createCapturaThunk.rejected, (state, action: any) => {
       state.saving = false;
-      state.error = action.payload?.message ?? 'Error al crear captura';
+      state.error = extractErrorMessage(action.payload, 'Error al crear captura');
     });
 
     // update
@@ -209,11 +252,16 @@ const capturasSlice = createSlice({
     });
     builder.addCase(updateCapturaThunk.rejected, (state, action: any) => {
       state.saving = false;
-      state.error = action.payload?.message ?? 'Error al actualizar captura';
+      state.error = extractErrorMessage(action.payload, 'Error al actualizar captura');
     });
 
     // archivar
+    builder.addCase(archivarCapturaThunk.pending, (state) => {
+      state.saving = true;
+      state.error = null;
+    });
     builder.addCase(archivarCapturaThunk.fulfilled, (state, action) => {
+      state.saving = false;
       const idx = state.items.findIndex(i => i.id === action.payload.id);
       if (idx >= 0) {
         if (action.payload.captura) {
@@ -222,22 +270,49 @@ const capturasSlice = createSlice({
           (state.items[idx] as any).is_active = false;
         }
       }
+      if (state.current?.id === action.payload.id && action.payload.captura) {
+        state.current = action.payload.captura;
+      }
+    });
+    builder.addCase(archivarCapturaThunk.rejected, (state, action: any) => {
+      state.saving = false;
+      state.error = extractErrorMessage(action.payload, 'Error al archivar captura');
     });
 
     // restaurar
+    builder.addCase(restaurarCapturaThunk.pending, (state) => {
+      state.saving = true;
+      state.error = null;
+    });
     builder.addCase(restaurarCapturaThunk.fulfilled, (state, action) => {
+      state.saving = false;
       const idx = state.items.findIndex(i => i.id === action.payload.id);
       if (idx >= 0) state.items[idx] = action.payload;
+      if (state.current?.id === action.payload.id) state.current = action.payload;
+    });
+    builder.addCase(restaurarCapturaThunk.rejected, (state, action: any) => {
+      state.saving = false;
+      state.error = extractErrorMessage(action.payload, 'Error al restaurar captura');
     });
 
     // delete
+    builder.addCase(deleteCapturaThunk.pending, (state) => {
+      state.saving = true;
+      state.error = null;
+    });
     builder.addCase(deleteCapturaThunk.fulfilled, (state, action) => {
+      state.saving = false;
+
       const before = state.items.length;
       state.items = state.items.filter(i => i.id !== action.payload.id);
       if (state.items.length < before) {
         state.meta.count = Math.max(0, (state.meta.count ?? 0) - 1);
       }
       if (state.current?.id === action.payload.id) state.current = null;
+    });
+    builder.addCase(deleteCapturaThunk.rejected, (state, action: any) => {
+      state.saving = false;
+      state.error = extractErrorMessage(action.payload, 'Error al eliminar captura');
     });
   },
 });
@@ -260,7 +335,7 @@ export const selectCapturaById = (id: number) => (s: RootState) =>
 export const {
   setBodega,
   setTemporada,
-  setSemana,   // 👈 export nuevo
+  setSemana,
   setPage,
   setPageSize,
   resetFilters,
