@@ -126,7 +126,7 @@ export const moduleRoutes: ModuleRoute[] = [
     path: '/bodega/:bodegaId/capturas/:recepcionId/clasificacion',
     module: 'gestion_bodega',
     allowedRoles: ['admin', 'usuario'],
-    element: lazyRoute(() => import('../../modules/gestion_bodega/pages/Clasificacion')),
+    element: lazyRoute(() => import('../../modules/gestion_bodega/pages/Empaque')),
   },
   {
     path: '/bodega/:bodegaId/inventarios',
@@ -146,12 +146,7 @@ export const moduleRoutes: ModuleRoute[] = [
     allowedRoles: ['admin', 'usuario'],
     element: lazyRoute(() => import('../../modules/gestion_bodega/pages/Gastos')),
   },
-  {
-    path: '/bodega/:bodegaId/cierres',
-    module: 'gestion_bodega',
-    allowedRoles: ['admin', 'usuario'],
-    element: lazyRoute(() => import('../../modules/gestion_bodega/pages/Cierres')),
-  },
+
   {
     path: '/bodega/:bodegaId/reportes',
     module: 'gestion_bodega',
