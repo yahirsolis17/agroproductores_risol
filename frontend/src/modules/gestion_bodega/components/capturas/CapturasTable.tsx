@@ -1,7 +1,9 @@
+// frontend/src/modules/gestion_bodega/components/capturas/CapturasTable.tsx
 import { useMemo } from "react";
 import Chip from "@mui/material/Chip";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+
 import { TableLayout, Column } from "../../../../components/common/TableLayout";
 import ActionsMenu from "../common/ActionsMenu";
 import { formatDateDisplay } from "../../../../global/utils/date";
@@ -16,11 +18,15 @@ type BaseProps = {
   onArchive?: (row: Captura) => void;
   onRestore?: (row: Captura) => void;
   onDelete?: (row: Captura) => void;
+
+  /** Acción para abrir el Drawer de Empaque (ahora desde menú de opciones, no desde chip). */
+  onEmpaque?: (row: Captura) => void;
+
+  /** (Sigue existiendo si lo usas en tu flujo actual) */
   onClassify?: (row: Captura) => void;
 
+  /** Bloqueo por semana cerrada / no operable / etc. */
   blocked?: boolean;
-
-  onCreate?: () => void;
 };
 
 type Props =
@@ -29,6 +35,40 @@ type Props =
     | { items: Captura[]; rows?: never }
     | { rows: Captura[]; items?: never }
   );
+
+type EmpaqueUIState = "SIN_EMPAQUE" | "PARCIAL" | "EMPACADO";
+
+function normalizeEmpaqueState(row: Captura): EmpaqueUIState {
+  const raw =
+    ((row as any)?.empaque_estado ??
+      (row as any)?.estado_empaque ??
+      (row as any)?.empaque_status ??
+      (row as any)?.empaque ??
+      "SIN_EMPAQUE") as string;
+
+  const v = String(raw || "").trim().toUpperCase();
+
+  if (v.includes("EMPACADO") || v === "DONE" || v === "COMPLETO") return "EMPACADO";
+  if (v.includes("PARC")) return "PARCIAL";
+  return "SIN_EMPAQUE";
+}
+
+function getEmpaqueChipProps(row: Captura, blocked: boolean) {
+  // Si el tablero/semana está bloqueado, el chip lo refleja (solo indicador).
+  if (blocked) {
+    return { label: "Bloqueada", color: "warning" as const, variant: "filled" as const };
+  }
+
+  const st = normalizeEmpaqueState(row);
+
+  if (st === "EMPACADO") {
+    return { label: "Empacado", color: "success" as const, variant: "filled" as const };
+  }
+  if (st === "PARCIAL") {
+    return { label: "Parcial", color: "warning" as const, variant: "filled" as const };
+  }
+  return { label: "Sin empacar", color: "default" as const, variant: "outlined" as const };
+}
 
 export default function CapturasTable({
   items,
@@ -40,8 +80,9 @@ export default function CapturasTable({
   onArchive,
   onRestore,
   onDelete,
-  blocked = false,
+  onEmpaque,
   onClassify,
+  blocked = false,
 }: Props) {
   const data: Captura[] = items ?? rows ?? [];
 
@@ -66,21 +107,28 @@ export default function CapturasTable({
         render: (r) => r.cantidad_cajas,
       },
       {
+        label: "Empaque",
+        key: "empaque" as any,
+        align: "center",
+        render: (r) => {
+          const chip = getEmpaqueChipProps(r, blocked);
+          // IMPORTANTE: NO abre drawer. Solo indicador.
+          return (
+            <Chip
+              size="small"
+              label={chip.label}
+              color={chip.color}
+              variant={chip.variant}
+              sx={{ fontWeight: 700 }}
+            />
+          );
+        },
+      },
+      {
         label: "Notas",
         key: "observaciones",
         align: "left",
         render: (r) => r.observaciones ?? "-",
-      },
-      {
-        label: "Estado",
-        key: "is_active" as any,
-        align: "center",
-        render: (r) => {
-          if (blocked) return <Chip size="small" color="warning" label="Bloqueada" />;
-          return r.is_active
-            ? <Chip size="small" color="success" label="Activa" />
-            : <Chip size="small" color="default" label="Archivada" />;
-        },
       },
     ],
     [blocked]
@@ -103,11 +151,20 @@ export default function CapturasTable({
         rowKey={(row) => row.id}
         renderActions={(row) => {
           const isArchived = !row.is_active;
+
+          // Permisos (alineados a tu sistema actual)
           const permEdit = "change_recepcion";
           const permDelete = "delete_recepcion";
           const permArch = "archive_recepcion";
           const permRest = "restore_recepcion";
           const permArchiveOrRestore = isArchived ? permRest : permArch;
+
+          // Empaque: preferimos un codename dedicado si existe, pero caemos a change_recepcion
+          // (array => pasa si tiene cualquiera de los dos).
+          const permEmpaque = ["empaque_recepcion", "change_recepcion"];
+
+          // UX: si está bloqueado o archivado => solo ver (drawer read-only)
+          const labelEmpaque = blocked || isArchived ? "Ver empaque" : "Empacar";
 
           return (
             <Box
@@ -131,6 +188,10 @@ export default function CapturasTable({
                 permEdit={permEdit}
                 permArchiveOrRestore={permArchiveOrRestore}
                 permDelete={permDelete}
+                // NUEVO: Empaque desde menú
+                onEmpaque={onEmpaque ? () => onEmpaque(row) : undefined}
+                labelEmpaque={labelEmpaque}
+                permEmpaque={permEmpaque}
               />
 
               {!!onClassify && row.is_active && (
@@ -143,7 +204,13 @@ export default function CapturasTable({
         }}
       />
 
-      <Box display="flex" gap={3} justifyContent="flex-end" mt={2} sx={{ color: "text.secondary", fontSize: 13 }}>
+      <Box
+        display="flex"
+        gap={3}
+        justifyContent="flex-end"
+        mt={2}
+        sx={{ color: "text.secondary", fontSize: 13 }}
+      >
         <span>Total recepciones: {total}</span>
         <span>Recepciones en esta página: {data.length}</span>
         <span>

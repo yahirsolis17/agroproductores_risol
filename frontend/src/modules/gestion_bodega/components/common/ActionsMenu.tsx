@@ -22,6 +22,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import LockIcon from '@mui/icons-material/Lock';
+import LocalMallIcon from '@mui/icons-material/LocalMall';
 
 type Perm = string | string[] | undefined;
 
@@ -54,6 +55,12 @@ export interface ActionsMenuProps {
   onTemporadas?: () => void;     // acción "Temporadas" adicional
   labelTemporadas?: string;      // default: 'Temporadas'
   permTemporadas?: Perm;         // default: 'view_temporadabodega'
+
+  // NUEVO: Empaque (para Recepciones)
+  onEmpaque?: () => void;
+  hideEmpaque?: boolean;
+  labelEmpaque?: string;         // default: 'Empacar'
+  permEmpaque?: Perm;            // default: cae a permEdit si no se manda
 }
 
 const ActionsMenu: React.FC<ActionsMenuProps> = (props) => {
@@ -84,6 +91,12 @@ const ActionsMenu: React.FC<ActionsMenuProps> = (props) => {
     onTemporadas,
     labelTemporadas = 'Temporadas',
     permTemporadas,
+
+    // Empaque
+    onEmpaque,
+    hideEmpaque = false,
+    labelEmpaque,
+    permEmpaque,
   } = props;
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -115,10 +128,14 @@ const ActionsMenu: React.FC<ActionsMenuProps> = (props) => {
   const _permDelete = permDelete ?? 'delete_bodega';
   const _permView   = permView ?? 'view_bodega';
 
-  const _permFinalize    = permFinalize ?? (isFinalized ? 'reactivate_temporadabodega' : 'finalize_temporadabodega');
-  const _labelFinalize   = labelFinalize ?? (isFinalized ? 'Reactivar' : 'Finalizar');
+  const _permFinalize  = permFinalize ?? (isFinalized ? 'reactivate_temporadabodega' : 'finalize_temporadabodega');
+  const _labelFinalize = labelFinalize ?? (isFinalized ? 'Reactivar' : 'Finalizar');
 
-  const _permTemporadas  = permTemporadas ?? 'view_temporadabodega';
+  const _permTemporadas = permTemporadas ?? 'view_temporadabodega';
+
+  // Empaque: si no mandas perm específico, cae a permEdit para no bloquear UX por defecto
+  const _permEmpaque  = permEmpaque ?? _permEdit;
+  const _labelEmpaque = labelEmpaque ?? 'Empacar';
 
   const canEdit       = hasPerm(_permEdit);
   const canAorR       = hasPerm(_permAorR);
@@ -126,6 +143,17 @@ const ActionsMenu: React.FC<ActionsMenuProps> = (props) => {
   const canView       = hasPerm(_permView);
   const canFinalize   = hasPerm(_permFinalize);
   const canTemporadas = onTemporadas ? hasPerm(_permTemporadas) : false;
+
+  const canEmpaque    = onEmpaque ? hasPerm(_permEmpaque) : false;
+  const isViewEmpaque = _labelEmpaque.toLowerCase().includes('ver');
+
+  const hasTopLinks = (!!onView && !hideView) || !!onTemporadas;
+  const hasOps =
+    (!!onEmpaque && !hideEmpaque) ||
+    (!!onEdit && !hideEdit) ||
+    (!!onArchiveOrRestore && !hideArchiveToggle) ||
+    (!!onFinalize && !hideFinalize) ||
+    (!!onDelete && !hideDelete);
 
   return (
     <>
@@ -166,8 +194,22 @@ const ActionsMenu: React.FC<ActionsMenuProps> = (props) => {
           </Tooltip>
         )}
 
-        {(onView || onTemporadas) && (onEdit || onArchiveOrRestore || onFinalize || onDelete) && (
+        {hasTopLinks && hasOps && (
           <Divider component="li" sx={{ my: 0.5 }} />
+        )}
+
+        {/* Empaque (Recepciones) */}
+        {!hideEmpaque && onEmpaque && (
+          <Tooltip title={canEmpaque ? '' : 'No tienes permiso'} disableHoverListener={canEmpaque}>
+            <span style={{ display: 'block' }}>
+              <MenuItem disabled={!canEmpaque} onClick={() => handle(onEmpaque)}>
+                <ListItemIcon>
+                  {isViewEmpaque ? <VisibilityIcon fontSize="small" /> : <LocalMallIcon fontSize="small" />}
+                </ListItemIcon>
+                <ListItemText primary={_labelEmpaque} />
+              </MenuItem>
+            </span>
+          </Tooltip>
         )}
 
         {/* Editar (oculto si archivado) */}

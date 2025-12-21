@@ -6,7 +6,7 @@
    - Todas las queries clavean y envían semanaId=selectedSemanaId.
 */
 
-import { useMemo, useCallback, useEffect } from "react";
+import { useMemo, useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAppDispatch, useAppSelector } from "../../../global/store/store";
@@ -359,6 +359,16 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
 
   const selectedSemanaId = selectedWeek?.id ?? null;
 
+  // Reset paginaciÇün al cambiar de semana seleccionada (evita caer en pÇ­ginas vacÇðas)
+  const lastSemanaRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (lastSemanaRef.current === selectedSemanaId) return;
+    lastSemanaRef.current = selectedSemanaId ?? null;
+    if ((filters.page ?? 1) !== 1) {
+      dispatch(setFilters({ page: 1 } as any));
+    }
+  }, [selectedSemanaId, filters.page, dispatch]);
+
   // Normaliza URL → asegura ?week_id consistente con la semana seleccionada
   useEffect(() => {
     if (!selectedWeek) {
@@ -604,11 +614,16 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
   const queueLogistica = useMemo(() => {
     const data = logisticaQ.data as DashboardQueueResponse | undefined;
     const metaSrc = (data?.meta ?? {}) as any;
+    const page = Number(metaSrc.page ?? filters.page ?? 1) || 1;
+    let pageSize = Number(metaSrc.page_size ?? filters.page_size ?? DEFAULTS.PAGE_SIZE) || DEFAULTS.PAGE_SIZE;
+    if (pageSize <= 0) pageSize = DEFAULTS.PAGE_SIZE;
+    const total = Number(metaSrc.total ?? metaSrc.count ?? 0) || 0;
+
     return {
       meta: {
-        page: metaSrc.page ?? filters.page,
-        page_size: metaSrc.page_size ?? filters.page_size,
-        total: metaSrc.total ?? metaSrc.count ?? 0,
+        page,
+        page_size: pageSize,
+        total,
       },
       rows: mapQueueToUI(data?.results ?? []),
     };
@@ -628,7 +643,9 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
 
   const onChangePage = useCallback(
     (page: number) => {
-      dispatch(setFilters({ page } as any));
+      const next = Number(page);
+      const safe = Number.isFinite(next) && next > 0 ? next : 1;
+      dispatch(setFilters({ page: safe } as any));
     },
     [dispatch]
   );
