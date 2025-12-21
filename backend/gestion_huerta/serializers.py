@@ -20,7 +20,7 @@ def validate_nombre_persona(value):
     Valida que el nombre contenga entre 3 y 100 caracteres, letras, números y espacios.
     """
     if not re.match(r'^[a-zA-Z0-9ñÑáéíóúÁÉÍÓÚ\s]', value.strip()):
-        raise serializers.ValidationError("Nombre inválido. Solo letras, números y mínimo 3 caracteres.")
+        raise serializers.ValidationError("Nombre inválido. Solo letras, números y mínimo 3 caracteres.", code="nombre_invalido")
     return value
 
 def _as_local_date(dt_or_date):
@@ -34,19 +34,19 @@ def validate_direccion(value):
     admitiendo letras, números, comas, guiones y puntos.
     """
     if not re.match(r'^[\w\s\-,.#áéíóúÁÉÍÓÚñÑ]{5,255}$', value.strip()):
-        raise serializers.ValidationError("Dirección inválida. Debe tener entre 5 y 255 caracteres y solo caracteres permitidos.")
+        raise serializers.ValidationError("Dirección inválida. Debe tener entre 5 y 255 caracteres y solo caracteres permitidos.", code="direccion_invalida")
     return value
 
 def validate_telefono(self, value):
     value = validate_telefono(value)
 
     if self.instance is None and Propietario.objects.filter(telefono=value).exists():
-        raise serializers.ValidationError("Ya existe un propietario con este número de teléfono.")
+        raise serializers.ValidationError("Ya existe un propietario con este número de teléfono.", code="telefono_duplicado")
     
     if self.instance is not None:
         # Si se actualiza y el número ya pertenece a otro
         if Propietario.objects.exclude(pk=self.instance.pk).filter(telefono=value).exists():
-            raise serializers.ValidationError("Este número ya está registrado por otro propietario.")
+            raise serializers.ValidationError("Este número ya está registrado por otro propietario.", code="telefono_duplicado")
     
     return value
 
@@ -73,10 +73,10 @@ class PropietarioSerializer(serializers.ModelSerializer):
         value = value.strip()
         if self.instance is None:
             if Propietario.objects.filter(telefono=value).exists():
-                raise serializers.ValidationError("Este teléfono ya está registrado.")
+                raise serializers.ValidationError("Este teléfono ya está registrado.", code="telefono_duplicado")
         else:
             if Propietario.objects.exclude(pk=self.instance.pk).filter(telefono=value).exists():
-                raise serializers.ValidationError("Este teléfono ya está registrado con otro propietario.")
+                raise serializers.ValidationError("Este teléfono ya está registrado con otro propietario.", code="telefono_duplicado")
         return value
 
     def validate_direccion(self, value):   return validate_direccion(value)
@@ -104,30 +104,31 @@ class HuertaSerializer(serializers.ModelSerializer):
     def validate_nombre(self, value):
         txt = value.strip()
         if len(txt) < 3:
-            raise serializers.ValidationError("El nombre debe tener al menos 3 caracteres.")
+            raise serializers.ValidationError("El nombre debe tener al menos 3 caracteres.", code="nombre_muy_corto")
         if not re.match(r'^[A-Za-z0-9ñÑáéíóúÁÉÍÓÚ\s]+$', txt):
-            raise serializers.ValidationError("Nombre inválido. Solo letras, números y espacios.")
+            raise serializers.ValidationError("Nombre inválido. Solo letras, números y espacios.", code="nombre_invalido")
         return txt
 
     def validate_ubicacion(self, value):
         txt = value.strip()
         if len(txt) < 5:
-            raise serializers.ValidationError("La ubicación debe tener al menos 5 caracteres.")
+            raise serializers.ValidationError("La ubicación debe tener al menos 5 caracteres.", code="ubicacion_muy_corta")
         if not re.match(r'^[\w\s\-,.#áéíóúÁÉÍÓÚñÑ]+$', txt):
             raise serializers.ValidationError(
-                "Ubicación inválida. Solo caracteres permitidos (letras, números, espacios, ,- .#)."
+                "Ubicación inválida. Solo caracteres permitidos (letras, números, espacios, ,- .#).",
+                code="ubicacion_invalida"
             )
         return txt
 
     def validate_variedades(self, value):
         txt = value.strip()
         if len(txt) < 3:
-            raise serializers.ValidationError("Debes indicar al menos una variedad de mango (mínimo 3 caracteres).")
+            raise serializers.ValidationError("Debes indicar al menos una variedad de mango (mínimo 3 caracteres).", code="variedad_muy_corta")
         return txt
 
     def validate_hectareas(self, value):
         if value is None or value <= 0:
-            raise serializers.ValidationError("El número de hectáreas debe ser mayor a 0.")
+            raise serializers.ValidationError("El número de hectáreas debe ser mayor a 0.", code="hectareas_invalidas")
         return value
 
     def validate(self, data):
@@ -135,7 +136,7 @@ class HuertaSerializer(serializers.ModelSerializer):
         if 'propietario' in data:
             propietario = data['propietario']
             if propietario and not getattr(propietario, 'is_active', True):
-                raise serializers.ValidationError("No puedes asignar huertas a un propietario archivado.")
+                raise serializers.ValidationError("No puedes asignar huertas a un propietario archivado.", code="propietario_archivado")
         return data
 
 
@@ -165,42 +166,43 @@ class HuertaRentadaSerializer(serializers.ModelSerializer):
     def validate_nombre(self, value):
         txt = value.strip()
         if len(txt) < 3:
-            raise serializers.ValidationError("El nombre debe tener al menos 3 caracteres.")
+            raise serializers.ValidationError("El nombre debe tener al menos 3 caracteres.", code="nombre_muy_corto")
         if not re.match(r'^[A-Za-z0-9ñÑáéíóúÁÉÍÓÚ\s]+$', txt):
-            raise serializers.ValidationError("Nombre inválido. Solo letras, números y espacios.")
+            raise serializers.ValidationError("Nombre inválido. Solo letras, números y espacios.", code="nombre_invalido")
         return txt
 
     def validate_ubicacion(self, value):
         txt = value.strip()
         if len(txt) < 5:
-            raise serializers.ValidationError("La ubicación debe tener al menos 5 caracteres.")
+            raise serializers.ValidationError("La ubicación debe tener al menos 5 caracteres.", code="ubicacion_muy_corta")
         if not re.match(r'^[\w\s\-,.#áéíóúÁÉÍÓÚñÑ]+$', txt):
             raise serializers.ValidationError(
-                "Ubicación inválida. Solo caracteres permitidos."
+                "Ubicación inválida. Solo caracteres permitidos.",
+                code="ubicacion_invalida"
             )
         return txt
 
     def validate_variedades(self, value):
         txt = value.strip()
         if len(txt) < 3:
-            raise serializers.ValidationError("Debes indicar al menos una variedad de mango.")
+            raise serializers.ValidationError("Debes indicar al menos una variedad de mango.", code="variedad_muy_corta")
         return txt
 
     def validate_hectareas(self, value):
         if value is None or value <= 0:
-            raise serializers.ValidationError("El número de hectáreas debe ser mayor a 0.")
+            raise serializers.ValidationError("El número de hectáreas debe ser mayor a 0.", code="hectareas_invalidas")
         return value
 
     def validate_monto_renta(self, value):
         if value <= 0:
-            raise serializers.ValidationError("El monto de la renta debe ser mayor a 0.")
+            raise serializers.ValidationError("El monto de la renta debe ser mayor a 0.", code="monto_renta_invalido")
         return value
 
     def validate(self, data):
         if 'propietario' in data:
             propietario = data['propietario']
             if propietario and not getattr(propietario, 'is_active', True):
-                raise serializers.ValidationError("No puedes asignar huertas rentadas a un propietario archivado.")
+                raise serializers.ValidationError("No puedes asignar huertas rentadas a un propietario archivado.", code="propietario_archivado")
         return data
 
 class TemporadaSerializer(serializers.ModelSerializer):
@@ -243,7 +245,7 @@ class TemporadaSerializer(serializers.ModelSerializer):
     def validate_año(self, value):
         actual = timezone.now().year
         if value < 2000 or value > actual + 1:
-            raise serializers.ValidationError("El año debe estar entre 2000 y el año siguiente al actual.")
+            raise serializers.ValidationError("El año debe estar entre 2000 y el año siguiente al actual.", code="anio_invalido")
         return value
 
     def validate(self, data):
@@ -252,14 +254,14 @@ class TemporadaSerializer(serializers.ModelSerializer):
         año            = data.get('año', getattr(self.instance, 'año', None))
 
         if not huerta and not huerta_rentada:
-            raise serializers.ValidationError("Debe asignar una huerta o una huerta rentada.")
+            raise serializers.ValidationError("Debe asignar una huerta o una huerta rentada.", code="falta_origen")
         if huerta and huerta_rentada:
-            raise serializers.ValidationError("No puede asignar ambas huertas al mismo tiempo.")
+            raise serializers.ValidationError("No puede asignar ambas huertas al mismo tiempo.", code="origen_ambiguo")
 
         if huerta and not huerta.is_active:
-            raise serializers.ValidationError("No se puede crear/editar temporada en una huerta archivada.")
+            raise serializers.ValidationError("No se puede crear/editar temporada en una huerta archivada.", code="huerta_archivada")
         if huerta_rentada and not huerta_rentada.is_active:
-            raise serializers.ValidationError("No se puede crear/editar temporada en una huerta rentada archivada.")
+            raise serializers.ValidationError("No se puede crear/editar temporada en una huerta rentada archivada.", code="huerta_rentada_archivada")
 
         # Unicidad en create y update
         qs = Temporada.objects.all()
@@ -267,9 +269,9 @@ class TemporadaSerializer(serializers.ModelSerializer):
             qs = qs.exclude(pk=self.instance.pk)
 
         if huerta and qs.filter(huerta=huerta, año=año).exists():
-            raise serializers.ValidationError("Ya existe una temporada para esta huerta en ese año.")
+            raise serializers.ValidationError("Ya existe una temporada para esta huerta en ese año.", code="temporada_duplicada")
         if huerta_rentada and qs.filter(huerta_rentada=huerta_rentada, año=año).exists():
-            raise serializers.ValidationError("Ya existe una temporada para esta huerta rentada en ese año.")
+            raise serializers.ValidationError("Ya existe una temporada para esta huerta rentada en ese año.", code="temporada_duplicada")
 
         return data
 
@@ -314,7 +316,7 @@ class CosechaSerializer(serializers.ModelSerializer):
             return value
         v = value.strip()
         if v and len(v) < 3:
-            raise serializers.ValidationError("El nombre de la cosecha debe tener al menos 3 caracteres.")
+            raise serializers.ValidationError("El nombre de la cosecha debe tener al menos 3 caracteres.", code="nombre_muy_corto")
         return v
 
     def _nombre_unico(self, temporada: Temporada, propuesto: str | None) -> str:
@@ -340,10 +342,10 @@ class CosechaSerializer(serializers.ModelSerializer):
         )
 
         if not temporada:
-            raise serializers.ValidationError("La cosecha debe pertenecer a una temporada.")
+            raise serializers.ValidationError("La cosecha debe pertenecer a una temporada.", code="falta_temporada")
 
         if fi and ff and ff < fi:
-            raise serializers.ValidationError("La fecha de fin no puede ser anterior a la fecha de inicio.")
+            raise serializers.ValidationError("La fecha de fin no puede ser anterior a la fecha de inicio.", code="fechas_inconsistentes")
 
         # Impedir múltiples cosechas activas en la misma temporada
         if not finalizada and temporada:
@@ -355,16 +357,16 @@ class CosechaSerializer(serializers.ModelSerializer):
             if instance:
                 qs = qs.exclude(pk=instance.pk)
             if qs.exists():
-                raise serializers.ValidationError("Ya existe una cosecha activa en esta temporada.")
+                raise serializers.ValidationError("Ya existe una cosecha activa en esta temporada.", code="cosecha_activa_existente")
 
         # Reglas de creación
         if instance is None:
             if not temporada.is_active:
-                raise serializers.ValidationError("No se pueden crear cosechas en una temporada archivada.")
+                raise serializers.ValidationError("No se pueden crear cosechas en una temporada archivada.", code="temporada_archivada")
             if temporada.finalizada:
-                raise serializers.ValidationError("No se pueden crear cosechas en una temporada finalizada.")
+                raise serializers.ValidationError("No se pueden crear cosechas en una temporada finalizada.", code="temporada_finalizada")
             if temporada.cosechas.count() >= 6:
-                raise serializers.ValidationError("Esta temporada ya tiene el máximo de 6 cosechas permitidas.")
+                raise serializers.ValidationError("Esta temporada ya tiene el máximo de 6 cosechas permitidas.", code="max_cosechas_alcanzado")
 
             # ⚙️ Normalizar nombre a uno único ANTES de ejecutar UniqueTogetherValidator
             data['nombre'] = self._nombre_unico(temporada, nombre_in)
@@ -373,7 +375,7 @@ class CosechaSerializer(serializers.ModelSerializer):
         else:
             # No permitir cambiar de temporada
             if 'temporada' in data and data['temporada'] != instance.temporada:
-                raise serializers.ValidationError("No puedes cambiar la temporada de una cosecha existente.")
+                raise serializers.ValidationError("No puedes cambiar la temporada de una cosecha existente.", code="cambio_temporada_prohibido")
 
             # Si mandan nombre vacío en update, lo normalizamos a uno único
             if nombre_in is not None and not (nombre_in or "").strip():
@@ -395,10 +397,10 @@ class CategoriaInversionSerializer(serializers.ModelSerializer):
     def validate_nombre(self, value: str) -> str:
         val = (value or '').strip()
         if len(val) < 3:
-            raise serializers.ValidationError("El nombre de la categoría debe tener al menos 3 caracteres.")
+            raise serializers.ValidationError("El nombre de la categoría debe tener al menos 3 caracteres.", code="nombre_muy_corto")
         qs = CategoriaInversion.objects.filter(nombre__iexact=val)
         if qs.exists() and not (self.instance and self.instance.nombre.lower() == val.lower()):
-            raise serializers.ValidationError("Ya existe una categoría con este nombre.")
+            raise serializers.ValidationError("Ya existe una categoría con este nombre.", code="categoria_duplicada")
         return val
 
 class InversionesHuertaSerializer(serializers.ModelSerializer):
@@ -444,9 +446,9 @@ class InversionesHuertaSerializer(serializers.ModelSerializer):
         ayer = hoy - timedelta(days=1)
 
         if value > hoy:
-            raise serializers.ValidationError("La fecha no puede ser futura.")
+            raise serializers.ValidationError("La fecha no puede ser futura.", code="fecha_futura")
         if value not in {hoy, ayer}:
-            raise serializers.ValidationError("La fecha sólo puede ser de hoy o de ayer (máx. 24 h).")
+            raise serializers.ValidationError("La fecha sólo puede ser de hoy o de ayer (máx. 24 h).", code="fecha_fuera_rango")
 
         cosecha = None
         cosecha_id = self.initial_data.get('cosecha_id') if isinstance(self.initial_data, dict) else None
@@ -459,26 +461,27 @@ class InversionesHuertaSerializer(serializers.ModelSerializer):
             inicio = _as_local_date(cosecha.fecha_inicio)
             if value < inicio:
                 raise serializers.ValidationError(
-                    f'La fecha debe ser igual o posterior al inicio de la cosecha ({inicio.isoformat()}).'
+                    f'La fecha debe ser igual o posterior al inicio de la cosecha ({inicio.isoformat()}).',
+                    code="fecha_anterior_cosecha"
                 )
 
         if self.instance and getattr(self.instance, 'fecha', None):
             if value < self.instance.fecha:
-                raise serializers.ValidationError("No puedes mover la fecha más atrás que la registrada.")
+                raise serializers.ValidationError("No puedes mover la fecha más atrás que la registrada.", code="fecha_retroactiva_invalida")
         return value
 
     def validate_gastos_insumos(self, v):
         if v is None:
-            raise serializers.ValidationError("El gasto en insumos es obligatorio.")
+            raise serializers.ValidationError("El gasto en insumos es obligatorio.", code="campo_requerido")
         if v < 0:
-            raise serializers.ValidationError("No puede ser negativo.")
+            raise serializers.ValidationError("No puede ser negativo.", code="valor_negativo")
         return v
 
     def validate_gastos_mano_obra(self, v):
         if v is None:
-            raise serializers.ValidationError("El gasto en mano de obra es obligatorio.")
+            raise serializers.ValidationError("El gasto en mano de obra es obligatorio.", code="campo_requerido")
         if v < 0:
-            raise serializers.ValidationError("No puede ser negativo.")
+            raise serializers.ValidationError("No puede ser negativo.", code="valor_negativo")
         return v
 
     # ——— Validación de objeto (reglas de negocio) ———
@@ -494,7 +497,7 @@ class InversionesHuertaSerializer(serializers.ModelSerializer):
         # Totales > 0
         if gi is not None and gm is not None:
             if (gi + gm) <= 0:
-                raise serializers.ValidationError({"gastos_insumos": "Los gastos totales deben ser mayores a 0."})
+                raise serializers.ValidationError({"gastos_insumos": "Los gastos totales deben ser mayores a 0."}, code="gastos_totales_cero")
 
         # Si faltan, DRF marcará por campo
         if not all([categoria, cosecha, temporada]):
@@ -502,36 +505,36 @@ class InversionesHuertaSerializer(serializers.ModelSerializer):
 
         # Temporada debe coincidir con la de la cosecha
         if temporada != cosecha.temporada:
-            raise serializers.ValidationError({"temporada_id": "La temporada no coincide con la temporada de la cosecha."})
+            raise serializers.ValidationError({"temporada_id": "La temporada no coincide con la temporada de la cosecha."}, code="temporada_inconsistente")
 
         # 🚫 Bloqueos por estado
         if getattr(cosecha, 'finalizada', False):
-            raise serializers.ValidationError({"cosecha_id": "No se pueden registrar inversiones en una cosecha finalizada."})
+            raise serializers.ValidationError({"cosecha_id": "No se pueden registrar inversiones en una cosecha finalizada."}, code="cosecha_finalizada")
         if not getattr(cosecha, 'is_active', True):
-            raise serializers.ValidationError({"cosecha_id": "No se pueden registrar inversiones en una cosecha archivada."})
+            raise serializers.ValidationError({"cosecha_id": "No se pueden registrar inversiones en una cosecha archivada."}, code="cosecha_archivada")
 
         if getattr(temporada, 'finalizada', False) or not getattr(temporada, 'is_active', True):
-            raise serializers.ValidationError({"temporada_id": "No se pueden registrar inversiones en una temporada finalizada o archivada."})
+            raise serializers.ValidationError({"temporada_id": "No se pueden registrar inversiones en una temporada finalizada o archivada."}, code="temporada_no_permitida")
 
         # Coherencia de origen con la cosecha
         if cosecha.huerta_id:
             if not huerta or huerta.id != cosecha.huerta_id:
-                raise serializers.ValidationError({"huerta_id": "La huerta no coincide con la huerta de la cosecha."})
+                raise serializers.ValidationError({"huerta_id": "La huerta no coincide con la huerta de la cosecha."}, code="huerta_inconsistente")
             if huerta_rentada is not None:
-                raise serializers.ValidationError({"huerta_rentada_id": "No asignes huerta rentada en una cosecha de huerta propia."})
+                raise serializers.ValidationError({"huerta_rentada_id": "No asignes huerta rentada en una cosecha de huerta propia."}, code="origen_rentada_en_propia")
         elif cosecha.huerta_rentada_id:
             if not huerta_rentada or huerta_rentada.id != cosecha.huerta_rentada_id:
-                raise serializers.ValidationError({"huerta_rentada_id": "La huerta rentada no coincide con la de la cosecha."})
+                raise serializers.ValidationError({"huerta_rentada_id": "La huerta rentada no coincide con la de la cosecha."}, code="huerta_rentada_inconsistente")
             if huerta is not None:
-                raise serializers.ValidationError({"huerta_id": "No asignes huerta propia en una cosecha de huerta rentada."})
+                raise serializers.ValidationError({"huerta_id": "No asignes huerta propia en una cosecha de huerta rentada."}, code="origen_propia_en_rentada")
         else:
-            raise serializers.ValidationError({"cosecha_id": "La cosecha no tiene origen (huerta/huerta_rentada) definido."})
+            raise serializers.ValidationError({"cosecha_id": "La cosecha no tiene origen (huerta/huerta_rentada) definido."}, code="cosecha_sin_origen")
 
         # 🚫 Origen archivado
         if huerta and not getattr(huerta, 'is_active', True):
-            raise serializers.ValidationError({"huerta_id": "No se pueden registrar inversiones en una huerta archivada."})
+            raise serializers.ValidationError({"huerta_id": "No se pueden registrar inversiones en una huerta archivada."}, code="huerta_archivada")
         if huerta_rentada and not getattr(huerta_rentada, 'is_active', True):
-            raise serializers.ValidationError({"huerta_rentada_id": "No se pueden registrar inversiones en una huerta rentada archivada."})
+            raise serializers.ValidationError({"huerta_rentada_id": "No se pueden registrar inversiones en una huerta rentada archivada."}, code="huerta_rentada_archivada")
 
         return data
 
@@ -573,7 +576,7 @@ class VentaSerializer(serializers.ModelSerializer):
         if cosecha is None and instance is not None:
             cosecha = instance.cosecha
         if cosecha is None:
-            raise serializers.ValidationError({'cosecha_id': 'Cosecha requerida.'})
+            raise serializers.ValidationError({'cosecha_id': 'Cosecha requerida.'}, code="campo_requerido")
 
         # Temporada (si no viene, inferir desde la cosecha)
         temporada = data.get('temporada')
@@ -597,9 +600,9 @@ class VentaSerializer(serializers.ModelSerializer):
             huerta_rentada = getattr(cosecha, 'huerta_rentada', None)
 
         if huerta and huerta_rentada:
-            raise serializers.ValidationError({'huerta_id': 'Define solo huerta o huerta_rentada, no ambos.'})
+            raise serializers.ValidationError({'huerta_id': 'Define solo huerta o huerta_rentada, no ambos.'}, code="origen_ambiguo")
         if not huerta and not huerta_rentada:
-            raise serializers.ValidationError({'huerta_id': 'Debe definirse huerta u huerta_rentada (según la cosecha).'})
+            raise serializers.ValidationError({'huerta_id': 'Debe definirse huerta u huerta_rentada (según la cosecha).'}, code="falta_origen")
 
         return cosecha, temporada, huerta, huerta_rentada
 
@@ -608,7 +611,7 @@ class VentaSerializer(serializers.ModelSerializer):
         hoy  = timezone.localdate()
         ayer = hoy - timedelta(days=1)
         if value not in {hoy, ayer}:
-            raise serializers.ValidationError('La fecha solo puede ser HOY o AYER (máx. 24 h).')
+            raise serializers.ValidationError('La fecha solo puede ser HOY o AYER (máx. 24 h).', code="fecha_fuera_rango")
         # verificar contra inicio de cosecha si está disponible en initial_data/instance
         cosecha = None
         if isinstance(self.initial_data, dict) and self.initial_data.get('cosecha_id'):
@@ -622,7 +625,8 @@ class VentaSerializer(serializers.ModelSerializer):
             inicio = _as_local_date(cosecha.fecha_inicio)
             if value < inicio:
                 raise serializers.ValidationError(
-                    f'La fecha debe ser igual o posterior al inicio de la cosecha ({inicio.isoformat()}).'
+                    f'La fecha debe ser igual o posterior al inicio de la cosecha ({inicio.isoformat()}).',
+                    code="fecha_anterior_cosecha"
                 )
 
         return value
@@ -631,28 +635,28 @@ class VentaSerializer(serializers.ModelSerializer):
 
         # Coherencia temporada/cosecha
         if temporada != cosecha.temporada:
-            raise serializers.ValidationError({'temporada_id': 'La temporada no coincide con la de la cosecha.'})
+            raise serializers.ValidationError({'temporada_id': 'La temporada no coincide con la de la cosecha.'}, code="temporada_inconsistente")
 
         # 🚫 Bloqueos por estado
         if getattr(cosecha, 'finalizada', False):
-            raise serializers.ValidationError({'cosecha_id': 'No se pueden registrar/editar ventas en una cosecha finalizada.'})
+            raise serializers.ValidationError({'cosecha_id': 'No se pueden registrar/editar ventas en una cosecha finalizada.'}, code="cosecha_finalizada")
         if not getattr(cosecha, 'is_active', True):
-            raise serializers.ValidationError({'cosecha_id': 'No se pueden registrar/editar ventas en una cosecha archivada.'})
+            raise serializers.ValidationError({'cosecha_id': 'No se pueden registrar/editar ventas en una cosecha archivada.'}, code="cosecha_archivada")
 
         if getattr(temporada, 'finalizada', False) or not getattr(temporada, 'is_active', True):
-            raise serializers.ValidationError({'temporada_id': 'No se pueden registrar/editar ventas en una temporada finalizada o archivada.'})
+            raise serializers.ValidationError({'temporada_id': 'No se pueden registrar/editar ventas en una temporada finalizada o archivada.'}, code="temporada_invalida")
 
         # Coherencia de origen con la cosecha
         if huerta and getattr(cosecha, 'huerta', None) != huerta:
-            raise serializers.ValidationError({'huerta_id': 'La huerta no coincide con la de la cosecha.'})
+            raise serializers.ValidationError({'huerta_id': 'La huerta no coincide con la de la cosecha.'}, code="huerta_inconsistente")
         if huerta_rentada and getattr(cosecha, 'huerta_rentada', None) != huerta_rentada:
-            raise serializers.ValidationError({'huerta_rentada_id': 'La huerta rentada no coincide con la de la cosecha.'})
+            raise serializers.ValidationError({'huerta_rentada_id': 'La huerta rentada no coincide con la de la cosecha.'}, code="huerta_rentada_inconsistente")
 
         # 🚫 Origen archivado
         if huerta and not getattr(huerta, 'is_active', True):
-            raise serializers.ValidationError({'huerta_id': 'No se pueden registrar/editar ventas en una huerta archivada.'})
+            raise serializers.ValidationError({'huerta_id': 'No se pueden registrar/editar ventas en una huerta archivada.'}, code="huerta_archivada")
         if huerta_rentada and not getattr(huerta_rentada, 'is_active', True):
-            raise serializers.ValidationError({'huerta_rentada_id': 'No se pueden registrar/editar ventas en una huerta rentada archivada.'})
+            raise serializers.ValidationError({'huerta_rentada_id': 'No se pueden registrar/editar ventas en una huerta rentada archivada.'}, code="huerta_rentada_archivada")
 
         # Números
         num_cajas       = data.get('num_cajas',       getattr(self.instance, 'num_cajas',       None))
@@ -660,12 +664,12 @@ class VentaSerializer(serializers.ModelSerializer):
         gasto           = data.get('gasto',           getattr(self.instance, 'gasto',           None))
 
         if num_cajas is None or num_cajas <= 0:
-            raise serializers.ValidationError({'num_cajas': 'Debe ser mayor que 0.'})
+            raise serializers.ValidationError({'num_cajas': 'Debe ser mayor que 0.'}, code="cantidad_invalida")
         # Modelo exige > 0
         if precio_por_caja is None or precio_por_caja <= 0:
-            raise serializers.ValidationError({'precio_por_caja': 'Debe ser > 0.'})
+            raise serializers.ValidationError({'precio_por_caja': 'Debe ser > 0.'}, code="precio_invalido")
         if gasto is None or gasto < 0:
-            raise serializers.ValidationError({'gasto': 'Debe ser ≥ 0.'})
+            raise serializers.ValidationError({'gasto': 'Debe ser ≥ 0.'}, code="gasto_invalido")
 
 
 

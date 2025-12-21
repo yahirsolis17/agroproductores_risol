@@ -8,7 +8,7 @@ from datetime import datetime
 
 from gestion_huerta.models import Venta, Cosecha
 from gestion_huerta.serializers import VentaSerializer
-from gestion_huerta.views.huerta_views import NotificationMixin
+from gestion_huerta.views.huerta_views import NotificationMixin, _has_error_code
 from gestion_usuarios.permissions import HasModulePermission
 from agroproductores_risol.utils.pagination import GenericPagination
 from gestion_huerta.utils.activity import registrar_actividad
@@ -35,63 +35,30 @@ def _map_venta_validation_errors(errors: dict) -> tuple[str, dict]:
     Traduce mensajes del serializer/modelo a claves de notificación declaradas
     en NOTIFICATION_MESSAGES. Devuelve (key, data).
     """
-    flat = []
-    for k in (
-        "non_field_errors", "__all__",
-        "cosecha_id", "temporada_id",
-        "huerta_id", "huerta_rentada_id",
-        "fecha_venta", "num_cajas", "precio_por_caja", "gasto",
-        "descripcion", "tipo_mango",
-    ):
-        if k in errors:
-            flat += _texts(errors[k])
+    # _has_error_code importado de huerta_views
 
-    # --- Mensajes textuales directos
-    for msg in flat:
-        t = msg.strip()
+    # Fechas
+    if _has_error_code(errors, "fecha_fuera_rango"): return "venta_fecha_fuera_de_rango", {"errors": errors}
+    if _has_error_code(errors, "fecha_anterior_cosecha"): return "venta_fecha_antes_inicio_cosecha", {"errors": errors}
 
-        # Fechas
-        if t == "La fecha solo puede ser HOY o AYER (máx. 24 h).":
-            return "venta_fecha_fuera_de_rango", {"errors": errors}
-        if "La fecha debe ser igual o posterior al inicio de la cosecha" in t:
-            return "venta_fecha_antes_inicio_cosecha", {"errors": errors}
+    # Coherencias
+    if _has_error_code(errors, "falta_cosecha"): return "venta_cosecha_requerida", {"errors": errors}
+    if _has_error_code(errors, "temporada_inconsistente"): return "venta_temporada_incoherente", {"errors": errors}
+    if _has_error_code(errors, "huerta_inconsistente"): return "venta_huerta_incoherente", {"errors": errors}
+    if _has_error_code(errors, "huerta_rentada_inconsistente"): return "venta_huerta_rentada_incoherente", {"errors": errors}
+    if _has_error_code(errors, "origen_ambiguo"): return "venta_origen_ambos_definidos", {"errors": errors}
+    if _has_error_code(errors, "falta_origen"): return "venta_origen_indefinido", {"errors": errors}
 
-        # Coherencias
-        if t == "Cosecha requerida.":
-            return "venta_cosecha_requerida", {"errors": errors}
-        if t == "La temporada no coincide con la de la cosecha.":
-            return "venta_temporada_incoherente", {"errors": errors}
-        if t == "La huerta no coincide con la de la cosecha.":
-            return "venta_huerta_incoherente", {"errors": errors}
-        if t == "La huerta rentada no coincide con la de la cosecha.":
-            return "venta_huerta_rentada_incoherente", {"errors": errors}
-        if t == "Define solo huerta o huerta_rentada, no ambos.":
-            return "venta_origen_ambos_definidos", {"errors": errors}
-        if t == "Debe definirse huerta u huerta_rentada (según la cosecha).":
-            return "venta_origen_indefinido", {"errors": errors}
+    # Estados de temporada
+    if _has_error_code(errors, "temporada_invalida"): return "venta_temporada_no_permitida", {"errors": errors}
+    if _has_error_code(errors, "temporada_archivada"): return "venta_temporada_no_permitida", {"errors": errors}
+    if _has_error_code(errors, "temporada_finalizada"): return "venta_temporada_no_permitida", {"errors": errors}
 
-        # Estados de temporada
-        if t == "No se pueden registrar/editar ventas en una temporada finalizada o archivada.":
-            return "venta_temporada_no_permitida", {"errors": errors}
-
-        # Ganancia
-        if t == "La ganancia neta no puede ser negativa.":
-            return "venta_ganancia_negativa", {"errors": errors}
-
-    # --- Numéricos por campo (diferenciamos por key del error)
-    if "num_cajas" in errors:
-        # p.ej. "Debe ser mayor que 0.", "greater than or equal to 1", etc.
-        if any((">" in s or "mayor" in s or "greater" in s) for s in _texts(errors["num_cajas"])):
-            return "venta_num_cajas_invalido", {"errors": errors}
-
-    if "precio_por_caja" in errors:
-        if any((">" in s or "mayor" in s or "greater" in s) for s in _texts(errors["precio_por_caja"])):
-            return "venta_precio_invalido", {"errors": errors}
-
-    if "gasto" in errors:
-        if any(("≥" in s or "mayor o igual a 0" in s or ">=" in s or "no puede ser negativo" in s)
-               for s in _texts(errors["gasto"])):
-            return "venta_gasto_invalido", {"errors": errors}
+    # Ganancia / Numeros
+    if _has_error_code(errors, "ganancia_negativa"): return "venta_ganancia_negativa", {"errors": errors}
+    if _has_error_code(errors, "cantidad_invalida"): return "venta_num_cajas_invalido", {"errors": errors}
+    if _has_error_code(errors, "precio_invalido"):   return "venta_precio_invalido", {"errors": errors}
+    if _has_error_code(errors, "gasto_invalido"):    return "venta_gasto_invalido", {"errors": errors}
 
     # Fallback
     return "validation_error", {"errors": errors}

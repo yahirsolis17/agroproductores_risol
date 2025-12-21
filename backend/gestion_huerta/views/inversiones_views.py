@@ -11,8 +11,8 @@ from gestion_huerta.models import InversionesHuerta, Cosecha
 from gestion_huerta.serializers import InversionesHuertaSerializer
 from gestion_huerta.utils.activity import registrar_actividad
 from gestion_huerta.utils.audit import ViewSetAuditMixin
-from gestion_huerta.views.huerta_views import NotificationMixin
 from gestion_usuarios.permissions import HasModulePermission
+from gestion_huerta.views.huerta_views import NotificationMixin, _has_error_code
 
 
 # --------------------------- Helpers de mapeo de errores ---------------------------
@@ -35,64 +35,32 @@ def _map_inversion_validation_errors(errors: dict) -> tuple[str, dict]:
     Traduce mensajes del serializer/modelo a claves de notificación del FE.
     Devuelve (key, data).
     """
-    flat = []
-    for k in (
-        "non_field_errors", "__all__",
-        "fecha", "descripcion",
-        "gastos_insumos", "gastos_mano_obra",
-        "categoria_id", "cosecha_id", "temporada_id",
-        "huerta_id", "huerta_rentada_id",
-        "cosecha", "temporada", "huerta", "huerta_rentada",
-    ):
-        if k in errors:
-            flat += _txts(errors[k])
+    # _has_error_code importado de huerta_views
 
-    for msg in flat:
-        t = msg.strip()
+    # Fechas
+    if _has_error_code(errors, "fecha_futura"):      return "inversion_fecha_futura", {"errors": errors}
+    if _has_error_code(errors, "fecha_fuera_rango"): return "inversion_fecha_fuera_de_rango", {"errors": errors}
+    if _has_error_code(errors, "fecha_anterior_cosecha"): return "inversion_fecha_antes_inicio_cosecha", {"errors": errors}
+    if _has_error_code(errors, "fecha_retroactiva_invalida"): return "inversion_fecha_no_retroceder", {"errors": errors}
 
-        # Fechas
-        if t == "La fecha no puede ser futura.":
-            return "inversion_fecha_futura", {"errors": errors}
-        if t == "La fecha sólo puede ser de hoy o de ayer (máx. 24 h).":
-            return "inversion_fecha_fuera_de_rango", {"errors": errors}
-        if "La fecha debe ser igual o posterior al inicio de la cosecha" in t:
-            return "inversion_fecha_antes_inicio_cosecha", {"errors": errors}
-        if t == "No puedes mover la fecha más atrás que la registrada.":
-            return "inversion_fecha_no_retroceder", {"errors": errors}
+    # Montos
+    if _has_error_code(errors, "gastos_totales_cero"): return "inversion_totales_cero", {"errors": errors}
+    if _has_error_code(errors, "campo_requerido"):     return "inversion_field_obligatorio", {"errors": errors}
+    if _has_error_code(errors, "valor_negativo"):      return "inversion_gasto_negativo", {"errors": errors}
 
-        # Montos
-        if t == "Los gastos totales deben ser mayores a 0.":
-            return "inversion_totales_cero", {"errors": errors}
-        if t == "El gasto en insumos es obligatorio." or t == "El gasto en mano de obra es obligatorio.":
-            return "inversion_campo_obligatorio", {"errors": errors}
-        if t == "No puede ser negativo.":
-            return "inversion_gasto_negativo", {"errors": errors}
+    # Contexto
+    if _has_error_code(errors, "temporada_inconsistente"): return "inversion_temporada_incoherente", {"errors": errors}
+    if _has_error_code(errors, "temporada_no_permitida"):  return "inversion_temporada_no_permitida", {"errors": errors}
+    if _has_error_code(errors, "huerta_inconsistente"):    return "inversion_huerta_incoherente", {"errors": errors}
+    if _has_error_code(errors, "huerta_rentada_inconsistente"): return "inversion_huerta_rentada_incoherente", {"errors": errors}
+    if _has_error_code(errors, "origen_rentada_en_propia"): return "inversion_origen_rentada_en_propia", {"errors": errors}
+    if _has_error_code(errors, "origen_propia_en_rentada"): return "inversion_origen_propia_en_rentada", {"errors": errors}
+    if _has_error_code(errors, "cosecha_sin_origen"):       return "inversion_cosecha_sin_origen", {"errors": errors}
 
-        # Coherencia de contexto
-        if t == "La temporada no coincide con la temporada de la cosecha.":
-            return "inversion_temporada_incoherente", {"errors": errors}
-        if t == "No se pueden registrar inversiones en una temporada finalizada o archivada.":
-            return "inversion_temporada_no_permitida", {"errors": errors}
-        if t == "La huerta no coincide con la huerta de la cosecha.":
-            return "inversion_huerta_incoherente", {"errors": errors}
-        if t == "La huerta rentada no coincide con la de la cosecha.":
-            return "inversion_huerta_rentada_incoherente", {"errors": errors}
-        if t == "No asignes huerta propia en una cosecha de huerta rentada.":
-            return "inversion_origen_rentada_en_propia", {"errors": errors}
-        if t == "No asignes huerta rentada en una cosecha de huerta propia.":
-            return "inversion_origen_propia_en_rentada", {"errors": errors}
-        if t == "La cosecha no tiene origen (huerta/huerta_rentada) definido.":
-            return "inversion_cosecha_sin_origen", {"errors": errors}
-
-        # Mensajes de model.clean
-        if t == "La cosecha debe estar activa y no finalizada.":
-            return "inversion_cosecha_no_permitida", {"errors": errors}
-        if t == "La temporada debe estar activa y no finalizada.":
-            return "inversion_temporada_no_permitida", {"errors": errors}
-        if t == "No se pueden registrar inversiones en una huerta archivada.":
-            return "inversion_huerta_archivada", {"errors": errors}
-        if t == "No se pueden registrar inversiones en una huerta rentada archivada.":
-            return "inversion_huerta_rentada_archivada", {"errors": errors}
+    # Contexto via model clean() -> codes
+    if _has_error_code(errors, "cosecha_finalizada"): return "inversion_cosecha_no_permitida", {"errors": errors} 
+    if _has_error_code(errors, "huerta_archivada"):   return "inversion_huerta_archivada", {"errors": errors}
+    if _has_error_code(errors, "huerta_rentada_archivada"): return "inversion_huerta_rentada_archivada", {"errors": errors}
 
     # Fallback genérico
     return "validation_error", {"errors": errors}

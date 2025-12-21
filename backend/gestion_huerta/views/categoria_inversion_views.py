@@ -7,7 +7,7 @@ from django.db import transaction
 
 from gestion_huerta.models import CategoriaInversion
 from gestion_huerta.serializers import CategoriaInversionSerializer
-from gestion_huerta.views.huerta_views import NotificationMixin
+from gestion_huerta.views.huerta_views import NotificationMixin, _has_error_code
 from gestion_usuarios.permissions import HasModulePermission
 from agroproductores_risol.utils.pagination import GenericPagination
 from gestion_huerta.utils.activity import registrar_actividad
@@ -30,18 +30,12 @@ def _map_categoria_validation_errors(errors: dict) -> tuple[str, dict]:
             return out
         return [str(v)]
 
-    flat = []
-    for k in ("non_field_errors", "__all__", "nombre"):
-        if k in errors:
-            flat += _texts(errors[k])
+    # _has_error_code importado de huerta_views
 
-    for msg in flat:
-        t = msg.strip()
-        if t == "El nombre de la categoría debe tener al menos 3 caracteres.":
-            return "categoria_nombre_corto", {"errors": errors}
-        if t == "Ya existe una categoría con este nombre.":
-            return "categoria_nombre_duplicado", {"errors": errors}
-
+    if _has_error_code(errors, "nombre_muy_corto"):
+        return "categoria_nombre_corto", {"errors": errors}
+    if _has_error_code(errors, "categoria_duplicada"):
+        return "categoria_nombre_duplicado", {"errors": errors}
     return "validation_error", {"errors": errors}
 
 

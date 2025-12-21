@@ -82,6 +82,7 @@ class CalidadMadera(models.TextChoices):
     NINIO   = "NINIO", "Niño"
     MADURO  = "MADURO", "Maduro"
     RONIA   = "RONIA", "Roña"
+    MERMA   = "MERMA", "Merma"
 
 
 class CalidadPlastico(models.TextChoices):
@@ -91,6 +92,7 @@ class CalidadPlastico(models.TextChoices):
     NINIO   = "NINIO", "Niño"
     RONIA   = "RONIA", "Roña"
     MADURO  = "MADURO", "Maduro"
+    MERMA   = "MERMA", "Merma"
 
 
 class EstadoPedido(models.TextChoices):
@@ -265,11 +267,8 @@ class TemporadaBodega(TimeStampedModel):
 
         for r in self.recepciones.all():
             if r.is_active:
-                r.archivar(via_cascada=True); counts["recepciones"] += 1
-
-        for cl in self.clasificaciones.all():
-            if cl.is_active:
-                cl.archivar(via_cascada=True); counts["clasificaciones"] += 1
+                res = r.archivar(via_cascada=True)
+                counts = _sum_counts(counts, res)
 
         for p in self.pedidos.all():
             if p.is_active:
@@ -310,11 +309,8 @@ class TemporadaBodega(TimeStampedModel):
 
         for r in self.recepciones.all():
             if (not r.is_active) and r.archivado_por_cascada:
-                r.desarchivar(via_cascada=True); counts["recepciones"] += 1
-
-        for cl in self.clasificaciones.all():
-            if (not cl.is_active) and cl.archivado_por_cascada:
-                cl.desarchivar(via_cascada=True); counts["clasificaciones"] += 1
+                res = r.desarchivar(via_cascada=True)
+                counts = _sum_counts(counts, res)
 
         for p in self.pedidos.all():
             if (not p.is_active) and p.archivado_por_cascada:
@@ -452,6 +448,42 @@ class Recepcion(TimeStampedModel):
             self.full_clean()
         return super().save(*args, **kwargs)
 
+    @transaction.atomic
+    def archivar(self, via_cascada: bool = False) -> dict:
+        """
+        Archiva la recepción y cascada sus clasificaciones activas.
+        """
+        if not self.is_active:
+            return {"recepciones": 0, "clasificaciones": 0}
+
+        super().archivar(via_cascada=via_cascada)
+
+        count_cls = 0
+        for cl in self.clasificaciones.filter(is_active=True):
+            cl.archivar(via_cascada=True)
+            count_cls += 1
+
+        return {"recepciones": 1, "clasificaciones": count_cls}
+
+    @transaction.atomic
+    def desarchivar(self, via_cascada: bool = False) -> dict:
+        """
+        Desarchiva la recepción y restaura clasificaciones archivadas por cascada.
+        """
+        if via_cascada and not self.archivado_por_cascada:
+            return {"recepciones": 0, "clasificaciones": 0}
+        if self.is_active:
+            return {"recepciones": 0, "clasificaciones": 0}
+
+        super().desarchivar(via_cascada=via_cascada)
+
+        count_cls = 0
+        for cl in self.clasificaciones.filter(is_active=False, archivado_por_cascada=True):
+            cl.desarchivar(via_cascada=True)
+            count_cls += 1
+
+        return {"recepciones": 1, "clasificaciones": count_cls}
+
 
 class ClasificacionEmpaque(TimeStampedModel):
     """
@@ -476,6 +508,13 @@ class ClasificacionEmpaque(TimeStampedModel):
             Index(fields=["material", "calidad"], name="idx_emp_mat_cal"),
             Index(fields=["tipo_mango"], name="idx_emp_tipo_mango"),
             Index(fields=["bodega", "temporada", "semana", "fecha"], name="idx_emp_ctx_semana_fecha"),
+        ]
+        constraints = [
+            UniqueConstraint(
+                fields=["recepcion", "material", "calidad"],
+                condition=Q(is_active=True),
+                name="uniq_emp_linea_activa_por_recepcion",
+            ),
         ]
 
     def __str__(self) -> str:
@@ -517,8 +556,19 @@ class ClasificacionEmpaque(TimeStampedModel):
 
         # Coherencia con recepción
         if self.recepcion_id:
-            if self.recepcion.bodega_id != self.bodega_id or self.recepcion.temporada_id != self.temporada_id:
-                errors["recepcion"] = "La recepción debe pertenecer a la misma bodega y temporada."
+            if not self.recepcion.is_active:
+                errors["recepcion"] = "No se pueden registrar clasificaciones en una recepción archivada."
+
+            # La identidad (bodega/temporada/tipo_mango) la hereda del padre (server-truth)
+            if self.bodega_id and self.bodega_id != self.recepcion.bodega_id:
+                errors["bodega"] = "La clasificación debe usar la misma bodega que la recepción."
+            if self.temporada_id and self.temporada_id != self.recepcion.temporada_id:
+                errors["temporada"] = "La clasificación debe usar la misma temporada que la recepción."
+
+            self.bodega_id = self.recepcion.bodega_id
+            self.temporada_id = self.recepcion.temporada_id
+            self.tipo_mango = self.recepcion.tipo_mango
+
             if self.fecha and self.recepcion.fecha and self.fecha < self.recepcion.fecha:
                 errors["fecha"] = "La fecha de clasificación no puede ser anterior a la recepción."
 

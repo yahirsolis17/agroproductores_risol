@@ -1,4 +1,6 @@
-﻿// Meta de paginación uniforme (envelope o DRF)
+﻿// frontend/src/modules/gestion_bodega/types/capturasTypes.d.ts
+
+// Meta de paginación uniforme (envelope o DRF)
 export type PaginationMeta = {
   count: number;
   next: string | null;
@@ -11,6 +13,9 @@ export type PaginationMeta = {
   temporada_finalizada?: boolean;
   semana_rango?: { from?: string; to?: string };
 };
+
+// ------------ Empaque (resumen por recepción) ------------
+export type EmpaqueStatus = "SIN_EMPAQUE" | "PARCIAL" | "EMPACADO";
 
 // ------------ Dominio: Capturas (backend: Recepciones) ------------
 export interface Captura {
@@ -30,6 +35,13 @@ export interface Captura {
 
   // Estado base
   is_active: boolean;
+
+  // ── Fase 3: resumen de empaque derivado (backend: recepciones list)
+  empaque_status?: EmpaqueStatus;
+  cajas_empaquetadas?: number;
+  cajas_disponibles?: number;
+  cajas_merma?: number;
+  empaque_id?: number | null;
 
   // Timestamps (si el backend los expone)
   creado_en?: string;

@@ -1,456 +1,215 @@
 // src/theme.ts
 import { createTheme, alpha } from '@mui/material/styles';
 
-// Paleta Industrial-Corporativa con toques del campo
-const PRIMARY_MAIN = '#2c3e50';      // Azul-gris oscuro industrial (acero)
-const PRIMARY_DARK = '#1a252f';      // Casi carbón
-const PRIMARY_LIGHT = '#4a5f7f';     // Acero claro
+// --- PALETA DE COLORES ---
 
-const SECONDARY_MAIN = '#6b7f5c';    // Verde oliva apagado (campo/naturaleza)
-const SECONDARY_DARK = '#4a5940';    // Verde musgo oscuro
-const SECONDARY_LIGHT = '#8c9d7e';   // Verde salvia
+// 1. Color Principal: Un verde muy oscuro, casi gris (Deep Mineral Green).
+// Transmite: Estabilidad, Corporativo, Naturaleza seria.
+const PRIMARY_MAIN = '#2F3E37';
+const PRIMARY_DARK = '#1D2822';
+const PRIMARY_LIGHT = '#576960';
 
-const ACCENT = '#a0826d';            // Terracota/cuero (toque cálido sutil)
+// 2. Color Secundario: Un tono "Salvia Metálico" o "Hierba Seca".
+// Transmite: Industrial, suave, campo técnico.
+const SECONDARY_MAIN = '#7A8C80';
+const SECONDARY_LIGHT = '#A3B3A9';
 
-const TEXT_PRIMARY = '#1f2937';      // Gris muy oscuro (casi negro)
-const TEXT_SECONDARY = '#4b5563';    // Gris medio
+// 3. Fondos y Textos
+// No usamos negro puro (#000), usamos un carbón verdoso para armonía.
+const TEXT_PRIMARY = '#1A211E';
+const TEXT_SECONDARY = '#4D5952';
 
-const BG_DEFAULT = '#e8e6e1';        // Gris cálido tenue (cemento claro)
-const BG_PAPER = '#f5f4f0';          // Papel ligeramente más cálido (lino)
-const BG_ELEVATED = '#ffffff';       // Blanco puro solo para elementos elevados importantes
+// El fondo no es blanco clínico, es un tono "Misty Concrete" (Gris cálido muy suave)
+const BG_CONCRETE = '#F0F2F0';
+const PAPER_SURFACE = '#FFFFFF';
+
+// Acento sutil (Opcional, para alertas o CTAs muy específicos): Ocre quemado
+// Evita que el sitio se sienta "triste" sin ser "fiesta".
+const ACCENT_WARM = '#D9A441';
 
 const theme = createTheme({
   typography: {
-    fontFamily: '"Inter", "Roboto", "Arial", sans-serif',
-    h1: { 
-      fontWeight: 700, 
-      letterSpacing: -0.5,
-      color: TEXT_PRIMARY,
-    },
-    h2: { 
-      fontWeight: 700, 
-      letterSpacing: -0.3,
-      color: TEXT_PRIMARY,
-    },
-    h3: { 
-      fontWeight: 600, 
-      letterSpacing: -0.2,
-      color: TEXT_PRIMARY,
-    },
-    h4: { 
-      fontWeight: 600, 
-      letterSpacing: 0,
-      color: TEXT_PRIMARY,
-    },
-    h5: { 
-      fontWeight: 600,
-      color: TEXT_PRIMARY,
-    },
-    h6: { 
-      fontWeight: 600,
-      color: TEXT_PRIMARY,
-    },
-    subtitle1: { 
-      fontWeight: 500,
-      color: TEXT_SECONDARY,
-    },
-    subtitle2: { 
-      fontWeight: 500,
-      color: TEXT_SECONDARY,
-    },
-    body1: {
-      color: TEXT_PRIMARY,
-    },
-    body2: {
-      color: TEXT_SECONDARY,
-    },
-    button: { 
-      textTransform: 'none', 
-      fontWeight: 600,
-      letterSpacing: 0.3,
-    },
+    // Mantenemos Poppins pero ajustamos pesos para que se vea más "técnico"
+    fontFamily: '"Poppins", "Inter", sans-serif',
+    h1: { fontWeight: 700, color: PRIMARY_DARK, letterSpacing: -0.5 },
+    h2: { fontWeight: 700, color: PRIMARY_DARK, letterSpacing: -0.5 },
+    h3: { fontWeight: 600, color: PRIMARY_MAIN },
+    h4: { fontWeight: 600, color: PRIMARY_MAIN },
+    h5: { fontWeight: 600 },
+    h6: { fontWeight: 600, textTransform: 'uppercase', fontSize: '0.875rem', letterSpacing: 1 }, // Estilo "Etiqueta Industrial"
+    subtitle1: { color: TEXT_SECONDARY, fontWeight: 500 },
+    body1: { color: TEXT_PRIMARY, lineHeight: 1.6 },
+    button: { fontWeight: 600, letterSpacing: 0.5 },
   },
   palette: {
     primary: {
       main: PRIMARY_MAIN,
       dark: PRIMARY_DARK,
       light: PRIMARY_LIGHT,
-      contrastText: '#ffffff',
+      contrastText: '#FFFFFF',
     },
     secondary: {
       main: SECONDARY_MAIN,
-      dark: SECONDARY_DARK,
       light: SECONDARY_LIGHT,
-      contrastText: '#ffffff',
-    },
-    error: {
-      main: '#b85450',        // Rojo oxidado (industrial)
-      light: '#d67872',
-      dark: '#8f3f3c',
+      contrastText: '#FFFFFF',
     },
     warning: {
-      main: '#c4a053',        // Ocre/mostaza apagado
-      light: '#dab970',
-      dark: '#9a7d3f',
-    },
-    info: {
-      main: '#5b7a99',        // Azul acero
-      light: '#7b95b3',
-      dark: '#3f5570',
-    },
-    success: {
-      main: SECONDARY_MAIN,   // Usa el verde oliva
-      light: SECONDARY_LIGHT,
-      dark: SECONDARY_DARK,
+      main: ACCENT_WARM, // Toque cálido (trigo/cuero)
     },
     text: {
       primary: TEXT_PRIMARY,
       secondary: TEXT_SECONDARY,
-      disabled: alpha(TEXT_PRIMARY, 0.38),
     },
     background: {
-      default: BG_DEFAULT,    // Cemento claro
-      paper: BG_PAPER,        // Papel/lino
+      default: BG_CONCRETE,
+      paper: PAPER_SURFACE,
     },
-    divider: alpha(PRIMARY_DARK, 0.12),
+    divider: alpha(PRIMARY_MAIN, 0.12),
     action: {
-      active: PRIMARY_MAIN,
-      hover: alpha(PRIMARY_MAIN, 0.08),
-      selected: alpha(PRIMARY_MAIN, 0.14),
-      disabled: alpha(PRIMARY_MAIN, 0.26),
-      disabledBackground: alpha(PRIMARY_MAIN, 0.12),
+      hover: alpha(PRIMARY_MAIN, 0.04),
+      selected: alpha(PRIMARY_MAIN, 0.08),
     },
   },
   shape: {
-    borderRadius: 8,          // Menos redondeado = más industrial
+    // Reducimos el radio: 6px es más "ingeniería/tech" que 12px (que es más social/app)
+    borderRadius: 6,
   },
-  shadows: [
-    'none',
-    '0px 1px 3px rgba(31, 41, 55, 0.08), 0px 1px 2px rgba(31, 41, 55, 0.06)',
-    '0px 2px 4px rgba(31, 41, 55, 0.08), 0px 2px 3px rgba(31, 41, 55, 0.06)',
-    '0px 3px 6px rgba(31, 41, 55, 0.09), 0px 3px 4px rgba(31, 41, 55, 0.07)',
-    '0px 4px 8px rgba(31, 41, 55, 0.10), 0px 4px 5px rgba(31, 41, 55, 0.08)',
-    '0px 6px 12px rgba(31, 41, 55, 0.11), 0px 5px 7px rgba(31, 41, 55, 0.09)',
-    '0px 8px 16px rgba(31, 41, 55, 0.12), 0px 6px 9px rgba(31, 41, 55, 0.10)',
-    '0px 10px 20px rgba(31, 41, 55, 0.13), 0px 8px 11px rgba(31, 41, 55, 0.11)',
-    '0px 12px 24px rgba(31, 41, 55, 0.14), 0px 10px 13px rgba(31, 41, 55, 0.12)',
-    '0px 14px 28px rgba(31, 41, 55, 0.15), 0px 12px 15px rgba(31, 41, 55, 0.13)',
-    '0px 16px 32px rgba(31, 41, 55, 0.16), 0px 14px 17px rgba(31, 41, 55, 0.14)',
-    '0px 16px 32px rgba(31, 41, 55, 0.16), 0px 14px 17px rgba(31, 41, 55, 0.14)',
-    '0px 16px 32px rgba(31, 41, 55, 0.16), 0px 14px 17px rgba(31, 41, 55, 0.14)',
-    '0px 16px 32px rgba(31, 41, 55, 0.16), 0px 14px 17px rgba(31, 41, 55, 0.14)',
-    '0px 16px 32px rgba(31, 41, 55, 0.16), 0px 14px 17px rgba(31, 41, 55, 0.14)',
-    '0px 16px 32px rgba(31, 41, 55, 0.16), 0px 14px 17px rgba(31, 41, 55, 0.14)',
-    '0px 16px 32px rgba(31, 41, 55, 0.16), 0px 14px 17px rgba(31, 41, 55, 0.14)',
-    '0px 16px 32px rgba(31, 41, 55, 0.16), 0px 14px 17px rgba(31, 41, 55, 0.14)',
-    '0px 16px 32px rgba(31, 41, 55, 0.16), 0px 14px 17px rgba(31, 41, 55, 0.14)',
-    '0px 16px 32px rgba(31, 41, 55, 0.16), 0px 14px 17px rgba(31, 41, 55, 0.14)',
-    '0px 16px 32px rgba(31, 41, 55, 0.16), 0px 14px 17px rgba(31, 41, 55, 0.14)',
-    '0px 16px 32px rgba(31, 41, 55, 0.16), 0px 14px 17px rgba(31, 41, 55, 0.14)',
-    '0px 16px 32px rgba(31, 41, 55, 0.16), 0px 14px 17px rgba(31, 41, 55, 0.14)',
-    '0px 16px 32px rgba(31, 41, 55, 0.16), 0px 14px 17px rgba(31, 41, 55, 0.14)',
-    '0px 16px 32px rgba(31, 41, 55, 0.16), 0px 14px 17px rgba(31, 41, 55, 0.14)',
-  ],
   components: {
+    // --- LÓGICA DE SUPERFICIES ---
     MuiCssBaseline: {
       styleOverrides: {
         body: {
-          scrollbarColor: `${alpha(PRIMARY_MAIN, 0.3)} transparent`,
-          '&::-webkit-scrollbar, & *::-webkit-scrollbar': {
-            width: 10,
-            height: 10,
-          },
-          '&::-webkit-scrollbar-thumb, & *::-webkit-scrollbar-thumb': {
-            borderRadius: 8,
-            backgroundColor: alpha(PRIMARY_MAIN, 0.3),
-            border: `2px solid ${BG_DEFAULT}`,
-          },
+          backgroundColor: BG_CONCRETE,
+          // Scrollbar estilo industrial
+          '&::-webkit-scrollbar': { width: '8px' },
+          '&::-webkit-scrollbar-track': { background: '#E0E4E1' },
+          '&::-webkit-scrollbar-thumb': { background: '#Aebcb4', borderRadius: '4px' },
         },
       },
     },
     MuiPaper: {
-      defaultProps: {
-        elevation: 0,
-      },
       styleOverrides: {
         root: {
-          borderRadius: 8,
-          border: `1px solid ${alpha(PRIMARY_DARK, 0.08)}`,
-        },
-        elevation0: {
-          border: 'none',
+          backgroundImage: 'none', // Quitamos gradientes por defecto del modo dark si cambiara
         },
         elevation1: {
-          boxShadow: '0px 2px 4px rgba(31, 41, 55, 0.06), 0px 1px 2px rgba(31, 41, 55, 0.04)',
+          boxShadow: '0px 2px 4px -1px rgba(29, 40, 34, 0.06), 0px 4px 12px rgba(29, 40, 34, 0.04)',
+          border: `1px solid ${alpha(PRIMARY_MAIN, 0.08)}`, // LÓGICA: Borde sutil para definir límites
         },
-        elevation2: {
-          boxShadow: '0px 4px 8px rgba(31, 41, 55, 0.08), 0px 2px 4px rgba(31, 41, 55, 0.06)',
+        elevation0: {
+          border: `1px solid ${alpha(PRIMARY_MAIN, 0.15)}`, // Más contraste en tarjetas planas
         },
       },
     },
+
+    // --- BOTONES INDUSTRIALES ---
     MuiButton: {
       defaultProps: {
         disableElevation: true,
+        variant: 'contained',
       },
       styleOverrides: {
         root: {
-          borderRadius: 6,
-          fontWeight: 600,
           textTransform: 'none',
-          padding: '10px 20px',
-        },
-        contained: {
-          boxShadow: 'none',
-          '&:hover': {
-            boxShadow: '0px 2px 4px rgba(31, 41, 55, 0.12)',
-          },
+          padding: '8px 20px',
+          transition: 'all 0.2s ease-in-out',
         },
         containedPrimary: {
           backgroundColor: PRIMARY_MAIN,
           '&:hover': {
             backgroundColor: PRIMARY_DARK,
-          },
-        },
-        containedSecondary: {
-          backgroundColor: SECONDARY_MAIN,
-          '&:hover': {
-            backgroundColor: SECONDARY_DARK,
+            transform: 'translateY(-1px)', // Pequeño feedback mecánico
+            boxShadow: '0 4px 12px rgba(47, 62, 55, 0.25)',
           },
         },
         outlined: {
-          borderWidth: 1.5,
+          borderWidth: '1.5px', // Borde más grueso, más robusto
+          fontWeight: 600,
           '&:hover': {
-            borderWidth: 1.5,
+            borderWidth: '1.5px',
             backgroundColor: alpha(PRIMARY_MAIN, 0.04),
           },
         },
-        text: {
-          '&:hover': {
-            backgroundColor: alpha(PRIMARY_MAIN, 0.06),
-          },
-        },
-      },
-      variants: [
-        {
-          props: { variant: 'contained', color: 'primary' },
-          style: {
-            background: `linear-gradient(135deg, ${PRIMARY_MAIN} 0%, ${PRIMARY_DARK} 100%)`,
-            '&:hover': {
-              background: PRIMARY_DARK,
-            },
-          },
-        },
-      ],
-    },
-    MuiIconButton: {
-      styleOverrides: {
-        root: { 
-          borderRadius: 6,
-          '&:hover': {
-            backgroundColor: alpha(PRIMARY_MAIN, 0.06),
-          },
-        },
       },
     },
-    MuiCard: {
+
+    // --- INPUTS MÁS LEGIBLES ---
+    MuiOutlinedInput: {
       styleOverrides: {
         root: {
-          borderRadius: 8,
-          border: `1px solid ${alpha(PRIMARY_DARK, 0.08)}`,
-          boxShadow: '0px 2px 4px rgba(31, 41, 55, 0.04)',
-          transition: 'box-shadow 0.2s ease-in-out, transform 0.2s ease-in-out',
+          backgroundColor: alpha('#FFF', 0.6), // Ligeramente translúcido
+          transition: 'background-color 0.2s',
           '&:hover': {
-            boxShadow: '0px 8px 16px rgba(31, 41, 55, 0.10)',
-            transform: 'translateY(-2px)',
+            backgroundColor: '#FFF',
+          },
+          '&.Mui-focused': {
+            backgroundColor: '#FFFFFF',
+            boxShadow: `0 0 0 4px ${alpha(SECONDARY_MAIN, 0.2)}`, // Anillo de foco estilo "safety"
           },
         },
-      },
-    },
-    MuiCardHeader: {
-      styleOverrides: {
-        root: {
-          borderBottom: `1px solid ${alpha(PRIMARY_DARK, 0.08)}`,
-          backgroundColor: alpha(PRIMARY_MAIN, 0.02),
-        },
-        title: {
-          fontWeight: 600,
-          color: TEXT_PRIMARY,
-        },
-        subheader: {
-          color: TEXT_SECONDARY,
+        notchedOutline: {
+          borderColor: alpha(PRIMARY_MAIN, 0.2),
         },
       },
     },
+
+    // --- ELEMENTOS DE NAVEGACIÓN ---
     MuiAppBar: {
       styleOverrides: {
         root: {
-          backgroundColor: BG_ELEVATED,
+          backgroundColor: '#FFFFFF',
           color: TEXT_PRIMARY,
-          boxShadow: `0px 1px 0px ${alpha(PRIMARY_DARK, 0.08)}`,
+          borderBottom: `1px solid ${alpha(PRIMARY_MAIN, 0.1)}`,
+          boxShadow: 'none', // Flat design para la barra superior
         },
       },
     },
-    MuiDrawer: {
-      styleOverrides: {
-        paper: {
-          backgroundColor: BG_PAPER,
-          borderRight: `1px solid ${alpha(PRIMARY_DARK, 0.12)}`,
-        },
-      },
-    },
-    MuiTabs: {
-      styleOverrides: {
-        root: {
-          borderBottom: `1px solid ${alpha(PRIMARY_DARK, 0.12)}`,
-        },
-        indicator: {
-          height: 3,
-          borderRadius: 3,
-          backgroundColor: ACCENT,
-        },
-      },
-    },
-    MuiTab: {
-      styleOverrides: {
-        root: {
-          textTransform: 'none',
-          fontWeight: 600,
-          minHeight: 48,
-          color: TEXT_SECONDARY,
-          '&.Mui-selected': {
-            color: PRIMARY_MAIN,
-          },
-        },
-      },
-    },
+
     MuiChip: {
       styleOverrides: {
         root: {
-          borderRadius: 6,
-          fontWeight: 500,
-          height: 28,
+          borderRadius: 4, // Chips rectangulares (etiquetas de almacén/inventario)
+          fontWeight: 600,
         },
         filled: {
-          backgroundColor: alpha(PRIMARY_MAIN, 0.12),
+          backgroundColor: alpha(SECONDARY_MAIN, 0.15),
           color: PRIMARY_DARK,
         },
-        outlined: {
-          borderColor: alpha(PRIMARY_DARK, 0.20),
-          borderWidth: 1.5,
-        },
-        colorSecondary: {
-          backgroundColor: alpha(SECONDARY_MAIN, 0.15),
-          color: SECONDARY_DARK,
+        colorPrimary: {
+          backgroundColor: PRIMARY_MAIN,
+          color: '#FFF',
         },
       },
     },
+
+    // --- TABLAS (DATOS) ---
+    MuiTableCell: {
+      styleOverrides: {
+        head: {
+          fontWeight: 700,
+          backgroundColor: alpha(SECONDARY_MAIN, 0.08), // Cabecera de tabla gris/verdosa tenue
+          color: PRIMARY_DARK,
+          textTransform: 'uppercase',
+          fontSize: '0.75rem',
+          letterSpacing: 0.5,
+        },
+        body: {
+          color: TEXT_SECONDARY,
+        },
+      },
+    },
+
+    // --- ALERTAS ---
     MuiAlert: {
       styleOverrides: {
-        root: { 
-          borderRadius: 8,
-          border: '1px solid',
-        },
-        standardError: {
-          backgroundColor: alpha('#b85450', 0.08),
-          borderColor: alpha('#b85450', 0.2),
-        },
-        standardWarning: {
-          backgroundColor: alpha('#c4a053', 0.08),
-          borderColor: alpha('#c4a053', 0.2),
+        root: {
+          borderRadius: 4,
+          border: '1px solid transparent',
         },
         standardInfo: {
-          backgroundColor: alpha('#5b7a99', 0.08),
-          borderColor: alpha('#5b7a99', 0.2),
-        },
-        standardSuccess: {
-          backgroundColor: alpha(SECONDARY_MAIN, 0.08),
-          borderColor: alpha(SECONDARY_MAIN, 0.2),
-        },
-      },
-    },
-    MuiTooltip: {
-      defaultProps: {
-        arrow: true,
-      },
-      styleOverrides: {
-        tooltip: {
-          borderRadius: 6,
-          fontSize: 13,
-          backgroundColor: PRIMARY_DARK,
-          padding: '8px 12px',
-        },
-        arrow: {
+          backgroundColor: alpha(PRIMARY_MAIN, 0.05),
           color: PRIMARY_DARK,
-        },
-      },
-    },
-    MuiTextField: {
-      styleOverrides: {
-        root: {
-          '& .MuiOutlinedInput-root': {
-            backgroundColor: BG_ELEVATED,
-            '& fieldset': {
-              borderColor: alpha(PRIMARY_DARK, 0.15),
-              borderWidth: 1.5,
-            },
-            '&:hover fieldset': {
-              borderColor: alpha(PRIMARY_MAIN, 0.4),
-            },
-            '&.Mui-focused fieldset': {
-              borderColor: PRIMARY_MAIN,
-              borderWidth: 2,
-            },
-          },
-        },
-      },
-    },
-    MuiTableHead: {
-      styleOverrides: {
-        root: {
-          backgroundColor: alpha(PRIMARY_MAIN, 0.04),
-          '& .MuiTableCell-root': {
-            fontWeight: 600,
-            color: TEXT_PRIMARY,
-            borderBottom: `2px solid ${alpha(PRIMARY_DARK, 0.12)}`,
-          },
-        },
-      },
-    },
-    MuiTableRow: {
-      styleOverrides: {
-        root: {
-          '&:hover': {
-            backgroundColor: alpha(PRIMARY_MAIN, 0.03),
-          },
-          '&:last-child td': {
-            borderBottom: 0,
-          },
-        },
-      },
-    },
-    MuiDivider: {
-      styleOverrides: {
-        root: { 
-          borderColor: alpha(PRIMARY_DARK, 0.10),
-        },
-      },
-    },
-    MuiLinearProgress: {
-      styleOverrides: {
-        root: {
-          borderRadius: 4,
-          backgroundColor: alpha(PRIMARY_MAIN, 0.12),
-        },
-        bar: {
-          borderRadius: 4,
-        },
-      },
-    },
-    MuiSkeleton: {
-      styleOverrides: {
-        root: { 
-          borderRadius: 6,
-          backgroundColor: alpha(PRIMARY_MAIN, 0.08),
+          borderColor: alpha(PRIMARY_MAIN, 0.1),
         },
       },
     },

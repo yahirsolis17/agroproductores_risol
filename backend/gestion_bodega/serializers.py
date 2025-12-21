@@ -2,6 +2,7 @@
 from datetime import timedelta, datetime, time
 from decimal import Decimal
 
+from django.db import transaction
 from django.db.models import Sum, Q
 from django.utils import timezone
 from typing import Any, Dict, Iterable, Optional
@@ -336,7 +337,7 @@ class ClasificacionEmpaqueSerializer(serializers.ModelSerializer):
             "fecha", "material", "calidad", "tipo_mango", "cantidad_cajas",
             "is_active", "archivado_en", "creado_en", "actualizado_en",
         ]
-        read_only_fields = ["recepcion", "bodega", "temporada", "semana", "is_active", "archivado_en", "creado_en", "actualizado_en"]
+        read_only_fields = ["recepcion", "bodega", "temporada", "semana", "tipo_mango", "is_active", "archivado_en", "creado_en", "actualizado_en"]
 
     def validate_material(self, v):
         if v not in Material.values:
@@ -362,6 +363,8 @@ class ClasificacionEmpaqueSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"recepcion_id": "La recepci?n no pertenece a esta bodega."})
         if getattr(recepcion, "temporada_id", None) != temporada.id:
             raise serializers.ValidationError({"recepcion_id": "La recepci?n no pertenece a esta temporada."})
+        if getattr(recepcion, "is_active", True) is False:
+            raise serializers.ValidationError({"recepcion_id": "La recepci?n est? archivada; no se permiten clasificaciones."})
 
         if cantidad <= 0:
             raise serializers.ValidationError({"cantidad_cajas": "Debe ser mayor a 0."})
@@ -399,10 +402,14 @@ class ClasificacionEmpaqueSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"fecha": "La fecha cae en una semana distinta a la de la recepci?n."})
 
         # No exceder cajas disponibles de la recepci?n (considerando otras clasificaciones activas)
-        qs = ClasificacionEmpaque.objects.filter(recepcion=recepcion, is_active=True)
-        if self.instance is not None:
-            qs = qs.exclude(pk=self.instance.pk)
-        ya_clasificado = qs.aggregate(total=Sum("cantidad_cajas"))["total"] or 0
+        with transaction.atomic():
+            qs = (
+                ClasificacionEmpaque.objects.select_for_update()
+                .filter(recepcion=recepcion, is_active=True)
+            )
+            if self.instance is not None:
+                qs = qs.exclude(pk=self.instance.pk)
+            ya_clasificado = qs.aggregate(total=Sum("cantidad_cajas"))["total"] or 0
 
         cajas_recepcion = getattr(recepcion, "cajas_campo", 0) or 0
         if (ya_clasificado + cantidad) > cajas_recepcion:
@@ -466,11 +473,13 @@ class ClasificacionEmpaqueBulkUpsertSerializer(serializers.Serializer):
             raise serializers.ValidationError({"recepcion": "La recepci?n no pertenece a esta bodega."})
         if getattr(recepcion, "temporada_id", None) != temporada.id:
             raise serializers.ValidationError({"recepcion": "La recepci?n no pertenece a esta temporada."})
+        if getattr(recepcion, "is_active", True) is False:
+            raise serializers.ValidationError({"recepcion": "La recepci?n está archivada; no se permiten clasificaciones."})
 
         if f > timezone.localdate():
             raise serializers.ValidationError({"fecha": "La fecha no puede ser futura."})
 
-        _require_semana(bodega, temporada, f)
+        semana = _require_semana(bodega, temporada, f)
 
         if _semana_bloqueada(bodega, temporada, f):
             raise serializers.ValidationError("Esta semana est? cerrada; no se permiten m?s cambios en ese rango.")
@@ -478,15 +487,27 @@ class ClasificacionEmpaqueBulkUpsertSerializer(serializers.Serializer):
         if not _is_today_or_yesterday(f):
             raise serializers.ValidationError({"fecha": "La fecha solo puede ser HOY o AYER (m?x. 24 h)."})
 
+        # Fecha de clasificación no puede ser anterior a la recepción
+        if recepcion.fecha and f < recepcion.fecha:
+            raise serializers.ValidationError({"fecha": "La fecha de clasificaci?n no puede ser anterior a la recepci?n."})
+
+        # Semana resuelta debe coincidir con la de la recepción (si existe)
+        if getattr(recepcion, "semana_id", None) and semana and recepcion.semana_id != semana.id:
+            raise serializers.ValidationError({"fecha": "La fecha cae en una semana distinta a la de la recepci?n."})
+
         if not data.get("items"):
             raise serializers.ValidationError({"items": "Debe incluir al menos un ?tem."})
 
         # suma de ?tems no excede disponible
         total_items = sum(int(i.get("cantidad_cajas") or 0) for i in data["items"])
 
-        qs = ClasificacionEmpaque.objects.filter(recepcion=recepcion, is_active=True)
-        ya_clasificado = qs.aggregate(total=Sum("cantidad_cajas"))["total"] or 0
-        cajas_recepcion = getattr(recepcion, "cajas_campo", 0) or 0
+        with transaction.atomic():
+            qs = (
+                ClasificacionEmpaque.objects.select_for_update()
+                .filter(recepcion=recepcion, is_active=True)
+            )
+            ya_clasificado = qs.aggregate(total=Sum("cantidad_cajas"))["total"] or 0
+            cajas_recepcion = getattr(recepcion, "cajas_campo", 0) or 0
 
         if (ya_clasificado + total_items) > cajas_recepcion:
             raise serializers.ValidationError(

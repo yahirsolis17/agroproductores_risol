@@ -10,7 +10,7 @@ from gestion_huerta.serializers import CosechaSerializer
 from gestion_huerta.utils.activity import registrar_actividad
 from gestion_huerta.utils.audit import ViewSetAuditMixin
 from agroproductores_risol.utils.pagination import GenericPagination
-from gestion_huerta.views.huerta_views import NotificationMixin
+from gestion_huerta.views.huerta_views import NotificationMixin, _has_error_code
 from gestion_usuarios.permissions import HasModulePermission
 
 
@@ -23,46 +23,27 @@ def _map_cosecha_validation_errors(errors: dict) -> tuple[str, dict]:
     Traduce los mensajes del serializer/modelo a claves específicas de notificación.
     Devuelve (key, data) para NotificationHandler.
     """
-    def _texts(val):
-        if val is None:
-            return []
-        if isinstance(val, (list, tuple)):
-            return [str(x) for x in val]
-        return [str(val)]
+    # _has_error_code importado de huerta_views
 
-    # Posibles ubicaciones de errores
-    buckets = []
-    for k in ("non_field_errors", "__all__", "temporada", "nombre", "fecha_inicio", "fecha_fin"):
-        if k in errors:
-            buckets += _texts(errors[k])
+    if _has_error_code(errors, "falta_temporada"):
+        return "cosecha_temporada_requerida", {"errors": errors}
+    if _has_error_code(errors, "fechas_inconsistentes"):
+        return "cosecha_fechas_incoherentes", {"errors": errors}
+    if _has_error_code(errors, "temporada_archivada"):
+        return "cosecha_temporada_archivada", {"errors": errors}
+    if _has_error_code(errors, "temporada_finalizada"):
+        return "cosecha_temporada_finalizada", {"errors": errors}
+    if _has_error_code(errors, "max_cosechas_alcanzado"):
+        return "cosecha_limite_temporada", {"errors": errors}
+    if _has_error_code(errors, "unique"):
+        return "cosecha_duplicada", {"errors": errors}
+    if _has_error_code(errors, "cosecha_activa_existente"):
+        return "cosecha_activa_existente", {"errors": errors}
+    if _has_error_code(errors, "cambio_temporada_prohibido"):
+        return "cosecha_cambiar_temporada_prohibido", {"errors": errors}
+    if _has_error_code(errors, "nombre_muy_corto"):
+        return "cosecha_nombre_corto", {"errors": errors}
 
-    for msg in buckets:
-        txt = msg.strip()
-
-        # Mensajes exactos del CosechaSerializer / modelo
-        if txt == "La cosecha debe pertenecer a una temporada.":
-            return "cosecha_temporada_requerida", {"errors": errors}
-        if txt == "La fecha de fin no puede ser anterior a la fecha de inicio.":
-            return "cosecha_fechas_incoherentes", {"errors": errors}
-        if txt == "No se pueden crear cosechas en una temporada archivada.":
-            return "cosecha_temporada_archivada", {"errors": errors}
-        if txt == "No se pueden crear cosechas en una temporada finalizada.":
-            return "cosecha_temporada_finalizada", {"errors": errors}
-        # 👇 Alineado con el clean() del modelo (cuando llegase como una sola frase)
-        if txt == "No se pueden registrar cosechas en una temporada finalizada o archivada.":
-            return "cosecha_temporada_no_permitida", {"errors": errors}
-        if txt == "Esta temporada ya tiene el máximo de 6 cosechas permitidas.":
-            return "cosecha_limite_temporada", {"errors": errors}
-        if txt == "Ya existe una cosecha con ese nombre en esta temporada.":
-            return "cosecha_duplicada", {"errors": errors}
-        if txt == "Ya existe una cosecha activa en esta temporada.":
-            return "cosecha_activa_existente", {"errors": errors}
-        if txt == "No puedes cambiar la temporada de una cosecha existente.":
-            return "cosecha_cambiar_temporada_prohibido", {"errors": errors}
-        if txt == "El nombre de la cosecha debe tener al menos 3 caracteres.":
-            return "cosecha_nombre_corto", {"errors": errors}
-
-    # Fallback genérico
     return "validation_error", {"errors": errors}
 
 

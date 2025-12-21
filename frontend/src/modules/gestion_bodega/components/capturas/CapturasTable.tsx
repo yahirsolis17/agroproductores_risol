@@ -7,7 +7,7 @@ import Button from "@mui/material/Button";
 import { TableLayout, Column } from "../../../../components/common/TableLayout";
 import ActionsMenu from "../common/ActionsMenu";
 import { formatDateDisplay } from "../../../../global/utils/date";
-import type { Captura, PaginationMeta } from "../../types/capturasTypes";
+import type { Captura, PaginationMeta, EmpaqueStatus } from "../../types/capturasTypes";
 
 type BaseProps = {
   meta: PaginationMeta;
@@ -19,7 +19,7 @@ type BaseProps = {
   onRestore?: (row: Captura) => void;
   onDelete?: (row: Captura) => void;
 
-  /** Acción para abrir el Drawer de Empaque (ahora desde menú de opciones, no desde chip). */
+  /** Acción para abrir el Drawer de Empaque (desde menú ⋯). */
   onEmpaque?: (row: Captura) => void;
 
   /** (Sigue existiendo si lo usas en tu flujo actual) */
@@ -36,38 +36,45 @@ type Props =
     | { rows: Captura[]; items?: never }
   );
 
-type EmpaqueUIState = "SIN_EMPAQUE" | "PARCIAL" | "EMPACADO";
-
-function normalizeEmpaqueState(row: Captura): EmpaqueUIState {
-  const raw =
-    ((row as any)?.empaque_estado ??
-      (row as any)?.estado_empaque ??
-      (row as any)?.empaque_status ??
-      (row as any)?.empaque ??
-      "SIN_EMPAQUE") as string;
-
-  const v = String(raw || "").trim().toUpperCase();
-
-  if (v.includes("EMPACADO") || v === "DONE" || v === "COMPLETO") return "EMPACADO";
-  if (v.includes("PARC")) return "PARCIAL";
+function safeStatus(v: any): EmpaqueStatus {
+  const s = String(v || "").trim().toUpperCase();
+  if (s === "EMPACADO") return "EMPACADO";
+  if (s === "PARCIAL") return "PARCIAL";
   return "SIN_EMPAQUE";
 }
 
 function getEmpaqueChipProps(row: Captura, blocked: boolean) {
-  // Si el tablero/semana está bloqueado, el chip lo refleja (solo indicador).
   if (blocked) {
-    return { label: "Bloqueada", color: "warning" as const, variant: "filled" as const };
+    return {
+      label: "Bloqueada",
+      color: "warning" as const,
+      variant: "filled" as const,
+    };
   }
 
-  const st = normalizeEmpaqueState(row);
+  const captured = Number(row.cantidad_cajas) || 0;
+  const packed = Number(row.cajas_empaquetadas) || 0;
+  const st = safeStatus(row.empaque_status);
 
   if (st === "EMPACADO") {
-    return { label: "Empacado", color: "success" as const, variant: "filled" as const };
+    return {
+      label: `Empacado ${packed}/${captured}`,
+      color: "success" as const,
+      variant: "filled" as const,
+    };
   }
   if (st === "PARCIAL") {
-    return { label: "Parcial", color: "warning" as const, variant: "filled" as const };
+    return {
+      label: `Parcial ${packed}/${captured}`,
+      color: "warning" as const,
+      variant: "filled" as const,
+    };
   }
-  return { label: "Sin empacar", color: "default" as const, variant: "outlined" as const };
+  return {
+    label: `Sin empacar 0/${captured}`,
+    color: "default" as const,
+    variant: "outlined" as const,
+  };
 }
 
 export default function CapturasTable({
@@ -108,18 +115,19 @@ export default function CapturasTable({
       },
       {
         label: "Empaque",
-        key: "empaque" as any,
+        key: "empaque_status" as any,
         align: "center",
         render: (r) => {
           const chip = getEmpaqueChipProps(r, blocked);
-          // IMPORTANTE: NO abre drawer. Solo indicador.
+
+          // Indicador puro (drawer abre desde ⋯).
           return (
             <Chip
               size="small"
               label={chip.label}
               color={chip.color}
               variant={chip.variant}
-              sx={{ fontWeight: 700 }}
+              sx={{ fontWeight: 800 }}
             />
           );
         },
@@ -152,18 +160,15 @@ export default function CapturasTable({
         renderActions={(row) => {
           const isArchived = !row.is_active;
 
-          // Permisos (alineados a tu sistema actual)
           const permEdit = "change_recepcion";
           const permDelete = "delete_recepcion";
           const permArch = "archive_recepcion";
           const permRest = "restore_recepcion";
           const permArchiveOrRestore = isArchived ? permRest : permArch;
 
-          // Empaque: preferimos un codename dedicado si existe, pero caemos a change_recepcion
-          // (array => pasa si tiene cualquiera de los dos).
+          // Empaque: dedicado si existe, si no, cae a change_recepcion
           const permEmpaque = ["empaque_recepcion", "change_recepcion"];
 
-          // UX: si está bloqueado o archivado => solo ver (drawer read-only)
           const labelEmpaque = blocked || isArchived ? "Ver empaque" : "Empacar";
 
           return (
@@ -188,7 +193,6 @@ export default function CapturasTable({
                 permEdit={permEdit}
                 permArchiveOrRestore={permArchiveOrRestore}
                 permDelete={permDelete}
-                // NUEVO: Empaque desde menú
                 onEmpaque={onEmpaque ? () => onEmpaque(row) : undefined}
                 labelEmpaque={labelEmpaque}
                 permEmpaque={permEmpaque}

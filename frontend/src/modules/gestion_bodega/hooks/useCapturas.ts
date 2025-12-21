@@ -1,5 +1,6 @@
-import { useCallback } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+// frontend/src/modules/gestion_bodega/hooks/useCapturas.ts
+import { useCallback } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import {
   fetchCapturas,
   createCapturaThunk,
@@ -17,9 +18,9 @@ import {
   setSemana,
   setPage,
   setPageSize,
-} from '../../../global/store/capturasSlice';
-import type { CapturaCreatePayload, CapturaUpdatePayload } from '../types/capturasTypes';
-import type { AppDispatch } from '../../../global/store/store';
+} from "../../../global/store/capturasSlice";
+import type { CapturaCreatePayload, CapturaUpdatePayload } from "../types/capturasTypes";
+import type { AppDispatch } from "../../../global/store/store";
 
 export default function useCapturas() {
   const dispatch = useDispatch<AppDispatch>();
@@ -43,22 +44,13 @@ export default function useCapturas() {
     [dispatch]
   );
 
-  const archivar = useCallback(
-    (id: number) => dispatch(archivarCapturaThunk({ id })).unwrap(),
-    [dispatch]
-  );
+  const archivar = useCallback((id: number) => dispatch(archivarCapturaThunk({ id })).unwrap(), [dispatch]);
 
-  const restaurar = useCallback(
-    (id: number) => dispatch(restaurarCapturaThunk({ id })).unwrap(),
-    [dispatch]
-  );
+  const restaurar = useCallback((id: number) => dispatch(restaurarCapturaThunk({ id })).unwrap(), [dispatch]);
 
-  const remove = useCallback(
-    (id: number) => dispatch(deleteCapturaThunk({ id })).unwrap(),
-    [dispatch]
-  );
+  const remove = useCallback((id: number) => dispatch(deleteCapturaThunk({ id })).unwrap(), [dispatch]);
 
-  // filtros mínimos (contexto, semana y paginación)
+  // setters
   const actions = {
     setBodega: (v?: number) => dispatch(setBodega(v)),
     setTemporada: (v?: number) => dispatch(setTemporada(v)),
@@ -67,16 +59,43 @@ export default function useCapturas() {
     setPageSize: (v: number) => dispatch(setPageSize(v)),
   };
 
+  /**
+   * Helper opcional (no rompe nada si no lo usas):
+   * Sincroniza contexto y resetea page.
+   */
+  const setContext = useCallback(
+    (params: { bodegaId?: number; temporadaId?: number; semanaId?: number; resetPage?: boolean } = {}) => {
+      const { bodegaId, temporadaId, semanaId, resetPage = true } = params;
+
+      if (typeof bodegaId !== "undefined") dispatch(setBodega(bodegaId));
+      if (typeof temporadaId !== "undefined") dispatch(setTemporada(temporadaId));
+      if (typeof semanaId !== "undefined") dispatch(setSemana(semanaId));
+
+      if (resetPage) dispatch(setPage(1));
+    },
+    [dispatch]
+  );
+
   // Helper opcional: sincroniza filtros desde el Tablero y (opcional) hace refetch
   const syncFromTablero = useCallback(
     (params: { bodegaId?: number; temporadaId?: number; semanaId?: number; refetchNow?: boolean }) => {
       let resetPage = false;
-      if (typeof params.bodegaId !== 'undefined') dispatch(setBodega(params.bodegaId));
-      if (typeof params.bodegaId !== 'undefined') resetPage = true;
-      if (typeof params.temporadaId !== 'undefined') dispatch(setTemporada(params.temporadaId));
-      if (typeof params.temporadaId !== 'undefined') resetPage = true;
-      if (typeof params.semanaId !== 'undefined') dispatch(setSemana(params.semanaId));
-      if (typeof params.semanaId !== 'undefined') resetPage = true;
+
+      if (typeof params.bodegaId !== "undefined") {
+        dispatch(setBodega(params.bodegaId));
+        resetPage = true;
+      }
+
+      if (typeof params.temporadaId !== "undefined") {
+        dispatch(setTemporada(params.temporadaId));
+        resetPage = true;
+      }
+
+      if (typeof params.semanaId !== "undefined") {
+        dispatch(setSemana(params.semanaId));
+        resetPage = true;
+      }
+
       if (resetPage) dispatch(setPage(1));
       if (params?.refetchNow) void dispatch(fetchCapturas());
     },
@@ -98,9 +117,11 @@ export default function useCapturas() {
     remove,
 
     ...actions,
+    setContext,
     syncFromTablero,
 
     get canOperate() {
+      // Operación depende de contexto mínimo + flags del backend (si vienen)
       if (!filters?.bodega || !filters?.temporada) return false;
       if (meta?.temporada_finalizada) return false;
       if (meta?.semana_cerrada) return false;
@@ -108,10 +129,10 @@ export default function useCapturas() {
     },
 
     get reasonDisabled() {
-      if (!filters?.bodega || !filters?.temporada) return 'Selecciona bodega y temporada.';
-      if (meta?.temporada_finalizada) return 'La temporada está finalizada.';
-      if (meta?.semana_cerrada) return 'La semana está cerrada.';
-      return '';
+      if (!filters?.bodega || !filters?.temporada) return "Selecciona bodega y temporada.";
+      if (meta?.temporada_finalizada) return "La temporada está finalizada.";
+      if (meta?.semana_cerrada) return "La semana está cerrada.";
+      return "";
     },
   };
 }

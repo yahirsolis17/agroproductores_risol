@@ -19,6 +19,7 @@ import temporadasBodegaReducer from './temporadabodegaSlice';
 import capturasReducer from './capturasSlice';
 import tableroBodegaReducer from './tableroBodegaSlice';
 import cierreSliceReducer from './cierresSlice';
+import empaquesSlice  from './empaquesSlice';
 export const store = configureStore({
   reducer: {
     auth: authReducer,
@@ -38,6 +39,7 @@ export const store = configureStore({
     tableroBodega: tableroBodegaReducer,
     capturas: capturasReducer,
     cierres: cierreSliceReducer,
+    empaques: empaquesSlice,
   },
 });
 

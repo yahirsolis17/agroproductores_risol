@@ -41,6 +41,7 @@ from gestion_huerta.utils.activity import registrar_actividad
 from gestion_huerta.utils.notification_handler import NotificationHandler
 from gestion_huerta.utils.audit import ViewSetAuditMixin
 from agroproductores_risol.utils.pagination import GenericPagination
+from gestion_huerta.utils.search_mixin import ExactMatchFirstMixin
 
 logger = logging.getLogger(__name__)
 
@@ -61,15 +62,21 @@ class NotificationMixin:
 # ---------------------------------------------------------------------------
 #  Helpers de mapeo de errores → keys
 # ---------------------------------------------------------------------------
-def _msg_in(errors_dict, text_substring: str) -> bool:
-    """Busca un substring en cualquier mensaje de error del dict DRF."""
-    for _, msgs in (errors_dict or {}).items():
-        if isinstance(msgs, (list, tuple)):
-            for m in msgs:
-                if text_substring.lower() in str(m).lower():
-                    return True
-        elif isinstance(msgs, str) and text_substring.lower() in msgs.lower():
-            return True
+def _has_error_code(errors, code: str) -> bool:
+    """
+    Verifica si existe un error con el código ('code') especificado
+    en cualquier parte de la estructura de errores (dict o list).
+    """
+    if isinstance(errors, dict):
+        for value in errors.values():
+            if _has_error_code(value, code):
+                return True
+    elif isinstance(errors, (list, tuple)):
+        for item in errors:
+            if hasattr(item, 'code') and item.code == code:
+                return True
+            if _has_error_code(item, code):
+                return True
     return False
 
 
@@ -85,10 +92,11 @@ def _has_perm(user, codename: str) -> bool:
 # ---------------------------------------------------------------------------
 #  🏠  PROPIETARIOS
 # ---------------------------------------------------------------------------
-class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
+class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, ExactMatchFirstMixin, viewsets.ModelViewSet):
     queryset = Propietario.objects.all().order_by('-id')
     serializer_class = PropietarioSerializer
     pagination_class = GenericPagination
+    exact_match_field = 'nombre'
 
     permission_classes = [
         IsAuthenticated,
@@ -120,19 +128,12 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
 
         # Exact match por nombre (prioridad visual)
         search_param = request.query_params.get("search", "").strip()
-        exact_match = None
-        if search_param:
-            exact_match = self.get_queryset().filter(nombre=search_param).first()
-            if exact_match:
-                queryset = queryset.exclude(id=exact_match.id)
+        exact_match, queryset = self.extract_exact_match(queryset, search_term=search_param)
 
         page = self.paginate_queryset(queryset)
         serializer = self.get_serializer(page, many=True)
 
-        results = serializer.data
-        if exact_match:
-            exact_data = self.get_serializer(exact_match).data
-            results = [exact_data] + results
+        results = self.prepend_exact_match(serializer.data, exact_match)
 
         return self.notify(
             key="data_processed_success",
@@ -157,7 +158,7 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
         except serializers.ValidationError as e:
             errors = serializer.errors or getattr(e, "detail", {}) or {}
             # Mapeo más específico
-            if 'telefono' in errors and _msg_in(errors, "registrado"):
+            if _has_error_code(errors, "telefono_duplicado"):
                 key = "propietario_telefono_duplicado"
             elif any(k in errors for k in ("nombre", "apellidos", "direccion")):
                 key = "propietario_campos_invalidos"
@@ -181,7 +182,7 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
             serializer.is_valid(raise_exception=True)
         except serializers.ValidationError as e:
             errors = serializer.errors or getattr(e, "detail", {}) or {}
-            if 'telefono' in errors and _msg_in(errors, "registrado"):
+            if _has_error_code(errors, "telefono_duplicado"):
                 key = "propietario_telefono_duplicado"
             elif any(k in errors for k in ("nombre", "apellidos", "direccion")):
                 key = "propietario_campos_invalidos"
@@ -265,29 +266,25 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVie
         exact_match = None
 
         if search:
+            # Filtro básico de búsqueda rica para reducir el set antes de extraer exacto
             qs = qs.filter(
                 Q(nombre__icontains=search) |
                 Q(apellidos__icontains=search)
             )
             self.pagination_class.page_size = 10
 
-            exact_match = self.get_queryset().filter(
-                Q(huertas__isnull=False) |
-                Q(huertas_rentadas__isnull=False),
-                nombre=search
-            ).distinct().first()
-
-            if exact_match:
-                qs = qs.exclude(id=exact_match.id)
+            # Usar mixin para extraer exact match
+            exact_match, qs = self.extract_exact_match(
+                qs, 
+                search_term=search,
+                additional_filters=None # Ya filtramos por huertas en el qs base
+            )
 
         qs = qs.order_by('-id')
 
         page = self.paginate_queryset(qs)
         serializer = self.get_serializer(page, many=True)
-        results = serializer.data
-
-        if exact_match:
-            results = [self.get_serializer(exact_match).data] + results
+        results = self.prepend_exact_match(serializer.data, exact_match)
 
         return self.notify(
             key="data_processed_success",
@@ -416,7 +413,7 @@ class HuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
             ser.is_valid(raise_exception=True)
         except serializers.ValidationError as e:
             errors = ser.errors or getattr(e, "detail", {}) or {}
-            if _msg_in(errors, "propietario archivado"):
+            if _has_error_code(errors, "propietario_archivado"):
                 key = "huerta_propietario_archivado"
             elif any(k in errors for k in ("nombre", "ubicacion", "variedades", "hectareas")):
                 key = "huerta_campos_invalidos"
@@ -444,7 +441,7 @@ class HuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
             ser.is_valid(raise_exception=True)
         except serializers.ValidationError as e:
             errors = ser.errors or getattr(e, "detail", {}) or {}
-            if _msg_in(errors, "propietario archivado"):
+            if _has_error_code(errors, "propietario_archivado"):
                 key = "huerta_propietario_archivado"
             elif any(k in errors for k in ("nombre", "ubicacion", "variedades", "hectareas")):
                 key = "huerta_campos_invalidos"
@@ -617,9 +614,9 @@ class HuertaRentadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelV
             ser.is_valid(raise_exception=True)
         except serializers.ValidationError as e:
             errors = ser.errors or getattr(e, "detail", {}) or {}
-            if _msg_in(errors, "propietario archivado"):
+            if _has_error_code(errors, "propietario_archivado"):
                 key = "huerta_rentada_propietario_archivado"
-            elif 'monto_renta' in errors:
+            elif _has_error_code(errors, "monto_renta_invalido"):
                 key = "huerta_rentada_monto_invalido"
             elif any(k in errors for k in ("nombre", "ubicacion", "variedades", "hectareas")):
                 key = "huerta_rentada_campos_invalidos"
@@ -645,9 +642,9 @@ class HuertaRentadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelV
             ser.is_valid(raise_exception=True)
         except serializers.ValidationError as e:
             errors = ser.errors or getattr(e, "detail", {}) or {}
-            if _msg_in(errors, "propietario archivado"):
+            if _has_error_code(errors, "propietario_archivado"):
                 key = "huerta_rentada_propietario_archivado"
-            elif 'monto_renta' in errors:
+            elif _has_error_code(errors, "monto_renta_invalido"):
                 key = "huerta_rentada_monto_invalido"
             elif any(k in errors for k in ("nombre", "ubicacion", "variedades", "hectareas")):
                 key = "huerta_rentada_campos_invalidos"
@@ -798,14 +795,25 @@ class HuertasCombinadasViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Ge
             qs_p = qs_p.filter(propietario_id=propietario)
             qs_r = qs_r.filter(propietario_id=propietario)
 
+        # -----------------------------------------------------------
+        # Lógica "Exact Match First" manual (dos querysets)
+        # -----------------------------------------------------------
         exact = []
         if nombre:
+            # 1. Buscar coincidencias exactas
             ex_p = qs_p.filter(nombre=nombre).values_list('id', flat=True).first()
             ex_r = qs_r.filter(nombre=nombre).values_list('id', flat=True).first()
+            
             if ex_p: exact.append(('propia', ex_p))
             if ex_r: exact.append(('rentada', ex_r))
-            qs_p = qs_p.exclude(id__in=[i for t,i in exact if t=='propia']).filter(nombre__icontains=nombre)
-            qs_r = qs_r.exclude(id__in=[i for t,i in exact if t=='rentada']).filter(nombre__icontains=nombre)
+            
+            # 2. Excluir exactas de la búsqueda general
+            if ex_p: qs_p = qs_p.exclude(id=ex_p)
+            if ex_r: qs_r = qs_r.exclude(id=ex_r)
+            
+            # 3. Aplicar filtro contains normal
+            qs_p = qs_p.filter(nombre__icontains=nombre)
+            qs_r = qs_r.filter(nombre__icontains=nombre)
 
         combined = []
         if tipo in ("", "propia"):

@@ -1,5 +1,5 @@
-// frontend/src/modules/gestion_bodega/components/tablero/sections/RecepcionesSection.tsx
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+// frontend/src/modules/gestion_bodega/components/recepciones/RecepcionesSection.tsx
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Paper } from "@mui/material";
 
 import RulesBanner from "../../capturas/RulesBanner";
@@ -49,8 +49,7 @@ const RecepcionesSection: React.FC<RecepcionesSectionProps> = ({
     saving: capSaving,
     canOperate: capCanOperate,
     reasonDisabled: capReasonDisabled,
-    setBodega: capSetBodega,
-    setTemporada: capSetTemporada,
+    setContext: capSetContext,
     setSemana: capSetSemana,
     setPage: capSetPage,
     refetch: capRefetch,
@@ -61,37 +60,43 @@ const RecepcionesSection: React.FC<RecepcionesSectionProps> = ({
     remove: capRemove,
   } = useCapturas();
 
-  // Context sync (bodega/temporada)
-  useEffect(() => {
-    if (bodegaId) capSetBodega(bodegaId);
-    if (temporadaId) capSetTemporada(temporadaId);
-  }, [bodegaId, temporadaId, capSetBodega, capSetTemporada]);
-
   const selectedWeekId = (selectedWeek as any)?.id as number | undefined;
-  const lastSemanaRef = useRef<number | undefined>(undefined);
 
-  // Context sync (semana) + refetch (solo cuando cambia weekId)
+  // ─────────────────────────────────────────────────────────────
+  // Sync contexto base (bodega/temporada) + reset page
+  // ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    capSetSemana(selectedWeekId);
+    if (!bodegaId || !temporadaId) return;
 
-    if (!capCanOperate) return;
+    capSetContext({ bodegaId, temporadaId, resetPage: true });
 
-    // Si no hay semanas publicadas, cargamos sin filtro de semana.
+    // Si NO hay semanas publicadas, cargamos sin filtro de semana
     if (!hasWeeks) {
-      capRefetch();
-      return;
+      capSetSemana(undefined);
+      void capRefetch();
     }
+    // Si HAY semanas, el fetch lo dispara el effect de selectedWeekId.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bodegaId, temporadaId, hasWeeks]);
+
+  // ─────────────────────────────────────────────────────────────
+  // Sync semana + reset page + refetch
+  // Nota: se fetchea aunque la semana esté cerrada para permitir ver histórico.
+  // ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!hasWeeks) return; // ya se maneja arriba
+
+    capSetSemana(selectedWeekId);
+    capSetPage(1);
 
     if (!selectedWeekId) return;
-    if (lastSemanaRef.current === selectedWeekId) return;
-
-    lastSemanaRef.current = selectedWeekId;
-    capRefetch();
+    void capRefetch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedWeekId, capCanOperate, capSetSemana, capRefetch, hasWeeks]);
+  }, [hasWeeks, selectedWeekId]);
 
-  // Bloqueos (semana cerrada/no iniciada)
+  // Bloqueos (operación)
   const recepDisabled = !capCanOperate ? true : hasWeeks ? !isActiveSelectedWeek : false;
+
   const recepReason = !capCanOperate
     ? capReasonDisabled || "Selecciona bodega y temporada."
     : hasWeeks && !isActiveSelectedWeek
@@ -109,7 +114,7 @@ const RecepcionesSection: React.FC<RecepcionesSectionProps> = ({
   const onPageCapturas = useCallback(
     (n: number) => {
       capSetPage(n);
-      capRefetch();
+      void capRefetch();
     },
     [capSetPage, capRefetch]
   );

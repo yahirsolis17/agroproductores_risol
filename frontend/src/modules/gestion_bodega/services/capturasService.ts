@@ -1,4 +1,5 @@
-﻿import api from "../../../global/api/apiClient";
+﻿// frontend/src/modules/gestion_bodega/services/capturasService.ts
+import api from "../../../global/api/apiClient";
 import { handleBackendNotification } from "../../../global/utils/NotificationEngine";
 import type {
   PaginationMeta,
@@ -9,26 +10,63 @@ import type {
   CapturasListResponse,
   CapturaSingleResponse,
   CapturaFilters,
+  EmpaqueStatus,
 } from "../types/capturasTypes";
 
 const BASE = "/bodega/recepciones/";
 
-// -------------------------------
-// Normalizadores
-// -------------------------------
+function clampInt(n: any) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return 0;
+  return Math.max(0, Math.floor(v));
+}
+
+function normalizeEmpaqueStatusRaw(raw: any): EmpaqueStatus | undefined {
+  const val =
+    raw?.empaque_status ??
+    raw?.empaque_estado ??
+    raw?.estado_empaque ??
+    raw?.empaque ??
+    undefined;
+
+  if (!val) return undefined;
+  const v = String(val).trim().toUpperCase();
+
+  if (v === "SIN_EMPAQUE" || v === "NONE" || v === "NO" || v.includes("SIN")) return "SIN_EMPAQUE";
+  if (v === "PARCIAL" || v.includes("PARC")) return "PARCIAL";
+  if (v === "EMPACADO" || v === "DONE" || v === "COMPLETO" || v.includes("EMPAC")) return "EMPACADO";
+
+  return undefined;
+}
+
+function normalizeCapturaRow(raw: any): Captura {
+  const empaque_status = normalizeEmpaqueStatusRaw(raw);
+
+  return {
+    ...raw,
+    id: Number(raw?.id),
+    bodega: Number(raw?.bodega),
+    temporada: Number(raw?.temporada),
+    fecha: String(raw?.fecha ?? ""),
+    huertero_nombre: String(raw?.huertero_nombre ?? ""),
+    tipo_mango: String(raw?.tipo_mango ?? ""),
+    cantidad_cajas: clampInt(raw?.cantidad_cajas),
+    observaciones: raw?.observaciones ?? null,
+    is_active: Boolean(raw?.is_active),
+
+    empaque_status,
+    cajas_empaquetadas: raw?.cajas_empaquetadas != null ? clampInt(raw?.cajas_empaquetadas) : undefined,
+    cajas_disponibles: raw?.cajas_disponibles != null ? clampInt(raw?.cajas_disponibles) : undefined,
+    cajas_merma: raw?.cajas_merma != null ? clampInt(raw?.cajas_merma) : undefined,
+    empaque_id: raw?.empaque_id != null ? Number(raw?.empaque_id) : raw?.empaque_id ?? undefined,
+  };
+}
+
 function normalizeMeta(raw: any): PaginationMeta {
   if (!raw) {
-    return {
-      count: 0,
-      next: null,
-      previous: null,
-      page: 1,
-      page_size: 20,
-      total_pages: 1,
-    };
+    return { count: 0, next: null, previous: null, page: 1, page_size: 20, total_pages: 1 };
   }
 
-  // Envelope con meta extendido (GenericPagination)
   if (
     typeof raw.page !== "undefined" ||
     typeof raw.page_size !== "undefined" ||
@@ -47,7 +85,6 @@ function normalizeMeta(raw: any): PaginationMeta {
     };
   }
 
-  // DRF puro (count/next/previous/results)
   return {
     count: raw.count ?? 0,
     next: raw.next ?? null,
@@ -58,33 +95,28 @@ function normalizeMeta(raw: any): PaginationMeta {
   };
 }
 
-/**
- * Devuelve la capa "usable" de data:
- * - NotificationHandler: { success, notification, data: {...}, [extra_data...] } -> data (+meta si vino en root)
- * - DRF puro: { results, count, next, previous } -> el root
- */
 function getDataLayer(res: any): any {
   const root = res?.data ?? {};
   if (root?.data) {
     const merged = { ...(root.data ?? {}) };
-    // Si alguien envía meta en el root (extra_data), no lo perdemos
     if (root.meta && !merged.meta) merged.meta = root.meta;
     return merged;
   }
   return root;
 }
 
-// Unifica envelope { data: { recepciones, meta } } o DRF { results, count, next, previous }
 function normalizeListPayload(res: any): CapturasListResponse {
   handleBackendNotification(res?.data);
 
   const dataLayer = getDataLayer(res);
 
-  const capturas: Captura[] =
+  const rawRows: any[] =
     dataLayer.recepciones ??
     dataLayer.capturas ??
     dataLayer.results ??
     [];
+
+  const capturas: Captura[] = Array.isArray(rawRows) ? rawRows.map(normalizeCapturaRow) : [];
 
   const metaRaw =
     dataLayer.meta ??
@@ -93,47 +125,35 @@ function normalizeListPayload(res: any): CapturasListResponse {
   return { capturas, meta: normalizeMeta(metaRaw) };
 }
 
-// Unifica envelope { data: { recepcion } } → FE { captura }
 function normalizeSinglePayload(res: any): CapturaSingleResponse {
   handleBackendNotification(res?.data);
 
   const dataLayer = getDataLayer(res);
 
-  const captura: Captura =
-    dataLayer.recepcion ?? // backend actual
-    dataLayer.captura ??   // alias futuro
-    dataLayer.item ??      // fallback
+  const raw =
+    dataLayer.recepcion ??
+    dataLayer.captura ??
+    dataLayer.item ??
     dataLayer;
 
-  return { captura };
+  return { captura: normalizeCapturaRow(raw) };
 }
 
-// -------------------------------
-// Query builder
-// -------------------------------
 function buildQuery(params: CapturaFilters = {}): Record<string, any> {
   const q: Record<string, any> = {};
-
   if (params.page) q.page = params.page;
   if (params.page_size) q.page_size = params.page_size;
   if (params.bodega) q.bodega = params.bodega;
   if (params.temporada) q.temporada = params.temporada;
   if (params.semana) {
     q.semana = params.semana;
-    q.week_id = params.semana; // alias para deep-link/backends que usen week_id
+    q.week_id = params.semana;
   }
-
   return q;
 }
 
-// -------------------------------
-// Service API
-// -------------------------------
 export const capturasService = {
-  async list(
-    params: CapturaFilters = {},
-    opts?: { signal?: AbortSignal }
-  ): Promise<CapturasListResponse> {
+  async list(params: CapturaFilters = {}, opts?: { signal?: AbortSignal }): Promise<CapturasListResponse> {
     try {
       const res = await api.get(BASE, { params: buildQuery(params), signal: opts?.signal });
       return normalizeListPayload(res);
@@ -189,8 +209,8 @@ export const capturasService = {
       handleBackendNotification(res?.data);
 
       const d = getDataLayer(res) ?? {};
-      if (d.recepcion) return { captura_id: d.recepcion.id, captura: d.recepcion };
-      if (d.captura) return { captura_id: d.captura.id, captura: d.captura };
+      if (d.recepcion) return { captura_id: d.recepcion.id, captura: normalizeCapturaRow(d.recepcion) };
+      if (d.captura) return { captura_id: d.captura.id, captura: normalizeCapturaRow(d.captura) };
 
       return { captura_id: d.recepcion_id ?? d.captura_id ?? id };
     } catch (err: any) {
@@ -225,7 +245,6 @@ export const capturasService = {
 
 export default capturasService;
 
-// Named exports (comodidad para slices/thunks)
 export const listCapturas = capturasService.list;
 export const getCaptura = capturasService.retrieve;
 export const createCaptura = capturasService.create;

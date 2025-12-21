@@ -28,7 +28,7 @@ from gestion_huerta.serializers   import TemporadaSerializer
 from gestion_huerta.utils.notification_handler import NotificationHandler
 from gestion_huerta.utils.activity import registrar_actividad
 from gestion_huerta.utils.audit    import ViewSetAuditMixin
-from gestion_huerta.views.huerta_views import NotificationMixin
+from gestion_huerta.views.huerta_views import NotificationMixin, _has_error_code
 from agroproductores_risol.utils.pagination import TemporadaPagination
 from gestion_usuarios.permissions    import HasModulePermission
 
@@ -37,31 +37,20 @@ from gestion_usuarios.permissions    import HasModulePermission
 # Helpers
 # ---------------------------------------------------------------------------
 def _map_temporada_validation_errors(errors: dict) -> tuple[str, dict]:
-    non_field  = errors.get('non_field_errors') or errors.get('__all__') or []
-    año_err    = errors.get('año') or []
-    huerta_err = errors.get('huerta') or []
-    hr_err     = errors.get('huerta_rentada') or []
+    # _has_error_code importado de huerta_views
 
-    to_texts   = lambda lst: [str(x) for x in (lst if isinstance(lst, (list, tuple)) else [lst])]
-    all_texts  = to_texts(non_field) + to_texts(año_err) + to_texts(huerta_err) + to_texts(hr_err)
-
-    for msg in all_texts:
-        txt = msg.strip()
-        if txt in ("Debe asignar una huerta o una huerta rentada.",
-                   "Debe asignar una huerta propia o rentada."):
-            return "temporada_sin_origen", {"errors": errors}
-        if txt in ("No puede asignar ambas huertas al mismo tiempo.",
-                   "No puede asignar ambas huertas a la vez."):
-            return "temporada_con_dos_origenes", {"errors": errors}
-        if txt == "El año debe estar entre 2000 y el año siguiente al actual.":
-            return "validation_error", {"errors": errors}
-        if txt in ("Ya existe una temporada para esta huerta en ese año.",
-                   "Ya existe una temporada para esta huerta rentada en ese año."):
-            return "temporada_duplicada", {"errors": errors}
-        if txt == "No se puede crear/editar temporada en una huerta archivada.":
-            return "huerta_archivada_temporada", {"errors": errors}
-        if txt == "No se puede crear/editar temporada en una huerta rentada archivada.":
-            return "huerta_rentada_archivada", {"errors": errors}
+    if _has_error_code(errors, "falta_origen"):
+        return "temporada_sin_origen", {"errors": errors}
+    if _has_error_code(errors, "origen_ambiguo"):
+        return "temporada_con_dos_origenes", {"errors": errors}
+    if _has_error_code(errors, "temporada_duplicada"):
+        return "temporada_duplicada", {"errors": errors}
+    if _has_error_code(errors, "huerta_archivada"):
+        return "huerta_archivada_temporada", {"errors": errors}
+    if _has_error_code(errors, "huerta_rentada_archivada"):
+        return "huerta_rentada_archivada", {"errors": errors}
+    if _has_error_code(errors, "anio_invalido"):
+        return "validation_error", {"errors": errors}
 
     return "temporada_campos_invalidos", {"errors": errors}
 
