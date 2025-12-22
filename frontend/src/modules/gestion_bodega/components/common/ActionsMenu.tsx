@@ -9,8 +9,7 @@ import {
   ListItemText,
   Divider,
 } from '@mui/material';
-import { shallowEqual, useSelector } from 'react-redux';
-import type { RootState } from '../../../../global/store/store';
+
 import { useAuth } from '../../../gestion_usuarios/context/AuthContext';
 
 import MoreVertIcon from '@mui/icons-material/MoreVert';
@@ -104,13 +103,11 @@ const ActionsMenu: React.FC<ActionsMenuProps> = (props) => {
   const closeMenu = () => setAnchorEl(null);
   const handle = (fn?: () => void) => { closeMenu(); fn && fn(); };
 
-  // Permisos: normaliza 'app_label.codename' -> 'codename' y bypass admin
-  const roleRedux  = useSelector((s: RootState) => s.auth.user?.role, shallowEqual);
-  const permsRedux = useSelector((s: RootState) => s.auth.permissions as string[] | undefined, shallowEqual);
-  const { user: ctxUser, permissions: ctxPerms } = useAuth();
+  // Permisos estandarizados vía useAuth
+  const { user, permissions } = useAuth();
 
-  const role = roleRedux ?? ctxUser?.role ?? undefined;
-  const raw  = (permsRedux && permsRedux.length ? permsRedux : (ctxPerms ?? [])) as string[];
+  const role = user?.role;
+  const raw = (permissions || []) as string[];
   const normalized = raw
     .map(p => (p && p.includes('.')) ? p.split('.').pop()! : p)
     .filter(Boolean) as string[];
@@ -123,28 +120,28 @@ const ActionsMenu: React.FC<ActionsMenuProps> = (props) => {
   };
 
   // Defaults por acción
-  const _permEdit   = permEdit ?? 'change_bodega';
-  const _permAorR   = permArchiveOrRestore ?? (isArchived ? 'restore_bodega' : 'archive_bodega');
+  const _permEdit = permEdit ?? 'change_bodega';
+  const _permAorR = permArchiveOrRestore ?? (isArchived ? 'restore_bodega' : 'archive_bodega');
   const _permDelete = permDelete ?? 'delete_bodega';
-  const _permView   = permView ?? 'view_bodega';
+  const _permView = permView ?? 'view_bodega';
 
-  const _permFinalize  = permFinalize ?? (isFinalized ? 'reactivate_temporadabodega' : 'finalize_temporadabodega');
+  const _permFinalize = permFinalize ?? (isFinalized ? 'reactivate_temporadabodega' : 'finalize_temporadabodega');
   const _labelFinalize = labelFinalize ?? (isFinalized ? 'Reactivar' : 'Finalizar');
 
   const _permTemporadas = permTemporadas ?? 'view_temporadabodega';
 
   // Empaque: si no mandas perm específico, cae a permEdit para no bloquear UX por defecto
-  const _permEmpaque  = permEmpaque ?? _permEdit;
+  const _permEmpaque = permEmpaque ?? _permEdit;
   const _labelEmpaque = labelEmpaque ?? 'Empacar';
 
-  const canEdit       = hasPerm(_permEdit);
-  const canAorR       = hasPerm(_permAorR);
-  const canDelete     = hasPerm(_permDelete);
-  const canView       = hasPerm(_permView);
-  const canFinalize   = hasPerm(_permFinalize);
+  const canEdit = hasPerm(_permEdit);
+  const canAorR = hasPerm(_permAorR);
+  const canDelete = hasPerm(_permDelete);
+  const canView = hasPerm(_permView);
+  const canFinalize = hasPerm(_permFinalize);
   const canTemporadas = onTemporadas ? hasPerm(_permTemporadas) : false;
 
-  const canEmpaque    = onEmpaque ? hasPerm(_permEmpaque) : false;
+  const canEmpaque = onEmpaque ? hasPerm(_permEmpaque) : false;
   const isViewEmpaque = _labelEmpaque.toLowerCase().includes('ver');
 
   const hasTopLinks = (!!onView && !hideView) || !!onTemporadas;

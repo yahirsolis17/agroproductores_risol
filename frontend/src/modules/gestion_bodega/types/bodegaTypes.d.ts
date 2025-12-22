@@ -34,14 +34,7 @@ export interface BodegaFilters {
 }
 
 /** Paginación homogénea (igual que huerta). */
-export interface PaginationMeta {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  page: number;
-  page_size: number;
-  total_pages: number;
-}
+import { PaginationMeta } from '../../../types/pagination';
 
 /** Data de list: lo que realmente consume la UI. */
 export interface ListBodegasData {
@@ -50,7 +43,7 @@ export interface ListBodegasData {
 }
 
 /** Alias por compatibilidad con otros módulos. */
-export interface ListBodegasResult extends ListBodegasData {}
+export interface ListBodegasResult extends ListBodegasData { }
 
 /** Notificaciones backend (NotificationMixin). */
 export type NotificationType = 'success' | 'error' | 'warning' | 'info';
@@ -69,10 +62,10 @@ export interface ApiEnvelope<TData = unknown> {
 }
 
 /** Respuestas del service (fuertemente tipadas). */
-export type CreateBodegaResponse    = ApiEnvelope<{ bodega: Bodega }>;
-export type UpdateBodegaResponse    = ApiEnvelope<{ bodega: Bodega }>;
-export type DeleteBodegaResponse    = ApiEnvelope<{ deleted_id: number }>;
-export type ArchivarBodegaResponse  = ApiEnvelope<{ bodega_id: number; affected?: Record<string, number> }>;
+export type CreateBodegaResponse = ApiEnvelope<{ bodega: Bodega }>;
+export type UpdateBodegaResponse = ApiEnvelope<{ bodega: Bodega }>;
+export type DeleteBodegaResponse = ApiEnvelope<{ deleted_id: number }>;
+export type ArchivarBodegaResponse = ApiEnvelope<{ bodega_id: number; affected?: Record<string, number> }>;
 export type RestaurarBodegaResponse = ApiEnvelope<{ bodega_id: number; affected?: Record<string, number> }>;
 
 /** Helpers de consumo (por si deseas reexportar y mantener consistencia) */

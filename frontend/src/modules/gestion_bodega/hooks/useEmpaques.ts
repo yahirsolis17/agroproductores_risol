@@ -1,6 +1,6 @@
 // frontend/src/modules/gestion_bodega/hooks/useEmpaques.ts
 import { useCallback, useEffect, useMemo } from "react";
-import { useAppDispatch, useAppSelector } from "../../../global/store/hooks";
+import { useAppDispatch, useAppSelector } from "../../../global/store/store";
 
 import {
   fetchEmpaques,
@@ -125,3 +125,5 @@ export function useEmpaques(autoFetch: boolean = true) {
     clearBulk,
   };
 }
+
+export default useEmpaques;

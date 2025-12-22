@@ -4,15 +4,7 @@ import { cosechaService } from '../../modules/gestion_huerta/services/cosechaSer
 import { handleBackendNotification } from '../utils/NotificationEngine';
 import type { RootState } from './store';
 
-interface PaginationMeta {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  total_registradas?: number;
-  page?: number;         // opcional
-  page_size?: number;    // opcional
-  total_pages?: number;  // opcional
-}
+import { PaginationMeta } from '../../types/pagination';
 
 interface CosechasState {
   list: Cosecha[];
@@ -29,7 +21,7 @@ interface CosechasState {
 
 const initialState: CosechasState = {
   list: [], loading: false, error: null, loaded: false,
-  page: 1, meta: { count: 0, next: null, previous: null },
+  page: 1, meta: { count: 0, next: null, previous: null, page: 1, page_size: 10, total_pages: 1 },
   temporadaId: null, search: '', estado: 'activas',
   finalizada: null,                                        // 👈 NUEVO
 };
@@ -169,50 +161,50 @@ const cosechasSlice = createSlice({
     clear: () => ({ ...initialState }),
   },
   extraReducers: (b) => {
-    b.addCase(fetchCosechas.pending,  (s)=>{ s.loading=true; s.error=null; });
-    b.addCase(fetchCosechas.fulfilled,(s,{payload})=>{
-      s.loading=false; s.loaded=true;
+    b.addCase(fetchCosechas.pending, (s) => { s.loading = true; s.error = null; });
+    b.addCase(fetchCosechas.fulfilled, (s, { payload }) => {
+      s.loading = false; s.loaded = true;
       s.list = payload.cosechas;
       s.meta = payload.meta;
       s.page = payload.page;
     });
-    b.addCase(fetchCosechas.rejected, (s,{payload})=>{
-      s.loading=false; s.loaded=true; s.error=payload||null;
+    b.addCase(fetchCosechas.rejected, (s, { payload }) => {
+      s.loading = false; s.loaded = true; s.error = payload || null;
     });
 
-    b.addCase(createCosecha.fulfilled, ()=>{ /* recargamos luego en hook */ });
+    b.addCase(createCosecha.fulfilled, () => { /* recargamos luego en hook */ });
 
-    b.addCase(updateCosecha.fulfilled,(s,{payload})=>{
-      const i = s.list.findIndex(c=>c.id===payload.id);
-      if (i!==-1) s.list[i]=payload;
+    b.addCase(updateCosecha.fulfilled, (s, { payload }) => {
+      const i = s.list.findIndex(c => c.id === payload.id);
+      if (i !== -1) s.list[i] = payload;
     });
 
-    b.addCase(deleteCosecha.fulfilled,(s,{payload:id})=>{
-      s.list = s.list.filter(c=>c.id!==id);
-      if (s.meta.count>0) s.meta.count -= 1;
+    b.addCase(deleteCosecha.fulfilled, (s, { payload: id }) => {
+      s.list = s.list.filter(c => c.id !== id);
+      if (s.meta.count > 0) s.meta.count -= 1;
     });
 
-    b.addCase(archivarCosecha.fulfilled,(s,{payload})=>{
-      if (s.estado==='activas') {
-        s.list = s.list.filter(c=>c.id!==payload.id);
+    b.addCase(archivarCosecha.fulfilled, (s, { payload }) => {
+      if (s.estado === 'activas') {
+        s.list = s.list.filter(c => c.id !== payload.id);
       } else {
-        const i = s.list.findIndex(c=>c.id===payload.id);
-        if (i!==-1) s.list[i]=payload;
+        const i = s.list.findIndex(c => c.id === payload.id);
+        if (i !== -1) s.list[i] = payload;
       }
     });
 
-    b.addCase(restaurarCosecha.fulfilled,(s,{payload})=>{
-      if (s.estado==='archivadas') {
-        s.list = s.list.filter(c=>c.id!==payload.id);
+    b.addCase(restaurarCosecha.fulfilled, (s, { payload }) => {
+      if (s.estado === 'archivadas') {
+        s.list = s.list.filter(c => c.id !== payload.id);
       } else {
-        const i = s.list.findIndex(c=>c.id===payload.id);
-        if (i!==-1) s.list[i]=payload;
+        const i = s.list.findIndex(c => c.id === payload.id);
+        if (i !== -1) s.list[i] = payload;
       }
     });
 
-    b.addCase(toggleFinalizadaCosecha.fulfilled,(s,{payload})=>{
-      const i = s.list.findIndex(c=>c.id===payload.id);
-      if (i!==-1) s.list[i]=payload;
+    b.addCase(toggleFinalizadaCosecha.fulfilled, (s, { payload }) => {
+      const i = s.list.findIndex(c => c.id === payload.id);
+      if (i !== -1) s.list[i] = payload;
     });
   },
 });

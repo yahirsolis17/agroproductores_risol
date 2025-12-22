@@ -17,7 +17,8 @@ import PermissionsDialog from './PermissionsDialog';
 import UserActionsMenu from '../components/UserActionsMenu';
 import { TableLayout, Column } from '../../../components/common/TableLayout';
 import { useUsers } from '../hooks/useUsers';
-import apiClient from '../../../global/api/apiClient';
+import { useAppDispatch } from '../../../global/store/store';
+import { archiveUser, restoreUser, deleteUser } from '../../../global/store/userSlice';
 
 // Tipo para filtros de vista
 type ViewFilter = 'activos' | 'archivados' | 'todos';
@@ -48,7 +49,8 @@ const columns: Column<any>[] = [
 const UsersAdmin: React.FC = () => {
   // Contexto de autenticación y hook de usuarios
   const { user: currentUser } = useAuth();
-  const { users, meta, page, loading, estado, changePage, changeEstado, refetch } = useUsers();
+  const dispatch = useAppDispatch();
+  const { users, meta, page, loading, estado, changePage, changeEstado, setFilters } = useUsers();
 
   // Estados de diálogo y selección
   const [dialogOpen, setDialogOpen] = React.useState(false);
@@ -57,13 +59,19 @@ const UsersAdmin: React.FC = () => {
   const [confirmOpen, setConfirmOpen] = React.useState(false);
   const [confirmUserId, setConfirmUserId] = React.useState(0);
 
+  // Filtro de admins por backend
+  React.useEffect(() => {
+    setFilters({ excludeRole: 'admin' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Solo al montar
+
   // Acceso solo para admins
   if (currentUser?.role !== 'admin') {
     return <div className="p-6 text-center text-red-500">Acceso denegado</div>;
   }
 
   // Filtrado y configuraciones de la tabla
-  const filteredUsers = users.filter((u) => u.role !== 'admin');
+  // const filteredUsers = users (Ya viene filtrado del backend)
   const safeCount = meta.count;
   const emptyMessage =
     estado === 'archivados'
@@ -72,23 +80,24 @@ const UsersAdmin: React.FC = () => {
 
   // Handlers para acciones de usuario
   const handleArchiveOrRestore = async (userId: number, isArchived: boolean) => {
-    const endpoint = isArchived ? 'restaurar' : 'archivar';
     try {
-      const res = await apiClient.patch(`/usuarios/users/${userId}/${endpoint}/`);
-      handleBackendNotification(res.data);
-      refetch();
+      const action = isArchived ? restoreUser(userId) : archiveUser(userId);
+      const res = await dispatch(action).unwrap();
+      handleBackendNotification(res.notification || { type: 'success', message: 'Operación exitosa' });
+      // El estado local se actualiza optimisticamente en el slice, pero si se quiere refetch:
+      // refetch();
     } catch (err: any) {
-      handleBackendNotification(err.response?.data);
+      handleBackendNotification(err.notification || err);
     }
   };
 
   const handleDeleteUser = async (userId: number) => {
     try {
-      const res = await apiClient.delete(`/usuarios/users/${userId}/`);
-      handleBackendNotification(res.data);
-      refetch();
+      const res = await dispatch(deleteUser(userId)).unwrap();
+      handleBackendNotification(res.notification || { type: 'success', message: 'Usuario eliminado' });
+      // refetch();
     } catch (err: any) {
-      handleBackendNotification(err.response?.data);
+      handleBackendNotification(err.notification || err);
     }
   };
 
@@ -119,7 +128,7 @@ const UsersAdmin: React.FC = () => {
           </Tabs>
 
           <TableLayout<any>
-            data={filteredUsers}
+            data={users}
             columns={columns}
             page={page}
             pageSize={10}

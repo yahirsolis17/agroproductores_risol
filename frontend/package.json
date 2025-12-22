@@ -17,7 +17,6 @@
     "@mui/icons-material": "^7.0.2",
     "@mui/material": "^7.0.2",
     "@reduxjs/toolkit": "^2.6.1",
-    "@tanstack/react-query": "^5.90.5",
     "axios": "^1.8.4",
     "clsx": "^2.1.1",
     "formik": "^2.4.6",
@@ -52,5 +51,4 @@
     "typescript-eslint": "^8.24.1",
     "vite": "^6.2.0"
   }
-  
 }

@@ -6,8 +6,7 @@ import React, {
   ReactNode,
 } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
-import type { RootState } from '../../../global/store/store';
+import { useAppSelector } from '../../../global/store/store';
 
 import authService, { User } from '../services/authService';
 import apiClient from '../../../global/api/apiClient';
@@ -42,16 +41,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const navigate = useNavigate();
 
   /* --- localStorage para sesión persistente --- */
-  const storedUser  = authService.getUser();
+  const storedUser = authService.getUser();
   const storedPerms = JSON.parse(localStorage.getItem('permissions') || '[]');
 
   /* --- estado local del contexto --- */
-  const [user, setUser]               = useState<User | null>(storedUser);
+  const [user, setUser] = useState<User | null>(storedUser);
   const [permissions, setPermissions] = useState<string[]>(storedPerms);
-  const [loading, setLoading]         = useState(true);
+  const [loading, setLoading] = useState(true);
 
   /* --- 🔄  Sincronizar con Redux en tiempo real --- */
-  const reduxPerms = useSelector((s: RootState) => s.auth.permissions);
+  const reduxPerms = useAppSelector((s) => s.auth.permissions);
   useEffect(() => setPermissions(reduxPerms), [reduxPerms]);
 
   /* --- helpers --- */

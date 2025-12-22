@@ -1,35 +1,56 @@
 // frontend/src/global/store/tableroBodegaSlice.ts
-// Slice de UI para Tablero de Bodega con soporte de isoSemana (YYYY-Www)
-// - Mantiene compatibilidad con filtros actuales (fecha_desde/fecha_hasta)
-// - Permite setFilters({ isoSemana }) y deriva el rango en el hook
+// Slice completo para Tablero de Bodega - Redux Puro (sin React Query)
+// - Estado UI: filters, activeQueue, temporadaId
+// - Datos: summary, alerts, queues, weeksNav
+// - Async thunks para todas las operaciones
 
-import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
+
+import { handleBackendNotification } from "../utils/NotificationEngine";
+import {
+  getDashboardSummary,
+  getDashboardQueues,
+  getDashboardAlerts,
+  getWeeksNav,
+  startWeek as apiStartWeek,
+  finishWeek as apiFinishWeek,
+} from "../../modules/gestion_bodega/services/tableroBodegaService";
+
 import type {
   QueueType,
-  TableroUIState,
+  DashboardSummaryResponse,
+  DashboardQueueResponse,
+  DashboardAlertResponse,
+  WeeksNavResponse,
+  WeekStartRequest,
+  WeekFinishRequest,
+  WeekCurrentResponse,
 } from "../../modules/gestion_bodega/types/tableroBodegaTypes";
-import type { RootState } from "./store";
 
-// ───────────────────────────────────────────────────────────────────────────────
-// Extensión local de filtros para incluir isoSemana sin romper tipos globales
-type FiltersBase = TableroUIState["filters"];
-export type FiltersExt = FiltersBase & {
-  /** Semana ISO seleccionada (YYYY-Www). Opcional: si llega, el hook deriva from/to. */
-  isoSemana?: string | null;
-};
+// --------------------------
+// Filter Types
+// --------------------------
+export interface TableroFilters {
+  huerta_id: number | null;
+  fecha_desde: string | null;
+  fecha_hasta: string | null;
+  estado_lote: string | null;
+  calidad: string | null;
+  madurez: string | null;
+  solo_pendientes: boolean | undefined;
+  page: number;
+  page_size: number;
+  order_by: string | null;
+  isoSemana: string | null;
+}
 
-// Defaults (con isoSemana opcional). Se mantiene order_by por compatibilidad.
-// ⚠️ Alias válidos según backend/_ordering_from_alias:
-//   - recepciones: fecha_recepcion, id, huerta
-//   - inventarios: fecha, id
-//   - despachos:   fecha_programada, id
 const DEFAULT_ORDER_BY: Record<QueueType, string> = {
   recepciones: "fecha_recepcion:desc,id:desc",
   inventarios: "fecha:desc,id:desc",
   despachos: "fecha_programada:desc,id:desc",
 };
 
-const DEFAULT_FILTERS: FiltersExt = {
+const DEFAULT_FILTERS: TableroFilters = {
   huerta_id: null,
   fecha_desde: null,
   fecha_hasta: null,
@@ -43,25 +64,160 @@ const DEFAULT_FILTERS: FiltersExt = {
   isoSemana: null,
 };
 
-// Estado extendido localmente (sin romper el tipo exportado aguas arriba)
-type TableroStateExt = Omit<TableroUIState, "filters"> & { filters: FiltersExt };
+// --------------------------
+// State Interface
+// --------------------------
+export interface TableroBodegaState {
+  temporadaId: number | null;
+  bodegaId: number | null;
+  filters: TableroFilters;
+  activeQueue: QueueType;
 
-const initialState: TableroStateExt = {
+  // Data
+  summary: DashboardSummaryResponse | null;
+  alerts: DashboardAlertResponse | null;
+  queues: {
+    recepciones: DashboardQueueResponse | null;
+    inventarios: DashboardQueueResponse | null;
+    despachos: DashboardQueueResponse | null;
+  };
+  weeksNav: WeeksNavResponse | null;
+  selectedWeekId: number | null;
+
+  // Loading states
+  loadingSummary: boolean;
+  loadingAlerts: boolean;
+  loadingQueues: boolean;
+  loadingWeeksNav: boolean;
+  startingWeek: boolean;
+  finishingWeek: boolean;
+
+  // Errors
+  errorSummary: string | null;
+  errorAlerts: string | null;
+  errorQueues: string | null;
+  errorWeeksNav: string | null;
+
+  lastVisitedAt: number | null;
+}
+
+const initialState: TableroBodegaState = {
   temporadaId: null,
+  bodegaId: null,
   filters: DEFAULT_FILTERS,
   activeQueue: "recepciones",
-
-  refreshSummaryAt: null,
-  refreshAlertsAt: null,
-  refreshQueuesAt: {
+  summary: null,
+  alerts: null,
+  queues: {
     recepciones: null,
     inventarios: null,
     despachos: null,
   },
-
+  weeksNav: null,
+  selectedWeekId: null,
+  loadingSummary: false,
+  loadingAlerts: false,
+  loadingQueues: false,
+  loadingWeeksNav: false,
+  startingWeek: false,
+  finishingWeek: false,
+  errorSummary: null,
+  errorAlerts: null,
+  errorQueues: null,
+  errorWeeksNav: null,
   lastVisitedAt: null,
 };
 
+// --------------------------
+// Async Thunks
+// --------------------------
+interface FetchParams {
+  temporadaId: number;
+  bodegaId: number;
+  semanaId?: number | null;
+  filters?: Partial<TableroFilters>;
+}
+
+export const fetchTablereSummary = createAsyncThunk<
+  DashboardSummaryResponse,
+  FetchParams,
+  { rejectValue: string }
+>("tableroBodega/fetchSummary", async ({ temporadaId, bodegaId, semanaId, filters }, { rejectWithValue }) => {
+  try {
+    return await getDashboardSummary(temporadaId, { ...filters, bodegaId, semanaId });
+  } catch (err: any) {
+    return rejectWithValue(err?.message || "Error al cargar resumen");
+  }
+});
+
+export const fetchTableroAlerts = createAsyncThunk<
+  DashboardAlertResponse,
+  { temporadaId: number; bodegaId: number },
+  { rejectValue: string }
+>("tableroBodega/fetchAlerts", async ({ temporadaId, bodegaId }, { rejectWithValue }) => {
+  try {
+    return await getDashboardAlerts(temporadaId, { bodegaId });
+  } catch (err: any) {
+    return rejectWithValue(err?.message || "Error al cargar alertas");
+  }
+});
+
+export const fetchTableroQueues = createAsyncThunk<
+  { type: QueueType; data: DashboardQueueResponse },
+  FetchParams & { queueType: QueueType },
+  { rejectValue: string }
+>("tableroBodega/fetchQueues", async ({ temporadaId, bodegaId, semanaId, filters, queueType }, { rejectWithValue }) => {
+  try {
+    const data = await getDashboardQueues(temporadaId, queueType, { ...filters, bodegaId, semanaId });
+    return { type: queueType, data };
+  } catch (err: any) {
+    return rejectWithValue(err?.message || "Error al cargar cola");
+  }
+});
+
+export const fetchTableroWeeksNav = createAsyncThunk<
+  WeeksNavResponse,
+  { temporadaId: number; bodegaId: number },
+  { rejectValue: string }
+>("tableroBodega/fetchWeeksNav", async ({ temporadaId, bodegaId }, { rejectWithValue }) => {
+  try {
+    return await getWeeksNav(temporadaId, bodegaId);
+  } catch (err: any) {
+    return rejectWithValue(err?.message || "Error al cargar navegación de semanas");
+  }
+});
+
+export const tableroStartWeek = createAsyncThunk<
+  WeekCurrentResponse,
+  WeekStartRequest,
+  { rejectValue: string }
+>("tableroBodega/startWeek", async (body, { rejectWithValue }) => {
+  try {
+    const result = await apiStartWeek(body);
+    handleBackendNotification({ success: true, message: "Semana iniciada" });
+    return result;
+  } catch (err: any) {
+    return rejectWithValue(err?.message || "Error al iniciar semana");
+  }
+});
+
+export const tableroFinishWeek = createAsyncThunk<
+  WeekCurrentResponse,
+  WeekFinishRequest,
+  { rejectValue: string }
+>("tableroBodega/finishWeek", async (body, { rejectWithValue }) => {
+  try {
+    const result = await apiFinishWeek(body);
+    handleBackendNotification({ success: true, message: "Semana finalizada" });
+    return result;
+  } catch (err: any) {
+    return rejectWithValue(err?.message || "Error al finalizar semana");
+  }
+});
+
+// --------------------------
+// Slice
+// --------------------------
 const tableroBodegaSlice = createSlice({
   name: "tableroBodega",
   initialState,
@@ -71,66 +227,123 @@ const tableroBodegaSlice = createSlice({
       state.lastVisitedAt = Date.now();
     },
 
+    setBodegaId(state, action: PayloadAction<number>) {
+      state.bodegaId = action.payload;
+    },
+
     setActiveQueue(state, action: PayloadAction<QueueType>) {
       state.activeQueue = action.payload;
-      // Si no hay un order_by explícito del usuario o venimos del default anterior,
-      // reasignamos al default correspondiente a la cola activa.
       state.filters.order_by = DEFAULT_ORDER_BY[action.payload];
-      // Al cambiar de cola, volvemos a la primera página
       state.filters.page = 1;
     },
 
-    // Permite parches parciales; acepta también isoSemana
-    setFilters(state, action: PayloadAction<Partial<FiltersExt>>) {
+    setFilters(state, action: PayloadAction<Partial<TableroFilters>>) {
       state.filters = { ...state.filters, ...action.payload };
     },
 
-    // Refetch sutil: marca qué actualizar, y applyRefetch “consume” las marcas
-    scheduleRefetch(state, action: PayloadAction<"summary" | "alerts" | QueueType>) {
-      const now = Date.now();
-      const what = action.payload;
-      if (what === "summary") state.refreshSummaryAt = now;
-      else if (what === "alerts") state.refreshAlertsAt = now;
-      else state.refreshQueuesAt[what] = now;
-    },
-
-    applyRefetch(state) {
-      state.refreshSummaryAt = null;
-      state.refreshAlertsAt = null;
-      state.refreshQueuesAt = {
-        recepciones: null,
-        inventarios: null,
-        despachos: null,
-      };
+    setSelectedWeekId(state, action: PayloadAction<number | null>) {
+      state.selectedWeekId = action.payload;
     },
 
     resetTablero(state) {
       state.filters = DEFAULT_FILTERS;
       state.activeQueue = "recepciones";
-      state.refreshSummaryAt = null;
-      state.refreshAlertsAt = null;
-      state.refreshQueuesAt = {
-        recepciones: null,
-        inventarios: null,
-        despachos: null,
-      };
+      state.summary = null;
+      state.alerts = null;
+      state.queues = { recepciones: null, inventarios: null, despachos: null };
+      state.weeksNav = null;
+      state.selectedWeekId = null;
       state.lastVisitedAt = Date.now();
     },
+  },
+  extraReducers: (builder) => {
+    // Summary
+    builder.addCase(fetchTablereSummary.pending, (state) => {
+      state.loadingSummary = true;
+      state.errorSummary = null;
+    });
+    builder.addCase(fetchTablereSummary.fulfilled, (state, action) => {
+      state.loadingSummary = false;
+      state.summary = action.payload;
+    });
+    builder.addCase(fetchTablereSummary.rejected, (state, action) => {
+      state.loadingSummary = false;
+      state.errorSummary = action.payload ?? "Error";
+    });
+
+    // Alerts
+    builder.addCase(fetchTableroAlerts.pending, (state) => {
+      state.loadingAlerts = true;
+      state.errorAlerts = null;
+    });
+    builder.addCase(fetchTableroAlerts.fulfilled, (state, action) => {
+      state.loadingAlerts = false;
+      state.alerts = action.payload;
+    });
+    builder.addCase(fetchTableroAlerts.rejected, (state, action) => {
+      state.loadingAlerts = false;
+      state.errorAlerts = action.payload ?? "Error";
+    });
+
+    // Queues
+    builder.addCase(fetchTableroQueues.pending, (state) => {
+      state.loadingQueues = true;
+      state.errorQueues = null;
+    });
+    builder.addCase(fetchTableroQueues.fulfilled, (state, action) => {
+      state.loadingQueues = false;
+      state.queues[action.payload.type] = action.payload.data;
+    });
+    builder.addCase(fetchTableroQueues.rejected, (state, action) => {
+      state.loadingQueues = false;
+      state.errorQueues = action.payload ?? "Error";
+    });
+
+    // WeeksNav
+    builder.addCase(fetchTableroWeeksNav.pending, (state) => {
+      state.loadingWeeksNav = true;
+      state.errorWeeksNav = null;
+    });
+    builder.addCase(fetchTableroWeeksNav.fulfilled, (state, action) => {
+      state.loadingWeeksNav = false;
+      state.weeksNav = action.payload;
+    });
+    builder.addCase(fetchTableroWeeksNav.rejected, (state, action) => {
+      state.loadingWeeksNav = false;
+      state.errorWeeksNav = action.payload ?? "Error";
+    });
+
+    // StartWeek
+    builder.addCase(tableroStartWeek.pending, (state) => {
+      state.startingWeek = true;
+    });
+    builder.addCase(tableroStartWeek.fulfilled, (state) => {
+      state.startingWeek = false;
+    });
+    builder.addCase(tableroStartWeek.rejected, (state) => {
+      state.startingWeek = false;
+    });
+
+    // FinishWeek
+    builder.addCase(tableroFinishWeek.pending, (state) => {
+      state.finishingWeek = true;
+    });
+    builder.addCase(tableroFinishWeek.fulfilled, (state) => {
+      state.finishingWeek = false;
+    });
+    builder.addCase(tableroFinishWeek.rejected, (state) => {
+      state.finishingWeek = false;
+    });
   },
 });
 
 export const {
   setTemporadaId,
+  setBodegaId,
   setActiveQueue,
   setFilters,
-  scheduleRefetch,
-  applyRefetch,
+  setSelectedWeekId,
   resetTablero,
 } = tableroBodegaSlice.actions;
-
-// Nota: mantenemos la firma original para no romper imports existentes.
-// A nivel de uso, el objeto real contiene filters: FiltersExt.
-export const selectTablero = (state: RootState) =>
-  state.tableroBodega as unknown as TableroStateExt;
 
 export default tableroBodegaSlice.reducer;

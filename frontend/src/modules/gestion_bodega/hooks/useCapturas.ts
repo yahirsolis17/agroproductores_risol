@@ -1,6 +1,6 @@
 // frontend/src/modules/gestion_bodega/hooks/useCapturas.ts
 import { useCallback } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useAppDispatch, useAppSelector } from "../../../global/store/store";
 import {
   fetchCapturas,
   createCapturaThunk,
@@ -8,11 +8,7 @@ import {
   archivarCapturaThunk,
   restaurarCapturaThunk,
   deleteCapturaThunk,
-  selectCapturas,
-  selectCapturasMeta,
-  selectCapturasFilters,
-  selectCapturasLoading,
-  selectCapturasSaving,
+
   setBodega,
   setTemporada,
   setSemana,
@@ -20,15 +16,13 @@ import {
   setPageSize,
 } from "../../../global/store/capturasSlice";
 import type { CapturaCreatePayload, CapturaUpdatePayload } from "../types/capturasTypes";
-import type { AppDispatch } from "../../../global/store/store";
+
 
 export default function useCapturas() {
-  const dispatch = useDispatch<AppDispatch>();
-  const items = useSelector(selectCapturas);
-  const meta = useSelector(selectCapturasMeta);
-  const filters = useSelector(selectCapturasFilters);
-  const loading = useSelector(selectCapturasLoading);
-  const saving = useSelector(selectCapturasSaving);
+  const dispatch = useAppDispatch();
+  const state = useAppSelector((s) => s.capturas);
+  const { items, meta, filters, status, saving } = state;
+  const loading = status === "loading";
 
   // fetch
   const refetch = useCallback(() => dispatch(fetchCapturas()).unwrap(), [dispatch]);

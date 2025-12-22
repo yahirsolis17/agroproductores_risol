@@ -9,8 +9,5 @@ export interface User {
   permisos: string[];
 }
 
-export interface PaginationMeta {
-  count: number;
-  next: string | null;
-  previous: string | null;
-}
+import { PaginationMeta } from '../../../types/pagination';
+export type { PaginationMeta };

@@ -270,21 +270,9 @@ class UsuarioViewSet(ModelViewSet):
             return [IsAuthenticated(), IsAdmin()]
         return [IsAuthenticated()]
 
-    # ───────────────────── serializer dinámico ─────────────────────
-    def get_serializer_class(self):
-        return CustomUserCreationSerializer if self.action == "create" else UsuarioSerializer
-
-    # 👇 lista con contrato consistente para el FE
+    # Respuesta de lista consistente con NotificationHandler y meta de paginaciòn
     def list(self, request, *args, **kwargs):
         qs = self.filter_queryset(self.get_queryset())
-
-        # Filtro por estado (activos | archivados | todos)
-        estado = request.query_params.get('estado')
-        if estado == 'activos':
-            qs = qs.filter(archivado_en__isnull=True)
-        elif estado == 'archivados':
-            qs = qs.filter(archivado_en__isnull=False)
-
         page = self.paginate_queryset(qs)
         if page is not None:
             serializer = self.get_serializer(page, many=True)

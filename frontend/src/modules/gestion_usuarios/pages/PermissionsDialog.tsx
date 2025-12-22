@@ -3,8 +3,7 @@ import React, {
   useState,
   forwardRef,
 } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import type { AppDispatch, RootState } from '../../../global/store/store';
+import { useAppDispatch, useAppSelector } from '../../../global/store/store';
 import { setPermissions } from '../../../global/store/authSlice';
 import permisoService, { Permiso } from '../services/permisoService';
 import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
@@ -55,8 +54,8 @@ const PermissionsDialog: React.FC<PermissionsDialogProps> = ({
   /* ------------------------------------------------- */
   /*                       STATE                       */
   /* ------------------------------------------------- */
-  const dispatch = useDispatch<AppDispatch>();
-  const currentUserId = useSelector((s: RootState) => s.auth.user?.id);
+  const dispatch = useAppDispatch();
+  const currentUserId = useAppSelector((s) => s.auth.user?.id);
 
   const [allPerms, setAllPerms] = useState<Permiso[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
@@ -168,8 +167,8 @@ const PermissionsDialog: React.FC<PermissionsDialogProps> = ({
         <Box display="flex" alignItems="center" justifyContent="space-between">
           <Typography variant="h6">Editar permisos</Typography>
           <Tooltip title={selected.length === allPerms.length ? "Deseleccionar todo" : "Seleccionar todo"}>
-            <IconButton 
-              onClick={toggleAll} 
+            <IconButton
+              onClick={toggleAll}
               disabled={loading || saving}
               color={selected.length === allPerms.length ? "primary" : "default"}
             >
@@ -185,9 +184,9 @@ const PermissionsDialog: React.FC<PermissionsDialogProps> = ({
             {delayedLoading ? (
               <Box display="grid" gridTemplateColumns="repeat(12, 1fr)" gap={2}>
                 {Array.from({ length: 6 }).map((_, i) => (
-                  <Box 
+                  <Box
                     key={i}
-                    gridColumn={{ 
+                    gridColumn={{
                       xs: 'span 12',
                       sm: 'span 6',
                       md: 'span 4'
@@ -210,18 +209,18 @@ const PermissionsDialog: React.FC<PermissionsDialogProps> = ({
         ) : (
           <Box display="grid" gridTemplateColumns="repeat(12, 1fr)" gap={2}>
             {Object.entries(groupedPerms).map(([module, perms]) => (
-              <Box 
+              <Box
                 key={module}
-                gridColumn={{ 
+                gridColumn={{
                   xs: 'span 12',
                   sm: 'span 6',
                   md: 'span 4'
                 }}
               >
-                <Paper 
-                  elevation={0} 
-                  variant="outlined" 
-                  sx={{ 
+                <Paper
+                  elevation={0}
+                  variant="outlined"
+                  sx={{
                     p: 2,
                     height: '100%',
                     backgroundColor: 'background.paper',
@@ -230,7 +229,7 @@ const PermissionsDialog: React.FC<PermissionsDialogProps> = ({
                   <Typography
                     variant="subtitle1"
                     color="primary"
-                    sx={{ 
+                    sx={{
                       mb: 1,
                       textTransform: 'capitalize',
                       fontWeight: 'medium'

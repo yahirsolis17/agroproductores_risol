@@ -14,13 +14,21 @@ interface RawPagination<T> {
 export const userService = {
   list: async (
     page: number = 1,
-    estado: 'activos' | 'archivados' | 'todos' = 'activos'
+    estado: 'activos' | 'archivados' | 'todos' = 'activos',
+    filters?: { excludeRole?: string }
   ) => {
+    const params: any = { page, estado };
+    if (filters?.excludeRole) {
+      params.exclude_role = filters.excludeRole;
+    }
     const res = await apiClient.get<RawPagination<User>>(
       '/usuarios/users/',
-      { params: { page, estado } }
+      { params }
     );
     const { results, meta } = res.data.data;
     return { results, meta };
   },
+  archivar: (id: number) => apiClient.patch(`/usuarios/users/${id}/archivar/`),
+  restaurar: (id: number) => apiClient.patch(`/usuarios/users/${id}/restaurar/`),
+  delete: (id: number) => apiClient.delete(`/usuarios/users/${id}/`),
 };
