@@ -13,8 +13,11 @@ Proposito: entregar una vista de 360 grados del estado real del sistema, marcar 
 - El sistema posee cimientos claros (TableLayout, NotificationHandler, infraestructura de paginacion) pero conviven estilos divergentes que rompen la auditabilidad.
 - El contrato real usa 
 otification { key, message, type } y no message_key plano; se requiere ajustar el canon documental.
-- React Query sigue vivo en rontend/src/modules/gestion_bodega/hooks/useCierres.ts y useTableroBodega.ts, creando cache paralela fuera de Redux.
-- Hay un archivo roto que impide build (rontend/src/modules/gestion_huerta/pages/Huertas.tsx) por sintaxis corrupta dentro de ilterConfig.
+- React Query sigue vivo en 
+rontend/src/modules/gestion_bodega/hooks/useCierres.ts y useTableroBodega.ts, creando cache paralela fuera de Redux.
+- Hay un archivo roto que impide build (
+rontend/src/modules/gestion_huerta/pages/Huertas.tsx) por sintaxis corrupta dentro de 
+ilterConfig.
 - Existen multiples contratos de listas en backend (results vs alias nominal) y el frontend responde con servicios tolerantes que inventan meta; esto oculta errores contractuales.
 - La tipificacion de paginacion esta duplicada en al menos 10 ubicaciones con campos distintos, generando deuda y defensiva innecesaria.
 - Varias paginas y contextos llaman a piClient directamente (p. ej. gestion_usuarios/pages/UsersAdmin.tsx), saltando el flujo de servicios y slices.
@@ -40,7 +43,9 @@ otification {key,message,type} y lo incluye en la respuesta.
 - Seguridad: uso de JWT para autenticacion, throttles especificos, y validadores en gestion_usuarios/validators.py.
 ## Imagen de arquitectura frontend
 - Stack: Vite + React + TypeScript, con Redux Toolkit como fuente principal de estado global.
-- Estilos: Tailwind y MUI combinados, con componentes compartidos en rontend/src/common y rontend/src/global.
+- Estilos: Tailwind y MUI combinados, con componentes compartidos en 
+rontend/src/common y 
+rontend/src/global.
 - Estado y routing: hooks modulares por dominio (gestion_bodega, gestion_huerta, gestion_usuarios) mas slices y servicios asociados.
 - Patron de tabla: TableLayout unifica renderizado de listas y paginacion en varias paginas.
 - Notificaciones: global/utils/NotificationEngine.ts consume 
@@ -71,7 +76,8 @@ otification es objeto con key, message, 	ype.
 3) Unificar contrato backend: estandarizar vistas a 
 esults + meta y eliminar alias; extender meta a incluir page/page_size/total_pages donde falte.
 4) Endurecer servicios frontend: eliminar fallbacks que inventan meta; fallar o registrar error cuando el contrato no se cumpla para presionar correcciones de backend.
-5) Consolidar PaginationMeta en un unico archivo (propuesto rontend/src/global/types/pagination.ts) y reexportarlo.
+5) Consolidar PaginationMeta en un unico archivo (propuesto 
+rontend/src/global/types/pagination.ts) y reexportarlo.
 6) Erradicar piClient directo en paginas/contextos; mover todas las mutaciones a servicios y thunks.
 7) Unificar permisos: ActionsMenu debe reutilizar el mismo evaluador que PermissionButton para evitar discrepancias.
 8) Agregar reglas ESLint para prohibir @tanstack/react-query, 
@@ -511,1205 +517,1105 @@ FRONTEND frontend/src/modules/gestion_usuarios/types/userTypes.d.ts :: verificar
 FRONTEND frontend/src/theme.ts :: verificar uso de hooks tipados, contrato de servicios y ausencia de react-query
 FRONTEND frontend/src/types/pagination.ts :: verificar uso de hooks tipados, contrato de servicios y ausencia de react-query
 FRONTEND frontend/src/vite-env.d.ts :: verificar uso de hooks tipados, contrato de servicios y ausencia de react-query
-## Apendice C - Checklist numerado para verificacion continua
-Cada item sirve como recordatorio accionable para el equipo. Marcar como completado a medida que se cierre la brecha correspondiente.
-CHECK 001 :: pendiente de verificacion y evidencia
-CHECK 002 :: pendiente de verificacion y evidencia
-CHECK 003 :: pendiente de verificacion y evidencia
-CHECK 004 :: pendiente de verificacion y evidencia
-CHECK 005 :: pendiente de verificacion y evidencia
-CHECK 006 :: pendiente de verificacion y evidencia
-CHECK 007 :: pendiente de verificacion y evidencia
-CHECK 008 :: pendiente de verificacion y evidencia
-CHECK 009 :: pendiente de verificacion y evidencia
-CHECK 010 :: pendiente de verificacion y evidencia
-CHECK 011 :: pendiente de verificacion y evidencia
-CHECK 012 :: pendiente de verificacion y evidencia
-CHECK 013 :: pendiente de verificacion y evidencia
-CHECK 014 :: pendiente de verificacion y evidencia
-CHECK 015 :: pendiente de verificacion y evidencia
-CHECK 016 :: pendiente de verificacion y evidencia
-CHECK 017 :: pendiente de verificacion y evidencia
-CHECK 018 :: pendiente de verificacion y evidencia
-CHECK 019 :: pendiente de verificacion y evidencia
-CHECK 020 :: pendiente de verificacion y evidencia
-CHECK 021 :: pendiente de verificacion y evidencia
-CHECK 022 :: pendiente de verificacion y evidencia
-CHECK 023 :: pendiente de verificacion y evidencia
-CHECK 024 :: pendiente de verificacion y evidencia
-CHECK 025 :: pendiente de verificacion y evidencia
-CHECK 026 :: pendiente de verificacion y evidencia
-CHECK 027 :: pendiente de verificacion y evidencia
-CHECK 028 :: pendiente de verificacion y evidencia
-CHECK 029 :: pendiente de verificacion y evidencia
-CHECK 030 :: pendiente de verificacion y evidencia
-CHECK 031 :: pendiente de verificacion y evidencia
-CHECK 032 :: pendiente de verificacion y evidencia
-CHECK 033 :: pendiente de verificacion y evidencia
-CHECK 034 :: pendiente de verificacion y evidencia
-CHECK 035 :: pendiente de verificacion y evidencia
-CHECK 036 :: pendiente de verificacion y evidencia
-CHECK 037 :: pendiente de verificacion y evidencia
-CHECK 038 :: pendiente de verificacion y evidencia
-CHECK 039 :: pendiente de verificacion y evidencia
-CHECK 040 :: pendiente de verificacion y evidencia
-CHECK 041 :: pendiente de verificacion y evidencia
-CHECK 042 :: pendiente de verificacion y evidencia
-CHECK 043 :: pendiente de verificacion y evidencia
-CHECK 044 :: pendiente de verificacion y evidencia
-CHECK 045 :: pendiente de verificacion y evidencia
-CHECK 046 :: pendiente de verificacion y evidencia
-CHECK 047 :: pendiente de verificacion y evidencia
-CHECK 048 :: pendiente de verificacion y evidencia
-CHECK 049 :: pendiente de verificacion y evidencia
-CHECK 050 :: pendiente de verificacion y evidencia
-CHECK 051 :: pendiente de verificacion y evidencia
-CHECK 052 :: pendiente de verificacion y evidencia
-CHECK 053 :: pendiente de verificacion y evidencia
-CHECK 054 :: pendiente de verificacion y evidencia
-CHECK 055 :: pendiente de verificacion y evidencia
-CHECK 056 :: pendiente de verificacion y evidencia
-CHECK 057 :: pendiente de verificacion y evidencia
-CHECK 058 :: pendiente de verificacion y evidencia
-CHECK 059 :: pendiente de verificacion y evidencia
-CHECK 060 :: pendiente de verificacion y evidencia
-CHECK 061 :: pendiente de verificacion y evidencia
-CHECK 062 :: pendiente de verificacion y evidencia
-CHECK 063 :: pendiente de verificacion y evidencia
-CHECK 064 :: pendiente de verificacion y evidencia
-CHECK 065 :: pendiente de verificacion y evidencia
-CHECK 066 :: pendiente de verificacion y evidencia
-CHECK 067 :: pendiente de verificacion y evidencia
-CHECK 068 :: pendiente de verificacion y evidencia
-CHECK 069 :: pendiente de verificacion y evidencia
-CHECK 070 :: pendiente de verificacion y evidencia
-CHECK 071 :: pendiente de verificacion y evidencia
-CHECK 072 :: pendiente de verificacion y evidencia
-CHECK 073 :: pendiente de verificacion y evidencia
-CHECK 074 :: pendiente de verificacion y evidencia
-CHECK 075 :: pendiente de verificacion y evidencia
-CHECK 076 :: pendiente de verificacion y evidencia
-CHECK 077 :: pendiente de verificacion y evidencia
-CHECK 078 :: pendiente de verificacion y evidencia
-CHECK 079 :: pendiente de verificacion y evidencia
-CHECK 080 :: pendiente de verificacion y evidencia
-CHECK 081 :: pendiente de verificacion y evidencia
-CHECK 082 :: pendiente de verificacion y evidencia
-CHECK 083 :: pendiente de verificacion y evidencia
-CHECK 084 :: pendiente de verificacion y evidencia
-CHECK 085 :: pendiente de verificacion y evidencia
-CHECK 086 :: pendiente de verificacion y evidencia
-CHECK 087 :: pendiente de verificacion y evidencia
-CHECK 088 :: pendiente de verificacion y evidencia
-CHECK 089 :: pendiente de verificacion y evidencia
-CHECK 090 :: pendiente de verificacion y evidencia
-CHECK 091 :: pendiente de verificacion y evidencia
-CHECK 092 :: pendiente de verificacion y evidencia
-CHECK 093 :: pendiente de verificacion y evidencia
-CHECK 094 :: pendiente de verificacion y evidencia
-CHECK 095 :: pendiente de verificacion y evidencia
-CHECK 096 :: pendiente de verificacion y evidencia
-CHECK 097 :: pendiente de verificacion y evidencia
-CHECK 098 :: pendiente de verificacion y evidencia
-CHECK 099 :: pendiente de verificacion y evidencia
-CHECK 100 :: pendiente de verificacion y evidencia
-CHECK 101 :: pendiente de verificacion y evidencia
-CHECK 102 :: pendiente de verificacion y evidencia
-CHECK 103 :: pendiente de verificacion y evidencia
-CHECK 104 :: pendiente de verificacion y evidencia
-CHECK 105 :: pendiente de verificacion y evidencia
-CHECK 106 :: pendiente de verificacion y evidencia
-CHECK 107 :: pendiente de verificacion y evidencia
-CHECK 108 :: pendiente de verificacion y evidencia
-CHECK 109 :: pendiente de verificacion y evidencia
-CHECK 110 :: pendiente de verificacion y evidencia
-CHECK 111 :: pendiente de verificacion y evidencia
-CHECK 112 :: pendiente de verificacion y evidencia
-CHECK 113 :: pendiente de verificacion y evidencia
-CHECK 114 :: pendiente de verificacion y evidencia
-CHECK 115 :: pendiente de verificacion y evidencia
-CHECK 116 :: pendiente de verificacion y evidencia
-CHECK 117 :: pendiente de verificacion y evidencia
-CHECK 118 :: pendiente de verificacion y evidencia
-CHECK 119 :: pendiente de verificacion y evidencia
-CHECK 120 :: pendiente de verificacion y evidencia
-CHECK 121 :: pendiente de verificacion y evidencia
-CHECK 122 :: pendiente de verificacion y evidencia
-CHECK 123 :: pendiente de verificacion y evidencia
-CHECK 124 :: pendiente de verificacion y evidencia
-CHECK 125 :: pendiente de verificacion y evidencia
-CHECK 126 :: pendiente de verificacion y evidencia
-CHECK 127 :: pendiente de verificacion y evidencia
-CHECK 128 :: pendiente de verificacion y evidencia
-CHECK 129 :: pendiente de verificacion y evidencia
-CHECK 130 :: pendiente de verificacion y evidencia
-CHECK 131 :: pendiente de verificacion y evidencia
-CHECK 132 :: pendiente de verificacion y evidencia
-CHECK 133 :: pendiente de verificacion y evidencia
-CHECK 134 :: pendiente de verificacion y evidencia
-CHECK 135 :: pendiente de verificacion y evidencia
-CHECK 136 :: pendiente de verificacion y evidencia
-CHECK 137 :: pendiente de verificacion y evidencia
-CHECK 138 :: pendiente de verificacion y evidencia
-CHECK 139 :: pendiente de verificacion y evidencia
-CHECK 140 :: pendiente de verificacion y evidencia
-CHECK 141 :: pendiente de verificacion y evidencia
-CHECK 142 :: pendiente de verificacion y evidencia
-CHECK 143 :: pendiente de verificacion y evidencia
-CHECK 144 :: pendiente de verificacion y evidencia
-CHECK 145 :: pendiente de verificacion y evidencia
-CHECK 146 :: pendiente de verificacion y evidencia
-CHECK 147 :: pendiente de verificacion y evidencia
-CHECK 148 :: pendiente de verificacion y evidencia
-CHECK 149 :: pendiente de verificacion y evidencia
-CHECK 150 :: pendiente de verificacion y evidencia
-CHECK 151 :: pendiente de verificacion y evidencia
-CHECK 152 :: pendiente de verificacion y evidencia
-CHECK 153 :: pendiente de verificacion y evidencia
-CHECK 154 :: pendiente de verificacion y evidencia
-CHECK 155 :: pendiente de verificacion y evidencia
-CHECK 156 :: pendiente de verificacion y evidencia
-CHECK 157 :: pendiente de verificacion y evidencia
-CHECK 158 :: pendiente de verificacion y evidencia
-CHECK 159 :: pendiente de verificacion y evidencia
-CHECK 160 :: pendiente de verificacion y evidencia
-CHECK 161 :: pendiente de verificacion y evidencia
-CHECK 162 :: pendiente de verificacion y evidencia
-CHECK 163 :: pendiente de verificacion y evidencia
-CHECK 164 :: pendiente de verificacion y evidencia
-CHECK 165 :: pendiente de verificacion y evidencia
-CHECK 166 :: pendiente de verificacion y evidencia
-CHECK 167 :: pendiente de verificacion y evidencia
-CHECK 168 :: pendiente de verificacion y evidencia
-CHECK 169 :: pendiente de verificacion y evidencia
-CHECK 170 :: pendiente de verificacion y evidencia
-CHECK 171 :: pendiente de verificacion y evidencia
-CHECK 172 :: pendiente de verificacion y evidencia
-CHECK 173 :: pendiente de verificacion y evidencia
-CHECK 174 :: pendiente de verificacion y evidencia
-CHECK 175 :: pendiente de verificacion y evidencia
-CHECK 176 :: pendiente de verificacion y evidencia
-CHECK 177 :: pendiente de verificacion y evidencia
-CHECK 178 :: pendiente de verificacion y evidencia
-CHECK 179 :: pendiente de verificacion y evidencia
-CHECK 180 :: pendiente de verificacion y evidencia
-CHECK 181 :: pendiente de verificacion y evidencia
-CHECK 182 :: pendiente de verificacion y evidencia
-CHECK 183 :: pendiente de verificacion y evidencia
-CHECK 184 :: pendiente de verificacion y evidencia
-CHECK 185 :: pendiente de verificacion y evidencia
-CHECK 186 :: pendiente de verificacion y evidencia
-CHECK 187 :: pendiente de verificacion y evidencia
-CHECK 188 :: pendiente de verificacion y evidencia
-CHECK 189 :: pendiente de verificacion y evidencia
-CHECK 190 :: pendiente de verificacion y evidencia
-CHECK 191 :: pendiente de verificacion y evidencia
-CHECK 192 :: pendiente de verificacion y evidencia
-CHECK 193 :: pendiente de verificacion y evidencia
-CHECK 194 :: pendiente de verificacion y evidencia
-CHECK 195 :: pendiente de verificacion y evidencia
-CHECK 196 :: pendiente de verificacion y evidencia
-CHECK 197 :: pendiente de verificacion y evidencia
-CHECK 198 :: pendiente de verificacion y evidencia
-CHECK 199 :: pendiente de verificacion y evidencia
-CHECK 200 :: pendiente de verificacion y evidencia
-CHECK 201 :: pendiente de verificacion y evidencia
-CHECK 202 :: pendiente de verificacion y evidencia
-CHECK 203 :: pendiente de verificacion y evidencia
-CHECK 204 :: pendiente de verificacion y evidencia
-CHECK 205 :: pendiente de verificacion y evidencia
-CHECK 206 :: pendiente de verificacion y evidencia
-CHECK 207 :: pendiente de verificacion y evidencia
-CHECK 208 :: pendiente de verificacion y evidencia
-CHECK 209 :: pendiente de verificacion y evidencia
-CHECK 210 :: pendiente de verificacion y evidencia
-CHECK 211 :: pendiente de verificacion y evidencia
-CHECK 212 :: pendiente de verificacion y evidencia
-CHECK 213 :: pendiente de verificacion y evidencia
-CHECK 214 :: pendiente de verificacion y evidencia
-CHECK 215 :: pendiente de verificacion y evidencia
-CHECK 216 :: pendiente de verificacion y evidencia
-CHECK 217 :: pendiente de verificacion y evidencia
-CHECK 218 :: pendiente de verificacion y evidencia
-CHECK 219 :: pendiente de verificacion y evidencia
-CHECK 220 :: pendiente de verificacion y evidencia
-CHECK 221 :: pendiente de verificacion y evidencia
-CHECK 222 :: pendiente de verificacion y evidencia
-CHECK 223 :: pendiente de verificacion y evidencia
-CHECK 224 :: pendiente de verificacion y evidencia
-CHECK 225 :: pendiente de verificacion y evidencia
-CHECK 226 :: pendiente de verificacion y evidencia
-CHECK 227 :: pendiente de verificacion y evidencia
-CHECK 228 :: pendiente de verificacion y evidencia
-CHECK 229 :: pendiente de verificacion y evidencia
-CHECK 230 :: pendiente de verificacion y evidencia
-CHECK 231 :: pendiente de verificacion y evidencia
-CHECK 232 :: pendiente de verificacion y evidencia
-CHECK 233 :: pendiente de verificacion y evidencia
-CHECK 234 :: pendiente de verificacion y evidencia
-CHECK 235 :: pendiente de verificacion y evidencia
-CHECK 236 :: pendiente de verificacion y evidencia
-CHECK 237 :: pendiente de verificacion y evidencia
-CHECK 238 :: pendiente de verificacion y evidencia
-CHECK 239 :: pendiente de verificacion y evidencia
-CHECK 240 :: pendiente de verificacion y evidencia
-CHECK 241 :: pendiente de verificacion y evidencia
-CHECK 242 :: pendiente de verificacion y evidencia
-CHECK 243 :: pendiente de verificacion y evidencia
-CHECK 244 :: pendiente de verificacion y evidencia
-CHECK 245 :: pendiente de verificacion y evidencia
-CHECK 246 :: pendiente de verificacion y evidencia
-CHECK 247 :: pendiente de verificacion y evidencia
-CHECK 248 :: pendiente de verificacion y evidencia
-CHECK 249 :: pendiente de verificacion y evidencia
-CHECK 250 :: pendiente de verificacion y evidencia
-CHECK 251 :: pendiente de verificacion y evidencia
-CHECK 252 :: pendiente de verificacion y evidencia
-CHECK 253 :: pendiente de verificacion y evidencia
-CHECK 254 :: pendiente de verificacion y evidencia
-CHECK 255 :: pendiente de verificacion y evidencia
-CHECK 256 :: pendiente de verificacion y evidencia
-CHECK 257 :: pendiente de verificacion y evidencia
-CHECK 258 :: pendiente de verificacion y evidencia
-CHECK 259 :: pendiente de verificacion y evidencia
-CHECK 260 :: pendiente de verificacion y evidencia
-CHECK 261 :: pendiente de verificacion y evidencia
-CHECK 262 :: pendiente de verificacion y evidencia
-CHECK 263 :: pendiente de verificacion y evidencia
-CHECK 264 :: pendiente de verificacion y evidencia
-CHECK 265 :: pendiente de verificacion y evidencia
-CHECK 266 :: pendiente de verificacion y evidencia
-CHECK 267 :: pendiente de verificacion y evidencia
-CHECK 268 :: pendiente de verificacion y evidencia
-CHECK 269 :: pendiente de verificacion y evidencia
-CHECK 270 :: pendiente de verificacion y evidencia
-CHECK 271 :: pendiente de verificacion y evidencia
-CHECK 272 :: pendiente de verificacion y evidencia
-CHECK 273 :: pendiente de verificacion y evidencia
-CHECK 274 :: pendiente de verificacion y evidencia
-CHECK 275 :: pendiente de verificacion y evidencia
-CHECK 276 :: pendiente de verificacion y evidencia
-CHECK 277 :: pendiente de verificacion y evidencia
-CHECK 278 :: pendiente de verificacion y evidencia
-CHECK 279 :: pendiente de verificacion y evidencia
-CHECK 280 :: pendiente de verificacion y evidencia
-CHECK 281 :: pendiente de verificacion y evidencia
-CHECK 282 :: pendiente de verificacion y evidencia
-CHECK 283 :: pendiente de verificacion y evidencia
-CHECK 284 :: pendiente de verificacion y evidencia
-CHECK 285 :: pendiente de verificacion y evidencia
-CHECK 286 :: pendiente de verificacion y evidencia
-CHECK 287 :: pendiente de verificacion y evidencia
-CHECK 288 :: pendiente de verificacion y evidencia
-CHECK 289 :: pendiente de verificacion y evidencia
-CHECK 290 :: pendiente de verificacion y evidencia
-CHECK 291 :: pendiente de verificacion y evidencia
-CHECK 292 :: pendiente de verificacion y evidencia
-CHECK 293 :: pendiente de verificacion y evidencia
-CHECK 294 :: pendiente de verificacion y evidencia
-CHECK 295 :: pendiente de verificacion y evidencia
-CHECK 296 :: pendiente de verificacion y evidencia
-CHECK 297 :: pendiente de verificacion y evidencia
-CHECK 298 :: pendiente de verificacion y evidencia
-CHECK 299 :: pendiente de verificacion y evidencia
-CHECK 300 :: pendiente de verificacion y evidencia
-CHECK 301 :: pendiente de verificacion y evidencia
-CHECK 302 :: pendiente de verificacion y evidencia
-CHECK 303 :: pendiente de verificacion y evidencia
-CHECK 304 :: pendiente de verificacion y evidencia
-CHECK 305 :: pendiente de verificacion y evidencia
-CHECK 306 :: pendiente de verificacion y evidencia
-CHECK 307 :: pendiente de verificacion y evidencia
-CHECK 308 :: pendiente de verificacion y evidencia
-CHECK 309 :: pendiente de verificacion y evidencia
-CHECK 310 :: pendiente de verificacion y evidencia
-CHECK 311 :: pendiente de verificacion y evidencia
-CHECK 312 :: pendiente de verificacion y evidencia
-CHECK 313 :: pendiente de verificacion y evidencia
-CHECK 314 :: pendiente de verificacion y evidencia
-CHECK 315 :: pendiente de verificacion y evidencia
-CHECK 316 :: pendiente de verificacion y evidencia
-CHECK 317 :: pendiente de verificacion y evidencia
-CHECK 318 :: pendiente de verificacion y evidencia
-CHECK 319 :: pendiente de verificacion y evidencia
-CHECK 320 :: pendiente de verificacion y evidencia
-CHECK 321 :: pendiente de verificacion y evidencia
-CHECK 322 :: pendiente de verificacion y evidencia
-CHECK 323 :: pendiente de verificacion y evidencia
-CHECK 324 :: pendiente de verificacion y evidencia
-CHECK 325 :: pendiente de verificacion y evidencia
-CHECK 326 :: pendiente de verificacion y evidencia
-CHECK 327 :: pendiente de verificacion y evidencia
-CHECK 328 :: pendiente de verificacion y evidencia
-CHECK 329 :: pendiente de verificacion y evidencia
-CHECK 330 :: pendiente de verificacion y evidencia
-CHECK 331 :: pendiente de verificacion y evidencia
-CHECK 332 :: pendiente de verificacion y evidencia
-CHECK 333 :: pendiente de verificacion y evidencia
-CHECK 334 :: pendiente de verificacion y evidencia
-CHECK 335 :: pendiente de verificacion y evidencia
-CHECK 336 :: pendiente de verificacion y evidencia
-CHECK 337 :: pendiente de verificacion y evidencia
-CHECK 338 :: pendiente de verificacion y evidencia
-CHECK 339 :: pendiente de verificacion y evidencia
-CHECK 340 :: pendiente de verificacion y evidencia
-CHECK 341 :: pendiente de verificacion y evidencia
-CHECK 342 :: pendiente de verificacion y evidencia
-CHECK 343 :: pendiente de verificacion y evidencia
-CHECK 344 :: pendiente de verificacion y evidencia
-CHECK 345 :: pendiente de verificacion y evidencia
-CHECK 346 :: pendiente de verificacion y evidencia
-CHECK 347 :: pendiente de verificacion y evidencia
-CHECK 348 :: pendiente de verificacion y evidencia
-CHECK 349 :: pendiente de verificacion y evidencia
-CHECK 350 :: pendiente de verificacion y evidencia
-CHECK 351 :: pendiente de verificacion y evidencia
-CHECK 352 :: pendiente de verificacion y evidencia
-CHECK 353 :: pendiente de verificacion y evidencia
-CHECK 354 :: pendiente de verificacion y evidencia
-CHECK 355 :: pendiente de verificacion y evidencia
-CHECK 356 :: pendiente de verificacion y evidencia
-CHECK 357 :: pendiente de verificacion y evidencia
-CHECK 358 :: pendiente de verificacion y evidencia
-CHECK 359 :: pendiente de verificacion y evidencia
-CHECK 360 :: pendiente de verificacion y evidencia
-CHECK 361 :: pendiente de verificacion y evidencia
-CHECK 362 :: pendiente de verificacion y evidencia
-CHECK 363 :: pendiente de verificacion y evidencia
-CHECK 364 :: pendiente de verificacion y evidencia
-CHECK 365 :: pendiente de verificacion y evidencia
-CHECK 366 :: pendiente de verificacion y evidencia
-CHECK 367 :: pendiente de verificacion y evidencia
-CHECK 368 :: pendiente de verificacion y evidencia
-CHECK 369 :: pendiente de verificacion y evidencia
-CHECK 370 :: pendiente de verificacion y evidencia
-CHECK 371 :: pendiente de verificacion y evidencia
-CHECK 372 :: pendiente de verificacion y evidencia
-CHECK 373 :: pendiente de verificacion y evidencia
-CHECK 374 :: pendiente de verificacion y evidencia
-CHECK 375 :: pendiente de verificacion y evidencia
-CHECK 376 :: pendiente de verificacion y evidencia
-CHECK 377 :: pendiente de verificacion y evidencia
-CHECK 378 :: pendiente de verificacion y evidencia
-CHECK 379 :: pendiente de verificacion y evidencia
-CHECK 380 :: pendiente de verificacion y evidencia
-CHECK 381 :: pendiente de verificacion y evidencia
-CHECK 382 :: pendiente de verificacion y evidencia
-CHECK 383 :: pendiente de verificacion y evidencia
-CHECK 384 :: pendiente de verificacion y evidencia
-CHECK 385 :: pendiente de verificacion y evidencia
-CHECK 386 :: pendiente de verificacion y evidencia
-CHECK 387 :: pendiente de verificacion y evidencia
-CHECK 388 :: pendiente de verificacion y evidencia
-CHECK 389 :: pendiente de verificacion y evidencia
-CHECK 390 :: pendiente de verificacion y evidencia
-CHECK 391 :: pendiente de verificacion y evidencia
-CHECK 392 :: pendiente de verificacion y evidencia
-CHECK 393 :: pendiente de verificacion y evidencia
-CHECK 394 :: pendiente de verificacion y evidencia
-CHECK 395 :: pendiente de verificacion y evidencia
-CHECK 396 :: pendiente de verificacion y evidencia
-CHECK 397 :: pendiente de verificacion y evidencia
-CHECK 398 :: pendiente de verificacion y evidencia
-CHECK 399 :: pendiente de verificacion y evidencia
-CHECK 400 :: pendiente de verificacion y evidencia
-CHECK 401 :: pendiente de verificacion y evidencia
-CHECK 402 :: pendiente de verificacion y evidencia
-CHECK 403 :: pendiente de verificacion y evidencia
-CHECK 404 :: pendiente de verificacion y evidencia
-CHECK 405 :: pendiente de verificacion y evidencia
-CHECK 406 :: pendiente de verificacion y evidencia
-CHECK 407 :: pendiente de verificacion y evidencia
-CHECK 408 :: pendiente de verificacion y evidencia
-CHECK 409 :: pendiente de verificacion y evidencia
-CHECK 410 :: pendiente de verificacion y evidencia
-CHECK 411 :: pendiente de verificacion y evidencia
-CHECK 412 :: pendiente de verificacion y evidencia
-CHECK 413 :: pendiente de verificacion y evidencia
-CHECK 414 :: pendiente de verificacion y evidencia
-CHECK 415 :: pendiente de verificacion y evidencia
-CHECK 416 :: pendiente de verificacion y evidencia
-CHECK 417 :: pendiente de verificacion y evidencia
-CHECK 418 :: pendiente de verificacion y evidencia
-CHECK 419 :: pendiente de verificacion y evidencia
-CHECK 420 :: pendiente de verificacion y evidencia
-CHECK 421 :: pendiente de verificacion y evidencia
-CHECK 422 :: pendiente de verificacion y evidencia
-CHECK 423 :: pendiente de verificacion y evidencia
-CHECK 424 :: pendiente de verificacion y evidencia
-CHECK 425 :: pendiente de verificacion y evidencia
-CHECK 426 :: pendiente de verificacion y evidencia
-CHECK 427 :: pendiente de verificacion y evidencia
-CHECK 428 :: pendiente de verificacion y evidencia
-CHECK 429 :: pendiente de verificacion y evidencia
-CHECK 430 :: pendiente de verificacion y evidencia
-CHECK 431 :: pendiente de verificacion y evidencia
-CHECK 432 :: pendiente de verificacion y evidencia
-CHECK 433 :: pendiente de verificacion y evidencia
-CHECK 434 :: pendiente de verificacion y evidencia
-CHECK 435 :: pendiente de verificacion y evidencia
-CHECK 436 :: pendiente de verificacion y evidencia
-CHECK 437 :: pendiente de verificacion y evidencia
-CHECK 438 :: pendiente de verificacion y evidencia
-CHECK 439 :: pendiente de verificacion y evidencia
-CHECK 440 :: pendiente de verificacion y evidencia
-CHECK 441 :: pendiente de verificacion y evidencia
-CHECK 442 :: pendiente de verificacion y evidencia
-CHECK 443 :: pendiente de verificacion y evidencia
-CHECK 444 :: pendiente de verificacion y evidencia
-CHECK 445 :: pendiente de verificacion y evidencia
-CHECK 446 :: pendiente de verificacion y evidencia
-CHECK 447 :: pendiente de verificacion y evidencia
-CHECK 448 :: pendiente de verificacion y evidencia
-CHECK 449 :: pendiente de verificacion y evidencia
-CHECK 450 :: pendiente de verificacion y evidencia
-CHECK 451 :: pendiente de verificacion y evidencia
-CHECK 452 :: pendiente de verificacion y evidencia
-CHECK 453 :: pendiente de verificacion y evidencia
-CHECK 454 :: pendiente de verificacion y evidencia
-CHECK 455 :: pendiente de verificacion y evidencia
-CHECK 456 :: pendiente de verificacion y evidencia
-CHECK 457 :: pendiente de verificacion y evidencia
-CHECK 458 :: pendiente de verificacion y evidencia
-CHECK 459 :: pendiente de verificacion y evidencia
-CHECK 460 :: pendiente de verificacion y evidencia
-CHECK 461 :: pendiente de verificacion y evidencia
-CHECK 462 :: pendiente de verificacion y evidencia
-CHECK 463 :: pendiente de verificacion y evidencia
-CHECK 464 :: pendiente de verificacion y evidencia
-CHECK 465 :: pendiente de verificacion y evidencia
-CHECK 466 :: pendiente de verificacion y evidencia
-CHECK 467 :: pendiente de verificacion y evidencia
-CHECK 468 :: pendiente de verificacion y evidencia
-CHECK 469 :: pendiente de verificacion y evidencia
-CHECK 470 :: pendiente de verificacion y evidencia
-CHECK 471 :: pendiente de verificacion y evidencia
-CHECK 472 :: pendiente de verificacion y evidencia
-CHECK 473 :: pendiente de verificacion y evidencia
-CHECK 474 :: pendiente de verificacion y evidencia
-CHECK 475 :: pendiente de verificacion y evidencia
-CHECK 476 :: pendiente de verificacion y evidencia
-CHECK 477 :: pendiente de verificacion y evidencia
-CHECK 478 :: pendiente de verificacion y evidencia
-CHECK 479 :: pendiente de verificacion y evidencia
-CHECK 480 :: pendiente de verificacion y evidencia
-CHECK 481 :: pendiente de verificacion y evidencia
-CHECK 482 :: pendiente de verificacion y evidencia
-CHECK 483 :: pendiente de verificacion y evidencia
-CHECK 484 :: pendiente de verificacion y evidencia
-CHECK 485 :: pendiente de verificacion y evidencia
-CHECK 486 :: pendiente de verificacion y evidencia
-CHECK 487 :: pendiente de verificacion y evidencia
-CHECK 488 :: pendiente de verificacion y evidencia
-CHECK 489 :: pendiente de verificacion y evidencia
-CHECK 490 :: pendiente de verificacion y evidencia
-CHECK 491 :: pendiente de verificacion y evidencia
-CHECK 492 :: pendiente de verificacion y evidencia
-CHECK 493 :: pendiente de verificacion y evidencia
-CHECK 494 :: pendiente de verificacion y evidencia
-CHECK 495 :: pendiente de verificacion y evidencia
-CHECK 496 :: pendiente de verificacion y evidencia
-CHECK 497 :: pendiente de verificacion y evidencia
-CHECK 498 :: pendiente de verificacion y evidencia
-CHECK 499 :: pendiente de verificacion y evidencia
-CHECK 500 :: pendiente de verificacion y evidencia
-CHECK 501 :: pendiente de verificacion y evidencia
-CHECK 502 :: pendiente de verificacion y evidencia
-CHECK 503 :: pendiente de verificacion y evidencia
-CHECK 504 :: pendiente de verificacion y evidencia
-CHECK 505 :: pendiente de verificacion y evidencia
-CHECK 506 :: pendiente de verificacion y evidencia
-CHECK 507 :: pendiente de verificacion y evidencia
-CHECK 508 :: pendiente de verificacion y evidencia
-CHECK 509 :: pendiente de verificacion y evidencia
-CHECK 510 :: pendiente de verificacion y evidencia
-CHECK 511 :: pendiente de verificacion y evidencia
-CHECK 512 :: pendiente de verificacion y evidencia
-CHECK 513 :: pendiente de verificacion y evidencia
-CHECK 514 :: pendiente de verificacion y evidencia
-CHECK 515 :: pendiente de verificacion y evidencia
-CHECK 516 :: pendiente de verificacion y evidencia
-CHECK 517 :: pendiente de verificacion y evidencia
-CHECK 518 :: pendiente de verificacion y evidencia
-CHECK 519 :: pendiente de verificacion y evidencia
-CHECK 520 :: pendiente de verificacion y evidencia
-CHECK 521 :: pendiente de verificacion y evidencia
-CHECK 522 :: pendiente de verificacion y evidencia
-CHECK 523 :: pendiente de verificacion y evidencia
-CHECK 524 :: pendiente de verificacion y evidencia
-CHECK 525 :: pendiente de verificacion y evidencia
-CHECK 526 :: pendiente de verificacion y evidencia
-CHECK 527 :: pendiente de verificacion y evidencia
-CHECK 528 :: pendiente de verificacion y evidencia
-CHECK 529 :: pendiente de verificacion y evidencia
-CHECK 530 :: pendiente de verificacion y evidencia
-CHECK 531 :: pendiente de verificacion y evidencia
-CHECK 532 :: pendiente de verificacion y evidencia
-CHECK 533 :: pendiente de verificacion y evidencia
-CHECK 534 :: pendiente de verificacion y evidencia
-CHECK 535 :: pendiente de verificacion y evidencia
-CHECK 536 :: pendiente de verificacion y evidencia
-CHECK 537 :: pendiente de verificacion y evidencia
-CHECK 538 :: pendiente de verificacion y evidencia
-CHECK 539 :: pendiente de verificacion y evidencia
-CHECK 540 :: pendiente de verificacion y evidencia
-CHECK 541 :: pendiente de verificacion y evidencia
-CHECK 542 :: pendiente de verificacion y evidencia
-CHECK 543 :: pendiente de verificacion y evidencia
-CHECK 544 :: pendiente de verificacion y evidencia
-CHECK 545 :: pendiente de verificacion y evidencia
-CHECK 546 :: pendiente de verificacion y evidencia
-CHECK 547 :: pendiente de verificacion y evidencia
-CHECK 548 :: pendiente de verificacion y evidencia
-CHECK 549 :: pendiente de verificacion y evidencia
-CHECK 550 :: pendiente de verificacion y evidencia
-CHECK 551 :: pendiente de verificacion y evidencia
-CHECK 552 :: pendiente de verificacion y evidencia
-CHECK 553 :: pendiente de verificacion y evidencia
-CHECK 554 :: pendiente de verificacion y evidencia
-CHECK 555 :: pendiente de verificacion y evidencia
-CHECK 556 :: pendiente de verificacion y evidencia
-CHECK 557 :: pendiente de verificacion y evidencia
-CHECK 558 :: pendiente de verificacion y evidencia
-CHECK 559 :: pendiente de verificacion y evidencia
-CHECK 560 :: pendiente de verificacion y evidencia
-CHECK 561 :: pendiente de verificacion y evidencia
-CHECK 562 :: pendiente de verificacion y evidencia
-CHECK 563 :: pendiente de verificacion y evidencia
-CHECK 564 :: pendiente de verificacion y evidencia
-CHECK 565 :: pendiente de verificacion y evidencia
-CHECK 566 :: pendiente de verificacion y evidencia
-CHECK 567 :: pendiente de verificacion y evidencia
-CHECK 568 :: pendiente de verificacion y evidencia
-CHECK 569 :: pendiente de verificacion y evidencia
-CHECK 570 :: pendiente de verificacion y evidencia
-CHECK 571 :: pendiente de verificacion y evidencia
-CHECK 572 :: pendiente de verificacion y evidencia
-CHECK 573 :: pendiente de verificacion y evidencia
-CHECK 574 :: pendiente de verificacion y evidencia
-CHECK 575 :: pendiente de verificacion y evidencia
-CHECK 576 :: pendiente de verificacion y evidencia
-CHECK 577 :: pendiente de verificacion y evidencia
-CHECK 578 :: pendiente de verificacion y evidencia
-CHECK 579 :: pendiente de verificacion y evidencia
-CHECK 580 :: pendiente de verificacion y evidencia
-CHECK 581 :: pendiente de verificacion y evidencia
-CHECK 582 :: pendiente de verificacion y evidencia
-CHECK 583 :: pendiente de verificacion y evidencia
-CHECK 584 :: pendiente de verificacion y evidencia
-CHECK 585 :: pendiente de verificacion y evidencia
-CHECK 586 :: pendiente de verificacion y evidencia
-CHECK 587 :: pendiente de verificacion y evidencia
-CHECK 588 :: pendiente de verificacion y evidencia
-CHECK 589 :: pendiente de verificacion y evidencia
-CHECK 590 :: pendiente de verificacion y evidencia
-CHECK 591 :: pendiente de verificacion y evidencia
-CHECK 592 :: pendiente de verificacion y evidencia
-CHECK 593 :: pendiente de verificacion y evidencia
-CHECK 594 :: pendiente de verificacion y evidencia
-CHECK 595 :: pendiente de verificacion y evidencia
-CHECK 596 :: pendiente de verificacion y evidencia
-CHECK 597 :: pendiente de verificacion y evidencia
-CHECK 598 :: pendiente de verificacion y evidencia
-CHECK 599 :: pendiente de verificacion y evidencia
-CHECK 600 :: pendiente de verificacion y evidencia
-CHECK 601 :: pendiente de verificacion y evidencia
-CHECK 602 :: pendiente de verificacion y evidencia
-CHECK 603 :: pendiente de verificacion y evidencia
-CHECK 604 :: pendiente de verificacion y evidencia
-CHECK 605 :: pendiente de verificacion y evidencia
-CHECK 606 :: pendiente de verificacion y evidencia
-CHECK 607 :: pendiente de verificacion y evidencia
-CHECK 608 :: pendiente de verificacion y evidencia
-CHECK 609 :: pendiente de verificacion y evidencia
-CHECK 610 :: pendiente de verificacion y evidencia
-CHECK 611 :: pendiente de verificacion y evidencia
-CHECK 612 :: pendiente de verificacion y evidencia
-CHECK 613 :: pendiente de verificacion y evidencia
-CHECK 614 :: pendiente de verificacion y evidencia
-CHECK 615 :: pendiente de verificacion y evidencia
-CHECK 616 :: pendiente de verificacion y evidencia
-CHECK 617 :: pendiente de verificacion y evidencia
-CHECK 618 :: pendiente de verificacion y evidencia
-CHECK 619 :: pendiente de verificacion y evidencia
-CHECK 620 :: pendiente de verificacion y evidencia
-CHECK 621 :: pendiente de verificacion y evidencia
-CHECK 622 :: pendiente de verificacion y evidencia
-CHECK 623 :: pendiente de verificacion y evidencia
-CHECK 624 :: pendiente de verificacion y evidencia
-CHECK 625 :: pendiente de verificacion y evidencia
-CHECK 626 :: pendiente de verificacion y evidencia
-CHECK 627 :: pendiente de verificacion y evidencia
-CHECK 628 :: pendiente de verificacion y evidencia
-CHECK 629 :: pendiente de verificacion y evidencia
-CHECK 630 :: pendiente de verificacion y evidencia
-CHECK 631 :: pendiente de verificacion y evidencia
-CHECK 632 :: pendiente de verificacion y evidencia
-CHECK 633 :: pendiente de verificacion y evidencia
-CHECK 634 :: pendiente de verificacion y evidencia
-CHECK 635 :: pendiente de verificacion y evidencia
-CHECK 636 :: pendiente de verificacion y evidencia
-CHECK 637 :: pendiente de verificacion y evidencia
-CHECK 638 :: pendiente de verificacion y evidencia
-CHECK 639 :: pendiente de verificacion y evidencia
-CHECK 640 :: pendiente de verificacion y evidencia
-CHECK 641 :: pendiente de verificacion y evidencia
-CHECK 642 :: pendiente de verificacion y evidencia
-CHECK 643 :: pendiente de verificacion y evidencia
-CHECK 644 :: pendiente de verificacion y evidencia
-CHECK 645 :: pendiente de verificacion y evidencia
-CHECK 646 :: pendiente de verificacion y evidencia
-CHECK 647 :: pendiente de verificacion y evidencia
-CHECK 648 :: pendiente de verificacion y evidencia
-CHECK 649 :: pendiente de verificacion y evidencia
-CHECK 650 :: pendiente de verificacion y evidencia
-CHECK 651 :: pendiente de verificacion y evidencia
-CHECK 652 :: pendiente de verificacion y evidencia
-CHECK 653 :: pendiente de verificacion y evidencia
-CHECK 654 :: pendiente de verificacion y evidencia
-CHECK 655 :: pendiente de verificacion y evidencia
-CHECK 656 :: pendiente de verificacion y evidencia
-CHECK 657 :: pendiente de verificacion y evidencia
-CHECK 658 :: pendiente de verificacion y evidencia
-CHECK 659 :: pendiente de verificacion y evidencia
-CHECK 660 :: pendiente de verificacion y evidencia
-CHECK 661 :: pendiente de verificacion y evidencia
-CHECK 662 :: pendiente de verificacion y evidencia
-CHECK 663 :: pendiente de verificacion y evidencia
-CHECK 664 :: pendiente de verificacion y evidencia
-CHECK 665 :: pendiente de verificacion y evidencia
-CHECK 666 :: pendiente de verificacion y evidencia
-CHECK 667 :: pendiente de verificacion y evidencia
-CHECK 668 :: pendiente de verificacion y evidencia
-CHECK 669 :: pendiente de verificacion y evidencia
-CHECK 670 :: pendiente de verificacion y evidencia
-CHECK 671 :: pendiente de verificacion y evidencia
-CHECK 672 :: pendiente de verificacion y evidencia
-CHECK 673 :: pendiente de verificacion y evidencia
-CHECK 674 :: pendiente de verificacion y evidencia
-CHECK 675 :: pendiente de verificacion y evidencia
-CHECK 676 :: pendiente de verificacion y evidencia
-CHECK 677 :: pendiente de verificacion y evidencia
-CHECK 678 :: pendiente de verificacion y evidencia
-CHECK 679 :: pendiente de verificacion y evidencia
-CHECK 680 :: pendiente de verificacion y evidencia
-CHECK 681 :: pendiente de verificacion y evidencia
-CHECK 682 :: pendiente de verificacion y evidencia
-CHECK 683 :: pendiente de verificacion y evidencia
-CHECK 684 :: pendiente de verificacion y evidencia
-CHECK 685 :: pendiente de verificacion y evidencia
-CHECK 686 :: pendiente de verificacion y evidencia
-CHECK 687 :: pendiente de verificacion y evidencia
-CHECK 688 :: pendiente de verificacion y evidencia
-CHECK 689 :: pendiente de verificacion y evidencia
-CHECK 690 :: pendiente de verificacion y evidencia
-CHECK 691 :: pendiente de verificacion y evidencia
-CHECK 692 :: pendiente de verificacion y evidencia
-CHECK 693 :: pendiente de verificacion y evidencia
-CHECK 694 :: pendiente de verificacion y evidencia
-CHECK 695 :: pendiente de verificacion y evidencia
-CHECK 696 :: pendiente de verificacion y evidencia
-CHECK 697 :: pendiente de verificacion y evidencia
-CHECK 698 :: pendiente de verificacion y evidencia
-CHECK 699 :: pendiente de verificacion y evidencia
-CHECK 700 :: pendiente de verificacion y evidencia
-CHECK 701 :: pendiente de verificacion y evidencia
-CHECK 702 :: pendiente de verificacion y evidencia
-CHECK 703 :: pendiente de verificacion y evidencia
-CHECK 704 :: pendiente de verificacion y evidencia
-CHECK 705 :: pendiente de verificacion y evidencia
-CHECK 706 :: pendiente de verificacion y evidencia
-CHECK 707 :: pendiente de verificacion y evidencia
-CHECK 708 :: pendiente de verificacion y evidencia
-CHECK 709 :: pendiente de verificacion y evidencia
-CHECK 710 :: pendiente de verificacion y evidencia
-CHECK 711 :: pendiente de verificacion y evidencia
-CHECK 712 :: pendiente de verificacion y evidencia
-CHECK 713 :: pendiente de verificacion y evidencia
-CHECK 714 :: pendiente de verificacion y evidencia
-CHECK 715 :: pendiente de verificacion y evidencia
-CHECK 716 :: pendiente de verificacion y evidencia
-CHECK 717 :: pendiente de verificacion y evidencia
-CHECK 718 :: pendiente de verificacion y evidencia
-CHECK 719 :: pendiente de verificacion y evidencia
-CHECK 720 :: pendiente de verificacion y evidencia
-CHECK 721 :: pendiente de verificacion y evidencia
-CHECK 722 :: pendiente de verificacion y evidencia
-CHECK 723 :: pendiente de verificacion y evidencia
-CHECK 724 :: pendiente de verificacion y evidencia
-CHECK 725 :: pendiente de verificacion y evidencia
-CHECK 726 :: pendiente de verificacion y evidencia
-CHECK 727 :: pendiente de verificacion y evidencia
-CHECK 728 :: pendiente de verificacion y evidencia
-CHECK 729 :: pendiente de verificacion y evidencia
-CHECK 730 :: pendiente de verificacion y evidencia
-CHECK 731 :: pendiente de verificacion y evidencia
-CHECK 732 :: pendiente de verificacion y evidencia
-CHECK 733 :: pendiente de verificacion y evidencia
-CHECK 734 :: pendiente de verificacion y evidencia
-CHECK 735 :: pendiente de verificacion y evidencia
-CHECK 736 :: pendiente de verificacion y evidencia
-CHECK 737 :: pendiente de verificacion y evidencia
-CHECK 738 :: pendiente de verificacion y evidencia
-CHECK 739 :: pendiente de verificacion y evidencia
-CHECK 740 :: pendiente de verificacion y evidencia
-CHECK 741 :: pendiente de verificacion y evidencia
-CHECK 742 :: pendiente de verificacion y evidencia
-CHECK 743 :: pendiente de verificacion y evidencia
-CHECK 744 :: pendiente de verificacion y evidencia
-CHECK 745 :: pendiente de verificacion y evidencia
-CHECK 746 :: pendiente de verificacion y evidencia
-CHECK 747 :: pendiente de verificacion y evidencia
-CHECK 748 :: pendiente de verificacion y evidencia
-CHECK 749 :: pendiente de verificacion y evidencia
-CHECK 750 :: pendiente de verificacion y evidencia
-CHECK 751 :: pendiente de verificacion y evidencia
-CHECK 752 :: pendiente de verificacion y evidencia
-CHECK 753 :: pendiente de verificacion y evidencia
-CHECK 754 :: pendiente de verificacion y evidencia
-CHECK 755 :: pendiente de verificacion y evidencia
-CHECK 756 :: pendiente de verificacion y evidencia
-CHECK 757 :: pendiente de verificacion y evidencia
-CHECK 758 :: pendiente de verificacion y evidencia
-CHECK 759 :: pendiente de verificacion y evidencia
-CHECK 760 :: pendiente de verificacion y evidencia
-CHECK 761 :: pendiente de verificacion y evidencia
-CHECK 762 :: pendiente de verificacion y evidencia
-CHECK 763 :: pendiente de verificacion y evidencia
-CHECK 764 :: pendiente de verificacion y evidencia
-CHECK 765 :: pendiente de verificacion y evidencia
-CHECK 766 :: pendiente de verificacion y evidencia
-CHECK 767 :: pendiente de verificacion y evidencia
-CHECK 768 :: pendiente de verificacion y evidencia
-CHECK 769 :: pendiente de verificacion y evidencia
-CHECK 770 :: pendiente de verificacion y evidencia
-CHECK 771 :: pendiente de verificacion y evidencia
-CHECK 772 :: pendiente de verificacion y evidencia
-CHECK 773 :: pendiente de verificacion y evidencia
-CHECK 774 :: pendiente de verificacion y evidencia
-CHECK 775 :: pendiente de verificacion y evidencia
-CHECK 776 :: pendiente de verificacion y evidencia
-CHECK 777 :: pendiente de verificacion y evidencia
-CHECK 778 :: pendiente de verificacion y evidencia
-CHECK 779 :: pendiente de verificacion y evidencia
-CHECK 780 :: pendiente de verificacion y evidencia
-CHECK 781 :: pendiente de verificacion y evidencia
-CHECK 782 :: pendiente de verificacion y evidencia
-CHECK 783 :: pendiente de verificacion y evidencia
-CHECK 784 :: pendiente de verificacion y evidencia
-CHECK 785 :: pendiente de verificacion y evidencia
-CHECK 786 :: pendiente de verificacion y evidencia
-CHECK 787 :: pendiente de verificacion y evidencia
-CHECK 788 :: pendiente de verificacion y evidencia
-CHECK 789 :: pendiente de verificacion y evidencia
-CHECK 790 :: pendiente de verificacion y evidencia
-CHECK 791 :: pendiente de verificacion y evidencia
-CHECK 792 :: pendiente de verificacion y evidencia
-CHECK 793 :: pendiente de verificacion y evidencia
-CHECK 794 :: pendiente de verificacion y evidencia
-CHECK 795 :: pendiente de verificacion y evidencia
-CHECK 796 :: pendiente de verificacion y evidencia
-CHECK 797 :: pendiente de verificacion y evidencia
-CHECK 798 :: pendiente de verificacion y evidencia
-CHECK 799 :: pendiente de verificacion y evidencia
-CHECK 800 :: pendiente de verificacion y evidencia
-CHECK 801 :: pendiente de verificacion y evidencia
-CHECK 802 :: pendiente de verificacion y evidencia
-CHECK 803 :: pendiente de verificacion y evidencia
-CHECK 804 :: pendiente de verificacion y evidencia
-CHECK 805 :: pendiente de verificacion y evidencia
-CHECK 806 :: pendiente de verificacion y evidencia
-CHECK 807 :: pendiente de verificacion y evidencia
-CHECK 808 :: pendiente de verificacion y evidencia
-CHECK 809 :: pendiente de verificacion y evidencia
-CHECK 810 :: pendiente de verificacion y evidencia
-CHECK 811 :: pendiente de verificacion y evidencia
-CHECK 812 :: pendiente de verificacion y evidencia
-CHECK 813 :: pendiente de verificacion y evidencia
-CHECK 814 :: pendiente de verificacion y evidencia
-CHECK 815 :: pendiente de verificacion y evidencia
-CHECK 816 :: pendiente de verificacion y evidencia
-CHECK 817 :: pendiente de verificacion y evidencia
-CHECK 818 :: pendiente de verificacion y evidencia
-CHECK 819 :: pendiente de verificacion y evidencia
-CHECK 820 :: pendiente de verificacion y evidencia
-CHECK 821 :: pendiente de verificacion y evidencia
-CHECK 822 :: pendiente de verificacion y evidencia
-CHECK 823 :: pendiente de verificacion y evidencia
-CHECK 824 :: pendiente de verificacion y evidencia
-CHECK 825 :: pendiente de verificacion y evidencia
-CHECK 826 :: pendiente de verificacion y evidencia
-CHECK 827 :: pendiente de verificacion y evidencia
-CHECK 828 :: pendiente de verificacion y evidencia
-CHECK 829 :: pendiente de verificacion y evidencia
-CHECK 830 :: pendiente de verificacion y evidencia
-CHECK 831 :: pendiente de verificacion y evidencia
-CHECK 832 :: pendiente de verificacion y evidencia
-CHECK 833 :: pendiente de verificacion y evidencia
-CHECK 834 :: pendiente de verificacion y evidencia
-CHECK 835 :: pendiente de verificacion y evidencia
-CHECK 836 :: pendiente de verificacion y evidencia
-CHECK 837 :: pendiente de verificacion y evidencia
-CHECK 838 :: pendiente de verificacion y evidencia
-CHECK 839 :: pendiente de verificacion y evidencia
-CHECK 840 :: pendiente de verificacion y evidencia
-CHECK 841 :: pendiente de verificacion y evidencia
-CHECK 842 :: pendiente de verificacion y evidencia
-CHECK 843 :: pendiente de verificacion y evidencia
-CHECK 844 :: pendiente de verificacion y evidencia
-CHECK 845 :: pendiente de verificacion y evidencia
-CHECK 846 :: pendiente de verificacion y evidencia
-CHECK 847 :: pendiente de verificacion y evidencia
-CHECK 848 :: pendiente de verificacion y evidencia
-CHECK 849 :: pendiente de verificacion y evidencia
-CHECK 850 :: pendiente de verificacion y evidencia
-CHECK 851 :: pendiente de verificacion y evidencia
-CHECK 852 :: pendiente de verificacion y evidencia
-CHECK 853 :: pendiente de verificacion y evidencia
-CHECK 854 :: pendiente de verificacion y evidencia
-CHECK 855 :: pendiente de verificacion y evidencia
-CHECK 856 :: pendiente de verificacion y evidencia
-CHECK 857 :: pendiente de verificacion y evidencia
-CHECK 858 :: pendiente de verificacion y evidencia
-CHECK 859 :: pendiente de verificacion y evidencia
-CHECK 860 :: pendiente de verificacion y evidencia
-CHECK 861 :: pendiente de verificacion y evidencia
-CHECK 862 :: pendiente de verificacion y evidencia
-CHECK 863 :: pendiente de verificacion y evidencia
-CHECK 864 :: pendiente de verificacion y evidencia
-CHECK 865 :: pendiente de verificacion y evidencia
-CHECK 866 :: pendiente de verificacion y evidencia
-CHECK 867 :: pendiente de verificacion y evidencia
-CHECK 868 :: pendiente de verificacion y evidencia
-CHECK 869 :: pendiente de verificacion y evidencia
-CHECK 870 :: pendiente de verificacion y evidencia
-CHECK 871 :: pendiente de verificacion y evidencia
-CHECK 872 :: pendiente de verificacion y evidencia
-CHECK 873 :: pendiente de verificacion y evidencia
-CHECK 874 :: pendiente de verificacion y evidencia
-CHECK 875 :: pendiente de verificacion y evidencia
-CHECK 876 :: pendiente de verificacion y evidencia
-CHECK 877 :: pendiente de verificacion y evidencia
-CHECK 878 :: pendiente de verificacion y evidencia
-CHECK 879 :: pendiente de verificacion y evidencia
-CHECK 880 :: pendiente de verificacion y evidencia
-CHECK 881 :: pendiente de verificacion y evidencia
-CHECK 882 :: pendiente de verificacion y evidencia
-CHECK 883 :: pendiente de verificacion y evidencia
-CHECK 884 :: pendiente de verificacion y evidencia
-CHECK 885 :: pendiente de verificacion y evidencia
-CHECK 886 :: pendiente de verificacion y evidencia
-CHECK 887 :: pendiente de verificacion y evidencia
-CHECK 888 :: pendiente de verificacion y evidencia
-CHECK 889 :: pendiente de verificacion y evidencia
-CHECK 890 :: pendiente de verificacion y evidencia
-CHECK 891 :: pendiente de verificacion y evidencia
-CHECK 892 :: pendiente de verificacion y evidencia
-CHECK 893 :: pendiente de verificacion y evidencia
-CHECK 894 :: pendiente de verificacion y evidencia
-CHECK 895 :: pendiente de verificacion y evidencia
-CHECK 896 :: pendiente de verificacion y evidencia
-CHECK 897 :: pendiente de verificacion y evidencia
-CHECK 898 :: pendiente de verificacion y evidencia
-CHECK 899 :: pendiente de verificacion y evidencia
-CHECK 900 :: pendiente de verificacion y evidencia
-CHECK 901 :: pendiente de verificacion y evidencia
-CHECK 902 :: pendiente de verificacion y evidencia
-CHECK 903 :: pendiente de verificacion y evidencia
-CHECK 904 :: pendiente de verificacion y evidencia
-CHECK 905 :: pendiente de verificacion y evidencia
-CHECK 906 :: pendiente de verificacion y evidencia
-CHECK 907 :: pendiente de verificacion y evidencia
-CHECK 908 :: pendiente de verificacion y evidencia
-CHECK 909 :: pendiente de verificacion y evidencia
-CHECK 910 :: pendiente de verificacion y evidencia
-CHECK 911 :: pendiente de verificacion y evidencia
-CHECK 912 :: pendiente de verificacion y evidencia
-CHECK 913 :: pendiente de verificacion y evidencia
-CHECK 914 :: pendiente de verificacion y evidencia
-CHECK 915 :: pendiente de verificacion y evidencia
-CHECK 916 :: pendiente de verificacion y evidencia
-CHECK 917 :: pendiente de verificacion y evidencia
-CHECK 918 :: pendiente de verificacion y evidencia
-CHECK 919 :: pendiente de verificacion y evidencia
-CHECK 920 :: pendiente de verificacion y evidencia
-CHECK 921 :: pendiente de verificacion y evidencia
-CHECK 922 :: pendiente de verificacion y evidencia
-CHECK 923 :: pendiente de verificacion y evidencia
-CHECK 924 :: pendiente de verificacion y evidencia
-CHECK 925 :: pendiente de verificacion y evidencia
-CHECK 926 :: pendiente de verificacion y evidencia
-CHECK 927 :: pendiente de verificacion y evidencia
-CHECK 928 :: pendiente de verificacion y evidencia
-CHECK 929 :: pendiente de verificacion y evidencia
-CHECK 930 :: pendiente de verificacion y evidencia
-CHECK 931 :: pendiente de verificacion y evidencia
-CHECK 932 :: pendiente de verificacion y evidencia
-CHECK 933 :: pendiente de verificacion y evidencia
-CHECK 934 :: pendiente de verificacion y evidencia
-CHECK 935 :: pendiente de verificacion y evidencia
-CHECK 936 :: pendiente de verificacion y evidencia
-CHECK 937 :: pendiente de verificacion y evidencia
-CHECK 938 :: pendiente de verificacion y evidencia
-CHECK 939 :: pendiente de verificacion y evidencia
-CHECK 940 :: pendiente de verificacion y evidencia
-CHECK 941 :: pendiente de verificacion y evidencia
-CHECK 942 :: pendiente de verificacion y evidencia
-CHECK 943 :: pendiente de verificacion y evidencia
-CHECK 944 :: pendiente de verificacion y evidencia
-CHECK 945 :: pendiente de verificacion y evidencia
-CHECK 946 :: pendiente de verificacion y evidencia
-CHECK 947 :: pendiente de verificacion y evidencia
-CHECK 948 :: pendiente de verificacion y evidencia
-CHECK 949 :: pendiente de verificacion y evidencia
-CHECK 950 :: pendiente de verificacion y evidencia
-CHECK 951 :: pendiente de verificacion y evidencia
-CHECK 952 :: pendiente de verificacion y evidencia
-CHECK 953 :: pendiente de verificacion y evidencia
-CHECK 954 :: pendiente de verificacion y evidencia
-CHECK 955 :: pendiente de verificacion y evidencia
-CHECK 956 :: pendiente de verificacion y evidencia
-CHECK 957 :: pendiente de verificacion y evidencia
-CHECK 958 :: pendiente de verificacion y evidencia
-CHECK 959 :: pendiente de verificacion y evidencia
-CHECK 960 :: pendiente de verificacion y evidencia
-CHECK 961 :: pendiente de verificacion y evidencia
-CHECK 962 :: pendiente de verificacion y evidencia
-CHECK 963 :: pendiente de verificacion y evidencia
-CHECK 964 :: pendiente de verificacion y evidencia
-CHECK 965 :: pendiente de verificacion y evidencia
-CHECK 966 :: pendiente de verificacion y evidencia
-CHECK 967 :: pendiente de verificacion y evidencia
-CHECK 968 :: pendiente de verificacion y evidencia
-CHECK 969 :: pendiente de verificacion y evidencia
-CHECK 970 :: pendiente de verificacion y evidencia
-CHECK 971 :: pendiente de verificacion y evidencia
-CHECK 972 :: pendiente de verificacion y evidencia
-CHECK 973 :: pendiente de verificacion y evidencia
-CHECK 974 :: pendiente de verificacion y evidencia
-CHECK 975 :: pendiente de verificacion y evidencia
-CHECK 976 :: pendiente de verificacion y evidencia
-CHECK 977 :: pendiente de verificacion y evidencia
-CHECK 978 :: pendiente de verificacion y evidencia
-CHECK 979 :: pendiente de verificacion y evidencia
-CHECK 980 :: pendiente de verificacion y evidencia
-CHECK 981 :: pendiente de verificacion y evidencia
-CHECK 982 :: pendiente de verificacion y evidencia
-CHECK 983 :: pendiente de verificacion y evidencia
-CHECK 984 :: pendiente de verificacion y evidencia
-CHECK 985 :: pendiente de verificacion y evidencia
-CHECK 986 :: pendiente de verificacion y evidencia
-CHECK 987 :: pendiente de verificacion y evidencia
-CHECK 988 :: pendiente de verificacion y evidencia
-CHECK 989 :: pendiente de verificacion y evidencia
-CHECK 990 :: pendiente de verificacion y evidencia
-CHECK 991 :: pendiente de verificacion y evidencia
-CHECK 992 :: pendiente de verificacion y evidencia
-CHECK 993 :: pendiente de verificacion y evidencia
-CHECK 994 :: pendiente de verificacion y evidencia
-CHECK 995 :: pendiente de verificacion y evidencia
-CHECK 996 :: pendiente de verificacion y evidencia
-CHECK 997 :: pendiente de verificacion y evidencia
-CHECK 998 :: pendiente de verificacion y evidencia
-CHECK 999 :: pendiente de verificacion y evidencia
-CHECK 1000 :: pendiente de verificacion y evidencia
-CHECK 1001 :: pendiente de verificacion y evidencia
-CHECK 1002 :: pendiente de verificacion y evidencia
-CHECK 1003 :: pendiente de verificacion y evidencia
-CHECK 1004 :: pendiente de verificacion y evidencia
-CHECK 1005 :: pendiente de verificacion y evidencia
-CHECK 1006 :: pendiente de verificacion y evidencia
-CHECK 1007 :: pendiente de verificacion y evidencia
-CHECK 1008 :: pendiente de verificacion y evidencia
-CHECK 1009 :: pendiente de verificacion y evidencia
-CHECK 1010 :: pendiente de verificacion y evidencia
-CHECK 1011 :: pendiente de verificacion y evidencia
-CHECK 1012 :: pendiente de verificacion y evidencia
-CHECK 1013 :: pendiente de verificacion y evidencia
-CHECK 1014 :: pendiente de verificacion y evidencia
-CHECK 1015 :: pendiente de verificacion y evidencia
-CHECK 1016 :: pendiente de verificacion y evidencia
-CHECK 1017 :: pendiente de verificacion y evidencia
-CHECK 1018 :: pendiente de verificacion y evidencia
-CHECK 1019 :: pendiente de verificacion y evidencia
-CHECK 1020 :: pendiente de verificacion y evidencia
-CHECK 1021 :: pendiente de verificacion y evidencia
-CHECK 1022 :: pendiente de verificacion y evidencia
-CHECK 1023 :: pendiente de verificacion y evidencia
-CHECK 1024 :: pendiente de verificacion y evidencia
-CHECK 1025 :: pendiente de verificacion y evidencia
-CHECK 1026 :: pendiente de verificacion y evidencia
-CHECK 1027 :: pendiente de verificacion y evidencia
-CHECK 1028 :: pendiente de verificacion y evidencia
-CHECK 1029 :: pendiente de verificacion y evidencia
-CHECK 1030 :: pendiente de verificacion y evidencia
-CHECK 1031 :: pendiente de verificacion y evidencia
-CHECK 1032 :: pendiente de verificacion y evidencia
-CHECK 1033 :: pendiente de verificacion y evidencia
-CHECK 1034 :: pendiente de verificacion y evidencia
-CHECK 1035 :: pendiente de verificacion y evidencia
-CHECK 1036 :: pendiente de verificacion y evidencia
-CHECK 1037 :: pendiente de verificacion y evidencia
-CHECK 1038 :: pendiente de verificacion y evidencia
-CHECK 1039 :: pendiente de verificacion y evidencia
-CHECK 1040 :: pendiente de verificacion y evidencia
-CHECK 1041 :: pendiente de verificacion y evidencia
-CHECK 1042 :: pendiente de verificacion y evidencia
-CHECK 1043 :: pendiente de verificacion y evidencia
-CHECK 1044 :: pendiente de verificacion y evidencia
-CHECK 1045 :: pendiente de verificacion y evidencia
-CHECK 1046 :: pendiente de verificacion y evidencia
-CHECK 1047 :: pendiente de verificacion y evidencia
-CHECK 1048 :: pendiente de verificacion y evidencia
-CHECK 1049 :: pendiente de verificacion y evidencia
-CHECK 1050 :: pendiente de verificacion y evidencia
-CHECK 1051 :: pendiente de verificacion y evidencia
-CHECK 1052 :: pendiente de verificacion y evidencia
-CHECK 1053 :: pendiente de verificacion y evidencia
-CHECK 1054 :: pendiente de verificacion y evidencia
-CHECK 1055 :: pendiente de verificacion y evidencia
-CHECK 1056 :: pendiente de verificacion y evidencia
-CHECK 1057 :: pendiente de verificacion y evidencia
-CHECK 1058 :: pendiente de verificacion y evidencia
-CHECK 1059 :: pendiente de verificacion y evidencia
-CHECK 1060 :: pendiente de verificacion y evidencia
-CHECK 1061 :: pendiente de verificacion y evidencia
-CHECK 1062 :: pendiente de verificacion y evidencia
-CHECK 1063 :: pendiente de verificacion y evidencia
-CHECK 1064 :: pendiente de verificacion y evidencia
-CHECK 1065 :: pendiente de verificacion y evidencia
-CHECK 1066 :: pendiente de verificacion y evidencia
-CHECK 1067 :: pendiente de verificacion y evidencia
-CHECK 1068 :: pendiente de verificacion y evidencia
-CHECK 1069 :: pendiente de verificacion y evidencia
-CHECK 1070 :: pendiente de verificacion y evidencia
-CHECK 1071 :: pendiente de verificacion y evidencia
-CHECK 1072 :: pendiente de verificacion y evidencia
-CHECK 1073 :: pendiente de verificacion y evidencia
-CHECK 1074 :: pendiente de verificacion y evidencia
-CHECK 1075 :: pendiente de verificacion y evidencia
-CHECK 1076 :: pendiente de verificacion y evidencia
-CHECK 1077 :: pendiente de verificacion y evidencia
-CHECK 1078 :: pendiente de verificacion y evidencia
-CHECK 1079 :: pendiente de verificacion y evidencia
-CHECK 1080 :: pendiente de verificacion y evidencia
-CHECK 1081 :: pendiente de verificacion y evidencia
-CHECK 1082 :: pendiente de verificacion y evidencia
-CHECK 1083 :: pendiente de verificacion y evidencia
-CHECK 1084 :: pendiente de verificacion y evidencia
-CHECK 1085 :: pendiente de verificacion y evidencia
-CHECK 1086 :: pendiente de verificacion y evidencia
-CHECK 1087 :: pendiente de verificacion y evidencia
-CHECK 1088 :: pendiente de verificacion y evidencia
-CHECK 1089 :: pendiente de verificacion y evidencia
-CHECK 1090 :: pendiente de verificacion y evidencia
-CHECK 1091 :: pendiente de verificacion y evidencia
-CHECK 1092 :: pendiente de verificacion y evidencia
-CHECK 1093 :: pendiente de verificacion y evidencia
-CHECK 1094 :: pendiente de verificacion y evidencia
-CHECK 1095 :: pendiente de verificacion y evidencia
-CHECK 1096 :: pendiente de verificacion y evidencia
-CHECK 1097 :: pendiente de verificacion y evidencia
-CHECK 1098 :: pendiente de verificacion y evidencia
-CHECK 1099 :: pendiente de verificacion y evidencia
-CHECK 1100 :: pendiente de verificacion y evidencia
-CHECK 1101 :: pendiente de verificacion y evidencia
-CHECK 1102 :: pendiente de verificacion y evidencia
-CHECK 1103 :: pendiente de verificacion y evidencia
-CHECK 1104 :: pendiente de verificacion y evidencia
-CHECK 1105 :: pendiente de verificacion y evidencia
-CHECK 1106 :: pendiente de verificacion y evidencia
-CHECK 1107 :: pendiente de verificacion y evidencia
-CHECK 1108 :: pendiente de verificacion y evidencia
-CHECK 1109 :: pendiente de verificacion y evidencia
-CHECK 1110 :: pendiente de verificacion y evidencia
-CHECK 1111 :: pendiente de verificacion y evidencia
-CHECK 1112 :: pendiente de verificacion y evidencia
-CHECK 1113 :: pendiente de verificacion y evidencia
-CHECK 1114 :: pendiente de verificacion y evidencia
-CHECK 1115 :: pendiente de verificacion y evidencia
-CHECK 1116 :: pendiente de verificacion y evidencia
-CHECK 1117 :: pendiente de verificacion y evidencia
-CHECK 1118 :: pendiente de verificacion y evidencia
-CHECK 1119 :: pendiente de verificacion y evidencia
-CHECK 1120 :: pendiente de verificacion y evidencia
-CHECK 1121 :: pendiente de verificacion y evidencia
-CHECK 1122 :: pendiente de verificacion y evidencia
-CHECK 1123 :: pendiente de verificacion y evidencia
-CHECK 1124 :: pendiente de verificacion y evidencia
-CHECK 1125 :: pendiente de verificacion y evidencia
-CHECK 1126 :: pendiente de verificacion y evidencia
-CHECK 1127 :: pendiente de verificacion y evidencia
-CHECK 1128 :: pendiente de verificacion y evidencia
-CHECK 1129 :: pendiente de verificacion y evidencia
-CHECK 1130 :: pendiente de verificacion y evidencia
-CHECK 1131 :: pendiente de verificacion y evidencia
-CHECK 1132 :: pendiente de verificacion y evidencia
-CHECK 1133 :: pendiente de verificacion y evidencia
-CHECK 1134 :: pendiente de verificacion y evidencia
-CHECK 1135 :: pendiente de verificacion y evidencia
-CHECK 1136 :: pendiente de verificacion y evidencia
-CHECK 1137 :: pendiente de verificacion y evidencia
-CHECK 1138 :: pendiente de verificacion y evidencia
-CHECK 1139 :: pendiente de verificacion y evidencia
-CHECK 1140 :: pendiente de verificacion y evidencia
-CHECK 1141 :: pendiente de verificacion y evidencia
-CHECK 1142 :: pendiente de verificacion y evidencia
-CHECK 1143 :: pendiente de verificacion y evidencia
-CHECK 1144 :: pendiente de verificacion y evidencia
-CHECK 1145 :: pendiente de verificacion y evidencia
-CHECK 1146 :: pendiente de verificacion y evidencia
-CHECK 1147 :: pendiente de verificacion y evidencia
-CHECK 1148 :: pendiente de verificacion y evidencia
-CHECK 1149 :: pendiente de verificacion y evidencia
-CHECK 1150 :: pendiente de verificacion y evidencia
-CHECK 1151 :: pendiente de verificacion y evidencia
-CHECK 1152 :: pendiente de verificacion y evidencia
-CHECK 1153 :: pendiente de verificacion y evidencia
-CHECK 1154 :: pendiente de verificacion y evidencia
-CHECK 1155 :: pendiente de verificacion y evidencia
-CHECK 1156 :: pendiente de verificacion y evidencia
-CHECK 1157 :: pendiente de verificacion y evidencia
-CHECK 1158 :: pendiente de verificacion y evidencia
-CHECK 1159 :: pendiente de verificacion y evidencia
-CHECK 1160 :: pendiente de verificacion y evidencia
-CHECK 1161 :: pendiente de verificacion y evidencia
-CHECK 1162 :: pendiente de verificacion y evidencia
-CHECK 1163 :: pendiente de verificacion y evidencia
-CHECK 1164 :: pendiente de verificacion y evidencia
-CHECK 1165 :: pendiente de verificacion y evidencia
-CHECK 1166 :: pendiente de verificacion y evidencia
-CHECK 1167 :: pendiente de verificacion y evidencia
-CHECK 1168 :: pendiente de verificacion y evidencia
-CHECK 1169 :: pendiente de verificacion y evidencia
-CHECK 1170 :: pendiente de verificacion y evidencia
-CHECK 1171 :: pendiente de verificacion y evidencia
-CHECK 1172 :: pendiente de verificacion y evidencia
-CHECK 1173 :: pendiente de verificacion y evidencia
-CHECK 1174 :: pendiente de verificacion y evidencia
-CHECK 1175 :: pendiente de verificacion y evidencia
-CHECK 1176 :: pendiente de verificacion y evidencia
-CHECK 1177 :: pendiente de verificacion y evidencia
-CHECK 1178 :: pendiente de verificacion y evidencia
-CHECK 1179 :: pendiente de verificacion y evidencia
-CHECK 1180 :: pendiente de verificacion y evidencia
-CHECK 1181 :: pendiente de verificacion y evidencia
-CHECK 1182 :: pendiente de verificacion y evidencia
-CHECK 1183 :: pendiente de verificacion y evidencia
-CHECK 1184 :: pendiente de verificacion y evidencia
-CHECK 1185 :: pendiente de verificacion y evidencia
-CHECK 1186 :: pendiente de verificacion y evidencia
-CHECK 1187 :: pendiente de verificacion y evidencia
-CHECK 1188 :: pendiente de verificacion y evidencia
-CHECK 1189 :: pendiente de verificacion y evidencia
-CHECK 1190 :: pendiente de verificacion y evidencia
-CHECK 1191 :: pendiente de verificacion y evidencia
-CHECK 1192 :: pendiente de verificacion y evidencia
-CHECK 1193 :: pendiente de verificacion y evidencia
-CHECK 1194 :: pendiente de verificacion y evidencia
-CHECK 1195 :: pendiente de verificacion y evidencia
-CHECK 1196 :: pendiente de verificacion y evidencia
-CHECK 1197 :: pendiente de verificacion y evidencia
-CHECK 1198 :: pendiente de verificacion y evidencia
-CHECK 1199 :: pendiente de verificacion y evidencia
-CHECK 1200 :: pendiente de verificacion y evidencia
+## Apendice C - Checklist accionable y poblado
+Este listado resume tareas de verificacion/evidencia ya clasificadas con severidad, area y accion esperada.
+CHECK 001 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 002 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 003 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 004 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 005 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 006 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 007 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 008 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 009 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 010 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 011 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 012 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 013 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 014 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 015 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 016 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 017 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 018 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 019 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 020 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 021 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 022 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 023 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 024 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 025 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 026 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 027 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 028 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 029 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 030 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 031 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 032 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 033 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 034 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 035 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 036 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 037 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 038 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 039 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 040 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 041 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 042 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 043 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 044 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 045 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 046 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 047 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 048 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 049 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 050 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 051 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 052 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 053 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 054 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 055 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 056 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 057 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 058 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 059 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 060 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 061 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 062 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 063 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 064 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 065 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 066 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 067 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 068 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 069 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 070 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 071 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 072 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 073 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 074 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 075 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 076 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 077 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 078 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 079 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 080 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 081 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 082 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 083 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 084 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 085 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 086 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 087 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 088 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 089 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 090 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 091 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 092 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 093 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 094 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 095 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 096 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 097 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 098 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 099 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 100 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 101 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 102 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 103 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 104 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 105 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 106 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 107 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 108 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 109 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 110 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 111 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 112 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 113 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 114 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 115 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 116 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 117 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 118 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 119 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 120 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 121 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 122 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 123 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 124 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 125 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 126 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 127 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 128 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 129 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 130 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 131 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 132 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 133 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 134 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 135 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 136 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 137 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 138 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 139 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 140 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 141 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 142 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 143 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 144 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 145 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 146 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 147 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 148 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 149 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 150 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 151 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 152 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 153 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 154 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 155 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 156 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 157 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 158 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 159 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 160 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 161 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 162 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 163 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 164 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 165 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 166 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 167 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 168 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 169 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 170 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 171 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 172 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 173 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 174 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 175 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 176 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 177 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 178 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 179 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 180 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 181 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 182 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 183 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 184 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 185 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 186 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 187 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 188 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 189 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 190 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 191 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 192 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 193 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 194 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 195 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 196 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 197 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 198 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 199 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 200 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 201 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 202 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 203 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 204 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 205 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 206 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 207 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 208 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 209 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 210 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 211 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 212 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 213 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 214 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 215 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 216 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 217 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 218 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 219 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 220 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 221 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 222 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 223 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 224 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 225 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 226 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 227 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 228 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 229 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 230 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 231 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 232 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 233 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 234 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 235 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 236 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 237 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 238 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 239 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 240 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 241 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 242 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 243 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 244 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 245 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 246 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 247 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 248 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 249 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 250 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 251 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 252 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 253 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 254 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 255 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 256 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 257 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 258 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 259 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 260 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 261 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 262 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 263 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 264 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 265 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 266 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 267 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 268 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 269 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 270 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 271 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 272 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 273 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 274 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 275 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 276 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 277 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 278 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 279 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 280 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 281 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 282 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 283 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 284 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 285 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 286 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 287 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 288 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 289 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 290 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 291 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 292 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 293 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 294 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 295 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 296 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 297 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 298 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 299 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 300 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 301 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 302 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 303 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 304 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 305 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 306 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 307 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 308 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 309 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 310 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 311 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 312 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 313 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 314 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 315 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 316 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 317 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 318 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 319 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 320 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 321 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 322 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 323 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 324 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 325 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 326 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 327 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 328 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 329 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 330 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 331 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 332 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 333 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 334 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 335 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 336 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 337 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 338 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 339 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 340 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 341 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 342 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 343 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 344 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 345 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 346 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 347 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 348 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 349 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 350 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 351 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 352 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 353 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 354 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 355 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 356 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 357 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 358 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 359 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 360 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 361 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 362 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 363 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 364 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 365 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 366 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 367 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 368 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 369 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 370 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 371 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 372 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 373 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 374 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 375 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 376 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 377 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 378 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 379 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 380 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 381 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 382 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 383 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 384 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 385 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 386 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 387 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 388 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 389 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 390 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 391 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 392 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 393 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 394 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 395 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 396 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 397 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 398 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 399 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 400 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 401 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 402 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 403 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 404 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 405 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 406 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 407 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 408 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 409 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 410 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 411 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 412 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 413 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 414 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 415 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 416 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 417 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 418 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 419 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 420 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 421 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 422 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 423 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 424 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 425 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 426 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 427 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 428 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 429 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 430 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 431 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 432 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 433 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 434 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 435 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 436 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 437 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 438 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 439 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 440 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 441 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 442 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 443 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 444 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 445 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 446 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 447 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 448 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 449 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 450 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 451 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 452 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 453 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 454 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 455 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 456 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 457 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 458 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 459 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 460 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 461 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 462 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 463 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 464 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 465 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 466 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 467 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 468 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 469 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 470 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 471 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 472 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 473 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 474 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 475 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 476 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 477 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 478 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 479 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 480 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 481 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 482 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 483 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 484 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 485 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 486 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 487 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 488 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 489 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 490 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 491 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 492 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 493 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 494 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 495 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 496 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 497 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 498 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 499 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 500 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 501 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 502 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 503 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 504 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 505 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 506 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 507 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 508 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 509 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 510 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 511 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 512 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 513 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 514 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 515 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 516 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 517 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 518 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 519 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 520 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 521 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 522 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 523 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 524 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 525 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 526 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 527 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 528 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 529 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 530 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 531 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 532 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 533 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 534 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 535 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 536 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 537 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 538 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 539 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 540 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 541 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 542 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 543 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 544 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 545 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 546 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 547 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 548 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 549 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 550 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 551 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 552 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 553 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 554 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 555 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 556 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 557 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 558 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 559 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 560 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 561 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 562 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 563 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 564 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 565 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 566 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 567 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 568 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 569 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 570 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 571 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 572 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 573 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 574 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 575 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 576 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 577 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 578 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 579 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 580 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 581 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 582 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 583 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 584 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 585 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 586 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 587 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 588 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 589 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 590 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 591 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 592 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 593 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 594 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 595 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 596 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 597 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 598 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 599 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 600 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 601 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 602 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 603 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 604 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 605 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 606 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 607 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 608 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 609 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 610 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 611 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 612 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 613 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 614 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 615 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 616 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 617 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 618 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 619 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 620 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 621 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 622 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 623 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 624 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 625 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 626 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 627 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 628 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 629 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 630 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 631 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 632 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 633 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 634 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 635 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 636 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 637 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 638 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 639 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 640 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 641 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 642 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 643 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 644 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 645 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 646 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 647 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 648 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 649 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 650 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 651 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 652 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 653 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 654 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 655 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 656 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 657 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 658 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 659 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 660 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 661 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 662 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 663 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 664 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 665 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 666 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 667 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 668 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 669 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 670 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 671 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 672 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 673 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 674 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 675 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 676 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 677 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 678 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 679 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 680 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 681 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 682 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 683 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 684 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 685 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 686 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 687 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 688 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 689 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 690 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 691 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 692 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 693 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 694 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 695 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 696 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 697 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 698 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 699 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 700 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 701 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 702 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 703 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 704 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 705 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 706 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 707 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 708 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 709 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 710 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 711 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 712 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 713 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 714 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 715 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 716 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 717 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 718 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 719 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 720 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 721 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 722 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 723 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 724 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 725 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 726 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 727 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 728 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 729 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 730 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 731 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 732 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 733 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 734 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 735 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 736 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 737 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 738 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 739 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 740 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 741 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 742 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 743 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 744 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 745 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 746 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 747 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 748 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 749 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 750 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 751 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 752 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 753 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 754 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 755 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 756 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 757 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 758 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 759 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 760 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 761 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 762 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 763 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 764 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 765 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 766 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 767 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 768 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 769 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 770 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 771 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 772 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 773 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 774 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 775 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 776 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 777 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 778 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 779 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 780 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 781 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 782 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 783 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 784 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 785 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 786 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 787 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 788 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 789 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 790 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 791 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 792 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 793 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 794 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 795 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 796 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 797 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 798 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 799 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 800 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 801 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 802 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 803 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 804 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 805 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 806 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 807 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 808 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 809 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 810 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 811 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 812 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 813 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 814 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 815 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 816 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 817 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 818 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 819 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 820 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 821 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 822 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 823 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 824 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 825 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 826 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 827 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 828 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 829 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 830 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 831 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 832 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 833 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 834 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 835 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 836 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 837 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 838 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 839 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 840 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 841 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 842 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 843 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 844 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 845 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 846 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 847 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 848 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 849 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 850 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 851 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 852 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 853 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 854 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 855 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 856 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 857 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 858 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 859 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 860 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 861 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 862 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 863 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 864 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 865 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 866 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 867 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 868 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 869 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 870 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 871 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 872 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 873 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 874 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 875 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 876 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 877 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 878 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 879 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 880 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 881 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 882 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 883 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 884 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 885 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 886 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 887 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 888 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 889 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 890 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 891 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 892 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 893 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 894 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 895 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 896 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 897 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 898 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 899 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 900 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 901 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 902 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 903 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 904 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 905 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 906 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 907 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 908 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 909 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 910 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 911 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 912 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 913 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 914 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 915 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 916 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 917 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 918 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 919 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 920 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 921 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 922 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 923 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 924 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 925 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 926 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 927 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 928 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 929 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 930 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 931 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 932 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 933 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 934 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 935 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 936 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 937 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 938 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 939 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 940 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 941 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 942 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 943 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 944 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 945 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 946 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 947 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 948 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 949 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 950 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 951 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 952 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 953 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 954 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 955 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 956 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 957 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 958 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 959 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 960 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 961 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 962 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 963 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 964 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 965 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 966 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 967 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 968 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 969 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 970 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 971 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 972 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 973 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 974 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 975 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 976 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 977 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 978 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 979 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 980 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 981 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 982 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 983 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 984 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 985 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 986 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 987 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 988 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 989 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 990 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 991 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 992 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 993 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 994 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 995 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 996 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 997 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 998 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 999 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 1000 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 1001 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 1002 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 1003 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 1004 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 1005 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 1006 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 1007 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 1008 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 1009 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 1010 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 1011 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 1012 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 1013 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 1014 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 1015 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 1016 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 1017 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 1018 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 1019 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 1020 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 1021 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 1022 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 1023 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 1024 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 1025 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 1026 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 1027 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 1028 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 1029 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 1030 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 1031 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 1032 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 1033 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 1034 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 1035 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 1036 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 1037 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 1038 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 1039 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 1040 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 1041 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 1042 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 1043 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 1044 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 1045 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 1046 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 1047 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 1048 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 1049 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 1050 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 1051 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 1052 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 1053 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 1054 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 1055 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 1056 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 1057 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 1058 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 1059 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 1060 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 1061 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 1062 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 1063 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 1064 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 1065 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 1066 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 1067 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 1068 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 1069 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 1070 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 1071 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 1072 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 1073 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 1074 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 1075 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 1076 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 1077 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 1078 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 1079 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 1080 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 1081 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 1082 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 1083 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 1084 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 1085 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 1086 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 1087 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 1088 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 1089 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 1090 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 1091 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 1092 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 1093 :: Estado=pendiente; Severidad=P0; Area=Permisos; Accion=Unificar logica de permisos en UI; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 1094 :: Estado=en_progreso; Severidad=P1; Area=DevOps-Lint; Accion=Formalizar canon notification en docs; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 1095 :: Estado=en_revision; Severidad=P2; Area=UX-Notificaciones; Accion=Endurecer servicios sin fallbacks; Responsable=Lider Tecnico; Evidencia=por adjuntar
+CHECK 1096 :: Estado=listo_para_evidencia; Severidad=P3; Area=Seguridad-Auth; Accion=Agregar regla ESLint de gobernanza; Responsable=Equipo BE; Evidencia=por adjuntar
+CHECK 1097 :: Estado=pendiente; Severidad=P0; Area=Backend-Contrato; Accion=Capturar JSON de lista y validar meta; Responsable=Equipo FE; Evidencia=por adjuntar
+CHECK 1098 :: Estado=en_progreso; Severidad=P1; Area=Backend-Notificacion; Accion=Migrar React Query a Redux; Responsable=Equipo QA; Evidencia=por adjuntar
+CHECK 1099 :: Estado=en_revision; Severidad=P2; Area=Frontend-Estado; Accion=Unificar PaginationMeta y tipados; Responsable=Arquitectura; Evidencia=por adjuntar
+CHECK 1100 :: Estado=listo_para_evidencia; Severidad=P3; Area=Frontend-Paginacion; Accion=Eliminar apiClient directo en vistas; Responsable=Lider Tecnico; Evidencia=por adjuntar
