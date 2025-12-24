@@ -131,11 +131,13 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
             qs = qs.filter(temporada_id=temp_id)
 
         # Filtro por estado activo/archivado
-        estado = (params.get("estado") or "activas").lower()
-        if estado == "activas":
+        estado = (params.get("estado") or "activas").strip().lower()
+        if estado in ("activas", "activos"):
             qs = qs.filter(is_active=True)
-        elif estado == "archivadas":
+        elif estado in ("archivadas", "archivados"):
             qs = qs.filter(is_active=False)
+        elif estado in ("todos", "all"):
+            pass
 
         # Filtro por finalización (opcional, consistente con Temporadas)
         finalizada = params.get("finalizada")
@@ -164,34 +166,33 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
+            meta = {
+                "count": self.paginator.page.paginator.count,
+                "next": self.paginator.get_next_link(),
+                "previous": self.paginator.get_previous_link(),
+                "page": self.paginator.page.number,
+                "page_size": self.paginator.get_page_size(request),
+                "total_pages": self.paginator.page.paginator.num_pages,
+                "total_registradas": total_registradas,
+            }
             return self.notify(
                 key="data_processed_success",
-                data={
-                    "cosechas": serializer.data,
-                    "meta": {
-                        "count": self.paginator.page.paginator.count,
-                        "next": self.paginator.get_next_link(),
-                        "previous": self.paginator.get_previous_link(),
-                        "page": self.paginator.page.number,
-                        "page_size": self.paginator.get_page_size(request),
-                        "total_pages": self.paginator.page.paginator.num_pages,
-                        "total_registradas": total_registradas,
-                    }
-                }
+                data={"results": serializer.data, "meta": meta}
             )
 
         serializer = self.get_serializer(queryset, many=True)
+        meta = {
+            "count": len(serializer.data),
+            "next": None,
+            "previous": None,
+            "page": 1,
+            "page_size": len(serializer.data),
+            "total_pages": 1,
+            "total_registradas": total_registradas,
+        }
         return self.notify(
             key="data_processed_success",
-            data={
-                "cosechas": serializer.data,
-                "meta": {
-                    "count": len(serializer.data),
-                    "next": None,
-                    "previous": None,
-                    "total_registradas": total_registradas,
-                }
-            }
+            data={"results": serializer.data, "meta": meta}
         )
 
     # ------------------------------ CREATE ------------------------------
@@ -501,4 +502,4 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
     @action(detail=True, methods=["post"], url_path="reactivar")
     def reactivar(self, request, pk=None):
         # Alias compatible con UI: usa toggle
-        return self.toggle_finalizada(request, pk)
+        return self.toggle_finalizada(request, pk=pk)

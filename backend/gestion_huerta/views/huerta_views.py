@@ -14,14 +14,12 @@
 # ---------------------------------------------------------------------------
 
 import logging
-import ast
-from django.utils import timezone
+from django.db import transaction, IntegrityError
+from django.db.models import Q, Value, IntegerField, Case, When
+from django.db.models.functions import Concat
 from rest_framework import status, viewsets, serializers
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
-from django.db.models import Q
-from rest_framework import filters
-from django.db import transaction, IntegrityError
 
 # Modelos
 from gestion_huerta.models import Propietario, Huerta, HuertaRentada
@@ -41,7 +39,6 @@ from gestion_huerta.utils.activity import registrar_actividad
 from gestion_huerta.utils.notification_handler import NotificationHandler
 from gestion_huerta.utils.audit import ViewSetAuditMixin
 from agroproductores_risol.utils.pagination import GenericPagination
-from gestion_huerta.utils.search_mixin import ExactMatchFirstMixin
 
 logger = logging.getLogger(__name__)
 
@@ -50,11 +47,48 @@ logger = logging.getLogger(__name__)
 # Mix-in que centraliza las respuestas uniformes
 # ---------------------------------------------------------------------------
 class NotificationMixin:
-    """Shortcut para devolver respuestas con el formato del frontend."""
+    """Devuelve respuestas con el envelope estándar del sistema."""
+
     def notify(self, *, key: str, data=None, status_code=status.HTTP_200_OK):
         return NotificationHandler.generate_response(
             message_key=key,
             data=data or {},
+            status_code=status_code,
+        )
+
+    def _meta_from_paginator(self, paginator, request):
+        """
+        Meta completa y estable (sin bifurcaciones).
+        """
+        return {
+            "count": paginator.page.paginator.count,
+            "next": paginator.get_next_link(),
+            "previous": paginator.get_previous_link(),
+            "page": paginator.page.number,
+            "page_size": paginator.get_page_size(request),
+            "total_pages": paginator.page.paginator.num_pages,
+        }
+
+    def notify_list(self, *, request, results, key="data_processed_success", status_code=status.HTTP_200_OK, paginator=None):
+        """
+        Respuesta LIST canónica: data.results + data.meta
+        """
+        paginator = paginator or getattr(self, "paginator", None)
+        if paginator and getattr(paginator, "page", None) is not None:
+            meta = self._meta_from_paginator(paginator, request)
+        else:
+            meta = {
+                "count": len(results),
+                "next": None,
+                "previous": None,
+                "page": 1,
+                "page_size": len(results),
+                "total_pages": 1,
+            }
+
+        return self.notify(
+            key=key,
+            data={"results": results, "meta": meta},
             status_code=status_code,
         )
 
@@ -92,11 +126,10 @@ def _has_perm(user, codename: str) -> bool:
 # ---------------------------------------------------------------------------
 #  🏠  PROPIETARIOS
 # ---------------------------------------------------------------------------
-class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, ExactMatchFirstMixin, viewsets.ModelViewSet):
-    queryset = Propietario.objects.all().order_by('-id')
+class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
+    queryset = Propietario.objects.all().order_by("-id")
     serializer_class = PropietarioSerializer
     pagination_class = GenericPagination
-    exact_match_field = 'nombre'
 
     permission_classes = [
         IsAuthenticated,
@@ -124,31 +157,10 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, ExactMatchFirstMi
 
     # ---------- LIST ----------
     def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-
-        # Exact match por nombre (prioridad visual)
-        search_param = request.query_params.get("search", "").strip()
-        exact_match, queryset = self.extract_exact_match(queryset, search_term=search_param)
-
+        queryset = self.filter_queryset(self.get_queryset())
         page = self.paginate_queryset(queryset)
         serializer = self.get_serializer(page, many=True)
-
-        results = self.prepend_exact_match(serializer.data, exact_match)
-
-        return self.notify(
-            key="data_processed_success",
-            data={
-                "propietarios": results,
-                "meta": {
-                    "count": self.paginator.page.paginator.count,
-                    "next": self.paginator.get_next_link(),
-                    "previous": self.paginator.get_previous_link(),
-                    "page": self.paginator.page.number,                
-                    "page_size": self.paginator.get_page_size(self.request),
-                    "total_pages": self.paginator.page.paginator.num_pages,
-                }
-            }
-        )
+        return self.notify_list(request=request, results=serializer.data)
 
     # ---------- CREATE ----------
     def create(self, request, *args, **kwargs):
@@ -257,52 +269,32 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, ExactMatchFirstMi
 
     @action(detail=False, methods=["get"], url_path="solo-con-huertas")
     def solo_con_huertas(self, request):
-        qs = self.get_queryset().filter(
-            Q(huertas__isnull=False) |
-            Q(huertas_rentadas__isnull=False)
+        qs = Propietario.objects.filter(
+            Q(huertas__isnull=False) | Q(huertas_rentadas__isnull=False)
         ).distinct()
 
-        search = request.query_params.get("search", "").strip()
-        exact_match = None
-
+        search = (request.query_params.get("search") or "").strip()
         if search:
-            # Filtro básico de búsqueda rica para reducir el set antes de extraer exacto
             qs = qs.filter(
-                Q(nombre__icontains=search) |
-                Q(apellidos__icontains=search)
-            )
-            self.pagination_class.page_size = 10
-
-            # Usar mixin para extraer exact match
-            exact_match, qs = self.extract_exact_match(
-                qs, 
-                search_term=search,
-                additional_filters=None # Ya filtramos por huertas en el qs base
-            )
-
-        qs = qs.order_by('-id')
+                Q(nombre__icontains=search) | Q(apellidos__icontains=search)
+            ).annotate(
+                is_exact=Case(
+                    When(nombre__iexact=search, then=Value(0)),
+                    default=Value(1),
+                    output_field=IntegerField(),
+                )
+            ).order_by("is_exact", "-id")
+        else:
+            qs = qs.order_by("-id")
 
         page = self.paginate_queryset(qs)
         serializer = self.get_serializer(page, many=True)
-        results = self.prepend_exact_match(serializer.data, exact_match)
-
-        return self.notify(
-            key="data_processed_success",
-            data={
-                "propietarios": results,
-                "meta": {
-                    "count": self.paginator.page.paginator.count,
-                    "next": self.paginator.get_next_link(),
-                    "previous": self.paginator.get_previous_link(),
-                }
-            }
-        )
+        return self.notify_list(request=request, results=serializer.data)
 
     def get_queryset(self):
-        qs = super().get_queryset().order_by('-id')
+        qs = Propietario.objects.all()
         params = self.request.query_params
 
-        # estado/archivado
         if archivado_param := params.get("archivado"):
             low = archivado_param.lower()
             if low in ["activos", "false"]:
@@ -310,29 +302,34 @@ class PropietarioViewSet(ViewSetAuditMixin, NotificationMixin, ExactMatchFirstMi
             elif low in ["archivados", "true"]:
                 qs = qs.filter(archivado_en__isnull=False)
 
-        # filtros exactos
         if id_param := params.get("id"):
             try:
-                return qs.filter(id=int(id_param))
+                qs = qs.filter(id=int(id_param))
             except ValueError:
                 pass
-        if nombre := params.get("nombre"):
-            return qs.filter(nombre=nombre)
 
-        # 🔎 búsqueda rica (nombre, apellidos, nombre completo, teléfono, dirección)
-        if search := params.get("search"):
-            from django.db.models import Value, CharField
-            from django.db.models.functions import Concat
-            self.pagination_class.page_size = 10
-            return qs.annotate(
-                nombre_completo=Concat('nombre', Value(' '), 'apellidos', output_field=CharField())
+        if nombre_exacto := params.get("nombre"):
+            qs = qs.filter(nombre=nombre_exacto)
+
+        search = (params.get("search") or "").strip()
+        if search:
+            qs = qs.annotate(
+                nombre_completo=Concat("nombre", Value(" "), "apellidos")
             ).filter(
-                Q(nombre__icontains=search) |
-                Q(apellidos__icontains=search) |
-                Q(nombre_completo__icontains=search) |
-                Q(telefono__icontains=search) |
-                Q(direccion__icontains=search)
-            )
+                Q(nombre__icontains=search)
+                | Q(apellidos__icontains=search)
+                | Q(nombre_completo__icontains=search)
+                | Q(telefono__icontains=search)
+                | Q(direccion__icontains=search)
+            ).annotate(
+                is_exact=Case(
+                    When(nombre__iexact=search, then=Value(0)),
+                    default=Value(1),
+                    output_field=IntegerField(),
+                )
+            ).order_by("is_exact", "-id")
+        else:
+            qs = qs.order_by("-id")
 
         return qs
 
@@ -388,23 +385,10 @@ class HuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
 
     # ---------- LIST ----------
     def list(self, request, *args, **kwargs):
-        page = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
         ser = self.get_serializer(page, many=True)
-
-        payload = {
-            "meta": {
-                "count": self.paginator.page.paginator.count,
-                "next": self.paginator.get_next_link(),
-                "previous": self.paginator.get_previous_link(),
-                "page": self.paginator.page.number,
-                "page_size": self.paginator.get_page_size(self.request),
-                "total_pages": self.paginator.page.paginator.num_pages,
-            },
-            "results": ser.data,
-            # Alias temporal de compatibilidad con UI existente:
-            "huertas": ser.data,
-        }
-        return self.notify(key="data_processed_success", data=payload, status_code=status.HTTP_200_OK)
+        return self.notify_list(request=request, results=ser.data)
 
     # ---------- CREATE ----------
     def create(self, request, *args, **kwargs):
@@ -591,22 +575,10 @@ class HuertaRentadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelV
         return [p() for p in self.permission_classes]
 
     def list(self, request, *args, **kwargs):
-        page = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
         ser = self.get_serializer(page, many=True)
-
-        payload = {
-            "meta": {
-                "count": self.paginator.page.paginator.count,
-                "next": self.paginator.get_next_link(),
-                "previous": self.paginator.get_previous_link(),
-                "page": self.paginator.page.number,
-                "page_size": self.paginator.get_page_size(self.request),
-                "total_pages": self.paginator.page.paginator.num_pages,
-            },
-            "results": ser.data,
-            "huertas_rentadas": ser.data,  # alias compat
-        }
-        return self.notify(key="data_processed_success", data=payload, status_code=status.HTTP_200_OK)
+        return self.notify_list(request=request, results=ser.data)
 
     def create(self, request, *args, **kwargs):
         ser = self.get_serializer(data=request.data)
@@ -843,18 +815,4 @@ class HuertasCombinadasViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Ge
                 d['tipo'] = 'rentada'
             page_data.append(d)
             
-        return self.notify(
-            key="data_processed_success",
-            data={
-                "meta": {
-                    "count": paginator.page.paginator.count,
-                    "next": paginator.get_next_link(),
-                    "previous": paginator.get_previous_link(),
-                    "page": paginator.page.number,
-                    "page_size": paginator.get_page_size(request),
-                    "total_pages": paginator.page.paginator.num_pages,
-                },
-                "results": page_data,
-                "huertas": page_data
-            }
-        )
+        return self.notify_list(request=request, results=page_data, paginator=paginator)

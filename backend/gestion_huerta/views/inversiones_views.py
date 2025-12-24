@@ -84,7 +84,12 @@ def _get_cosecha_from_payload(data) -> Cosecha | None:
         return None
     try:
         return Cosecha.objects.select_related("temporada").only(
-            "id", "is_active", "finalizada", "temporada_id"
+            "id",
+            "is_active",
+            "finalizada",
+            "temporada_id",
+            "temporada__is_active",
+            "temporada__finalizada",
         ).get(pk=cid)
     except Cosecha.DoesNotExist:
         return None
@@ -134,7 +139,7 @@ class InversionHuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
 
     def get_permissions(self):
         # Hace visible a HasModulePermission qué codenames exigir
-        self.required_permissions = self._perm_map.get(self.action, [])
+        self.required_permissions = self._perm_map.get(self.action, ["view_inversioneshuerta"])
         return [p() for p in self.permission_classes]
 
     # ------------------------------ Queryset dinámico
@@ -147,12 +152,14 @@ class InversionHuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
             return qs
 
         # Estado: activas / archivadas / todas
-        estado = (params.get('estado') or 'activas').strip().lower()
-        if estado == 'activas':
+        estado = (params.get("estado") or "activas").strip().lower()
+
+        if estado in ("activas", "activos"):
             qs = qs.filter(is_active=True)
-        elif estado == 'archivadas':
+        elif estado in ("archivadas", "archivados"):
             qs = qs.filter(is_active=False)
-        # 'todas' => sin filtro
+        elif estado in ("todas", "todos", "all"):
+            pass  # sin filtro
 
         # Rango de fechas (inclusive). Espera YYYY-MM-DD
         if fd := params.get('fecha_desde'):
@@ -172,28 +179,20 @@ class InversionHuertaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
         page = self.paginate_queryset(qs)
         if page is not None:
             ser = self.get_serializer(page, many=True)
-            return self.notify(
+            return self.notify_list(
+                request=request,
+                results=ser.data,
                 key="data_processed_success",
-                data={
-                    "inversiones": ser.data,
-                    "meta": {
-                        "count": self.paginator.page.paginator.count,
-                        "next": self.paginator.get_next_link(),
-                        "previous": self.paginator.get_previous_link(),
-                    }
-                },
-                status_code=status.HTTP_200_OK
+                status_code=status.HTTP_200_OK,
             )
 
-        # fallback sin paginación
         ser = self.get_serializer(qs, many=True)
-        return self.notify(
+        return self.notify_list(
+            request=request,
+            results=ser.data,
             key="data_processed_success",
-            data={
-                "inversiones": ser.data,
-                "meta": {"count": len(ser.data), "next": None, "previous": None},
-            },
-            status_code=status.HTTP_200_OK
+            status_code=status.HTTP_200_OK,
+            paginator=None,
         )
 
     # ------------------------------ PRECHECKS de estado (cosecha/temporada)

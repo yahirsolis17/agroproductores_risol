@@ -82,7 +82,12 @@ def _get_cosecha_from_payload(data) -> Cosecha | None:
         return None
     try:
         return Cosecha.objects.select_related("temporada").only(
-            "id", "is_active", "finalizada", "temporada_id"
+            "id",
+            "is_active",
+            "finalizada",
+            "temporada_id",
+            "temporada__is_active",
+            "temporada__finalizada",
         ).get(pk=cid)
     except Cosecha.DoesNotExist:
         return None
@@ -128,7 +133,7 @@ class VentaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
     }
 
     def get_permissions(self):
-        self.required_permissions = self._perm_map.get(self.action, [])
+        self.required_permissions = self._perm_map.get(self.action, ["view_venta"])
         return [p() for p in self.permission_classes]
 
     # ------------------------------ QUERYSET
@@ -139,11 +144,14 @@ class VentaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
         # Excluir filtros en acciones de detalle
         if self.action not in ['retrieve', 'update', 'partial_update', 'destroy', 'archivar', 'restaurar']:
             # Filtro por estado
-            estado = (params.get('estado') or 'activas').strip().lower()
-            if estado == 'activas':
+            estado = (params.get("estado") or "activas").strip().lower()
+
+            if estado in ("activas", "activos"):
                 qs = qs.filter(is_active=True)
-            elif estado == 'archivadas':
+            elif estado in ("archivadas", "archivados"):
                 qs = qs.filter(is_active=False)
+            elif estado in ("todas", "todos", "all"):
+                pass
 
             # Rango de fechas (inclusive)
             if fd := params.get('fecha_desde'):
@@ -159,19 +167,38 @@ class VentaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
 
     # ------------------------------ LIST
     def list(self, request, *args, **kwargs):
-        page       = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
-        serializer = self.get_serializer(page, many=True)
+        qs = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(qs)
+
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            meta = {
+                "count": self.paginator.page.paginator.count,
+                "next": self.paginator.get_next_link(),
+                "previous": self.paginator.get_previous_link(),
+                "page": self.paginator.page.number,
+                "page_size": self.paginator.get_page_size(request),
+                "total_pages": self.paginator.page.paginator.num_pages,
+            }
+            return self.notify(
+                key="data_processed_success",
+                data={"results": serializer.data, "meta": meta},
+                status_code=status.HTTP_200_OK,
+            )
+
+        serializer = self.get_serializer(qs, many=True)
+        meta = {
+            "count": len(serializer.data),
+            "next": None,
+            "previous": None,
+            "page": 1,
+            "page_size": len(serializer.data),
+            "total_pages": 1,
+        }
         return self.notify(
             key="data_processed_success",
-            data={
-                "ventas": serializer.data,
-                "meta": {
-                    "count": self.paginator.page.paginator.count,
-                    "next": self.paginator.get_next_link(),
-                    "previous": self.paginator.get_previous_link(),
-                }
-            },
-            status_code=status.HTTP_200_OK
+            data={"results": serializer.data, "meta": meta},
+            status_code=status.HTTP_200_OK,
         )
 
     # ------------------------------ PRECHECKS de estado (cosecha/temporada)

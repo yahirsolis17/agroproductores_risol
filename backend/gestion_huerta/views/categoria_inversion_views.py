@@ -78,7 +78,7 @@ class CategoriaInversionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.M
 
     def get_permissions(self):
         # Hace visible a HasModulePermission qué codenames exigir
-        self.required_permissions = self._perm_map.get(self.action, [])
+        self.required_permissions = self._perm_map.get(self.action, ["view_categoriainversion"])
         return [p() for p in self.permission_classes]
 
     def get_queryset(self):
@@ -94,48 +94,46 @@ class CategoriaInversionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.M
             return base
 
         # Listados: estado = activas|archivadas|todas (default activas)
-        estado = (self.request.query_params.get('estado') or 'activas').strip().lower()
-        if estado == 'activas':
+        estado = (self.request.query_params.get("estado") or "activas").strip().lower()
+
+        if estado in ("activas", "activos"):
             return base.filter(is_active=True)
-        elif estado == 'archivadas':
+        elif estado in ("archivadas", "archivados"):
             return base.filter(is_active=False)
-        return base
+        elif estado in ("todas", "todos", "all"):
+            return base
+
+        return base.filter(is_active=True)
 
     # ------------------------------ LIST
     def list(self, request, *args, **kwargs):
-        page       = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
-        serializer = self.get_serializer(page, many=True)
-        return self.notify(
-            key="data_processed_success",
-            data={
-                "categorias": serializer.data,
-                "meta": {
-                    "count": self.paginator.page.paginator.count,
-                    "next": self.paginator.get_next_link(),
-                    "previous": self.paginator.get_previous_link(),
-                }
-            },
-            status_code=status.HTTP_200_OK
-        )
+        qs = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(qs)
+
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.notify_list(request=request, results=serializer.data)
+
+        serializer = self.get_serializer(qs, many=True)
+        return self.notify_list(request=request, results=serializer.data, paginator=None)
 
     # GET /huerta/categorias-inversion/all  (útil para selects globales)
     @action(detail=False, methods=["get"], url_path="all")
     def list_all(self, request):
-        qs         = CategoriaInversion.objects.all().annotate(uso_count=Count('inversiones')).order_by('nombre')
-        page       = self.paginate_queryset(qs)
-        serializer = self.get_serializer(page, many=True)
-        return self.notify(
-            key="data_processed_success",
-            data={
-                "categorias": serializer.data,
-                "meta": {
-                    "count": self.paginator.page.paginator.count,
-                    "next": self.paginator.get_next_link(),
-                    "previous": self.paginator.get_previous_link(),
-                }
-            },
-            status_code=status.HTTP_200_OK
+        qs = (
+            CategoriaInversion.objects
+            .all()
+            .annotate(uso_count=Count('inversiones'))
+            .order_by('nombre')
         )
+        page = self.paginate_queryset(qs)
+
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.notify_list(request=request, results=serializer.data)
+
+        serializer = self.get_serializer(qs, many=True)
+        return self.notify_list(request=request, results=serializer.data, paginator=None)
 
     # ------------------------------ CREATE
     def create(self, request, *args, **kwargs):
