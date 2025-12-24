@@ -140,8 +140,7 @@ const Temporadas: React.FC = () => {
           const h = await huertaService.getById(huertaId); // debe retornar { data: { huerta: ... } } o un objeto compatible
           if (cancelled) return;
 
-          // Compat: soporta ambos formatos (objeto plano o envuelto)
-          const huertaObj: any = (h as any).data?.huerta ?? h;
+          const huertaObj: any = h.data.huerta;
           const propietario =
             (huertaObj?.propietario_detalle
               ? [huertaObj.propietario_detalle.nombre, huertaObj.propietario_detalle.apellidos].filter(Boolean).join(' ')
@@ -152,7 +151,7 @@ const Temporadas: React.FC = () => {
           const hr = await huertaRentadaService.getById(huertaId);
           if (cancelled) return;
 
-          const hrObj: any = (hr as any).data?.huerta_rentada ?? hr;
+          const hrObj: any = hr.data.huerta_rentada;
           const propietario =
             (hrObj?.propietario_detalle
               ? [hrObj.propietario_detalle.nombre, hrObj.propietario_detalle.apellidos].filter(Boolean).join(' ')

@@ -7,7 +7,7 @@ import { CategoriaInversionCreateData, CategoriaInversionUpdateData } from '../t
 
 export function useCategoriasInversion() {
   const dispatch = useAppDispatch();
-  const { list, loading, loaded, error, page, meta } = useAppSelector(s => s.categoriasInversion);
+  const { items, loading, loaded, error, page, meta } = useAppSelector(s => s.categoriasInversion);
 
   useEffect(() => { dispatch(fetchCategorias(page)); }, [dispatch, page]);
 
@@ -19,7 +19,7 @@ export function useCategoriasInversion() {
   const restore       = (id:number) => dispatch(restoreCategoria(id)).unwrap();
   const removeCategoria = (id:number) => dispatch(deleteCategoria(id)).unwrap();
 
-  return { categorias: list ?? [], loading, loaded, error, page, meta, changePage, refetch, addCategoria, editCategoria, archive, restore, removeCategoria };
+  return { categorias: items ?? [], loading, loaded, error, page, meta, changePage, refetch, addCategoria, editCategoria, archive, restore, removeCategoria };
 }
 
 export default useCategoriasInversion;

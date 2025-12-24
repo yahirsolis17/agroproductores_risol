@@ -21,7 +21,7 @@ import {
 export function useInversiones() {
   const dispatch = useAppDispatch();
   const {
-    list: inversiones,
+    items: inversiones,
     loading,
     error,
     page,

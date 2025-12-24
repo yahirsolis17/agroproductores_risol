@@ -6,11 +6,10 @@ import {
   CategoriaInversionCreateData,
   CategoriaInversionUpdateData,
 } from '../../modules/gestion_huerta/types/categoriaInversionTypes';
-
-interface PaginationMeta { count: number; next: string | null; previous: string | null; }
+import { PaginationMeta } from '../../modules/gestion_huerta/types/shared';
 
 interface CategoriaState {
-  list:    CategoriaInversion[];
+  items:    CategoriaInversion[];
   loading: boolean;
   loaded:  boolean;
   error:   string | null;
@@ -19,12 +18,12 @@ interface CategoriaState {
 }
 
 const initialState: CategoriaState = {
-  list:    [],
+  items:    [],
   loading: false,
   loaded:  false,
   error:   null,
   page:    1,
-  meta:    { count: 0, next: null, previous: null },
+  meta:    { count: 0, next: null, previous: null, page: 1, page_size: 10, total_pages: 1 },
 };
 
 /* ───── Fetch listado activo ───── */
@@ -36,8 +35,8 @@ export const fetchCategorias = createAsyncThunk<
   'categoriasInversion/fetch',
   async (page = 1, { rejectWithValue }) => {
     try {
-      const { categorias, meta } = await categoriaInversionService.listActive(page);
-      return { categorias, meta, page };
+      const res = await categoriaInversionService.listActive(page);
+      return { categorias: res.data.results, meta: res.data.meta, page };
     } catch (err: any) {
       const be = err?.response?.data || err?.data || err;
       handleBackendNotification(be);
@@ -57,8 +56,7 @@ export const createCategoria = createAsyncThunk<
     try {
       const res = await categoriaInversionService.create(payload);
       handleBackendNotification(res);
-      const cat = (res.data as any).categoria ?? (res.data as any).categoria_inversion;
-      return cat as CategoriaInversion;
+      return res.data.categoria as CategoriaInversion;
     } catch (err: any) {
       const be = err?.response?.data || err?.data || err;
       handleBackendNotification(be);
@@ -77,8 +75,7 @@ export const updateCategoria = createAsyncThunk<
     try {
       const res = await categoriaInversionService.update(id, payload);
       handleBackendNotification(res);
-      const cat = (res.data as any).categoria ?? (res.data as any).categoria_inversion;
-      return cat as CategoriaInversion;
+      return res.data.categoria as CategoriaInversion;
     } catch (err: any) {
       const be = err?.response?.data || err?.data || err;
       handleBackendNotification(be);
@@ -97,8 +94,7 @@ export const archiveCategoria = createAsyncThunk<
     try {
       const res = await categoriaInversionService.archive(id);
       handleBackendNotification(res);
-      const cat = (res.data as any).categoria ?? (res.data as any).categoria_inversion;
-      return cat as CategoriaInversion;
+      return res.data.categoria as CategoriaInversion;
     } catch (err: any) {
       const be = err?.response?.data || err?.data || err;
       handleBackendNotification(be);
@@ -117,8 +113,7 @@ export const restoreCategoria = createAsyncThunk<
     try {
       const res = await categoriaInversionService.restore(id);
       handleBackendNotification(res);
-      const cat = (res.data as any).categoria ?? (res.data as any).categoria_inversion;
-      return cat as CategoriaInversion;
+      return res.data.categoria as CategoriaInversion;
     } catch (err: any) {
       const be = err?.response?.data || err?.data || err;
       handleBackendNotification(be);
@@ -157,7 +152,7 @@ const categoriaSlice = createSlice({
     /* fetch */
     b.addCase(fetchCategorias.pending,   s => { s.loading = true; s.error = null; });
     b.addCase(fetchCategorias.fulfilled, (s, { payload }) => {
-      s.list = payload.categorias;
+      s.items = payload.categorias;
       s.meta = payload.meta;
       s.page = payload.page;
       s.loading = false;
@@ -171,25 +166,25 @@ const categoriaSlice = createSlice({
 
     /* create */
     b.addCase(createCategoria.fulfilled, (s, { payload }) => {
-      s.list.unshift(payload);
+      s.items.unshift(payload);
       s.meta.count += 1;
     });
 
     /* update */
     b.addCase(updateCategoria.fulfilled, (s, { payload }) => {
-      const i = s.list.findIndex(c => c.id === payload.id);
-      if (i !== -1) s.list[i] = payload;
+      const i = s.items.findIndex(c => c.id === payload.id);
+      if (i !== -1) s.items[i] = payload;
     });
 
     /* archive / restore / delete */
     b.addCase(archiveCategoria.fulfilled, (s, { payload }) => {
-      s.list = s.list.filter(c => c.id !== payload.id);
+      s.items = s.items.filter(c => c.id !== payload.id);
     });
     b.addCase(restoreCategoria.fulfilled, (s, { payload }) => {
-      s.list.unshift(payload);
+      s.items.unshift(payload);
     });
     b.addCase(deleteCategoria.fulfilled, (s, { payload: id }) => {
-      s.list = s.list.filter(c => c.id !== id);
+      s.items = s.items.filter(c => c.id !== id);
       if (s.meta.count > 0) s.meta.count -= 1;
     });
   },

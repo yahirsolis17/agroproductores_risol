@@ -20,7 +20,7 @@ import type { CosechaCreateData, CosechaUpdateData } from '../types/cosechaTypes
 export function useCosechas() {
   const dispatch = useAppDispatch();
   const {
-    list: cosechas,
+    items: cosechas,
     loading,
     error,
     page,

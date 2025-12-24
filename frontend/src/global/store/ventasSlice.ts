@@ -7,14 +7,13 @@ import {
   VentaHuertaUpdateData,
 } from '../../modules/gestion_huerta/types/ventaTypes';
 import type { RootState } from './store';
+import { PaginationMeta } from '../../modules/gestion_huerta/types/shared';
 
 export type EstadoFiltro = 'activas' | 'archivadas' | 'todas';
 export interface VentaFilters extends SvcFilters {}
 
-interface PaginationMeta { count: number; next: string | null; previous: string | null };
-
 interface VentasState {
-  list: VentaHuerta[];
+  items: VentaHuerta[];
   loading: boolean;
   loaded: boolean;
   error: string | null;
@@ -33,12 +32,12 @@ interface VentasState {
 const PAGE_SIZE = 10;
 
 const initialState: VentasState = {
-  list: [],
+  items: [],
   loading: false,
   loaded: false,
   error: null,
   page: 1,
-  meta: { count: 0, next: null, previous: null },
+  meta: { count: 0, next: null, previous: null, page: 1, page_size: PAGE_SIZE, total_pages: 1 },
   huertaId: null,
   huertaRentadaId: null,
   temporadaId: null,
@@ -61,8 +60,8 @@ type PagePayload = { ventas: VentaHuerta[]; meta: PaginationMeta; page: number }
 async function fetchSameOrPrevPageSilently(s: VentasState): Promise<PagePayload> {
   // 1) intento con la página actual
   const res1 = await ventaService.list(ctxFromState(s), s.page, PAGE_SIZE, s.filters);
-  const items1 = res1?.data?.ventas ?? [];
-  const meta1  = res1?.data?.meta ?? { count: 0, next: null, previous: null };
+  const items1 = res1?.data?.results ?? [];
+  const meta1  = res1?.data?.meta ?? { count: 0, next: null, previous: null, page: s.page, page_size: PAGE_SIZE, total_pages: 1 };
 
   if (items1.length > 0 || s.page === 1) {
     return { ventas: items1, meta: meta1, page: s.page };
@@ -71,8 +70,8 @@ async function fetchSameOrPrevPageSilently(s: VentasState): Promise<PagePayload>
   // 2) si quedó vacía y no es la primera, pedir la anterior
   const newPage = Math.max(1, s.page - 1);
   const res2 = await ventaService.list(ctxFromState(s), newPage, PAGE_SIZE, s.filters);
-  const items2 = res2?.data?.ventas ?? [];
-  const meta2  = res2?.data?.meta ?? { count: 0, next: null, previous: null };
+  const items2 = res2?.data?.results ?? [];
+  const meta2  = res2?.data?.meta ?? { count: 0, next: null, previous: null, page: newPage, page_size: PAGE_SIZE, total_pages: 1 };
 
   return { ventas: items2, meta: meta2, page: newPage };
 }
@@ -93,7 +92,7 @@ export const fetchVentas = createAsyncThunk<
     try {
       const res = await ventaService.list(ctxFromState(s), s.page, PAGE_SIZE, s.filters);
       handleBackendNotification(res);
-      return { ventas: res.data.ventas, meta: res.data.meta, page: s.page };
+      return { ventas: res.data.results, meta: res.data.meta, page: s.page };
     } catch (err: any) {
       handleBackendNotification(err?.response?.data || err);
       return rejectWithValue('Error al cargar ventas');
@@ -246,7 +245,7 @@ const ventasSlice = createSlice({
   extraReducers: b => {
     b.addCase(fetchVentas.pending, s => { s.loading = true; s.error = null; })
      .addCase(fetchVentas.fulfilled, (s, { payload }) => {
-       s.list = payload.ventas;
+       s.items = payload.ventas;
        s.meta = payload.meta;
        s.page = payload.page;
        s.loading = false;
@@ -262,25 +261,25 @@ const ventasSlice = createSlice({
     .addCase(createVenta.fulfilled, (s, { payload }) => {
       const estado = s.filters.estado ?? 'activas';
       if (estado === 'activas' || estado === 'todas') {
-        s.list.unshift(payload);
+        s.items.unshift(payload);
         s.meta.count += 1;
       }
     })
 
      // UPDATE in-place
      .addCase(updateVenta.fulfilled, (s, { payload }) => {
-       const i = s.list.findIndex(v => v.id === payload.id);
-       if (i !== -1) s.list[i] = payload;
+       const i = s.items.findIndex(v => v.id === payload.id);
+       if (i !== -1) s.items[i] = payload;
      })
 
      // ARCHIVAR
      .addCase(archiveVenta.fulfilled, (s, { payload }) => {
        const estado = s.filters.estado ?? 'activas';
        if (estado === 'todas') {
-         const i = s.list.findIndex(v => v.id === payload.venta.id);
-         if (i !== -1) s.list[i] = payload.venta;
+         const i = s.items.findIndex(v => v.id === payload.venta.id);
+         if (i !== -1) s.items[i] = payload.venta;
        } else if (payload.pageData) {
-         s.list = payload.pageData.ventas;
+         s.items = payload.pageData.ventas;
          s.meta = payload.pageData.meta;
          s.page = payload.pageData.page;
        }
@@ -290,22 +289,22 @@ const ventasSlice = createSlice({
      .addCase(restoreVenta.fulfilled, (s, { payload }) => {
        const estado = s.filters.estado ?? 'activas';
        if (estado === 'todas') {
-         const i = s.list.findIndex(v => v.id === payload.venta.id);
-         if (i !== -1) s.list[i] = payload.venta;
+         const i = s.items.findIndex(v => v.id === payload.venta.id);
+         if (i !== -1) s.items[i] = payload.venta;
        } else if (estado === 'archivadas' && payload.pageData) {
-         s.list = payload.pageData.ventas;
+         s.items = payload.pageData.ventas;
          s.meta = payload.pageData.meta;
          s.page = payload.pageData.page;
        } else if (estado === 'activas') {
-         const i = s.list.findIndex(v => v.id === payload.venta.id);
-         if (i !== -1) s.list.splice(i, 1);
-         s.list.unshift(payload.venta);
+         const i = s.items.findIndex(v => v.id === payload.venta.id);
+         if (i !== -1) s.items.splice(i, 1);
+         s.items.unshift(payload.venta);
        }
      })
 
      // DELETE
      .addCase(deleteVenta.fulfilled, (s, { payload }) => {
-       s.list = payload.pageData.ventas;
+       s.items = payload.pageData.ventas;
        s.meta = payload.pageData.meta;
        s.page = payload.pageData.page;
      });

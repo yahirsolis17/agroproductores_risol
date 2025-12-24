@@ -7,12 +7,12 @@ import type { RootState } from './store';
 import { PaginationMeta } from '../../types/pagination';
 
 interface CosechasState {
-  list: Cosecha[];
+  items: Cosecha[];
   loading: boolean;
   error: Record<string, any> | null;
   loaded: boolean;
   page: number;
-  meta: PaginationMeta;
+  meta: PaginationMeta & { total_registradas?: number };
   temporadaId: number | null;
   search: string;
   estado: 'activas' | 'archivadas' | 'todas';
@@ -20,7 +20,7 @@ interface CosechasState {
 }
 
 const initialState: CosechasState = {
-  list: [], loading: false, error: null, loaded: false,
+  items: [], loading: false, error: null, loaded: false,
   page: 1, meta: { count: 0, next: null, previous: null, page: 1, page_size: 10, total_pages: 1 },
   temporadaId: null, search: '', estado: 'activas',
   finalizada: null,                                        // 👈 NUEVO
@@ -39,7 +39,7 @@ export const fetchCosechas = createAsyncThunk<
     try {
       const res = await cosechaService.list(page, temporadaId, search, estado, finalizada ?? undefined);
       handleBackendNotification(res);
-      return { cosechas: res.data.cosechas, meta: res.data.meta, page };
+      return { cosechas: res.data.results, meta: res.data.meta, page };
     } catch (err: any) {
       const payload = err?.response?.data || { message: 'Error al cargar cosechas' };
       handleBackendNotification(payload.notification || payload);
@@ -164,7 +164,7 @@ const cosechasSlice = createSlice({
     b.addCase(fetchCosechas.pending, (s) => { s.loading = true; s.error = null; });
     b.addCase(fetchCosechas.fulfilled, (s, { payload }) => {
       s.loading = false; s.loaded = true;
-      s.list = payload.cosechas;
+      s.items = payload.cosechas;
       s.meta = payload.meta;
       s.page = payload.page;
     });
@@ -175,36 +175,36 @@ const cosechasSlice = createSlice({
     b.addCase(createCosecha.fulfilled, () => { /* recargamos luego en hook */ });
 
     b.addCase(updateCosecha.fulfilled, (s, { payload }) => {
-      const i = s.list.findIndex(c => c.id === payload.id);
-      if (i !== -1) s.list[i] = payload;
+      const i = s.items.findIndex(c => c.id === payload.id);
+      if (i !== -1) s.items[i] = payload;
     });
 
     b.addCase(deleteCosecha.fulfilled, (s, { payload: id }) => {
-      s.list = s.list.filter(c => c.id !== id);
+      s.items = s.items.filter(c => c.id !== id);
       if (s.meta.count > 0) s.meta.count -= 1;
     });
 
     b.addCase(archivarCosecha.fulfilled, (s, { payload }) => {
       if (s.estado === 'activas') {
-        s.list = s.list.filter(c => c.id !== payload.id);
+        s.items = s.items.filter(c => c.id !== payload.id);
       } else {
-        const i = s.list.findIndex(c => c.id === payload.id);
-        if (i !== -1) s.list[i] = payload;
+        const i = s.items.findIndex(c => c.id === payload.id);
+        if (i !== -1) s.items[i] = payload;
       }
     });
 
     b.addCase(restaurarCosecha.fulfilled, (s, { payload }) => {
       if (s.estado === 'archivadas') {
-        s.list = s.list.filter(c => c.id !== payload.id);
+        s.items = s.items.filter(c => c.id !== payload.id);
       } else {
-        const i = s.list.findIndex(c => c.id === payload.id);
-        if (i !== -1) s.list[i] = payload;
+        const i = s.items.findIndex(c => c.id === payload.id);
+        if (i !== -1) s.items[i] = payload;
       }
     });
 
     b.addCase(toggleFinalizadaCosecha.fulfilled, (s, { payload }) => {
-      const i = s.list.findIndex(c => c.id === payload.id);
-      if (i !== -1) s.list[i] = payload;
+      const i = s.items.findIndex(c => c.id === payload.id);
+      if (i !== -1) s.items[i] = payload;
     });
   },
 });

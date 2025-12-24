@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { propietarioService, PaginationMeta } from '../../modules/gestion_huerta/services/propietarioService';
+import { propietarioService } from '../../modules/gestion_huerta/services/propietarioService';
+import { PaginationMeta } from '../../modules/gestion_huerta/types/shared';
 import { handleBackendNotification } from '../utils/NotificationEngine';
 import {
   Propietario,
@@ -14,7 +15,7 @@ import {
 export type Estado = 'activos' | 'archivados' | 'todos';
 
 interface PropietarioState {
-  list:    Propietario[];
+  items:    Propietario[];
   loading: boolean;
   error:   string | null;
   loaded:  boolean;
@@ -25,7 +26,7 @@ interface PropietarioState {
 }
 
 const initialState: PropietarioState = {
-  list:    [],
+  items:    [],
   loading: false,
   error:   null,
   loaded:  false,
@@ -50,7 +51,8 @@ export const fetchPropietarios = createAsyncThunk<
     try {
       const { page, estado, ...filters } = params;
       const { signal } = thunkAPI;
-      return await propietarioService.list(page, estado, filters, { signal });
+      const res = await propietarioService.list(page, estado, filters, { signal });
+      return { propietarios: res.data.results, meta: res.data.meta };
     } catch (err: any) {
       handleBackendNotification(err?.response?.data);
       return thunkAPI.rejectWithValue('Error al cargar propietarios');
@@ -166,7 +168,7 @@ const propietariosSlice = createSlice({
     /* -------- fetch -------- */
     b.addCase(fetchPropietarios.pending,  (s) => { s.loading = true; s.error = null; });
     b.addCase(fetchPropietarios.fulfilled,(s,{payload})=>{
-      s.list   = payload.propietarios;
+      s.items   = payload.propietarios;
       s.meta   = payload.meta;
       s.loading = false;
       s.loaded  = true;
@@ -179,35 +181,35 @@ const propietariosSlice = createSlice({
 
     /* -------- create / update -------- */
     b.addCase(createPropietario.fulfilled,(s,{payload})=>{
-      if (s.estado === 'activos') s.list.unshift(payload);
+      if (s.estado === 'activos') s.items.unshift(payload);
       s.meta.count += 1;
     });
     b.addCase(updatePropietario.fulfilled,(s,{payload})=>{
-      const i = s.list.findIndex(p=>p.id === payload.id);
-      if (i !== -1) s.list[i] = payload;
+      const i = s.items.findIndex(p=>p.id === payload.id);
+      if (i !== -1) s.items[i] = payload;
     });
 
     /* -------- archive / restore -------- */
     b.addCase(archivePropietario.fulfilled,(s,{payload})=>{
       if (s.estado === 'activos') {
-        s.list = s.list.filter(p => p.id !== payload.id);
+        s.items = s.items.filter(p => p.id !== payload.id);
       } else {
-        const i = s.list.findIndex(p=>p.id===payload.id);
-        if (i !== -1) s.list[i] = payload;
+        const i = s.items.findIndex(p=>p.id===payload.id);
+        if (i !== -1) s.items[i] = payload;
       }
     });
     b.addCase(restorePropietario.fulfilled,(s,{payload})=>{
       if (s.estado === 'archivados') {
-        s.list = s.list.filter(p => p.id !== payload.id);
+        s.items = s.items.filter(p => p.id !== payload.id);
       } else {
-        const i = s.list.findIndex(p=>p.id===payload.id);
-        if (i !== -1) s.list[i] = payload;
+        const i = s.items.findIndex(p=>p.id===payload.id);
+        if (i !== -1) s.items[i] = payload;
       }
     });
 
     /* -------- delete -------- */
     b.addCase(deletePropietario.fulfilled,(s,{payload:id})=>{
-      s.list = s.list.filter(p=>p.id!==id);
+      s.items = s.items.filter(p=>p.id!==id);
       if (s.meta.count > 0) s.meta.count -= 1;
     });
   },

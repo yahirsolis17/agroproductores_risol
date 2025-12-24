@@ -2,15 +2,10 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { temporadaService } from '../../modules/gestion_huerta/services/temporadaService';
 import { handleBackendNotification } from '../utils/NotificationEngine';
 import { Temporada, TemporadaCreateData, EstadoTemporada } from '../../modules/gestion_huerta/types/temporadaTypes';
-
-interface PaginationMeta {
-  count: number;
-  next: string | null;
-  previous: string | null;
-}
+import { PaginationMeta } from '../../modules/gestion_huerta/types/shared';
 
 interface TemporadaState {
-  list: Temporada[];
+  items: Temporada[];
   loading: boolean;
   error: Record<string, any> | null;
   loaded: boolean;
@@ -25,12 +20,12 @@ interface TemporadaState {
 }
 
 const initialState: TemporadaState = {
-  list: [],
+  items: [],
   loading: false,
   error: null,
   loaded: false,
   page: 1,
-  meta: { count: 0, next: null, previous: null },
+  meta: { count: 0, next: null, previous: null, page: 1, page_size: 10, total_pages: 1 },
   yearFilter: null,
   huertaId: null,
   huertaRentadaId: null,
@@ -62,7 +57,7 @@ export const fetchTemporadas = createAsyncThunk<
       const res = await temporadaService.list(page, año, huertaId, huertaRentadaId, estado, finalizada, search);
       handleBackendNotification(res);
       return {
-        temporadas: res.data.temporadas,
+        temporadas: res.data.results,
         meta: res.data.meta,
         page,
       };
@@ -211,7 +206,7 @@ const temporadaSlice = createSlice({
       .addCase(fetchTemporadas.fulfilled, (state, { payload }) => {
         state.loading = false;
         state.loaded = true;
-        state.list = payload.temporadas;
+        state.items = payload.temporadas;
         state.meta = payload.meta;
         state.page = payload.page;
       })
@@ -221,34 +216,34 @@ const temporadaSlice = createSlice({
         state.error = payload || null;
       })
       .addCase(createTemporada.fulfilled, (state, { payload }) => {
-        state.list.unshift(payload);
+        state.items.unshift(payload);
       })
       .addCase(createTemporada.rejected, (state, { payload }) => {
         state.error = payload || null;
       })
       .addCase(deleteTemporada.fulfilled, (state, { payload }) => {
-        state.list = state.list.filter((t) => t.id !== payload);
+        state.items = state.items.filter((t) => t.id !== payload);
       })
       .addCase(deleteTemporada.rejected, (state, { payload }) => {
         state.error = payload || null;
       })
       .addCase(finalizarTemporada.fulfilled, (state, { payload }) => {
-        const idx = state.list.findIndex((t) => t.id === payload.id);
-        if (idx !== -1) state.list[idx] = payload;
+        const idx = state.items.findIndex((t) => t.id === payload.id);
+        if (idx !== -1) state.items[idx] = payload;
       })
       .addCase(finalizarTemporada.rejected, (state, { payload }) => {
         state.error = payload || null;
       })
       .addCase(archivarTemporada.fulfilled, (state, { payload }) => {
-        const idx = state.list.findIndex((t) => t.id === payload.id);
-        if (idx !== -1) state.list[idx] = payload;
+        const idx = state.items.findIndex((t) => t.id === payload.id);
+        if (idx !== -1) state.items[idx] = payload;
       })
       .addCase(archivarTemporada.rejected, (state, { payload }) => {
         state.error = payload || null;
       })
       .addCase(restaurarTemporada.fulfilled, (state, { payload }) => {
-        const idx = state.list.findIndex((t) => t.id === payload.id);
-        if (idx !== -1) state.list[idx] = payload;
+        const idx = state.items.findIndex((t) => t.id === payload.id);
+        if (idx !== -1) state.items[idx] = payload;
       })
       .addCase(restaurarTemporada.rejected, (state, { payload }) => {
         state.error = payload || null;
