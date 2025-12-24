@@ -128,7 +128,7 @@ useEffect(() => {
   }, [temporadaId]);
 
   // Lógica de creación
-  const totalRegistradas = (meta as any)?.total_registradas ?? meta.count;  // 👈 NUEVO
+  const totalRegistradas = meta.total_registradas ?? meta.count;  // 👈 NUEVO
   const maxReached = totalRegistradas >= 6;                                  // 👈 CAMBIA base
   const canCreate = Boolean(
     temporadaId &&

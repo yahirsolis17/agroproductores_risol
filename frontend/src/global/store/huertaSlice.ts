@@ -11,7 +11,7 @@ export interface HuertaFilters {
 }
 
 interface HuertaState {
-  list:    Huerta[];
+  items:    Huerta[];
   loading: boolean;
   loaded:  boolean;
   error:   string | null;
@@ -22,7 +22,7 @@ interface HuertaState {
 }
 
 const initialState: HuertaState = {
-  list:    [],
+  items:    [],
   loading: false,
   loaded:  false,
   error:   null,
@@ -40,8 +40,8 @@ export const fetchHuertas = createAsyncThunk<
   async ({ page, estado, filters }, thunkAPI) => {
     try {
       const { signal } = thunkAPI;
-      const { huertas, meta } = await huertaService.list(page, estado, filters, { signal });
-      return { huertas, meta, page };
+      const res = await huertaService.list(page, estado, filters, { signal });
+      return { huertas: res.data.results, meta: res.data.meta, page };
     } catch (err: any) {
       handleBackendNotification(err?.response?.data);
       return thunkAPI.rejectWithValue('Error al cargar huertas');
@@ -143,7 +143,7 @@ const huertaSlice = createSlice({
   extraReducers: (b) => {
     b.addCase(fetchHuertas.pending,   (s)                      => { s.loading = true; s.error = null; });
     b.addCase(fetchHuertas.fulfilled, (s, { payload })         => {
-      s.list = payload.huertas; s.meta = payload.meta; s.page = payload.page;
+      s.items = payload.huertas; s.meta = payload.meta; s.page = payload.page;
       s.loading = false; s.loaded = true;
     });
     b.addCase(fetchHuertas.rejected,  (s, { payload, error })  => {
@@ -151,38 +151,38 @@ const huertaSlice = createSlice({
     });
 
     b.addCase(createHuerta.fulfilled, (s, { payload }) => {
-      if (s.estado === 'activos') s.list.unshift(payload);
+      if (s.estado === 'activos') s.items.unshift(payload);
       s.meta.count += 1;
     });
     b.addCase(updateHuerta.fulfilled, (s, { payload }) => {
-      const i = s.list.findIndex(h => h.id === payload.id);
-      if (i !== -1) s.list[i] = payload;
+      const i = s.items.findIndex(h => h.id === payload.id);
+      if (i !== -1) s.items[i] = payload;
     });
     b.addCase(deleteHuerta.fulfilled, (s, { payload: id }) => {
-      s.list = s.list.filter(h => h.id !== id);
+      s.items = s.items.filter(h => h.id !== id);
       if (s.meta.count > 0) s.meta.count -= 1;
     });
 
     // En huertaSlice:
     b.addCase(archiveHuerta.fulfilled, (s, { payload }) => {
       if (s.estado === 'activos') {
-        s.list = s.list.filter(h => h.id !== payload.id);
+        s.items = s.items.filter(h => h.id !== payload.id);
       } else {
-        const i = s.list.findIndex(h => h.id === payload.id);
+        const i = s.items.findIndex(h => h.id === payload.id);
         if (i !== -1) {
-          s.list[i].archivado_en = payload.archivado_en;
-          s.list[i].is_active = false; // 👈 añadir
+          s.items[i].archivado_en = payload.archivado_en;
+          s.items[i].is_active = false; // 👈 añadir
         }
       }
     });
     b.addCase(restoreHuerta.fulfilled, (s, { payload }) => {
       if (s.estado === 'archivados') {
-        s.list = s.list.filter(h => h.id !== payload.id);
+        s.items = s.items.filter(h => h.id !== payload.id);
       } else {
-        const i = s.list.findIndex(h => h.id === payload.id);
+        const i = s.items.findIndex(h => h.id === payload.id);
         if (i !== -1) {
-          s.list[i].archivado_en = payload.archivado_en;
-          s.list[i].is_active = true; // 👈 añadir
+          s.items[i].archivado_en = payload.archivado_en;
+          s.items[i].is_active = true; // 👈 añadir
         }
       }
     });

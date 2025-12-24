@@ -22,7 +22,7 @@ import { TemporadaCreateData, EstadoTemporada } from '../types/temporadaTypes';
 export function useTemporadas({ enabled = true }: { enabled?: boolean } = {}) {
   const dispatch = useAppDispatch();
   const {
-    list: temporadas,
+    items: temporadas,
     loading,
     loaded,
     page,

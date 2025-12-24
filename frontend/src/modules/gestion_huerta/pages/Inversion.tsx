@@ -47,9 +47,9 @@ const Inversion: React.FC = () => {
     (async () => {
       try {
         setCatsLoading(true);
-        const { categorias } = await categoriaInversionService.listAll(1, 1000);
+        const res = await categoriaInversionService.listAll(1, 1000);
         if (!alive) return;
-        setCategorias(categorias);
+        setCategorias(res.data.results);
       } finally {
         setCatsLoading(false);
       }

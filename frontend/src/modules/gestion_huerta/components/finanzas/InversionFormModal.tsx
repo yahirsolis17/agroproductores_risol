@@ -145,7 +145,7 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
       onClose();
     } catch (err: unknown) {
       const backend = (err as any)?.data || (err as any)?.response?.data || {};
-      const beErrors = backend.errors || backend.data?.errors || {};
+      const beErrors = backend.data?.errors || {};
       const fieldErrors: Record<string, string> = {};
       // replicate general errors across key fields
       if (Array.isArray(beErrors.non_field_errors)) {

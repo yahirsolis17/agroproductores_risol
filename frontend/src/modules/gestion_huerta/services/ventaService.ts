@@ -5,6 +5,7 @@ import {
   VentaHuertaCreateData,
   VentaHuertaUpdateData,
 } from '../types/ventaTypes';
+import { ApiEnvelope, ListEnvelope } from '../types/shared';
 
 export interface VentaFilters {
   fechaDesde?: string;  // YYYY-MM-DD
@@ -18,8 +19,6 @@ type Ctx = {
   temporadaId: number;
   cosechaId: number;
 };
-
-type PaginationMeta = { count: number; next: string | null; previous: string | null };
 
 export const ventaService = {
   async list(
@@ -41,12 +40,10 @@ export const ventaService = {
     if (filters.fechaHasta)  params['fecha_hasta'] = filters.fechaHasta;
     if (filters.estado)      params['estado'] = filters.estado;
 
-    const { data } = await apiClient.get<{
-      success: boolean;
-      notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
-      data: { ventas: VentaHuerta[]; meta: PaginationMeta };
-    }>('/huerta/ventas/', { params, signal: config.signal });
-
+    const { data } = await apiClient.get<ListEnvelope<VentaHuerta>>('/huerta/ventas/', {
+      params,
+      signal: config.signal,
+    });
     return data;
   },
 
@@ -64,44 +61,35 @@ export const ventaService = {
     if (ctx.huertaId)        body['huerta_id'] = ctx.huertaId;
     if (ctx.huertaRentadaId) body['huerta_rentada_id'] = ctx.huertaRentadaId;
 
-    const { data } = await apiClient.post('/huerta/ventas/', body);
+    const { data } = await apiClient.post<ApiEnvelope<{ venta: VentaHuerta }>>('/huerta/ventas/', body);
     return data;
   },
 
   async update(id: number, payload: VentaHuertaUpdateData) {
     const body: any = { ...payload };
-    const { data } = await apiClient.patch<{
-      success: boolean;
-      notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
-      data: { venta: VentaHuerta };
-    }>(`/huerta/ventas/${id}/`, body);
+    const { data } = await apiClient.patch<ApiEnvelope<{ venta: VentaHuerta }>>(
+      `/huerta/ventas/${id}/`,
+      body
+    );
     return data;
   },
 
   async archivar(id: number) {
-    const { data } = await apiClient.post<{
-      success: boolean;
-      notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
-      data: { venta: VentaHuerta };
-    }>(`/huerta/ventas/${id}/archivar/`);
+    const { data } = await apiClient.post<ApiEnvelope<{ venta: VentaHuerta }>>(
+      `/huerta/ventas/${id}/archivar/`
+    );
     return data;
   },
 
   async restaurar(id: number) {
-    const { data } = await apiClient.post<{
-      success: boolean;
-      notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
-      data: { venta: VentaHuerta };
-    }>(`/huerta/ventas/${id}/restaurar/`);
+    const { data } = await apiClient.post<ApiEnvelope<{ venta: VentaHuerta }>>(
+      `/huerta/ventas/${id}/restaurar/`
+    );
     return data;
   },
 
   async remove(id: number) {
-    const { data } = await apiClient.delete<{
-      success: boolean;
-      notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
-      data: { info: string };
-    }>(`/huerta/ventas/${id}/`);
+    const { data } = await apiClient.delete<ApiEnvelope<{ info: string }>>(`/huerta/ventas/${id}/`);
     return data;
   },
 };

@@ -21,7 +21,7 @@ import {
 export function useVentas() {
   const dispatch = useAppDispatch();
   const {
-    list: ventas,
+    items: ventas,
     loading,
     error,
     page,

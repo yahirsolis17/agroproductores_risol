@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import apiClient from '../../../global/api/apiClient';
+import { ApiEnvelope, ListEnvelope } from '../types/shared';
 import {
   Propietario,
   PropietarioCreateData,
@@ -12,19 +13,6 @@ import {
 type ReqCfg = { signal?: AbortSignal };
 
 /** Estructura de meta “rica” para paginación */
-export interface PaginationMeta {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  page: number;
-  page_size: number;
-  total_pages: number;
-}
-
-interface ListResp {
-  propietarios: Propietario[];
-  meta: PaginationMeta;
-}
 interface ItemWrapper { propietario: Propietario }
 
 /* -------------------------------------------------------------------------- */
@@ -49,7 +37,7 @@ export const propietarioService = {
     estado: 'activos' | 'archivados' | 'todos',
     filters: Record<string, any> = {},
     config: { signal?: AbortSignal; pageSize?: number } = {}
-  ): Promise<ListResp> {
+  ): Promise<ListEnvelope<Propietario>> {
     const pageSize = config.pageSize ?? 10;
     const params: Record<string, any> = { page, page_size: pageSize };
 
@@ -58,12 +46,11 @@ export const propietarioService = {
 
     Object.assign(params, filters);
 
-    const { data } = await apiClient.get<{
-      success: boolean; message_key: string; data: ListResp;
-    }>('/huerta/propietarios/', { params, signal: config.signal });
-
-    // Backend ya devuelve meta con page, page_size, total_pages
-    return data.data;
+    const { data } = await apiClient.get<ListEnvelope<Propietario>>('/huerta/propietarios/', {
+      params,
+      signal: config.signal,
+    });
+    return data;
   },
 
   /* ------------ SOLO CON HUERTAS (con cancelación) ------------ */
@@ -71,65 +58,51 @@ export const propietarioService = {
     search: string,
     config: ReqCfg = {},
     includeArchived = false
-  ): Promise<ListResp> {
+  ): Promise<ListEnvelope<Propietario>> {
     const params: Record<string, any> = { page_size: 50 }; // evita truncar en 1ra página
     if (search) params.search = search;
     if (!includeArchived) params.archivado = 'false';
 
     return apiClient
-      .get<{
-        success: boolean; message_key: string; data: ListResp;
-      }>('/huerta/propietarios/solo-con-huertas/', {
+      .get<ListEnvelope<Propietario>>('/huerta/propietarios/solo-con-huertas/', {
         params,
         signal: config.signal,
       })
-      .then(res => res.data.data);
+      .then(res => res.data);
   },
 
   /* ------------ CREATE ------------ */
   async create(payload: PropietarioCreateData) {
-    const { data } = await apiClient.post<{
-      success: boolean; message_key: string; data: ItemWrapper;
-    }>('/huerta/propietarios/', payload);
+    const { data } = await apiClient.post<ApiEnvelope<ItemWrapper>>('/huerta/propietarios/', payload);
     return data;
   },
 
   /* ------------ UPDATE ------------ */
   async update(id: number, payload: PropietarioUpdateData) {
-    const { data } = await apiClient.put<{
-      success: boolean; message_key: string; data: ItemWrapper;
-    }>(`/huerta/propietarios/${id}/`, payload);
+    const { data } = await apiClient.put<ApiEnvelope<ItemWrapper>>(`/huerta/propietarios/${id}/`, payload);
     return data;
   },
 
   /* ------------ DELETE ------------ */
   async delete(id: number) {
-    const { data } = await apiClient.delete<{
-      success: boolean; message_key: string; data: { info: string };
-    }>(`/huerta/propietarios/${id}/`);
+    const { data } = await apiClient.delete<ApiEnvelope<{ info: string }>>(`/huerta/propietarios/${id}/`);
     return data;
   },
 
   /* ------------ ARCHIVAR / RESTAURAR ------------ */
   async archive(id: number) {
-    const { data } = await apiClient.patch<{
-      success: boolean; message_key: string; data: ItemWrapper;
-    }>(`/huerta/propietarios/${id}/archivar/`);
+    const { data } = await apiClient.patch<ApiEnvelope<ItemWrapper>>(`/huerta/propietarios/${id}/archivar/`);
     return data;
   },
   async restore(id: number) {
-    const { data } = await apiClient.patch<{
-      success: boolean; message_key: string; data: ItemWrapper;
-    }>(`/huerta/propietarios/${id}/restaurar/`);
+    const { data } = await apiClient.patch<ApiEnvelope<ItemWrapper>>(`/huerta/propietarios/${id}/restaurar/`);
     return data;
   },
 
   /* ------------ FETCH BY ID (para precarga) ------------ */
   async fetchById(id: string | number, config: ReqCfg = {}): Promise<Propietario | null> {
     try {
-      const { data } = await apiClient.get<{
-        success: boolean; message_key: string; data: { propietario: Propietario };
-      }>('/huerta/propietarios/buscar/', {
+      const { data } = await apiClient.get<ApiEnvelope<{ propietario: Propietario }>>('/huerta/propietarios/buscar/', {
         params: { id },
         signal: config.signal,
       });
@@ -155,11 +128,9 @@ export const propietarioService = {
     const params: Record<string, any> = { search: query, page_size: 50 };
     if (!includeArchived) params.archivado = 'false';
 
-    const { data } = await apiClient.get<{
-      success: boolean; message_key: string; data: { propietarios: Propietario[] };
-    }>('/huerta/propietarios/', { params, signal });
+    const { data } = await apiClient.get<ListEnvelope<Propietario>>('/huerta/propietarios/', { params, signal });
 
-    return data.data.propietarios.map(toOption);
+    return data.data.results.map(toOption);
   },
 
   /* ------------ SEARCH (lista cruda) con cancelación ------------ */
@@ -173,10 +144,11 @@ export const propietarioService = {
     const params: Record<string, any> = { search: query, page_size: 50 };
     if (!includeArchived) params.archivado = 'false';
 
-    const { data } = await apiClient.get<{
-      success: boolean; message_key: string; data: { propietarios: Propietario[] };
-    }>('/huerta/propietarios/', { params, signal: config.signal });
+    const { data } = await apiClient.get<ListEnvelope<Propietario>>('/huerta/propietarios/', {
+      params,
+      signal: config.signal,
+    });
 
-    return data.data.propietarios;
+    return data.data.results;
   },
 };

@@ -75,7 +75,7 @@ export default function PropietarioFormModal({
             onClose();
           } catch (error: any) {
             const backend = error?.data || error?.response?.data || {};
-            const beErrors = backend.errors || backend.data?.errors || {};
+            const beErrors = backend.data?.errors || {};
             const formikErrors: Record<string, string> = {};
             Object.entries(beErrors).forEach(([key, value]) => {
               formikErrors[key] = Array.isArray(value) ? value[0] : String(value);

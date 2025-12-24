@@ -8,7 +8,7 @@ import { Estado } from '../types/shared';
 
 export function useHuertasCombinadas() {
   const dispatch = useAppDispatch();
-  const { list: huertas, loading, error, meta, page, estado, filters } = useAppSelector((s) => s.huertasCombinadas);
+  const { items: huertas, loading, error, meta, page, estado, filters } = useAppSelector((s) => s.huertasCombinadas);
 
   useEffect(() => {
     dispatch(fetchHuertasCombinadas({ page, estado, filters }));

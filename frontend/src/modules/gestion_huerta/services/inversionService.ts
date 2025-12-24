@@ -5,6 +5,7 @@ import {
   InversionHuertaCreateData,
   InversionHuertaUpdateData,
 } from '../types/inversionTypes';
+import { ApiEnvelope, ListEnvelope } from '../types/shared';
 
 export interface InversionFilters {
   categoria?: number;
@@ -19,8 +20,6 @@ type Ctx = {
   temporadaId: number;
   cosechaId: number;
 };
-
-type PaginationMeta = { count: number; next: string | null; previous: string | null };
 
 export const inversionService = {
   async list(
@@ -44,12 +43,10 @@ export const inversionService = {
     if (filters.estado)      params['estado'] = filters.estado;
 
     // Un solo GET (envelope del backend)
-    const { data } = await apiClient.get<{
-      success: boolean;
-      notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
-      data: { inversiones: InversionHuerta[]; meta: PaginationMeta };
-    }>('/huerta/inversiones/', { params, signal: config.signal });
-
+    const { data } = await apiClient.get<ListEnvelope<InversionHuerta>>('/huerta/inversiones/', {
+      params,
+      signal: config.signal,
+    });
     return data;
   },
 
@@ -66,11 +63,10 @@ export const inversionService = {
     if (ctx.huertaId)        body['huerta_id'] = ctx.huertaId;
     if (ctx.huertaRentadaId) body['huerta_rentada_id'] = ctx.huertaRentadaId;
 
-    const { data } = await apiClient.post<{
-      success: boolean;
-      notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
-      data: { inversion: InversionHuerta };
-    }>('/huerta/inversiones/', body);
+    const { data } = await apiClient.post<ApiEnvelope<{ inversion: InversionHuerta }>>(
+      '/huerta/inversiones/',
+      body
+    );
     return data;
   },
 
@@ -84,40 +80,31 @@ export const inversionService = {
       delete body.categoria;
     }
 
-    const { data } = await apiClient.patch<{
-      success: boolean;
-      notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
-      data: { inversion: InversionHuerta };
-    }>(`/huerta/inversiones/${id}/`, body);
+    const { data } = await apiClient.patch<ApiEnvelope<{ inversion: InversionHuerta }>>(
+      `/huerta/inversiones/${id}/`,
+      body
+    );
 
     return data;
   },
 
 
   async archivar(id: number) {
-    const { data } = await apiClient.post<{
-      success: boolean;
-      notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
-      data: { inversion: InversionHuerta };
-    }>(`/huerta/inversiones/${id}/archivar/`);
+    const { data } = await apiClient.post<ApiEnvelope<{ inversion: InversionHuerta }>>(
+      `/huerta/inversiones/${id}/archivar/`
+    );
     return data;
   },
 
   async restaurar(id: number) {
-    const { data } = await apiClient.post<{
-      success: boolean;
-      notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
-      data: { inversion: InversionHuerta };
-    }>(`/huerta/inversiones/${id}/restaurar/`);
+    const { data } = await apiClient.post<ApiEnvelope<{ inversion: InversionHuerta }>>(
+      `/huerta/inversiones/${id}/restaurar/`
+    );
     return data;
   },
 
   async remove(id: number) {
-    const { data } = await apiClient.delete<{
-      success: boolean;
-      notification: { key: string; message: string; type: 'success'|'error'|'warning'|'info' };
-      data: { info: string };
-    }>(`/huerta/inversiones/${id}/`);
+    const { data } = await apiClient.delete<ApiEnvelope<{ info: string }>>(`/huerta/inversiones/${id}/`);
     return data;
   },
 };

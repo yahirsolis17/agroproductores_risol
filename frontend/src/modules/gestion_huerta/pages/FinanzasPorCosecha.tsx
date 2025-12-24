@@ -90,11 +90,11 @@ const FinanzasPorCosecha: React.FC = () => {
           try {
             if (huertaId && inferredTipo === 'propia') {
               const h = await huertaService.getById(huertaId);
-              const det: any = (h as any)?.propietario_detalle || (h as any)?.data?.huerta?.propietario_detalle;
+              const det: any = h.data.huerta.propietario_detalle;
               if (det) propietario = [det.nombre, det.apellidos].filter(Boolean).join(' ').trim() || '—';
             } else if (huertaRentadaId && inferredTipo === 'rentada') {
               const hr = await huertaRentadaService.getById(huertaRentadaId);
-              const det: any = (hr as any)?.propietario_detalle || (hr as any)?.data?.huerta_rentada?.propietario_detalle;
+              const det: any = hr.data.huerta_rentada.propietario_detalle;
               if (det) propietario = [det.nombre, det.apellidos].filter(Boolean).join(' ').trim() || '—';
             }
           } catch {
