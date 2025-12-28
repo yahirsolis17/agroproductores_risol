@@ -138,7 +138,8 @@ const Venta: React.FC = () => {
       <VentaTable
         data={ventas}
         page={page}
-        pageSize={PAGE_SIZE}
+        pageSize={meta.page_size ?? PAGE_SIZE}
+        metaPageSize={meta.page_size}
         count={meta.count}
         onPageChange={changePage}
         onEdit={openEdit}

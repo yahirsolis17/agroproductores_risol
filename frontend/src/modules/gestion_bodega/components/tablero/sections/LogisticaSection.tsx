@@ -152,6 +152,7 @@ const LogisticaSection: React.FC<Props> = ({
         rowKey={(r) => r.id ?? r.ref}
         page={page}
         pageSize={pageSize}
+        metaPageSize={meta?.page_size}
         count={count}
         onPageChange={onPageChange}
         loading={loading}

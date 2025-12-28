@@ -68,6 +68,7 @@ interface Props {
   data: Registro[];
   page: number;
   pageSize: number;
+  metaPageSize?: number | null;
   count: number;
   onPageChange: (n: number) => void;
   onEdit:    (h: Registro) => void;
@@ -88,6 +89,7 @@ const HuertaTable: React.FC<Props> = ({
   data,
   page,
   pageSize,
+  metaPageSize,
   count,
   onPageChange,
   onEdit,
@@ -106,7 +108,8 @@ const HuertaTable: React.FC<Props> = ({
   <TableLayout<Registro>
     data={data}
     page={page}
-    pageSize={pageSize}
+    pageSize={metaPageSize ?? pageSize}
+    metaPageSize={metaPageSize}
     count={count}
     onPageChange={onPageChange}
     columns={columns}

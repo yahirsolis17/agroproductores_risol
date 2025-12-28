@@ -1,5 +1,7 @@
 // src/modules/gestion_usuarios/services/authService.ts
 import apiClient from '../../../global/api/apiClient';
+import { ensureSuccess } from '../../../global/utils/backendEnvelope';
+import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
 
 /* ---------- Tipos ---------- */
 export interface User {
@@ -74,7 +76,9 @@ const authService = {
   /* ---- INFO USUARIO ---- */
   getMe: async () => {
     const response = await apiClient.get('/usuarios/me/');
-    return (response.data?.data?.user ?? response.data) as User;
+    handleBackendNotification(response.data);
+    const env = ensureSuccess<{ user: User }>(response.data);
+    return env.data.user;
   },
 
   /* ---- LOGOUT ---- */

@@ -310,7 +310,8 @@ useEffect(() => {
         <CosechaTable
           data={cosechas}
           page={page}
-          pageSize={PAGE_SIZE}
+          pageSize={meta.page_size ?? PAGE_SIZE}
+          metaPageSize={meta.page_size}
           count={meta.count}
           onPageChange={setPage}
           onRename={openRename}

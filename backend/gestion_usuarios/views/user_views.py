@@ -236,6 +236,9 @@ class RegistroActividadViewSet(viewsets.ModelViewSet):
                 "count": self.paginator.page.paginator.count,
                 "next": self.paginator.get_next_link(),
                 "previous": self.paginator.get_previous_link(),
+                "page": getattr(self.paginator.page, "number", None),
+                "page_size": self.paginator.get_page_size(request),
+                "total_pages": getattr(self.paginator.page.paginator, "num_pages", None),
             }
             return NotificationHandler.generate_response(
                 message_key="silent_response",  # evita toast en FE
@@ -244,7 +247,14 @@ class RegistroActividadViewSet(viewsets.ModelViewSet):
             )
 
         serializer = self.get_serializer(qs, many=True)
-        meta = {"count": len(serializer.data), "next": None, "previous": None}
+        meta = {
+            "count": len(serializer.data),
+            "next": None,
+            "previous": None,
+            "page": 1,
+            "page_size": len(serializer.data),
+            "total_pages": 1,
+        }
         return NotificationHandler.generate_response(
             message_key="silent_response",
             data={"results": serializer.data, "meta": meta},
@@ -280,6 +290,9 @@ class UsuarioViewSet(ModelViewSet):
                 "count": self.paginator.page.paginator.count,
                 "next": self.paginator.get_next_link(),
                 "previous": self.paginator.get_previous_link(),
+                "page": getattr(self.paginator.page, "number", None),
+                "page_size": self.paginator.get_page_size(request),
+                "total_pages": getattr(self.paginator.page.paginator, "num_pages", None),
             }
             return NotificationHandler.generate_response(
                 message_key="silent_response",
@@ -288,7 +301,14 @@ class UsuarioViewSet(ModelViewSet):
             )
 
         serializer = self.get_serializer(qs, many=True)
-        meta = {"count": len(serializer.data), "next": None, "previous": None}
+        meta = {
+            "count": len(serializer.data),
+            "next": None,
+            "previous": None,
+            "page": 1,
+            "page_size": len(serializer.data),
+            "total_pages": 1,
+        }
         return NotificationHandler.generate_response(
             message_key="silent_response",
             data={"results": serializer.data, "meta": meta},

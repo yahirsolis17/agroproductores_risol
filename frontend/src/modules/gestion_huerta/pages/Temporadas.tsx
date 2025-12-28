@@ -422,7 +422,8 @@ const Temporadas: React.FC = () => {
           <TemporadaTable
             data={temporadas}
             page={page}
-            pageSize={pageSize}
+            pageSize={meta.page_size ?? pageSize}
+            metaPageSize={meta.page_size}
             count={meta.count}
             onPageChange={setPage}
             onArchive={handleArchive}

@@ -131,7 +131,8 @@ const UsersAdmin: React.FC = () => {
             data={users}
             columns={columns}
             page={page}
-            pageSize={10}
+            pageSize={meta.page_size ?? 10}
+            metaPageSize={meta.page_size}
             count={safeCount}
             onPageChange={changePage}
             emptyMessage={emptyMessage}

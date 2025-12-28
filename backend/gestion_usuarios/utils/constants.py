@@ -76,5 +76,14 @@ NOTIFICATION_MESSAGES = {
         "message": "Ha ocurrido un error en el servidor back",
         "type": "error",
         "code": 500
-    }
+    },
+    # --- Utilidades canon ---
+    "fetch_success": {
+        "message": "Datos obtenidos correctamente.",
+        "type": "success",
+    },
+    "silent_response": {
+        "message": "",
+        "type": "info",
+    },
 }

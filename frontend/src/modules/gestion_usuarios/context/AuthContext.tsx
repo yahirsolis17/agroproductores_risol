@@ -11,6 +11,7 @@ import { useAppSelector } from '../../../global/store/store';
 import authService, { User } from '../services/authService';
 import apiClient from '../../../global/api/apiClient';
 import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
+import { ensureSuccess } from '../../../global/utils/backendEnvelope';
 
 /* --------- API del contexto --------- */
 interface AuthContextProps {
@@ -95,7 +96,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const fetchPermissions = async (): Promise<string[]> => {
     try {
       const { data } = await apiClient.get('/usuarios/me/permissions/');
-      const perms = data?.data?.permissions ?? data.permissions ?? [];
+      const env = ensureSuccess<{ permissions: string[] }>(data);
+      const perms = env.data?.permissions ?? [];
       setPermissions(perms);
       return perms;
     } catch (err) {

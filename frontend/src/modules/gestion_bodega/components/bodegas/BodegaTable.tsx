@@ -9,6 +9,7 @@ interface Props {
   data: Bodega[];
   page: number;
   pageSize: number;
+  metaPageSize?: number | null;
   count: number;
   onPageChange: (n: number) => void;
 
@@ -46,6 +47,7 @@ const BodegaTable: React.FC<Props> = ({
   data,
   page,
   pageSize,
+  metaPageSize,
   count,
   onPageChange,
   onEdit,
@@ -64,7 +66,8 @@ const BodegaTable: React.FC<Props> = ({
     <TableLayout<Bodega>
       data={data}
       page={page}
-      pageSize={pageSize}
+      pageSize={metaPageSize ?? pageSize}
+      metaPageSize={metaPageSize}
       count={count}
       onPageChange={onPageChange}
       columns={columns}

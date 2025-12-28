@@ -28,6 +28,7 @@ interface Props {
   data: Temporada[];
   page: number;
   pageSize: number;
+  metaPageSize?: number | null;
   count: number;
   onPageChange: (p: number) => void;
   onArchive: (t: Temporada) => void;
@@ -101,6 +102,7 @@ const TemporadaTable: React.FC<Props> = ({
   data,
   page,
   pageSize,
+  metaPageSize,
   count,
   onPageChange,
   onArchive,
@@ -121,7 +123,8 @@ const TemporadaTable: React.FC<Props> = ({
     striped
     dense
     loading={loading}
-    pageSize={pageSize}
+    pageSize={metaPageSize ?? pageSize}
+    metaPageSize={metaPageSize}
     count={count}
     onPageChange={onPageChange}
     columns={columns}

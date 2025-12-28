@@ -565,6 +565,7 @@ const BodegaTemporadasPage: React.FC = () => {
           data={items}
           page={filters.page}
           pageSize={filters.page_size}
+          metaPageSize={meta.page_size}
           count={meta.count}
           loading={ops.listing}
           emptyMessage={emptyMessage}

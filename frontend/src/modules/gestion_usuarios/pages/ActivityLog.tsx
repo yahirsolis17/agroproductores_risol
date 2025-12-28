@@ -31,6 +31,9 @@ interface Meta {
   count: number;
   next: string | null;
   previous: string | null;
+  page?: number | null;
+  page_size?: number | null;
+  total_pages?: number | null;
 }
 
 const pageSize = 10;
@@ -147,7 +150,8 @@ const ActivityLog: React.FC = () => {
   data={activities}
   columns={columns}
   page={page}
-  pageSize={pageSize}
+  pageSize={meta.page_size ?? pageSize}
+  metaPageSize={meta.page_size}
   count={activities.length === 0 ? 0 : meta.count}
   serverSidePagination
   rowKey={(a) => a.id}

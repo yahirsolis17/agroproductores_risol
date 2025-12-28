@@ -24,6 +24,7 @@ interface Props {
   data: TemporadaBodega[];
   page: number;
   pageSize: number;
+  metaPageSize?: number | null;
   count: number;
   loading?: boolean;
   emptyMessage?: string;
@@ -95,6 +96,7 @@ const TemporadaBodegaTable: React.FC<Props> = ({
   data,
   page,
   pageSize,
+  metaPageSize,
   count,
   loading,
   emptyMessage,
@@ -108,7 +110,8 @@ const TemporadaBodegaTable: React.FC<Props> = ({
   <TableLayout<TemporadaBodega>
     data={data}
     page={page}
-    pageSize={pageSize}
+    pageSize={metaPageSize ?? pageSize}
+    metaPageSize={metaPageSize}
     count={count}
     onPageChange={onPageChange}
     columns={columns}

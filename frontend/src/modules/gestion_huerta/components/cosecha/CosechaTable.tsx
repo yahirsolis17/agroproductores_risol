@@ -26,6 +26,7 @@ interface Props {
   data: Cosecha[];
   page: number;
   pageSize: number;
+  metaPageSize?: number | null;
   count: number;
   onPageChange: (p: number) => void;
   onRename: (c: Cosecha) => void;
@@ -72,14 +73,15 @@ const columns: Column<Cosecha>[] = [
 ];
 
 const CosechaTable: React.FC<Props> = ({
-  data, page, pageSize, count, onPageChange,
+  data, page, pageSize, metaPageSize, count, onPageChange,
   onRename, onDelete, onArchive, onRestore, onToggleFinalizada, onVerFinanzas,
   onReporteCosecha, emptyMessage, loading,
 }) => (
   <TableLayout<Cosecha>
     data={data}
     page={page}
-    pageSize={pageSize}
+    pageSize={metaPageSize ?? pageSize}
+    metaPageSize={metaPageSize}
     count={count}
     onPageChange={onPageChange}
     serverSidePagination

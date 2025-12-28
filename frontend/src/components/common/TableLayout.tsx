@@ -44,7 +44,7 @@ export interface FilterConfig {
 export interface TableLayoutProps<T> {
   data: T[];
   page: number;
-  pageSize: number;
+  pageSize?: number;
   count: number;
   columns: Column<T>[];
   onPageChange: (newPage: number) => void;
@@ -62,6 +62,7 @@ export interface TableLayoutProps<T> {
   onRowClick?: (item: T) => void;
   filterValues?: Record<string, any>;
   extraFilterElement?: React.ReactNode;
+  metaPageSize?: number | null;
 }
 
 /* ──────────── Hook: skeleton retardado ──────────── */
@@ -148,6 +149,7 @@ export function TableLayout<T>({
   data,
   page,
   pageSize,
+  metaPageSize,
   count,
   columns,
   onPageChange,
@@ -197,12 +199,13 @@ export function TableLayout<T>({
   }, [filters, filterConfig, asyncOptions, asyncInput]);
 
   const showSkeleton = useDelayedLoading(loading && data.length === 0);
+  const effectivePageSize = Math.max(1, metaPageSize ?? pageSize ?? 10);
   const totalPages = Math.max(
     1,
     serverSidePagination
-      ? Math.ceil(count / pageSize)
+      ? Math.ceil(count / effectivePageSize)
       : Math.ceil(
-          (applyFiltersInternally ? data.length : count) / pageSize,
+          (applyFiltersInternally ? data.length : count) / effectivePageSize,
         ),
   );
 
@@ -390,7 +393,7 @@ export function TableLayout<T>({
           <tbody>
             {data.length ? (
               data.map((item, i) => {
-                const key = rowKey ? rowKey(item) : i + (page - 1) * pageSize;
+                const key = rowKey ? rowKey(item) : i + (page - 1) * effectivePageSize;
                 return (
                   <tr
                     key={key}
@@ -408,7 +411,7 @@ export function TableLayout<T>({
                     onClick={() => onRowClick?.(item)}
                   >
                     <td className="px-4 border">
-                      {(page - 1) * pageSize + i + 1}
+                      {(page - 1) * effectivePageSize + i + 1}
                     </td>
                     {columns.map((col, j) => (
                       <td

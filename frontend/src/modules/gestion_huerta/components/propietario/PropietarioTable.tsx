@@ -9,6 +9,7 @@ interface Props {
   data: Propietario[];
   page: number;
   pageSize: number;
+  metaPageSize?: number | null;
   count: number;
   onPageChange: (newPage: number) => void;
   serverSidePagination?: boolean;
@@ -44,6 +45,7 @@ const PropietarioTable: React.FC<Props> = ({
   data,
   page,
   pageSize,
+  metaPageSize,
   count,
   onPageChange,
   serverSidePagination = true,
@@ -73,7 +75,8 @@ const PropietarioTable: React.FC<Props> = ({
       data={data}
       columns={columns}
       page={page}
-      pageSize={pageSize}
+      pageSize={metaPageSize ?? pageSize}
+      metaPageSize={metaPageSize}
       count={count}
       onPageChange={onPageChange}
       serverSidePagination={serverSidePagination}

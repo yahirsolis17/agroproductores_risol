@@ -148,6 +148,7 @@ export default function CapturasTable({
         data={data}
         page={page}
         pageSize={pageSize}
+        metaPageSize={meta.page_size}
         count={total}
         onPageChange={onPageChange}
         columns={columns}

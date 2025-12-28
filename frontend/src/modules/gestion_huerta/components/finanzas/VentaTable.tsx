@@ -59,6 +59,7 @@ interface Props {
   data: VentaHuerta[];
   page: number;
   pageSize: number;
+  metaPageSize?: number | null;
   count: number;
   onPageChange: (p: number) => void;
 
@@ -109,14 +110,15 @@ const columns: Column<VentaHuerta>[] = [
 ];
 
 const VentaTable: React.FC<Props> = ({
-  data, page, pageSize, count, onPageChange,
+  data, page, pageSize, metaPageSize, count, onPageChange,
   onEdit, onArchive, onRestore, onDelete,
   loading = false, emptyMessage = 'Sin ventas registradas.',
 }) => (
   <TableLayout<VentaHuerta>
     data={data}
     page={page}
-    pageSize={pageSize}
+    pageSize={metaPageSize ?? pageSize}
+    metaPageSize={metaPageSize}
     count={count}
     onPageChange={onPageChange}
     serverSidePagination

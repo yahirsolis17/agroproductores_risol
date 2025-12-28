@@ -219,7 +219,8 @@ const handleFilterChange = (filters: Record<string, any>) => {
           <PropietarioTable
             data={propietarios}
             page={page}
-            pageSize={pageSize}
+            pageSize={meta.page_size ?? pageSize}
+            metaPageSize={meta.page_size}
             count={meta.count}
             serverSidePagination
             filterValues={filters}

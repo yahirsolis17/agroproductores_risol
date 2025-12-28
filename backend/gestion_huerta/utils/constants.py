@@ -16,6 +16,14 @@ NOTIFICATION_MESSAGES = {
         "type": "error",
         "code": 500
     },
+    "fetch_success": {
+        "message": "Datos obtenidos correctamente.",
+        "type": "success"
+    },
+    "silent_response": {
+        "message": "",
+        "type": "info"
+    },
     "data_processed_success": {
         "message": "Operación realizada con éxito.",
         "type": "success"

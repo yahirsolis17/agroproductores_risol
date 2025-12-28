@@ -11,6 +11,7 @@ interface Props {
   data: CategoriaInversion[];
   page: number;
   pageSize: number;
+  metaPageSize?: number | null;
   count: number;
   onPageChange: (p: number) => void;
   onEdit:    (c: CategoriaInversion) => void;
@@ -29,12 +30,13 @@ const columns: Column<CategoriaInversion>[] = [
   },
 ];
 
-const CategoriaTable: React.FC<Props> = ({ data, page, pageSize, count, onPageChange, onEdit, onArchive, onRestore, onDelete, loading = false, emptyMessage = 'No hay categorías registradas.' }) => (
+const CategoriaTable: React.FC<Props> = ({ data, page, pageSize, metaPageSize, count, onPageChange, onEdit, onArchive, onRestore, onDelete, loading = false, emptyMessage = 'No hay categorías registradas.' }) => (
   <TableLayout<CategoriaInversion>
     data={data}
     columns={columns}
     page={page}
-    pageSize={pageSize}
+    pageSize={metaPageSize ?? pageSize}
+    metaPageSize={metaPageSize}
     count={count}
     onPageChange={onPageChange}
     serverSidePagination

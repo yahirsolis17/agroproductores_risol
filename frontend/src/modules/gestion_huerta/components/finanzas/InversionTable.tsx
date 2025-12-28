@@ -37,6 +37,7 @@ interface Props {
   data: InversionHuerta[];
   page: number;
   pageSize: number;
+  metaPageSize?: number | null;
   count: number;
   onPageChange: (p: number) => void;
 
@@ -95,7 +96,7 @@ const columns = (map?: Record<number,string>): Column<InversionHuerta>[] => [
 ];
 
 const InversionTable: React.FC<Props> = ({
-  data, page, pageSize, count, onPageChange,
+  data, page, pageSize, metaPageSize, count, onPageChange,
   onEdit, onArchive, onRestore, onDelete,
   loading = false, emptyMessage = 'Sin inversiones registradas.',
   categoriesMap,
@@ -103,7 +104,8 @@ const InversionTable: React.FC<Props> = ({
   <TableLayout<InversionHuerta>
     data={data}
     page={page}
-    pageSize={pageSize}
+    pageSize={metaPageSize ?? pageSize}
+    metaPageSize={metaPageSize}
     count={count}
     onPageChange={onPageChange}
     serverSidePagination

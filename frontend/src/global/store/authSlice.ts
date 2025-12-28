@@ -1,6 +1,7 @@
 // global/store/authSlice.ts
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import apiClient from '../../global/api/apiClient';  // Ajusta ruta si hace falta
+import { ensureSuccess } from '../utils/backendEnvelope';
 
 interface User {
   id: number;
@@ -32,8 +33,8 @@ export const fetchPermissionsThunk = createAsyncThunk<string[]>(
   'auth/fetchPermissions',
   async () => {
     const res = await apiClient.get('/usuarios/me/permissions/');
-    // La ruta devuelve { permissions: string[] }
-    return res.data.permissions;
+    const env = ensureSuccess<{ permissions: string[] }>(res.data);
+    return env.data.permissions;
   }
 );
 

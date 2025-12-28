@@ -197,6 +197,7 @@ const Bodegas: React.FC = () => {
             data={dataForTable}
             page={currPage}
             pageSize={pageSize}
+            metaPageSize={meta?.page_size}
             count={count}
             onPageChange={onPageChange}
             loading={loading}

@@ -21,6 +21,16 @@ NOTIFICATION_MESSAGES = {
         "type": "error",
         "code": 500,
     },
+    "fetch_success": {
+        "message": "Datos obtenidos correctamente.",
+        "type": "success",
+        "code": 200,
+    },
+    "silent_response": {
+        "message": "",
+        "type": "info",
+        "code": 200,
+    },
     "not_found": {
         "message": "Recurso no encontrado.",
         "type": "error",

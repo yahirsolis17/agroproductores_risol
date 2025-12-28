@@ -298,7 +298,8 @@ const Huertas: React.FC = () => {
           <HuertaTable
             data={dataForTable}
             page={hComb.page}
-            pageSize={pageSize}
+            pageSize={hComb.meta.page_size ?? pageSize}
+            metaPageSize={hComb.meta.page_size}
             count={hComb.meta.count}
             onPageChange={hComb.setPage}
             loading={hComb.loading}
