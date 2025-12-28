@@ -251,10 +251,6 @@ export default function CapturasPage() {
             meta={meta}
             loading={loading}
             onPageChange={handlePageChange}
-            onCreate={() => {
-              setEditing(null);
-              setOpen(true);
-            }}
             onEdit={(row) => {
               setEditing(row);
               setOpen(true);

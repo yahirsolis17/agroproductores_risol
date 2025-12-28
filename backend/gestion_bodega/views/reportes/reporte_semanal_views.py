@@ -42,7 +42,10 @@ class ReporteSemanalView(views.APIView):
         try:
             if formato == "json":
                 data = build_reporte_semanal_json(bodega, temporada, iso_semana)
-                return Response(data)
+                return NotificationHandler.generate_response(
+                    message_key="fetch_success",
+                    data={"reporte": data},
+                )
             elif formato == "pdf":
                 pdf_bytes, filename = build_reporte_semanal_pdf(bodega, temporada, iso_semana)
                 resp = Response(pdf_bytes, content_type="application/pdf", status=status.HTTP_200_OK)

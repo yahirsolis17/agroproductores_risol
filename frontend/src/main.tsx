@@ -14,7 +14,6 @@ import { ToastContainer } from 'react-toastify';
 
 import 'react-toastify/dist/ReactToastify.css';
 import './index.css';
-// @ts-ignore
 import '@fontsource/poppins';
 import theme from './theme';
 

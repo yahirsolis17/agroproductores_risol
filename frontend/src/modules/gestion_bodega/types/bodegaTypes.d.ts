@@ -35,6 +35,7 @@ export interface BodegaFilters {
 
 /** Paginación homogénea (igual que huerta). */
 import { PaginationMeta } from '../../../types/pagination';
+export type { PaginationMeta };
 
 /** Data de list: lo que realmente consume la UI. */
 export interface ListBodegasData {

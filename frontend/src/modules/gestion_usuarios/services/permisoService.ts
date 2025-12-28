@@ -11,7 +11,8 @@ const permisoService = {
   /** Leer solo los permisos relevantes y traducidos */
   async getAllPermisos(): Promise<Permiso[]> {
     const res = await apiClient.get('/usuarios/permisos-filtrados/');
-    return Array.isArray(res.data) ? res.data : [];
+    const payload = res.data?.data?.permisos ?? res.data;
+    return Array.isArray(payload) ? payload : [];
   },
 
   /** Asignar permisos a un usuario */
