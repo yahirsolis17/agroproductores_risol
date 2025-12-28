@@ -2,6 +2,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { userService } from '../../modules/gestion_usuarios/services/userService';
 import { User, PaginationMeta } from '../../modules/gestion_usuarios/types/userTypes';
+import { ApiError, extractApiError, BackendResponse } from '../types/apiTypes';
 
 interface UserState {
   list: User[];
@@ -30,44 +31,58 @@ const initialState: UserState = {
 export const fetchUsers = createAsyncThunk(
   'user/fetchAll',
   async ({ page, estado, filters }: { page: number; estado: 'activos' | 'archivados' | 'todos'; filters?: { excludeRole?: string } }) => {
-    const { results: users, meta } = await userService.list(page, estado, filters);
+    const env = await userService.list(page, estado, filters);
+    const users = env.data.results;
+    const meta = env.data.meta;
     return { users, meta, page, estado, filters };
   }
 );
 
 
-export const archiveUser = createAsyncThunk(
+export const archiveUser = createAsyncThunk<
+  { user: User; envelope: BackendResponse<{ user: User }> },
+  number,
+  { rejectValue: ApiError }
+>(
   'user/archive',
   async (id: number, { rejectWithValue }) => {
     try {
-      const res = await userService.archivar(id);
-      return res.data; // adjust based on actual response structure if needed, usually returns user or success
-    } catch (err: any) {
-      return rejectWithValue(err.response?.data);
+      const env = await userService.archivar(id);
+      return { user: env.data.user, envelope: env };
+    } catch (err: unknown) {
+      return rejectWithValue(extractApiError(err));
     }
   }
 );
 
-export const restoreUser = createAsyncThunk(
+export const restoreUser = createAsyncThunk<
+  { user: User; envelope: BackendResponse<{ user: User }> },
+  number,
+  { rejectValue: ApiError }
+>(
   'user/restore',
   async (id: number, { rejectWithValue }) => {
     try {
-      const res = await userService.restaurar(id);
-      return res.data;
-    } catch (err: any) {
-      return rejectWithValue(err.response?.data);
+      const env = await userService.restaurar(id);
+      return { user: env.data.user, envelope: env };
+    } catch (err: unknown) {
+      return rejectWithValue(extractApiError(err));
     }
   }
 );
 
-export const deleteUser = createAsyncThunk(
+export const deleteUser = createAsyncThunk<
+  { id: number; envelope: BackendResponse<{ info?: string }> },
+  number,
+  { rejectValue: ApiError }
+>(
   'user/delete',
   async (id: number, { rejectWithValue }) => {
     try {
-      const res = await userService.delete(id);
-      return { id, ...res.data };
-    } catch (err: any) {
-      return rejectWithValue(err.response?.data);
+      const env = await userService.delete(id);
+      return { id, envelope: env };
+    } catch (err: unknown) {
+      return rejectWithValue(extractApiError(err));
     }
   }
 );
@@ -111,25 +126,25 @@ const userSlice = createSlice({
       .addCase(archiveUser.fulfilled, (state, { payload }) => {
         // Optimistic update or just trigger refetch in component?
         // Let's update the list locally for better UX
-        const index = state.list.findIndex(u => u.id === payload.id);
+        const index = state.list.findIndex(u => u.id === payload.user.id);
         if (index !== -1) {
           if (state.estado === 'activos') {
             state.list.splice(index, 1);
             state.meta.count -= 1;
           } else {
-            state.list[index] = payload;
+            state.list[index] = payload.user;
           }
         }
       })
       // Restore
       .addCase(restoreUser.fulfilled, (state, { payload }) => {
-        const index = state.list.findIndex(u => u.id === payload.id);
+        const index = state.list.findIndex(u => u.id === payload.user.id);
         if (index !== -1) {
           if (state.estado === 'archivados') {
             state.list.splice(index, 1);
             state.meta.count -= 1;
           } else {
-            state.list[index] = payload;
+            state.list[index] = payload.user;
           }
         }
       })

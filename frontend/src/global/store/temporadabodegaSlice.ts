@@ -67,12 +67,15 @@ const emptyMeta: PaginationMeta = {
   previous: null,
 };
 
-function getErrorMessage(err: any): string {
-  const data = err?.response?.data;
-  if (typeof data === "string") return data;
-  if (data?.detail) return String(data.detail);
-  if (data?.message) return String(data.message);
-  return err?.message ?? "Ocurrió un error";
+function getErrorMessage(err: unknown): string {
+  const data = (err as { response?: { data?: unknown } })?.response?.data;
+  if (typeof data === 'string') return data;
+  if (data && typeof data === 'object') {
+    const d = data as Record<string, unknown>;
+    if (d.detail) return String(d.detail);
+    if (d.message) return String(d.message);
+  }
+  return err instanceof Error ? err.message : 'Ocurrió un error';
 }
 
 function extractErrorMessage(payload: unknown, fallback: string): string {
@@ -133,8 +136,8 @@ export const fetchTemporadasBodega = createAsyncThunk(
       });
       handleBackendNotification(response);
       return { temporadas: response.data.temporadas, meta: response.data.meta as PaginationMeta };
-    } catch (err: any) {
-      const resp = err?.response?.data;
+    } catch (err: unknown) {
+      const resp = (err as { response?: { data?: unknown } })?.response?.data;
       if (resp) handleBackendNotification(resp);
       return rejectWithValue(getErrorMessage(err));
     }
@@ -153,8 +156,8 @@ export const addTemporadaBodega = createAsyncThunk(
         return rejectWithValue({ key, message });
       }
       return res.data as TemporadaBodega;
-    } catch (err: any) {
-      const resp = err?.response?.data;
+    } catch (err: unknown) {
+      const resp = (err as { response?: { data?: { notification?: { key?: string; message?: string } } } })?.response?.data;
       if (resp) handleBackendNotification(resp);
       const notification = resp?.notification;
       const key = notification?.key;
@@ -176,8 +179,8 @@ export const editTemporadaBodega = createAsyncThunk(
         return rejectWithValue({ key, message });
       }
       return resp.data as TemporadaBodega;
-    } catch (err: any) {
-      const resp = err?.response?.data;
+    } catch (err: unknown) {
+      const resp = (err as { response?: { data?: { notification?: { key?: string; message?: string } } } })?.response?.data;
       if (resp) handleBackendNotification(resp);
       const notification = resp?.notification;
       const key = notification?.key;
@@ -199,8 +202,8 @@ export const archiveTemporada = createAsyncThunk(
         return rejectWithValue({ key, message });
       }
       return res.data as TemporadaBodega | null;
-    } catch (err: any) {
-      const resp = err?.response?.data;
+    } catch (err: unknown) {
+      const resp = (err as { response?: { data?: { notification?: { key?: string; message?: string } } } })?.response?.data;
       if (resp) handleBackendNotification(resp);
       const notification = resp?.notification;
       const key = notification?.key;
@@ -222,8 +225,8 @@ export const restoreTemporada = createAsyncThunk(
         return rejectWithValue({ key, message });
       }
       return res.data as TemporadaBodega | null;
-    } catch (err: any) {
-      const resp = err?.response?.data;
+    } catch (err: unknown) {
+      const resp = (err as { response?: { data?: { notification?: { key?: string; message?: string } } } })?.response?.data;
       if (resp) handleBackendNotification(resp);
       const notification = resp?.notification;
       const key = notification?.key;
@@ -245,8 +248,8 @@ export const finalizeTemporada = createAsyncThunk(
         return rejectWithValue({ key, message });
       }
       return res.data as TemporadaBodega | null;
-    } catch (err: any) {
-      const resp = err?.response?.data;
+    } catch (err: unknown) {
+      const resp = (err as { response?: { data?: { notification?: { key?: string; message?: string } } } })?.response?.data;
       if (resp) handleBackendNotification(resp);
       const notification = resp?.notification;
       const key = notification?.key;
@@ -270,8 +273,8 @@ export const deleteTemporada = createAsyncThunk(
       const payload = res.data as { deleted_id?: number; temporada_id?: number } | null;
       const deletedId = payload?.deleted_id ?? payload?.temporada_id ?? id;
       return deletedId;
-    } catch (err: any) {
-      const resp = err?.response?.data;
+    } catch (err: unknown) {
+      const resp = (err as { response?: { data?: { notification?: { key?: string; message?: string } } } })?.response?.data;
       if (resp) handleBackendNotification(resp);
       const notification = resp?.notification;
       const key = notification?.key;

@@ -34,7 +34,13 @@ NOTIFICATION_MESSAGES = {
         "code": 404
     },
 
+    "reporte_generado_exitosamente": {
+        "message": "Reporte generado con éxito.",
+        "type": "success"
+    },
+    # -------------------------------------------------
     # Reusables de negocio
+    # -------------------------------------------------
     "bloqueo_por_temporada_inactiva_o_finalizada": {
         "message": "No se pueden registrar cambios: la temporada está archivada o finalizada.",
         "type": "error"

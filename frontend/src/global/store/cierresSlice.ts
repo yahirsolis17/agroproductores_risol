@@ -88,9 +88,10 @@ export const fetchCierresIndex = createAsyncThunk<
 >("cierres/fetchIndex", async (temporadaId, { rejectWithValue }) => {
   try {
     return await cierresService.index(temporadaId);
-  } catch (err: any) {
-    handleBackendNotification(err?.payload || err?.response?.data);
-    return rejectWithValue(err?.message || "Error al cargar índice");
+  } catch (err: unknown) {
+    const errData = (err as { payload?: unknown; response?: { data?: unknown }; message?: string });
+    handleBackendNotification(errData.payload || errData.response?.data);
+    return rejectWithValue(errData.message || 'Error al cargar índice');
   }
 });
 
@@ -107,9 +108,10 @@ export const fetchCierresList = createAsyncThunk<
       page: params.page || 1,
       page_size: params.page_size || 10,
     });
-  } catch (err: any) {
-    handleBackendNotification(err?.payload || err?.response?.data);
-    return rejectWithValue(err?.message || "Error al cargar lista");
+  } catch (err: unknown) {
+    const errData = (err as { payload?: unknown; response?: { data?: unknown }; message?: string });
+    handleBackendNotification(errData.payload || errData.response?.data);
+    return rejectWithValue(errData.message || 'Error al cargar lista');
   }
 });
 
@@ -122,9 +124,10 @@ export const createCierreSemanal = createAsyncThunk<
     const result = await cierresService.semanal(payload);
     handleBackendNotification({ success: true, message: "Semana creada" });
     return result;
-  } catch (err: any) {
-    handleBackendNotification(err?.payload || err?.response?.data);
-    return rejectWithValue(err?.message || "Error al crear semana");
+  } catch (err: unknown) {
+    const errData = (err as { payload?: unknown; response?: { data?: unknown }; message?: string });
+    handleBackendNotification(errData.payload || errData.response?.data);
+    return rejectWithValue(errData.message || 'Error al crear semana');
   }
 });
 
@@ -137,9 +140,10 @@ export const closeCierreTemporada = createAsyncThunk<
     const result = await cierresService.temporada(payload);
     handleBackendNotification({ success: true, message: "Temporada cerrada" });
     return result;
-  } catch (err: any) {
-    handleBackendNotification(err?.payload || err?.response?.data);
-    return rejectWithValue(err?.message || "Error al cerrar temporada");
+  } catch (err: unknown) {
+    const errData = (err as { payload?: unknown; response?: { data?: unknown }; message?: string });
+    handleBackendNotification(errData.payload || errData.response?.data);
+    return rejectWithValue(errData.message || 'Error al cerrar temporada');
   }
 });
 

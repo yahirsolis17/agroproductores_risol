@@ -82,22 +82,22 @@ const UsersAdmin: React.FC = () => {
   const handleArchiveOrRestore = async (userId: number, isArchived: boolean) => {
     try {
       const action = isArchived ? restoreUser(userId) : archiveUser(userId);
-      const res = await dispatch(action).unwrap();
-      handleBackendNotification(res.notification || { type: 'success', message: 'Operación exitosa' });
+      const { envelope } = await dispatch(action).unwrap();
+      handleBackendNotification(envelope);
       // El estado local se actualiza optimisticamente en el slice, pero si se quiere refetch:
       // refetch();
     } catch (err: any) {
-      handleBackendNotification(err.notification || err);
+      handleBackendNotification(err?.response?.data || err);
     }
   };
 
   const handleDeleteUser = async (userId: number) => {
     try {
-      const res = await dispatch(deleteUser(userId)).unwrap();
-      handleBackendNotification(res.notification || { type: 'success', message: 'Usuario eliminado' });
+      const { envelope } = await dispatch(deleteUser(userId)).unwrap();
+      handleBackendNotification(envelope);
       // refetch();
     } catch (err: any) {
-      handleBackendNotification(err.notification || err);
+      handleBackendNotification(err?.response?.data || err);
     }
   };
 

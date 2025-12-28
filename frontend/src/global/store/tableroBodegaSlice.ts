@@ -145,8 +145,8 @@ export const fetchTablereSummary = createAsyncThunk<
 >("tableroBodega/fetchSummary", async ({ temporadaId, bodegaId, semanaId, filters }, { rejectWithValue }) => {
   try {
     return await getDashboardSummary(temporadaId, { ...filters, bodegaId, semanaId });
-  } catch (err: any) {
-    return rejectWithValue(err?.message || "Error al cargar resumen");
+  } catch (err: unknown) {
+    return rejectWithValue(err instanceof Error ? err.message : 'Error al cargar resumen');
   }
 });
 
@@ -157,8 +157,8 @@ export const fetchTableroAlerts = createAsyncThunk<
 >("tableroBodega/fetchAlerts", async ({ temporadaId, bodegaId }, { rejectWithValue }) => {
   try {
     return await getDashboardAlerts(temporadaId, { bodegaId });
-  } catch (err: any) {
-    return rejectWithValue(err?.message || "Error al cargar alertas");
+  } catch (err: unknown) {
+    return rejectWithValue(err instanceof Error ? err.message : 'Error al cargar alertas');
   }
 });
 
@@ -170,8 +170,8 @@ export const fetchTableroQueues = createAsyncThunk<
   try {
     const data = await getDashboardQueues(temporadaId, queueType, { ...filters, bodegaId, semanaId });
     return { type: queueType, data };
-  } catch (err: any) {
-    return rejectWithValue(err?.message || "Error al cargar cola");
+  } catch (err: unknown) {
+    return rejectWithValue(err instanceof Error ? err.message : 'Error al cargar cola');
   }
 });
 
@@ -182,8 +182,8 @@ export const fetchTableroWeeksNav = createAsyncThunk<
 >("tableroBodega/fetchWeeksNav", async ({ temporadaId, bodegaId }, { rejectWithValue }) => {
   try {
     return await getWeeksNav(temporadaId, bodegaId);
-  } catch (err: any) {
-    return rejectWithValue(err?.message || "Error al cargar navegación de semanas");
+  } catch (err: unknown) {
+    return rejectWithValue(err instanceof Error ? err.message : 'Error al cargar navegación de semanas');
   }
 });
 
@@ -196,8 +196,8 @@ export const tableroStartWeek = createAsyncThunk<
     const result = await apiStartWeek(body);
     handleBackendNotification({ success: true, message: "Semana iniciada" });
     return result;
-  } catch (err: any) {
-    return rejectWithValue(err?.message || "Error al iniciar semana");
+  } catch (err: unknown) {
+    return rejectWithValue(err instanceof Error ? err.message : 'Error al iniciar semana');
   }
 });
 
@@ -210,8 +210,8 @@ export const tableroFinishWeek = createAsyncThunk<
     const result = await apiFinishWeek(body);
     handleBackendNotification({ success: true, message: "Semana finalizada" });
     return result;
-  } catch (err: any) {
-    return rejectWithValue(err?.message || "Error al finalizar semana");
+  } catch (err: unknown) {
+    return rejectWithValue(err instanceof Error ? err.message : 'Error al finalizar semana');
   }
 });
 

@@ -1,16 +1,17 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { huertasCombinadasService, HCFilters, RegistroCombinado } from '../../modules/gestion_huerta/services/huertasCombinadasService';
 import { PaginationMeta, Estado } from '../../modules/gestion_huerta/types/shared';
-import { handleBackendNotification } from '../utils/NotificationEngine'; // ← para estandarizar errores
+import { handleBackendNotification } from '../utils/NotificationEngine';
+import { extractApiError } from '../types/apiTypes';
 
 interface HCState {
-  items:    RegistroCombinado[];
+  items: RegistroCombinado[];
   loading: boolean;
-  error:   string | null;
-  page:    number;
-  estado:  Estado;
+  error: string | null;
+  page: number;
+  estado: Estado;
   filters: HCFilters;
-  meta:    PaginationMeta;
+  meta: PaginationMeta;
 }
 
 const initialState: HCState = {
@@ -29,9 +30,9 @@ export const fetchHuertasCombinadas = createAsyncThunk<
       const { signal } = thunkAPI;
       const res = await huertasCombinadasService.list(page, estado, filters, { signal });
       return { huertas: res.data.results, meta: res.data.meta, page };
-    } catch (err: any) {
-      handleBackendNotification(err?.response?.data); // ← homogéneo
-      return thunkAPI.rejectWithValue(err?.response?.data?.message ?? 'Error al cargar huertas combinadas');
+    } catch (err: unknown) {
+      handleBackendNotification(extractApiError(err));
+      return thunkAPI.rejectWithValue('Error al cargar huertas combinadas');
     }
   }
 );
@@ -40,16 +41,16 @@ const hcSlice = createSlice({
   name: 'huertasCombinadas',
   initialState,
   reducers: {
-    setPage:    (s, a: PayloadAction<number>)    => { s.page = a.payload; },
-    setEstado:  (s, a: PayloadAction<Estado>)    => { s.estado = a.payload; s.page = 1; },
+    setPage: (s, a: PayloadAction<number>) => { s.page = a.payload; },
+    setEstado: (s, a: PayloadAction<Estado>) => { s.estado = a.payload; s.page = 1; },
     setFilters: (s, a: PayloadAction<HCFilters>) => { s.filters = a.payload; s.page = 1; },
   },
   extraReducers: (b) => {
-    b.addCase(fetchHuertasCombinadas.pending,   (s)                     => { s.loading = true;  s.error = null; });
-    b.addCase(fetchHuertasCombinadas.fulfilled, (s, { payload })        => {
+    b.addCase(fetchHuertasCombinadas.pending, (s) => { s.loading = true; s.error = null; });
+    b.addCase(fetchHuertasCombinadas.fulfilled, (s, { payload }) => {
       s.items = payload.huertas; s.meta = payload.meta; s.page = payload.page; s.loading = false;
     });
-    b.addCase(fetchHuertasCombinadas.rejected,  (s, { payload, error }) => {
+    b.addCase(fetchHuertasCombinadas.rejected, (s, { payload, error }) => {
       s.loading = false; s.error = (payload as string) ?? error.message ?? 'Error desconocido';
     });
   },

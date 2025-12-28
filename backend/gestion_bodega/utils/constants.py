@@ -26,6 +26,11 @@ NOTIFICATION_MESSAGES = {
         "type": "success",
         "code": 200,
     },
+    "fetch_success": {
+        "message": "Datos obtenidos correctamente.",
+        "type": "success",
+        "code": 200,
+    },
     "silent_response": {
         "message": "",
         "type": "info",

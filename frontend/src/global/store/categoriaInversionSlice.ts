@@ -7,40 +7,41 @@ import {
   CategoriaInversionUpdateData,
 } from '../../modules/gestion_huerta/types/categoriaInversionTypes';
 import { PaginationMeta } from '../../modules/gestion_huerta/types/shared';
+import { ApiError, extractApiError } from '../types/apiTypes';
 
 interface CategoriaState {
-  items:    CategoriaInversion[];
+  items: CategoriaInversion[];
   loading: boolean;
-  loaded:  boolean;
-  error:   string | null;
-  page:    number;
-  meta:    PaginationMeta;
+  loaded: boolean;
+  error: string | null;
+  page: number;
+  meta: PaginationMeta;
 }
 
 const initialState: CategoriaState = {
-  items:    [],
+  items: [],
   loading: false,
-  loaded:  false,
-  error:   null,
-  page:    1,
-  meta:    { count: 0, next: null, previous: null, page: 1, page_size: 10, total_pages: 1 },
+  loaded: false,
+  error: null,
+  page: 1,
+  meta: { count: 0, next: null, previous: null, page: 1, page_size: 10, total_pages: 1 },
 };
 
 /* ───── Fetch listado activo ───── */
 export const fetchCategorias = createAsyncThunk<
   { categorias: CategoriaInversion[]; meta: PaginationMeta; page: number },
   number,
-  { rejectValue: any }
+  { rejectValue: ApiError }
 >(
   'categoriasInversion/fetch',
   async (page = 1, { rejectWithValue }) => {
     try {
       const res = await categoriaInversionService.listActive(page);
       return { categorias: res.data.results, meta: res.data.meta, page };
-    } catch (err: any) {
-      const be = err?.response?.data || err?.data || err;
-      handleBackendNotification(be);
-      return rejectWithValue(be);
+    } catch (err: unknown) {
+      const apiError = extractApiError(err);
+      handleBackendNotification(apiError);
+      return rejectWithValue(apiError);
     }
   }
 );
@@ -49,7 +50,7 @@ export const fetchCategorias = createAsyncThunk<
 export const createCategoria = createAsyncThunk<
   CategoriaInversion,
   CategoriaInversionCreateData,
-  { rejectValue: any }
+  { rejectValue: ApiError }
 >(
   'categoriasInversion/create',
   async (payload, { rejectWithValue }) => {
@@ -57,10 +58,10 @@ export const createCategoria = createAsyncThunk<
       const res = await categoriaInversionService.create(payload);
       handleBackendNotification(res);
       return res.data.categoria as CategoriaInversion;
-    } catch (err: any) {
-      const be = err?.response?.data || err?.data || err;
-      handleBackendNotification(be);
-      return rejectWithValue(be); // ← propagamos errores de campo
+    } catch (err: unknown) {
+      const apiError = extractApiError(err);
+      handleBackendNotification(apiError);
+      return rejectWithValue(apiError);
     }
   }
 );
@@ -68,7 +69,7 @@ export const createCategoria = createAsyncThunk<
 export const updateCategoria = createAsyncThunk<
   CategoriaInversion,
   { id: number; payload: CategoriaInversionUpdateData },
-  { rejectValue: any }
+  { rejectValue: ApiError }
 >(
   'categoriasInversion/update',
   async ({ id, payload }, { rejectWithValue }) => {
@@ -76,10 +77,10 @@ export const updateCategoria = createAsyncThunk<
       const res = await categoriaInversionService.update(id, payload);
       handleBackendNotification(res);
       return res.data.categoria as CategoriaInversion;
-    } catch (err: any) {
-      const be = err?.response?.data || err?.data || err;
-      handleBackendNotification(be);
-      return rejectWithValue(be);
+    } catch (err: unknown) {
+      const apiError = extractApiError(err);
+      handleBackendNotification(apiError);
+      return rejectWithValue(apiError);
     }
   }
 );
@@ -87,7 +88,7 @@ export const updateCategoria = createAsyncThunk<
 export const archiveCategoria = createAsyncThunk<
   CategoriaInversion,
   number,
-  { rejectValue: any }
+  { rejectValue: ApiError }
 >(
   'categoriasInversion/archive',
   async (id, { rejectWithValue }) => {
@@ -95,10 +96,10 @@ export const archiveCategoria = createAsyncThunk<
       const res = await categoriaInversionService.archive(id);
       handleBackendNotification(res);
       return res.data.categoria as CategoriaInversion;
-    } catch (err: any) {
-      const be = err?.response?.data || err?.data || err;
-      handleBackendNotification(be);
-      return rejectWithValue(be);
+    } catch (err: unknown) {
+      const apiError = extractApiError(err);
+      handleBackendNotification(apiError);
+      return rejectWithValue(apiError);
     }
   }
 );
@@ -106,7 +107,7 @@ export const archiveCategoria = createAsyncThunk<
 export const restoreCategoria = createAsyncThunk<
   CategoriaInversion,
   number,
-  { rejectValue: any }
+  { rejectValue: ApiError }
 >(
   'categoriasInversion/restore',
   async (id, { rejectWithValue }) => {
@@ -114,10 +115,10 @@ export const restoreCategoria = createAsyncThunk<
       const res = await categoriaInversionService.restore(id);
       handleBackendNotification(res);
       return res.data.categoria as CategoriaInversion;
-    } catch (err: any) {
-      const be = err?.response?.data || err?.data || err;
-      handleBackendNotification(be);
-      return rejectWithValue(be);
+    } catch (err: unknown) {
+      const apiError = extractApiError(err);
+      handleBackendNotification(apiError);
+      return rejectWithValue(apiError);
     }
   }
 );
@@ -125,7 +126,7 @@ export const restoreCategoria = createAsyncThunk<
 export const deleteCategoria = createAsyncThunk<
   number,
   number,
-  { rejectValue: any }
+  { rejectValue: ApiError }
 >(
   'categoriasInversion/delete',
   async (id, { rejectWithValue }) => {
@@ -133,10 +134,10 @@ export const deleteCategoria = createAsyncThunk<
       const res = await categoriaInversionService.remove(id);
       handleBackendNotification(res);
       return id;
-    } catch (err: any) {
-      const be = err?.response?.data || err?.data || err;
-      handleBackendNotification(be);
-      return rejectWithValue(be);
+    } catch (err: unknown) {
+      const apiError = extractApiError(err);
+      handleBackendNotification(apiError);
+      return rejectWithValue(apiError);
     }
   }
 );
@@ -150,18 +151,18 @@ const categoriaSlice = createSlice({
   },
   extraReducers: (b) => {
     /* fetch */
-    b.addCase(fetchCategorias.pending,   s => { s.loading = true; s.error = null; });
+    b.addCase(fetchCategorias.pending, s => { s.loading = true; s.error = null; });
     b.addCase(fetchCategorias.fulfilled, (s, { payload }) => {
       s.items = payload.categorias;
       s.meta = payload.meta;
       s.page = payload.page;
       s.loading = false;
-      s.loaded  = true;
+      s.loaded = true;
     });
-    b.addCase(fetchCategorias.rejected,  (s, { payload, error }) => {
+    b.addCase(fetchCategorias.rejected, (s, { payload, error }) => {
       s.loading = false;
-      s.loaded  = true;
-      s.error   = (payload as any)?.message ?? error.message ?? 'Error';
+      s.loaded = true;
+      s.error = payload?.message ?? error.message ?? 'Error';
     });
 
     /* create */

@@ -59,16 +59,15 @@ const initialState: EmpaquesState = {
   lastBulkUpdatedIds: [],
 };
 
-function extractErrorMessage(err: any): string {
-  // Axios style
-  const data = err?.response?.data;
-  const msg =
-    data?.message ||
-    data?.detail ||
-    (typeof data === "string" ? data : null) ||
-    err?.message ||
-    "Ocurrió un error inesperado.";
-  return String(msg);
+function extractErrorMessage(err: unknown): string {
+  const data = (err as { response?: { data?: unknown } })?.response?.data;
+  if (typeof data === 'string') return data;
+  if (data && typeof data === 'object') {
+    const d = data as Record<string, unknown>;
+    if (typeof d.message === 'string') return d.message;
+    if (typeof d.detail === 'string') return d.detail;
+  }
+  return err instanceof Error ? err.message : 'Ocurrió un error inesperado.';
 }
 
 export const fetchEmpaques = createAsyncThunk(
@@ -76,7 +75,7 @@ export const fetchEmpaques = createAsyncThunk(
   async (params: EmpaquesFilters, { rejectWithValue }) => {
     try {
       return await empaquesService.list(params);
-    } catch (e: any) {
+    } catch (e: unknown) {
       return rejectWithValue(extractErrorMessage(e));
     }
   }
@@ -87,7 +86,7 @@ export const fetchEmpaqueById = createAsyncThunk(
   async (id: number, { rejectWithValue }) => {
     try {
       return await empaquesService.retrieve(id);
-    } catch (e: any) {
+    } catch (e: unknown) {
       return rejectWithValue(extractErrorMessage(e));
     }
   }
@@ -98,7 +97,7 @@ export const createEmpaque = createAsyncThunk(
   async (dto: EmpaqueCreateDTO, { rejectWithValue }) => {
     try {
       return await empaquesService.create(dto);
-    } catch (e: any) {
+    } catch (e: unknown) {
       return rejectWithValue(extractErrorMessage(e));
     }
   }
@@ -109,7 +108,7 @@ export const updateEmpaque = createAsyncThunk(
   async ({ id, dto }: { id: number; dto: EmpaqueUpdateDTO }, { rejectWithValue }) => {
     try {
       return await empaquesService.update(id, dto);
-    } catch (e: any) {
+    } catch (e: unknown) {
       return rejectWithValue(extractErrorMessage(e));
     }
   }
@@ -120,7 +119,7 @@ export const archivarEmpaque = createAsyncThunk(
   async (id: number, { rejectWithValue }) => {
     try {
       return await empaquesService.archivar(id);
-    } catch (e: any) {
+    } catch (e: unknown) {
       return rejectWithValue(extractErrorMessage(e));
     }
   }
@@ -131,7 +130,7 @@ export const bulkUpsertEmpaques = createAsyncThunk(
   async (dto: EmpaqueBulkUpsertDTO, { rejectWithValue }) => {
     try {
       return await empaquesService.bulkUpsert(dto);
-    } catch (e: any) {
+    } catch (e: unknown) {
       return rejectWithValue(extractErrorMessage(e));
     }
   }

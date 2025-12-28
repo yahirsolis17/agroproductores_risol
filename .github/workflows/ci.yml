@@ -1,0 +1,65 @@
+name: System Canon Gate
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  backend-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: 'pip'
+
+      - name: Install Backend Dependencies
+        run: |
+          pip install -r backend/requirements.txt
+        
+      - name: Django Check
+        run: |
+          cd backend
+          python manage.py check
+
+      - name: Architecture Guardrails
+        run: |
+          python check_response_canon.py
+          python check_message_keys_canon.py
+
+  frontend-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Frontend Dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Typecheck (No Any)
+        run: |
+          cd frontend
+          npm run typecheck
+
+      - name: Build (Vite)
+        run: |
+          cd frontend
+          npm run build
+
+      - name: Lint (Guardrails)
+        run: |
+          cd frontend
+          npm run lint

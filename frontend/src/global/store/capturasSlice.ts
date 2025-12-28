@@ -18,13 +18,13 @@ import type {
 // -------------------------------
 // Helpers
 // -------------------------------
-function extractErrorMessage(payload: any, fallback: string) {
-  // NotificationHandler suele traer: { message, message_key, success, data }
+function extractErrorMessage(payload: unknown, fallback: string): string {
+  if (!payload || typeof payload !== 'object') return fallback;
+  const p = payload as Record<string, unknown>;
   return (
-    payload?.message ||
-    payload?.detail ||
-    payload?.error ||
-    payload?.message?.toString?.() ||
+    (typeof p.message === 'string' ? p.message : null) ||
+    (typeof p.detail === 'string' ? p.detail : null) ||
+    (typeof p.error === 'string' ? p.error : null) ||
     fallback
   );
 }
@@ -70,13 +70,14 @@ export const fetchCapturas = createAsyncThunk<
 >('capturas/fetchCapturas', async (_void, { getState, rejectWithValue, signal }) => {
   try {
     const { filters } = (getState().capturas as CapturasState);
-    const resp = await listCapturas(filters as any, { signal });
+    const resp = await listCapturas(filters as unknown as Record<string, unknown>, { signal });
     return resp;
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const errData = (err as { response?: { data?: unknown; status?: number } })?.response;
     return rejectWithValue({
-      ...(err?.response?.data ?? {}),
-      status: err?.response?.status,
-      message: extractErrorMessage(err?.response?.data, 'Error listando capturas'),
+      ...(errData?.data && typeof errData.data === 'object' ? errData.data as Record<string, unknown> : {}),
+      status: errData?.status,
+      message: extractErrorMessage(errData?.data, 'Error listando capturas'),
     });
   }
 });
@@ -87,11 +88,12 @@ export const createCapturaThunk = createAsyncThunk<Captura, CapturaCreatePayload
     try {
       const resp = await createCaptura(payload);
       return resp.captura;
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errData = (err as { response?: { data?: unknown; status?: number } })?.response;
       return rejectWithValue({
-        ...(err?.response?.data ?? {}),
-        status: err?.response?.status,
-        message: extractErrorMessage(err?.response?.data, 'Error creando captura'),
+        ...(errData?.data && typeof errData.data === 'object' ? errData.data as Record<string, unknown> : {}),
+        status: errData?.status,
+        message: extractErrorMessage(errData?.data, 'Error creando captura'),
       });
     }
   }
@@ -103,11 +105,12 @@ export const updateCapturaThunk = createAsyncThunk<Captura, { id: number; data: 
     try {
       const resp = await updateCaptura(id, data);
       return resp.captura;
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errData = (err as { response?: { data?: unknown; status?: number } })?.response;
       return rejectWithValue({
-        ...(err?.response?.data ?? {}),
-        status: err?.response?.status,
-        message: extractErrorMessage(err?.response?.data, 'Error actualizando captura'),
+        ...(errData?.data && typeof errData.data === 'object' ? errData.data as Record<string, unknown> : {}),
+        status: errData?.status,
+        message: extractErrorMessage(errData?.data, 'Error actualizando captura'),
       });
     }
   }
@@ -118,12 +121,13 @@ export const archivarCapturaThunk = createAsyncThunk<{ id: number; captura?: Cap
   async ({ id }, { rejectWithValue }) => {
     try {
       const resp = await archivarCaptura(id);
-      return { id: resp.captura_id, captura: (resp as any).captura };
-    } catch (err: any) {
+      return { id: resp.captura_id, captura: (resp as { captura?: Captura }).captura };
+    } catch (err: unknown) {
+      const errData = (err as { response?: { data?: unknown; status?: number } })?.response;
       return rejectWithValue({
-        ...(err?.response?.data ?? {}),
-        status: err?.response?.status,
-        message: extractErrorMessage(err?.response?.data, 'Error archivando captura'),
+        ...(errData?.data && typeof errData.data === 'object' ? errData.data as Record<string, unknown> : {}),
+        status: errData?.status,
+        message: extractErrorMessage(errData?.data, 'Error archivando captura'),
       });
     }
   }
@@ -135,11 +139,12 @@ export const restaurarCapturaThunk = createAsyncThunk<Captura, { id: number }>(
     try {
       const resp = await restaurarCaptura(id);
       return resp.captura;
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errData = (err as { response?: { data?: unknown; status?: number } })?.response;
       return rejectWithValue({
-        ...(err?.response?.data ?? {}),
-        status: err?.response?.status,
-        message: extractErrorMessage(err?.response?.data, 'Error restaurando captura'),
+        ...(errData?.data && typeof errData.data === 'object' ? errData.data as Record<string, unknown> : {}),
+        status: errData?.status,
+        message: extractErrorMessage(errData?.data, 'Error restaurando captura'),
       });
     }
   }
@@ -151,11 +156,12 @@ export const deleteCapturaThunk = createAsyncThunk<{ id: number }, { id: number 
     try {
       const resp = await deleteCaptura(id);
       return { id: resp.deleted_id };
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errData = (err as { response?: { data?: unknown; status?: number } })?.response;
       return rejectWithValue({
-        ...(err?.response?.data ?? {}),
-        status: err?.response?.status,
-        message: extractErrorMessage(err?.response?.data, 'Error eliminando captura'),
+        ...(errData?.data && typeof errData.data === 'object' ? errData.data as Record<string, unknown> : {}),
+        status: errData?.status,
+        message: extractErrorMessage(errData?.data, 'Error eliminando captura'),
       });
     }
   }

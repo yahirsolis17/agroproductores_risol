@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { propietarioService } from '../../modules/gestion_huerta/services/propietarioService';
 import { PaginationMeta } from '../../modules/gestion_huerta/types/shared';
@@ -15,31 +14,31 @@ import {
 export type Estado = 'activos' | 'archivados' | 'todos';
 
 interface PropietarioState {
-  items:    Propietario[];
+  items: Propietario[];
   loading: boolean;
-  error:   string | null;
-  loaded:  boolean;
-  page:    number;
-  estado:  Estado;
-  meta:    PaginationMeta;
-  filters: Record<string, any>;
+  error: string | null;
+  loaded: boolean;
+  page: number;
+  estado: Estado;
+  meta: PaginationMeta;
+  filters: Record<string, string | number | boolean | undefined>;
 }
 
 const initialState: PropietarioState = {
-  items:    [],
+  items: [],
   loading: false,
-  error:   null,
-  loaded:  false,
-  page:    1,
-  estado:  'activos',
-  meta:    { count: 0, next: null, previous: null, page: 1, page_size: 10, total_pages: 1 },
+  error: null,
+  loaded: false,
+  page: 1,
+  estado: 'activos',
+  meta: { count: 0, next: null, previous: null, page: 1, page_size: 10, total_pages: 1 },
   filters: {},
 };
 
 /* -------------------------------------------------------------------------- */
 /*  THUNKS                                                                     */
 /* -------------------------------------------------------------------------- */
-type FetchParams = { page: number; estado: Estado } & Record<string, any>;
+type FetchParams = { page: number; estado: Estado } & Record<string, string | number | boolean | undefined>;
 
 export const fetchPropietarios = createAsyncThunk<
   { propietarios: Propietario[]; meta: PaginationMeta },
@@ -53,8 +52,9 @@ export const fetchPropietarios = createAsyncThunk<
       const { signal } = thunkAPI;
       const res = await propietarioService.list(page, estado, filters, { signal });
       return { propietarios: res.data.results, meta: res.data.meta };
-    } catch (err: any) {
-      handleBackendNotification(err?.response?.data);
+    } catch (err: unknown) {
+      const errorData = (err as { response?: { data?: unknown } })?.response?.data;
+      handleBackendNotification(errorData);
       return thunkAPI.rejectWithValue('Error al cargar propietarios');
     }
   }
@@ -71,8 +71,9 @@ export const createPropietario = createAsyncThunk<
       const res = await propietarioService.create(payload);
       handleBackendNotification(res);
       return res.data.propietario as Propietario;
-    } catch (err: any) {
-      handleBackendNotification(err?.response?.data);
+    } catch (err: unknown) {
+      const errorData = (err as { response?: { data?: unknown } })?.response?.data;
+      handleBackendNotification(errorData);
       return rejectWithValue('Error al crear propietario');
     }
   }
@@ -89,8 +90,9 @@ export const updatePropietario = createAsyncThunk<
       const res = await propietarioService.update(id, payload);
       handleBackendNotification(res);
       return res.data.propietario as Propietario;
-    } catch (err: any) {
-      handleBackendNotification(err?.response?.data);
+    } catch (err: unknown) {
+      const errorData = (err as { response?: { data?: unknown } })?.response?.data;
+      handleBackendNotification(errorData);
       return rejectWithValue('Error al actualizar propietario');
     }
   }
@@ -107,8 +109,9 @@ export const archivePropietario = createAsyncThunk<
       const res = await propietarioService.archive(id);
       handleBackendNotification(res);
       return res.data.propietario as Propietario; // Objeto ya archivado
-    } catch (err: any) {
-      handleBackendNotification(err?.response?.data);
+    } catch (err: unknown) {
+      const errorData = (err as { response?: { data?: unknown } })?.response?.data;
+      handleBackendNotification(errorData);
       return rejectWithValue('Error al archivar propietario');
     }
   }
@@ -125,8 +128,9 @@ export const restorePropietario = createAsyncThunk<
       const res = await propietarioService.restore(id);
       handleBackendNotification(res);
       return res.data.propietario as Propietario; // Objeto restaurado
-    } catch (err: any) {
-      handleBackendNotification(err?.response?.data);
+    } catch (err: unknown) {
+      const errorData = (err as { response?: { data?: unknown } })?.response?.data;
+      handleBackendNotification(errorData);
       return rejectWithValue('Error al restaurar propietario');
     }
   }
@@ -143,8 +147,9 @@ export const deletePropietario = createAsyncThunk<
       const res = await propietarioService.delete(id);
       handleBackendNotification(res);
       return id;
-    } catch (err: any) {
-      handleBackendNotification(err?.response?.data);
+    } catch (err: unknown) {
+      const errorData = (err as { response?: { data?: unknown } })?.response?.data;
+      handleBackendNotification(errorData);
       return rejectWithValue('Error al eliminar propietario');
     }
   }
@@ -157,59 +162,59 @@ const propietariosSlice = createSlice({
   name: 'propietarios',
   initialState,
   reducers: {
-    setPage:   (s, a: PayloadAction<number>) => { s.page = a.payload; },
+    setPage: (s, a: PayloadAction<number>) => { s.page = a.payload; },
     setEstado: (s, a: PayloadAction<Estado>) => { s.estado = a.payload; s.page = 1; },
-    setFilters:(s, a: PayloadAction<Record<string, any>>) => {
-      s.filters = { ...a.payload }; // nueva referencia para memoizar
+    setFilters: (s, a: PayloadAction<Record<string, string | number | boolean | undefined>>) => {
+      s.filters = { ...a.payload };
       s.page = 1;
     },
   },
   extraReducers: (b) => {
     /* -------- fetch -------- */
-    b.addCase(fetchPropietarios.pending,  (s) => { s.loading = true; s.error = null; });
-    b.addCase(fetchPropietarios.fulfilled,(s,{payload})=>{
-      s.items   = payload.propietarios;
-      s.meta   = payload.meta;
+    b.addCase(fetchPropietarios.pending, (s) => { s.loading = true; s.error = null; });
+    b.addCase(fetchPropietarios.fulfilled, (s, { payload }) => {
+      s.items = payload.propietarios;
+      s.meta = payload.meta;
       s.loading = false;
-      s.loaded  = true;
+      s.loaded = true;
     });
-    b.addCase(fetchPropietarios.rejected, (s,{payload, error})=>{
+    b.addCase(fetchPropietarios.rejected, (s, { payload, error }) => {
       s.loading = false;
-      s.loaded  = true;
-      s.error   = (payload as string) ?? error.message ?? 'Error';
+      s.loaded = true;
+      s.error = (payload as string) ?? error.message ?? 'Error';
     });
 
     /* -------- create / update -------- */
-    b.addCase(createPropietario.fulfilled,(s,{payload})=>{
+    b.addCase(createPropietario.fulfilled, (s, { payload }) => {
       if (s.estado === 'activos') s.items.unshift(payload);
       s.meta.count += 1;
     });
-    b.addCase(updatePropietario.fulfilled,(s,{payload})=>{
-      const i = s.items.findIndex(p=>p.id === payload.id);
+    b.addCase(updatePropietario.fulfilled, (s, { payload }) => {
+      const i = s.items.findIndex(p => p.id === payload.id);
       if (i !== -1) s.items[i] = payload;
     });
 
     /* -------- archive / restore -------- */
-    b.addCase(archivePropietario.fulfilled,(s,{payload})=>{
+    b.addCase(archivePropietario.fulfilled, (s, { payload }) => {
       if (s.estado === 'activos') {
         s.items = s.items.filter(p => p.id !== payload.id);
       } else {
-        const i = s.items.findIndex(p=>p.id===payload.id);
+        const i = s.items.findIndex(p => p.id === payload.id);
         if (i !== -1) s.items[i] = payload;
       }
     });
-    b.addCase(restorePropietario.fulfilled,(s,{payload})=>{
+    b.addCase(restorePropietario.fulfilled, (s, { payload }) => {
       if (s.estado === 'archivados') {
         s.items = s.items.filter(p => p.id !== payload.id);
       } else {
-        const i = s.items.findIndex(p=>p.id===payload.id);
+        const i = s.items.findIndex(p => p.id === payload.id);
         if (i !== -1) s.items[i] = payload;
       }
     });
 
     /* -------- delete -------- */
-    b.addCase(deletePropietario.fulfilled,(s,{payload:id})=>{
-      s.items = s.items.filter(p=>p.id!==id);
+    b.addCase(deletePropietario.fulfilled, (s, { payload: id }) => {
+      s.items = s.items.filter(p => p.id !== id);
       if (s.meta.count > 0) s.meta.count -= 1;
     });
   },

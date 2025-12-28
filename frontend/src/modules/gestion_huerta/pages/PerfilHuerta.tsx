@@ -1,7 +1,7 @@
 // reportehuertaperfil.tsx
 import { useMemo, useCallback, useEffect } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
-import { Box,  Divider, Alert, CircularProgress } from '@mui/material';
+import { Box, Divider, Alert, CircularProgress } from '@mui/material';
 import ReportesProduccionToolbar from '../components/reportes/ReportesProduccionToolbar';
 import ReporteProduccionViewer from '../components/reportes/ReporteProduccionViewer';
 import { reportesProduccionService } from '../services/reportesProduccionService';
@@ -11,14 +11,15 @@ import { useDispatch } from 'react-redux';
 import { setBreadcrumbs, clearBreadcrumbs } from '../../../global/store/breadcrumbsSlice';
 import { breadcrumbRoutes } from '../../../global/constants/breadcrumbRoutes';
 
-function useQuery() {
+/** TASK-FE-005: Renamed from useQuery to avoid semantic confusion with React Query */
+function useURLSearchParams() {
   const { search } = useLocation();
   return useMemo(() => new URLSearchParams(search), [search]);
 }
 
 export default function ReportePerfilHuerta() {
   const { huertaId: huertaIdParam } = useParams<{ huertaId: string }>();
-  const query = useQuery();
+  const query = useURLSearchParams();
   const isRentada = query.get('rentada') === '1';
   const años = Number(query.get('años') || '5');
 

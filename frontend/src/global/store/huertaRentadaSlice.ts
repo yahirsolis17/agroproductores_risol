@@ -3,6 +3,7 @@ import { huertaRentadaService } from '../../modules/gestion_huerta/services/huer
 import { handleBackendNotification } from '../utils/NotificationEngine';
 import { HuertaRentada, HuertaRentadaCreateData, HuertaRentadaUpdateData } from '../../modules/gestion_huerta/types/huertaRentadaTypes';
 import { Estado, PaginationMeta } from '../../modules/gestion_huerta/types/shared';
+import { extractApiError } from '../types/apiTypes';
 
 export interface HRFilters {
   search?: string;
@@ -11,25 +12,25 @@ export interface HRFilters {
 }
 
 interface HuertaRentadaState {
-  items:    HuertaRentada[];
+  items: HuertaRentada[];
   loading: boolean;
-  loaded:  boolean;
-  error:   string | null;
-  page:    number;
-  estado:  Estado;
+  loaded: boolean;
+  error: string | null;
+  page: number;
+  estado: Estado;
   filters: HRFilters;
-  meta:    PaginationMeta;
+  meta: PaginationMeta;
 }
 
 const initialState: HuertaRentadaState = {
-  items:    [],
+  items: [],
   loading: false,
-  loaded:  false,
-  error:   null,
-  page:    1,
-  estado:  'activos',
+  loaded: false,
+  error: null,
+  page: 1,
+  estado: 'activos',
   filters: {},
-  meta:    { count: 0, next: null, previous: null, page: 1, page_size: 10, total_pages: 1 }, // ← actualizado
+  meta: { count: 0, next: null, previous: null, page: 1, page_size: 10, total_pages: 1 }, // ← actualizado
 };
 
 export const fetchHuertasRentadas = createAsyncThunk<
@@ -43,8 +44,8 @@ export const fetchHuertasRentadas = createAsyncThunk<
       const { signal } = thunkAPI;
       const res = await huertaRentadaService.list(page, estado, filters, { signal });
       return { huertas_rentadas: res.data.results, meta: res.data.meta, page };
-    } catch (err: any) {
-      handleBackendNotification(err?.response?.data);
+    } catch (err: unknown) {
+      handleBackendNotification(extractApiError(err));
       return thunkAPI.rejectWithValue('Error al cargar huertas rentadas');
     }
   },
@@ -57,8 +58,8 @@ export const createHuertaRentada = createAsyncThunk<HuertaRentada, HuertaRentada
       const res = await huertaRentadaService.create(payload);
       handleBackendNotification(res);
       return res.data.huerta_rentada as HuertaRentada;
-    } catch (err: any) {
-      handleBackendNotification(err?.response?.data);
+    } catch (err: unknown) {
+      handleBackendNotification(extractApiError(err));
       return rejectWithValue('Error al crear huerta rentada');
     }
   },
@@ -75,8 +76,8 @@ export const updateHuertaRentada = createAsyncThunk<
       const res = await huertaRentadaService.update(id, payload);
       handleBackendNotification(res);
       return res.data.huerta_rentada as HuertaRentada;
-    } catch (err: any) {
-      handleBackendNotification(err?.response?.data);
+    } catch (err: unknown) {
+      handleBackendNotification(extractApiError(err));
       return rejectWithValue('Error al actualizar huerta rentada');
     }
   },
@@ -89,8 +90,8 @@ export const deleteHuertaRentada = createAsyncThunk<number, number, { rejectValu
       const res = await huertaRentadaService.delete(id);
       handleBackendNotification(res);
       return id;
-    } catch (err: any) {
-      handleBackendNotification(err?.response?.data);
+    } catch (err: unknown) {
+      handleBackendNotification(extractApiError(err));
       return rejectWithValue('Error al eliminar huerta rentada');
     }
   },
@@ -107,8 +108,8 @@ export const archiveHuertaRentada = createAsyncThunk<
       const res = await huertaRentadaService.archivar(id);
       handleBackendNotification(res);
       return { id, archivado_en: new Date().toISOString() };
-    } catch (err: any) {
-      handleBackendNotification(err?.response?.data);
+    } catch (err: unknown) {
+      handleBackendNotification(extractApiError(err));
       return rejectWithValue('Error al archivar huerta rentada');
     }
   },
@@ -125,8 +126,8 @@ export const restoreHuertaRentada = createAsyncThunk<
       const res = await huertaRentadaService.restaurar(id);
       handleBackendNotification(res);
       return { id, archivado_en: null };
-    } catch (err: any) {
-      handleBackendNotification(err?.response?.data);
+    } catch (err: unknown) {
+      handleBackendNotification(extractApiError(err));
       return rejectWithValue('Error al restaurar huerta rentada');
     }
   },
@@ -136,17 +137,17 @@ const hrSlice = createSlice({
   name: 'huertaRentada',
   initialState,
   reducers: {
-    setHRPage:    (s, a: PayloadAction<number>)   => { s.page = a.payload; },
-    setHREstado:  (s, a: PayloadAction<Estado>)   => { s.estado = a.payload; s.page = 1; },
-    setHRFilters: (s, a: PayloadAction<HRFilters>)=> { s.filters = a.payload; s.page = 1; },
+    setHRPage: (s, a: PayloadAction<number>) => { s.page = a.payload; },
+    setHREstado: (s, a: PayloadAction<Estado>) => { s.estado = a.payload; s.page = 1; },
+    setHRFilters: (s, a: PayloadAction<HRFilters>) => { s.filters = a.payload; s.page = 1; },
   },
   extraReducers: (b) => {
-    b.addCase(fetchHuertasRentadas.pending,   (s)                     => { s.loading = true;  s.error = null; });
-    b.addCase(fetchHuertasRentadas.fulfilled, (s, { payload })        => {
+    b.addCase(fetchHuertasRentadas.pending, (s) => { s.loading = true; s.error = null; });
+    b.addCase(fetchHuertasRentadas.fulfilled, (s, { payload }) => {
       s.items = payload.huertas_rentadas; s.meta = payload.meta; s.page = payload.page;
       s.loading = false; s.loaded = true;
     });
-    b.addCase(fetchHuertasRentadas.rejected,  (s, { payload, error }) => {
+    b.addCase(fetchHuertasRentadas.rejected, (s, { payload, error }) => {
       s.loading = false; s.loaded = true; s.error = payload ?? error.message ?? 'Error';
     });
 

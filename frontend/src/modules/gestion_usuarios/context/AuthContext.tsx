@@ -6,12 +6,12 @@ import React, {
   ReactNode,
 } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAppSelector } from '../../../global/store/store';
+import { useAppSelector, useAppDispatch } from '../../../global/store/store';
 
 import authService, { User } from '../services/authService';
 import apiClient from '../../../global/api/apiClient';
 import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
-import { ensureSuccess } from '../../../global/utils/backendEnvelope';
+import { fetchPermissionsThunk } from '../../../global/store/authSlice';
 
 /* --------- API del contexto --------- */
 interface AuthContextProps {
@@ -40,6 +40,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
 
   /* --- localStorage para sesión persistente --- */
   const storedUser = authService.getUser();
@@ -95,14 +96,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   /* -------------------------------------------------------------------- */
   const fetchPermissions = async (): Promise<string[]> => {
     try {
-      const { data } = await apiClient.get('/usuarios/me/permissions/');
-      const env = ensureSuccess<{ permissions: string[] }>(data);
-      const perms = env.data?.permissions ?? [];
-      setPermissions(perms);
-      return perms;
+      // Dispatch thunk to unify Redux and Context permissions
+      const result = await dispatch(fetchPermissionsThunk()).unwrap();
+      return result;
     } catch (err) {
       console.error('Error fetching permissions', err);
-      setPermissions([]);
       return [];
     }
   };

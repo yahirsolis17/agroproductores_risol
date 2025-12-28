@@ -8,9 +8,10 @@ import {
 } from '../../modules/gestion_huerta/types/ventaTypes';
 import type { RootState } from './store';
 import { PaginationMeta } from '../../modules/gestion_huerta/types/shared';
+import { ApiError, extractApiError } from '../types/apiTypes';
 
 export type EstadoFiltro = 'activas' | 'archivadas' | 'todas';
-export interface VentaFilters extends SvcFilters {}
+export interface VentaFilters extends SvcFilters { }
 
 interface VentasState {
   items: VentaHuerta[];
@@ -61,7 +62,7 @@ async function fetchSameOrPrevPageSilently(s: VentasState): Promise<PagePayload>
   // 1) intento con la página actual
   const res1 = await ventaService.list(ctxFromState(s), s.page, PAGE_SIZE, s.filters);
   const items1 = res1?.data?.results ?? [];
-  const meta1  = res1?.data?.meta ?? { count: 0, next: null, previous: null, page: s.page, page_size: PAGE_SIZE, total_pages: 1 };
+  const meta1 = res1?.data?.meta ?? { count: 0, next: null, previous: null, page: s.page, page_size: PAGE_SIZE, total_pages: 1 };
 
   if (items1.length > 0 || s.page === 1) {
     return { ventas: items1, meta: meta1, page: s.page };
@@ -71,7 +72,7 @@ async function fetchSameOrPrevPageSilently(s: VentasState): Promise<PagePayload>
   const newPage = Math.max(1, s.page - 1);
   const res2 = await ventaService.list(ctxFromState(s), newPage, PAGE_SIZE, s.filters);
   const items2 = res2?.data?.results ?? [];
-  const meta2  = res2?.data?.meta ?? { count: 0, next: null, previous: null, page: newPage, page_size: PAGE_SIZE, total_pages: 1 };
+  const meta2 = res2?.data?.meta ?? { count: 0, next: null, previous: null, page: newPage, page_size: PAGE_SIZE, total_pages: 1 };
 
   return { ventas: items2, meta: meta2, page: newPage };
 }
@@ -85,16 +86,16 @@ export const fetchVentas = createAsyncThunk<
   'ventas/fetch',
   async (_, { getState, rejectWithValue }) => {
     const s = getState().ventas;
-    const {temporadaId, cosechaId } = s;
-      if (!temporadaId || !cosechaId) {
-        return rejectWithValue('Faltan IDs de contexto (temporada o cosecha).');
-      }
+    const { temporadaId, cosechaId } = s;
+    if (!temporadaId || !cosechaId) {
+      return rejectWithValue('Faltan IDs de contexto (temporada o cosecha).');
+    }
     try {
       const res = await ventaService.list(ctxFromState(s), s.page, PAGE_SIZE, s.filters);
       handleBackendNotification(res);
       return { ventas: res.data.results, meta: res.data.meta, page: s.page };
-    } catch (err: any) {
-      handleBackendNotification(err?.response?.data || err);
+    } catch (err: unknown) {
+      handleBackendNotification(extractApiError(err));
       return rejectWithValue('Error al cargar ventas');
     }
   }
@@ -103,22 +104,23 @@ export const fetchVentas = createAsyncThunk<
 export const createVenta = createAsyncThunk<
   VentaHuerta,
   VentaHuertaCreateData,
-  { state: RootState; rejectValue: any }
+  { state: RootState; rejectValue: ApiError }
 >(
   'ventas/create',
   async (payload, { getState, rejectWithValue }) => {
     const s = getState().ventas;
-    const {temporadaId, cosechaId } = s;
+    const { temporadaId, cosechaId } = s;
     if (!temporadaId || !cosechaId) {
-      return rejectWithValue({ message: 'Contexto incompleto' });
+      return rejectWithValue({ success: false, message_key: 'context_incomplete', message: 'Contexto incompleto' });
     }
     try {
       const res = await ventaService.create(ctxFromState(s), payload);
       handleBackendNotification(res);
       return res.data.venta;
-    } catch (err: any) {
-      handleBackendNotification(err?.response?.data || err);
-      return rejectWithValue(err?.response?.data || err);
+    } catch (err: unknown) {
+      const apiError = extractApiError(err);
+      handleBackendNotification(apiError);
+      return rejectWithValue(apiError);
     }
   }
 );
@@ -126,7 +128,7 @@ export const createVenta = createAsyncThunk<
 export const updateVenta = createAsyncThunk<
   VentaHuerta,
   { id: number; payload: VentaHuertaUpdateData },
-  { rejectValue: any }
+  { rejectValue: ApiError }
 >(
   'ventas/update',
   async ({ id, payload }, { rejectWithValue }) => {
@@ -134,9 +136,10 @@ export const updateVenta = createAsyncThunk<
       const res = await ventaService.update(id, payload);
       handleBackendNotification(res);
       return res.data.venta;
-    } catch (err: any) {
-      handleBackendNotification(err?.response?.data || err);
-      return rejectWithValue(err?.response?.data || err);
+    } catch (err: unknown) {
+      const apiError = extractApiError(err);
+      handleBackendNotification(apiError);
+      return rejectWithValue(apiError);
     }
   }
 );
@@ -145,7 +148,7 @@ export const updateVenta = createAsyncThunk<
 export const archiveVenta = createAsyncThunk<
   { venta: VentaHuerta; pageData: PagePayload | null },
   number,
-  { state: RootState; rejectValue: any }
+  { state: RootState; rejectValue: ApiError }
 >(
   'ventas/archive',
   async (id, { getState, rejectWithValue }) => {
@@ -163,9 +166,10 @@ export const archiveVenta = createAsyncThunk<
       // en "activas" (desaparece) y en "archivadas" no estaba: repaginar
       const pageData = await fetchSameOrPrevPageSilently(s);
       return { venta: res.data.venta, pageData };
-    } catch (err: any) {
-      handleBackendNotification(err?.response?.data || err);
-      return rejectWithValue(err?.response?.data || err);
+    } catch (err: unknown) {
+      const apiError = extractApiError(err);
+      handleBackendNotification(apiError);
+      return rejectWithValue(apiError);
     }
   }
 );
@@ -174,7 +178,7 @@ export const archiveVenta = createAsyncThunk<
 export const restoreVenta = createAsyncThunk<
   { venta: VentaHuerta; pageData: PagePayload | null },
   number,
-  { state: RootState; rejectValue: any }
+  { state: RootState; rejectValue: ApiError }
 >(
   'ventas/restore',
   async (id, { getState, rejectWithValue }) => {
@@ -194,9 +198,10 @@ export const restoreVenta = createAsyncThunk<
       }
       // en "activas" normalmente no hay restaurar
       return { venta: res.data.venta, pageData: null };
-    } catch (err: any) {
-      handleBackendNotification(err?.response?.data || err);
-      return rejectWithValue(err?.response?.data || err);
+    } catch (err: unknown) {
+      const apiError = extractApiError(err);
+      handleBackendNotification(apiError);
+      return rejectWithValue(apiError);
     }
   }
 );
@@ -205,7 +210,7 @@ export const restoreVenta = createAsyncThunk<
 export const deleteVenta = createAsyncThunk<
   { id: number; pageData: PagePayload },
   number,
-  { state: RootState; rejectValue: any }
+  { state: RootState; rejectValue: ApiError }
 >(
   'ventas/delete',
   async (id, { getState, rejectWithValue }) => {
@@ -216,9 +221,10 @@ export const deleteVenta = createAsyncThunk<
       const s = getState().ventas;
       const pageData = await fetchSameOrPrevPageSilently(s);
       return { id, pageData };
-    } catch (err: any) {
-      handleBackendNotification(err?.response?.data || err);
-      return rejectWithValue(err?.response?.data || err);
+    } catch (err: unknown) {
+      const apiError = extractApiError(err);
+      handleBackendNotification(apiError);
+      return rejectWithValue(apiError);
     }
   }
 );
@@ -244,70 +250,70 @@ const ventasSlice = createSlice({
   },
   extraReducers: b => {
     b.addCase(fetchVentas.pending, s => { s.loading = true; s.error = null; })
-     .addCase(fetchVentas.fulfilled, (s, { payload }) => {
-       s.items = payload.ventas;
-       s.meta = payload.meta;
-       s.page = payload.page;
-       s.loading = false;
-       s.loaded = true;
-     })
-     .addCase(fetchVentas.rejected, (s, { payload, error }) => {
-       s.loading = false;
-       s.error = (payload as string) ?? error.message ?? 'Error';
-       s.loaded = true;
-     })
+      .addCase(fetchVentas.fulfilled, (s, { payload }) => {
+        s.items = payload.ventas;
+        s.meta = payload.meta;
+        s.page = payload.page;
+        s.loading = false;
+        s.loaded = true;
+      })
+      .addCase(fetchVentas.rejected, (s, { payload, error }) => {
+        s.loading = false;
+        s.error = (payload as string) ?? error.message ?? 'Error';
+        s.loaded = true;
+      })
 
-     // CREATE → insert inmediata
-    .addCase(createVenta.fulfilled, (s, { payload }) => {
-      const estado = s.filters.estado ?? 'activas';
-      if (estado === 'activas' || estado === 'todas') {
-        s.items.unshift(payload);
-        s.meta.count += 1;
-      }
-    })
+      // CREATE → insert inmediata
+      .addCase(createVenta.fulfilled, (s, { payload }) => {
+        const estado = s.filters.estado ?? 'activas';
+        if (estado === 'activas' || estado === 'todas') {
+          s.items.unshift(payload);
+          s.meta.count += 1;
+        }
+      })
 
-     // UPDATE in-place
-     .addCase(updateVenta.fulfilled, (s, { payload }) => {
-       const i = s.items.findIndex(v => v.id === payload.id);
-       if (i !== -1) s.items[i] = payload;
-     })
+      // UPDATE in-place
+      .addCase(updateVenta.fulfilled, (s, { payload }) => {
+        const i = s.items.findIndex(v => v.id === payload.id);
+        if (i !== -1) s.items[i] = payload;
+      })
 
-     // ARCHIVAR
-     .addCase(archiveVenta.fulfilled, (s, { payload }) => {
-       const estado = s.filters.estado ?? 'activas';
-       if (estado === 'todas') {
-         const i = s.items.findIndex(v => v.id === payload.venta.id);
-         if (i !== -1) s.items[i] = payload.venta;
-       } else if (payload.pageData) {
-         s.items = payload.pageData.ventas;
-         s.meta = payload.pageData.meta;
-         s.page = payload.pageData.page;
-       }
-     })
+      // ARCHIVAR
+      .addCase(archiveVenta.fulfilled, (s, { payload }) => {
+        const estado = s.filters.estado ?? 'activas';
+        if (estado === 'todas') {
+          const i = s.items.findIndex(v => v.id === payload.venta.id);
+          if (i !== -1) s.items[i] = payload.venta;
+        } else if (payload.pageData) {
+          s.items = payload.pageData.ventas;
+          s.meta = payload.pageData.meta;
+          s.page = payload.pageData.page;
+        }
+      })
 
-     // RESTAURAR
-     .addCase(restoreVenta.fulfilled, (s, { payload }) => {
-       const estado = s.filters.estado ?? 'activas';
-       if (estado === 'todas') {
-         const i = s.items.findIndex(v => v.id === payload.venta.id);
-         if (i !== -1) s.items[i] = payload.venta;
-       } else if (estado === 'archivadas' && payload.pageData) {
-         s.items = payload.pageData.ventas;
-         s.meta = payload.pageData.meta;
-         s.page = payload.pageData.page;
-       } else if (estado === 'activas') {
-         const i = s.items.findIndex(v => v.id === payload.venta.id);
-         if (i !== -1) s.items.splice(i, 1);
-         s.items.unshift(payload.venta);
-       }
-     })
+      // RESTAURAR
+      .addCase(restoreVenta.fulfilled, (s, { payload }) => {
+        const estado = s.filters.estado ?? 'activas';
+        if (estado === 'todas') {
+          const i = s.items.findIndex(v => v.id === payload.venta.id);
+          if (i !== -1) s.items[i] = payload.venta;
+        } else if (estado === 'archivadas' && payload.pageData) {
+          s.items = payload.pageData.ventas;
+          s.meta = payload.pageData.meta;
+          s.page = payload.pageData.page;
+        } else if (estado === 'activas') {
+          const i = s.items.findIndex(v => v.id === payload.venta.id);
+          if (i !== -1) s.items.splice(i, 1);
+          s.items.unshift(payload.venta);
+        }
+      })
 
-     // DELETE
-     .addCase(deleteVenta.fulfilled, (s, { payload }) => {
-       s.items = payload.pageData.ventas;
-       s.meta = payload.pageData.meta;
-       s.page = payload.pageData.page;
-     });
+      // DELETE
+      .addCase(deleteVenta.fulfilled, (s, { payload }) => {
+        s.items = payload.pageData.ventas;
+        s.meta = payload.pageData.meta;
+        s.page = payload.pageData.page;
+      });
   }
 });
 

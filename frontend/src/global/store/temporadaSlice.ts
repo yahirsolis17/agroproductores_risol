@@ -3,11 +3,12 @@ import { temporadaService } from '../../modules/gestion_huerta/services/temporad
 import { handleBackendNotification } from '../utils/NotificationEngine';
 import { Temporada, TemporadaCreateData, EstadoTemporada } from '../../modules/gestion_huerta/types/temporadaTypes';
 import { PaginationMeta } from '../../modules/gestion_huerta/types/shared';
+import { ApiError, extractApiError } from '../types/apiTypes';
 
 interface TemporadaState {
   items: Temporada[];
   loading: boolean;
-  error: Record<string, any> | null;
+  error: ApiError | null;
   loaded: boolean;
   page: number;
   meta: PaginationMeta;
@@ -49,7 +50,7 @@ type FetchArgs = {
 export const fetchTemporadas = createAsyncThunk<
   { temporadas: Temporada[]; meta: PaginationMeta; page: number },
   FetchArgs,
-  { rejectValue: Record<string, any> }
+  { rejectValue: ApiError }
 >(
   'temporada/fetchAll',
   async ({ page, año, huertaId, huertaRentadaId, estado, finalizada, search }, { rejectWithValue }) => {
@@ -61,10 +62,10 @@ export const fetchTemporadas = createAsyncThunk<
         meta: res.data.meta,
         page,
       };
-    } catch (err: any) {
-      const errorPayload = err.response?.data || { message: 'Error al cargar temporadas' };
-      handleBackendNotification(errorPayload.notification || errorPayload);
-      return rejectWithValue(errorPayload);
+    } catch (err: unknown) {
+      const apiError = extractApiError(err);
+      handleBackendNotification(apiError);
+      return rejectWithValue(apiError);
     }
   }
 );
@@ -72,7 +73,7 @@ export const fetchTemporadas = createAsyncThunk<
 export const createTemporada = createAsyncThunk<
   Temporada,
   TemporadaCreateData,
-  { rejectValue: Record<string, any> }
+  { rejectValue: ApiError }
 >(
   'temporada/create',
   async (payload, { rejectWithValue }) => {
@@ -80,10 +81,10 @@ export const createTemporada = createAsyncThunk<
       const res = await temporadaService.create(payload);
       handleBackendNotification(res);
       return res.data.temporada;
-    } catch (err: any) {
-      const errorPayload = err.response?.data || { message: 'Error al crear temporada' };
-      handleBackendNotification(errorPayload.notification || errorPayload);
-      return rejectWithValue(errorPayload);
+    } catch (err: unknown) {
+      const apiError = extractApiError(err);
+      handleBackendNotification(apiError);
+      return rejectWithValue(apiError);
     }
   }
 );
@@ -91,7 +92,7 @@ export const createTemporada = createAsyncThunk<
 export const deleteTemporada = createAsyncThunk<
   number,
   number,
-  { rejectValue: Record<string, any> }
+  { rejectValue: ApiError }
 >(
   'temporada/delete',
   async (id, { rejectWithValue }) => {
@@ -99,10 +100,10 @@ export const deleteTemporada = createAsyncThunk<
       const res = await temporadaService.delete(id);
       handleBackendNotification(res);
       return id;
-    } catch (err: any) {
-      const errorPayload = err.response?.data || { message: 'Error al eliminar temporada' };
-      handleBackendNotification(errorPayload.notification || errorPayload);
-      return rejectWithValue(errorPayload);
+    } catch (err: unknown) {
+      const apiError = extractApiError(err);
+      handleBackendNotification(apiError);
+      return rejectWithValue(apiError);
     }
   }
 );
@@ -110,7 +111,7 @@ export const deleteTemporada = createAsyncThunk<
 export const finalizarTemporada = createAsyncThunk<
   Temporada,
   number,
-  { rejectValue: Record<string, any> }
+  { rejectValue: ApiError }
 >(
   'temporada/finalizar',
   async (id, { rejectWithValue }) => {
@@ -118,10 +119,10 @@ export const finalizarTemporada = createAsyncThunk<
       const res = await temporadaService.finalizar(id);
       handleBackendNotification(res);
       return res.data.temporada;
-    } catch (err: any) {
-      const errorPayload = err.response?.data || { message: 'Error al finalizar temporada' };
-      handleBackendNotification(errorPayload.notification || errorPayload);
-      return rejectWithValue(errorPayload);
+    } catch (err: unknown) {
+      const apiError = extractApiError(err);
+      handleBackendNotification(apiError);
+      return rejectWithValue(apiError);
     }
   }
 );
@@ -129,7 +130,7 @@ export const finalizarTemporada = createAsyncThunk<
 export const archivarTemporada = createAsyncThunk<
   Temporada,
   number,
-  { rejectValue: Record<string, any> }
+  { rejectValue: ApiError }
 >(
   'temporada/archivar',
   async (id, { rejectWithValue }) => {
@@ -137,10 +138,10 @@ export const archivarTemporada = createAsyncThunk<
       const res = await temporadaService.archivar(id);
       handleBackendNotification(res);
       return res.data.temporada;
-    } catch (err: any) {
-      const errorPayload = err.response?.data || { message: 'Error al archivar temporada' };
-      handleBackendNotification(errorPayload.notification || errorPayload);
-      return rejectWithValue(errorPayload);
+    } catch (err: unknown) {
+      const apiError = extractApiError(err);
+      handleBackendNotification(apiError);
+      return rejectWithValue(apiError);
     }
   }
 );
@@ -148,7 +149,7 @@ export const archivarTemporada = createAsyncThunk<
 export const restaurarTemporada = createAsyncThunk<
   Temporada,
   number,
-  { rejectValue: Record<string, any> }
+  { rejectValue: ApiError }
 >(
   'temporada/restaurar',
   async (id, { rejectWithValue }) => {
@@ -156,10 +157,10 @@ export const restaurarTemporada = createAsyncThunk<
       const res = await temporadaService.restaurar(id);
       handleBackendNotification(res);
       return res.data.temporada;
-    } catch (err: any) {
-      const errorPayload = err.response?.data || { message: 'Error al restaurar temporada' };
-      handleBackendNotification(errorPayload.notification || errorPayload);
-      return rejectWithValue(errorPayload);
+    } catch (err: unknown) {
+      const apiError = extractApiError(err);
+      handleBackendNotification(apiError);
+      return rejectWithValue(apiError);
     }
   }
 );
