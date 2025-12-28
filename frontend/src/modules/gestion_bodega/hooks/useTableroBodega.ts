@@ -26,6 +26,7 @@ import type {
   QueueItem,
   KpiSummary,
 } from "../types/tableroBodegaTypes";
+import { parseLocalDateStrict, formatDateISO } from "../../../global/utils/date";
 
 // --------------------------
 // Helpers
@@ -397,6 +398,25 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
     };
   }, [hasWeeks, items, selectedIndex, selectedWeek, weeksNavData?.context, summary]);
 
+  const selectedWeekObj = selectedWeek as any;
+  const isExpiredWeek = useMemo(() => {
+    if (!selectedWeekObj?.fecha_desde && !selectedWeekObj?.inicio) return false;
+    // Si ya está cerrada, no expira (está finalizada)
+    if (selectedWeekObj.fecha_hasta || selectedWeekObj.fin || selectedWeekObj.is_closed) return false;
+
+    const startStr = selectedWeekObj.fecha_desde || selectedWeekObj.inicio;
+    const start = parseLocalDateStrict(startStr);
+    const limit = new Date(start);
+    limit.setDate(limit.getDate() + 6); // día 7
+
+    // Si hoy > limit, expirada
+    const today = new Date();
+    // Comparar solo fechas ignorando horas
+    const todayYMD = formatDateISO(today);
+    const limitYMD = formatDateISO(limit);
+    return todayYMD > limitYMD;
+  }, [selectedWeekObj]);
+
   // --------------------------
   // Actions
   // --------------------------
@@ -480,6 +500,7 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
     loadingWeeksNav,
     startingWeek,
     finishingWeek,
+    isExpiredWeek,
 
     // State
     temporadaLabel,

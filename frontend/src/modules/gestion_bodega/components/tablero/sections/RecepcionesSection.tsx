@@ -29,6 +29,7 @@ interface RecepcionesSectionProps {
 
   selectedWeek: WeekLike | null;
   isActiveSelectedWeek: boolean;
+  isExpiredWeek?: boolean;
 
   /** Callback para que el Shell marque refetch de summary/recepciones/logística cuando hay mutaciones. */
   onMutateSuccess?: () => void;
@@ -40,6 +41,7 @@ const RecepcionesSection: React.FC<RecepcionesSectionProps> = ({
   hasWeeks,
   selectedWeek,
   isActiveSelectedWeek,
+  isExpiredWeek,
   onMutateSuccess,
 }) => {
   const {
@@ -95,13 +97,19 @@ const RecepcionesSection: React.FC<RecepcionesSectionProps> = ({
   }, [hasWeeks, selectedWeekId]);
 
   // Bloqueos (operación)
-  const recepDisabled = !capCanOperate ? true : hasWeeks ? !isActiveSelectedWeek : false;
+  const recepDisabled = !capCanOperate
+    ? true
+    : hasWeeks
+      ? !isActiveSelectedWeek || !!isExpiredWeek
+      : false;
 
   const recepReason = !capCanOperate
     ? capReasonDisabled || "Selecciona bodega y temporada."
     : hasWeeks && !isActiveSelectedWeek
-    ? "Semana cerrada o no iniciada."
-    : undefined;
+      ? "Semana cerrada o no iniciada."
+      : hasWeeks && isExpiredWeek
+        ? "Semana caducada. Finaliza para continuar."
+        : undefined;
 
   const weekRange = useMemo(() => {
     if (!selectedWeek) return undefined;

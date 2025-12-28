@@ -21,6 +21,7 @@ type SectionBadges = Partial<
 interface TableroSectionsAccordionProps {
   /** Si true: default "recepciones". Si false: default "resumen". */
   isActiveSelectedWeek: boolean;
+  isExpiredWeek?: boolean;
 
   resumen: React.ReactNode;
   recepciones: React.ReactNode;
@@ -49,6 +50,7 @@ const subtitleByKey: Record<TableroSectionKey, string> = {
 
 const TableroSectionsAccordion: React.FC<TableroSectionsAccordionProps> = ({
   isActiveSelectedWeek,
+  isExpiredWeek,
   resumen,
   recepciones,
   empaque,
@@ -79,7 +81,10 @@ const TableroSectionsAccordion: React.FC<TableroSectionsAccordionProps> = ({
   const handleToggle = (key: TableroSectionKey) => setOpenKey(key);
 
   const renderHeader = (key: TableroSectionKey) => {
-    const chips = badges?.[key] ?? [];
+    let chips = badges?.[key] ?? [];
+    if (key === "recepciones" && isExpiredWeek) {
+      chips = [...chips, { label: "Caducada", color: "error" }];
+    }
     return (
       <Box
         sx={{

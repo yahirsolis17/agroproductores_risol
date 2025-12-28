@@ -14,20 +14,29 @@ import type {
   CapturaUpdatePayload,
   PaginationMeta,
 } from '../../modules/gestion_bodega/types/capturasTypes';
+import type { ApiError } from '../types/apiTypes';
 
 // -------------------------------
 // Helpers
 // -------------------------------
-function extractErrorMessage(payload: unknown, fallback: string): string {
-  if (!payload || typeof payload !== 'object') return fallback;
-  const p = payload as Record<string, unknown>;
-  return (
-    (typeof p.message === 'string' ? p.message : null) ||
-    (typeof p.detail === 'string' ? p.detail : null) ||
-    (typeof p.error === 'string' ? p.error : null) ||
-    fallback
-  );
-}
+const mapError = (err: unknown, fallback: string): CapturaError => {
+  const data = (err as { response?: { data?: unknown; status?: number } })?.response?.data;
+  const status = (err as { response?: { status?: number } })?.response?.status;
+  const payload = (data && typeof data === 'object' ? (data as Record<string, unknown>) : {}) as Record<string, unknown>;
+  const msg =
+    (typeof payload.message === 'string' && payload.message) ||
+    (typeof payload.detail === 'string' && payload.detail) ||
+    (typeof payload.error === 'string' && payload.error) ||
+    fallback;
+
+  return {
+    success: false,
+    message_key: 'error',
+    message: msg,
+    status,
+    ...payload,
+  };
+};
 
 // -------------------------------
 // Estado
@@ -50,6 +59,13 @@ export interface CapturasState {
   current: Captura | null;
 }
 
+type CapturaError = ApiError & {
+  status?: number;
+  detail?: string;
+  error?: string;
+  [key: string]: unknown;
+};
+
 const initialState: CapturasState = {
   items: [],
   meta: { count: 0, next: null, previous: null, page: 1, page_size: 10, total_pages: 1 },
@@ -66,103 +82,73 @@ const initialState: CapturasState = {
 export const fetchCapturas = createAsyncThunk<
   { capturas: Captura[]; meta: PaginationMeta },
   void,
-  { state: RootState }
+  { state: RootState; rejectValue: CapturaError }
 >('capturas/fetchCapturas', async (_void, { getState, rejectWithValue, signal }) => {
   try {
     const { filters } = (getState().capturas as CapturasState);
     const resp = await listCapturas(filters as unknown as Record<string, unknown>, { signal });
     return resp;
   } catch (err: unknown) {
-    const errData = (err as { response?: { data?: unknown; status?: number } })?.response;
-    return rejectWithValue({
-      ...(errData?.data && typeof errData.data === 'object' ? errData.data as Record<string, unknown> : {}),
-      status: errData?.status,
-      message: extractErrorMessage(errData?.data, 'Error listando capturas'),
-    });
+      return rejectWithValue(mapError(err, 'Error listando capturas'));
   }
 });
 
-export const createCapturaThunk = createAsyncThunk<Captura, CapturaCreatePayload>(
+export const createCapturaThunk = createAsyncThunk<Captura, CapturaCreatePayload, { rejectValue: CapturaError }>(
   'capturas/createCaptura',
   async (payload, { rejectWithValue }) => {
     try {
       const resp = await createCaptura(payload);
       return resp.captura;
     } catch (err: unknown) {
-      const errData = (err as { response?: { data?: unknown; status?: number } })?.response;
-      return rejectWithValue({
-        ...(errData?.data && typeof errData.data === 'object' ? errData.data as Record<string, unknown> : {}),
-        status: errData?.status,
-        message: extractErrorMessage(errData?.data, 'Error creando captura'),
-      });
+      return rejectWithValue(mapError(err, 'Error creando captura'));
     }
   }
 );
 
-export const updateCapturaThunk = createAsyncThunk<Captura, { id: number; data: CapturaUpdatePayload }>(
+export const updateCapturaThunk = createAsyncThunk<Captura, { id: number; data: CapturaUpdatePayload }, { rejectValue: CapturaError }>(
   'capturas/updateCaptura',
   async ({ id, data }, { rejectWithValue }) => {
     try {
       const resp = await updateCaptura(id, data);
       return resp.captura;
     } catch (err: unknown) {
-      const errData = (err as { response?: { data?: unknown; status?: number } })?.response;
-      return rejectWithValue({
-        ...(errData?.data && typeof errData.data === 'object' ? errData.data as Record<string, unknown> : {}),
-        status: errData?.status,
-        message: extractErrorMessage(errData?.data, 'Error actualizando captura'),
-      });
+      return rejectWithValue(mapError(err, 'Error actualizando captura'));
     }
   }
 );
 
-export const archivarCapturaThunk = createAsyncThunk<{ id: number; captura?: Captura }, { id: number }>(
+export const archivarCapturaThunk = createAsyncThunk<{ id: number; captura?: Captura }, { id: number }, { rejectValue: CapturaError }>(
   'capturas/archivarCaptura',
   async ({ id }, { rejectWithValue }) => {
     try {
       const resp = await archivarCaptura(id);
       return { id: resp.captura_id, captura: (resp as { captura?: Captura }).captura };
     } catch (err: unknown) {
-      const errData = (err as { response?: { data?: unknown; status?: number } })?.response;
-      return rejectWithValue({
-        ...(errData?.data && typeof errData.data === 'object' ? errData.data as Record<string, unknown> : {}),
-        status: errData?.status,
-        message: extractErrorMessage(errData?.data, 'Error archivando captura'),
-      });
+      return rejectWithValue(mapError(err, 'Error archivando captura'));
     }
   }
 );
 
-export const restaurarCapturaThunk = createAsyncThunk<Captura, { id: number }>(
+export const restaurarCapturaThunk = createAsyncThunk<Captura, { id: number }, { rejectValue: CapturaError }>(
   'capturas/restaurarCaptura',
   async ({ id }, { rejectWithValue }) => {
     try {
       const resp = await restaurarCaptura(id);
       return resp.captura;
     } catch (err: unknown) {
-      const errData = (err as { response?: { data?: unknown; status?: number } })?.response;
-      return rejectWithValue({
-        ...(errData?.data && typeof errData.data === 'object' ? errData.data as Record<string, unknown> : {}),
-        status: errData?.status,
-        message: extractErrorMessage(errData?.data, 'Error restaurando captura'),
-      });
+      return rejectWithValue(mapError(err, 'Error restaurando captura'));
     }
   }
 );
 
-export const deleteCapturaThunk = createAsyncThunk<{ id: number }, { id: number }>(
+export const deleteCapturaThunk = createAsyncThunk<{ id: number }, { id: number }, { rejectValue: CapturaError }>(
   'capturas/deleteCaptura',
   async ({ id }, { rejectWithValue }) => {
     try {
       const resp = await deleteCaptura(id);
       return { id: resp.deleted_id };
     } catch (err: unknown) {
-      const errData = (err as { response?: { data?: unknown; status?: number } })?.response;
-      return rejectWithValue({
-        ...(errData?.data && typeof errData.data === 'object' ? errData.data as Record<string, unknown> : {}),
-        status: errData?.status,
-        message: extractErrorMessage(errData?.data, 'Error eliminando captura'),
-      });
+      return rejectWithValue(mapError(err, 'Error eliminando captura'));
     }
   }
 );
@@ -219,9 +205,9 @@ const capturasSlice = createSlice({
       state.items = action.payload.capturas;
       state.meta = action.payload.meta;
     });
-    builder.addCase(fetchCapturas.rejected, (state, action: any) => {
+    builder.addCase(fetchCapturas.rejected, (state, action: PayloadAction<CapturaError | undefined>) => {
       state.status = 'failed';
-      state.error = extractErrorMessage(action.payload, 'Error al cargar capturas');
+      state.error = action.payload?.message ?? 'Error al cargar capturas';
     });
 
     // create
@@ -240,9 +226,9 @@ const capturasSlice = createSlice({
       state.meta.count = (state.meta.count ?? 0) + 1;
       state.current = action.payload;
     });
-    builder.addCase(createCapturaThunk.rejected, (state, action: any) => {
+    builder.addCase(createCapturaThunk.rejected, (state, action: PayloadAction<CapturaError | undefined>) => {
       state.saving = false;
-      state.error = extractErrorMessage(action.payload, 'Error al crear captura');
+      state.error = action.payload?.message ?? 'Error al crear captura';
     });
 
     // update
@@ -256,9 +242,9 @@ const capturasSlice = createSlice({
       if (idx >= 0) state.items[idx] = action.payload;
       if (state.current?.id === action.payload.id) state.current = action.payload;
     });
-    builder.addCase(updateCapturaThunk.rejected, (state, action: any) => {
+    builder.addCase(updateCapturaThunk.rejected, (state, action: PayloadAction<CapturaError | undefined>) => {
       state.saving = false;
-      state.error = extractErrorMessage(action.payload, 'Error al actualizar captura');
+      state.error = action.payload?.message ?? 'Error al actualizar captura';
     });
 
     // archivar
@@ -273,16 +259,16 @@ const capturasSlice = createSlice({
         if (action.payload.captura) {
           state.items[idx] = action.payload.captura;
         } else {
-          (state.items[idx] as any).is_active = false;
+          state.items[idx].is_active = false;
         }
       }
       if (state.current?.id === action.payload.id && action.payload.captura) {
         state.current = action.payload.captura;
       }
     });
-    builder.addCase(archivarCapturaThunk.rejected, (state, action: any) => {
+    builder.addCase(archivarCapturaThunk.rejected, (state, action: PayloadAction<CapturaError | undefined>) => {
       state.saving = false;
-      state.error = extractErrorMessage(action.payload, 'Error al archivar captura');
+      state.error = action.payload?.message ?? 'Error al archivar captura';
     });
 
     // restaurar
@@ -296,9 +282,9 @@ const capturasSlice = createSlice({
       if (idx >= 0) state.items[idx] = action.payload;
       if (state.current?.id === action.payload.id) state.current = action.payload;
     });
-    builder.addCase(restaurarCapturaThunk.rejected, (state, action: any) => {
+    builder.addCase(restaurarCapturaThunk.rejected, (state, action: PayloadAction<CapturaError | undefined>) => {
       state.saving = false;
-      state.error = extractErrorMessage(action.payload, 'Error al restaurar captura');
+      state.error = action.payload?.message ?? 'Error al restaurar captura';
     });
 
     // delete
@@ -316,9 +302,9 @@ const capturasSlice = createSlice({
       }
       if (state.current?.id === action.payload.id) state.current = null;
     });
-    builder.addCase(deleteCapturaThunk.rejected, (state, action: any) => {
+    builder.addCase(deleteCapturaThunk.rejected, (state, action: PayloadAction<CapturaError | undefined>) => {
       state.saving = false;
-      state.error = extractErrorMessage(action.payload, 'Error al eliminar captura');
+      state.error = action.payload?.message ?? 'Error al eliminar captura';
     });
   },
 });

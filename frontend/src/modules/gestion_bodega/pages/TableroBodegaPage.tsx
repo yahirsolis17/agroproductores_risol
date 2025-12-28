@@ -327,12 +327,43 @@ const TableroBodegaPage: React.FC = () => {
     return Math.max(0, Math.min(items.length - 1, idxFromNav));
   }, [weekNav?.items, weekNav?.indice, urlWeekId]);
 
-  const disablePrev = !hasWeeks || currentIndex <= 0;
-  const disableNext = !hasWeeks || currentIndex < 0 || currentIndex >= ((weekNav?.items || []) as any[]).length - 1;
+  // Virtual Mode detection
+  const isVirtualMode = !urlWeekId && !selectedWeek && hasWeeks;
+
+  const disablePrev = !hasWeeks || (currentIndex <= 0 && !isVirtualMode);
+
+  // Allow next if:
+  // 1. Not at end of list
+  // 2. OR at end of list, but that last week is CLOSED (so we can go to virtual week)
+  // 3. AND not already in virtual mode
+  const disableNext = useMemo(() => {
+    if (!hasWeeks) return true;
+    if (isVirtualMode) return true; // Can't go next from virtual
+    const items = (weekNav?.items || []) as any[];
+    const isAtEnd = currentIndex >= items.length - 1;
+    if (!isAtEnd) return false;
+
+    // Check if last week is closed
+    const lastWeek = items[items.length - 1];
+    const isClosed = lastWeek.fecha_hasta || lastWeek.fin || lastWeek.is_closed;
+    return !isClosed;
+  }, [hasWeeks, isVirtualMode, currentIndex, weekNav?.items]);
 
   const goPrevWeek = useCallback(() => {
     const items = (weekNav?.items || []) as any[];
     if (!items.length) return;
+
+    // If in virtual mode, go back to last item
+    if (isVirtualMode) {
+      const last = items[items.length - 1];
+      if (last?.id) {
+        const next = new URLSearchParams(sp);
+        next.set("week_id", String(last.id));
+        setSp(next, { replace: true }); // Back to reality
+      }
+      return;
+    }
+
     const idx = currentIndex <= 0 ? 0 : currentIndex - 1;
     const target = items[idx];
     if (target?.id) {
@@ -340,12 +371,46 @@ const TableroBodegaPage: React.FC = () => {
       next.set("week_id", String(target.id));
       setSp(next, { replace: false });
     }
-  }, [weekNav?.items, currentIndex, sp, setSp]);
+  }, [weekNav?.items, currentIndex, sp, setSp, isVirtualMode]);
 
   const goNextWeek = useCallback(() => {
     const items = (weekNav?.items || []) as any[];
     if (!items.length) return;
-    const idx = currentIndex >= items.length - 1 ? items.length - 1 : currentIndex + 1;
+
+    // logic for next
+    const isAtEnd = currentIndex >= items.length - 1;
+
+    if (isAtEnd) {
+      // Try to enter virtual mode
+      const lastWeek = items[items.length - 1];
+      const isClosed = lastWeek.fecha_hasta || lastWeek.fin || lastWeek.is_closed;
+
+      if (isClosed) {
+        // Enter Virtual Mode
+        const next = new URLSearchParams(sp);
+        next.delete("week_id");
+        setSp(next, { replace: true });
+
+        // Calc virtual dates: start = last end + 1 day
+        const lastEndStr = lastWeek.fecha_hasta || lastWeek.fin || lastWeek.fecha_desde; // Fallback
+        const lastEnd = parseLocalDateStrict(lastEndStr);
+        const virtualStart = new Date(lastEnd);
+        virtualStart.setDate(virtualStart.getDate() + 1);
+
+        const virtualEnd = new Date(virtualStart);
+        virtualEnd.setDate(virtualEnd.getDate() + 6);
+
+        setWeekValue({
+          from: formatDateISO(virtualStart),
+          to: formatDateISO(virtualEnd),
+          isoSemana: "MANUAL" // or calculate next ISO
+        });
+        return;
+      }
+      return; // Stuck
+    }
+
+    const idx = currentIndex + 1;
     const target = items[idx];
     if (target?.id) {
       const next = new URLSearchParams(sp);
@@ -438,10 +503,10 @@ const TableroBodegaPage: React.FC = () => {
   const startTooltip = !bodegaId
     ? "Selecciona una bodega válida."
     : hasActiveWeek
-    ? "Ya existe una semana abierta para esta bodega y temporada."
-    : isSameRangeAsSelectedWeek
-    ? "Esta semana ya está registrada. Ajusta el rango para iniciar una nueva."
-    : "Iniciar semana";
+      ? "Ya existe una semana abierta para esta bodega y temporada."
+      : isSameRangeAsSelectedWeek
+        ? "Esta semana ya está registrada. Ajusta el rango para iniciar una nueva."
+        : "Iniciar semana";
 
   // Empaque → manda al bloque de Recepciones (sin duplicar lógica)
   const handleGoPendientesEmpaque = useCallback(() => {
@@ -488,12 +553,12 @@ const TableroBodegaPage: React.FC = () => {
             borderBottom: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
           }}
         >
-          <Box 
-            display="grid" 
-            gap={{ xs: 1.5, sm: 2 }} 
-            sx={{ 
-              gridTemplateColumns: { xs: "1fr", md: "1fr auto" }, 
-              alignItems: "center" 
+          <Box
+            display="grid"
+            gap={{ xs: 1.5, sm: 2 }}
+            sx={{
+              gridTemplateColumns: { xs: "1fr", md: "1fr auto" },
+              alignItems: "center"
             }}
           >
             <Box display="flex" alignItems="center" gap={{ xs: 1.5, sm: 2 }} flexWrap="wrap">
@@ -617,13 +682,13 @@ const TableroBodegaPage: React.FC = () => {
               />
             </Box>
 
-            <Box 
-              display="flex" 
-              alignItems="center" 
-              gap={{ xs: 1, sm: 1.5 }} 
-              component={motion.div} 
+            <Box
+              display="flex"
+              alignItems="center"
+              gap={{ xs: 1, sm: 1.5 }}
+              component={motion.div}
               variants={sectionTransition}
-              sx={{ 
+              sx={{
                 flexGrow: { xs: 1, md: 0 },
                 justifyContent: { xs: "space-between", md: "flex-start" }
               }}
@@ -632,10 +697,10 @@ const TableroBodegaPage: React.FC = () => {
                 <Typography
                   variant="body2"
                   color="text.secondary"
-                  sx={{ 
-                    fontWeight: 500, 
-                    display: "flex", 
-                    alignItems: "center", 
+                  sx={{
+                    fontWeight: 500,
+                    display: "flex",
+                    alignItems: "center",
                     gap: 1,
                     fontSize: { xs: "0.75rem", sm: "0.875rem" }
                   }}
@@ -680,12 +745,70 @@ const TableroBodegaPage: React.FC = () => {
             </Box>
           </Box>
 
+          {/* Alerta de Semana Caducada */}
+          <AnimatePresence>
+            {hookAny.isExpiredWeek && (
+              <Box
+                component={motion.div as any}
+                initial={{ opacity: 0, height: 0, mb: 0 }}
+                animate={{ opacity: 1, height: "auto", mb: 16 }}
+                exit={{ opacity: 0, height: 0, mb: 0 }}
+                sx={{ width: "100%", overflow: "hidden" }}
+              >
+                <Alert
+                  severity="error"
+                  variant="filled"
+                  sx={{
+                    borderRadius: 2,
+                    fontWeight: 500,
+                    boxShadow: theme.shadows[2],
+                    ".MuiAlert-message": { width: "100%" }
+                  }}
+                  action={
+                    !isMobile && (
+                      <Button
+                        color="inherit"
+                        size="small"
+                        onClick={handleFinish}
+                        disabled={busyFinish}
+                        sx={{ fontWeight: 700, bgcolor: "rgba(255,255,255,0.2)" }}
+                      >
+                        Finalizar Ahora
+                      </Button>
+                    )
+                  }
+                >
+                  <Typography variant="subtitle2" fontWeight={700}>
+                    Semana Caducada
+                  </Typography>
+                  <Typography variant="body2">
+                    Esta semana ha excedido su duración máxima de 7 días. El sistema ha bloqueado nuevas operaciones.
+                    Debes <strong>finalizarla ahora</strong> para continuar operando.
+                  </Typography>
+                  {isMobile && (
+                    <Button
+                      variant="contained"
+                      color="inherit"
+                      onClick={handleFinish}
+                      disabled={busyFinish}
+                      sx={{ mt: 1, color: "error.main", bgcolor: "white", "&:hover": { bgcolor: "rgba(255,255,255,0.9)" } }}
+                      size="small"
+                      fullWidth
+                    >
+                      Finalizar Ahora
+                    </Button>
+                  )}
+                </Alert>
+              </Box>
+            )}
+          </AnimatePresence>
+
           {/* Segunda fila: Botones de acción */}
-          <Box 
-            display="flex" 
-            alignItems="center" 
-            gap={{ xs: 0.75, sm: 1 }} 
-            component={motion.div} 
+          <Box
+            display="flex"
+            alignItems="center"
+            gap={{ xs: 0.75, sm: 1 }}
+            component={motion.div}
             variants={sectionTransition}
             mt={{ xs: 1.5, md: 2 }}
             flexWrap="wrap"
@@ -790,10 +913,10 @@ const TableroBodegaPage: React.FC = () => {
                     variant="text"
                     startIcon={<AssessmentIcon />}
                     disabled
-                    sx={{ 
-                      borderRadius: 3, 
-                      textTransform: "none", 
-                      fontWeight: 600, 
+                    sx={{
+                      borderRadius: 3,
+                      textTransform: "none",
+                      fontWeight: 600,
                       px: 2,
                       fontSize: { xs: "0.75rem", sm: "0.875rem" }
                     }}
@@ -829,6 +952,7 @@ const TableroBodegaPage: React.FC = () => {
             <Box component={motion.div} key={weekValue.from} {...pageTransition}>
               <TableroSectionsAccordion
                 isActiveSelectedWeek={isActiveSelectedWeek}
+                isExpiredWeek={hookAny.isExpiredWeek}
                 forcedOpen={forcedOpen}
                 resumen={
                   <ResumenSection
@@ -847,6 +971,7 @@ const TableroBodegaPage: React.FC = () => {
                       semanaIndex={semanaIndex}
                       selectedWeek={selectedWeek}
                       isActiveSelectedWeek={isActiveSelectedWeek}
+                      isExpiredWeek={hookAny.isExpiredWeek}
                     />
                   </Box>
                 }
@@ -858,15 +983,15 @@ const TableroBodegaPage: React.FC = () => {
                     rows={(hookAny?.queueLogistica?.rows ?? []) as any[]}
                     meta={hookAny?.queueLogistica?.meta ?? { page: 1, page_size: 10, total: 0 }}
                     loading={!!hookAny?.isLoadingLogistica}
-                    onPageChange={hookAny?.onPageChangeLogistica ?? (() => {})}
+                    onPageChange={hookAny?.onPageChangeLogistica ?? (() => { })}
                   />
                 }
               />
             </Box>
           </AnimatePresence>
         </Box>
-      </Paper>
-    </Box>
+      </Paper >
+    </Box >
   );
 };
 

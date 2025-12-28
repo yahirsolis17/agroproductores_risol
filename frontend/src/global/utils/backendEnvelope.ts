@@ -16,7 +16,7 @@ export type CanonicalEnvelope<T> = {
 };
 
 export function unwrapResponse<T = any>(raw: any): CanonicalEnvelope<T> {
-  // Soporta pasar axios response o directamente el payload.
+  // Soporta pasar una respuesta de cliente HTTP (que trae .data) o el payload directo.
   const payload =
     raw && raw.data && raw.data.success !== undefined && raw.success === undefined
       ? raw.data

@@ -250,6 +250,14 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
             )
 
         # Validamos con el serializer actual (respeta reglas de 7 días, solape y única abierta)
+        # FIX DEADLOCK: Si la fecha propuesta excede los 7 días (ej. cierre tardío),
+        # truncamos silenciosamente al día 7 para permitir el cierre y liberar el bloqueo.
+        from datetime import timedelta
+        limit_date = cierre.fecha_desde + timedelta(days=6)
+        
+        if fhasta > limit_date:
+            fhasta = limit_date
+
         ser = CierreSemanalSerializer(instance=cierre, data={"fecha_hasta": fhasta}, partial=True)
         try:
             ser.is_valid(raise_exception=True)
@@ -261,7 +269,7 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
 
         registrar_actividad(
             request.user,
-            f"Cerró semana de bodega {cierre.bodega_id} temporada {cierre.temporada_id} (semana {cierre.id})",
+            f"Cerró semana de bodega {cierre.bodega_id} temporada {cierre.temporada_id} (semana {cierre.id} truncada a {fhasta})",
         )
         return self.notify(
             key="cierre_semanal_cerrado",
