@@ -20,7 +20,7 @@ import { Estado } from '../types/shared';
 
 export function useHuertasRentadas() {
   const dispatch = useAppDispatch();
-  const { list: huertas, loading, error, meta, page, estado, filters } = useAppSelector((s) => s.huertaRentada);
+  const { items: huertas, loading, error, meta, page, estado, filters } = useAppSelector((s) => s.huertaRentada);
 
   useEffect(() => {
     dispatch(fetchHuertasRentadas({ page, estado, filters }));

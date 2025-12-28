@@ -57,7 +57,7 @@ const CategoriaInversionEditModal: React.FC<Props> = ({ open, categoria, onClose
               const maybe = err as { response?: { data?: any }; data?: any };
               be = maybe.response?.data ?? maybe.data ?? err;
             }
-            const fieldErrors = be?.errors || be?.data?.errors || {};
+            const fieldErrors = be?.data?.['errors'] ?? {};
             Object.entries(fieldErrors).forEach(([k, v]: any) => {
               helpers.setFieldError(k, Array.isArray(v) ? v[0] : String(v));
             });

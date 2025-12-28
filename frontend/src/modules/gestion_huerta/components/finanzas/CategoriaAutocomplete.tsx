@@ -81,8 +81,8 @@ const CategoriaAutocomplete: React.FC<Props> = ({
   const loadAll = async () => {
     setLoading(true);
     try {
-      const { categorias } = await categoriaInversionService.listAll(1, 1000);
-      setList(categorias.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')));
+      const res = await categoriaInversionService.listAll(1, 1000);
+      setList(res.data.results.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')));
     } finally {
       setLoading(false);
     }

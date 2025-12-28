@@ -20,11 +20,12 @@ import type { CosechaCreateData, CosechaUpdateData } from '../types/cosechaTypes
 export function useCosechas() {
   const dispatch = useAppDispatch();
   const {
-    list: cosechas,
+    items: cosechas,
     loading,
     error,
     page,
     meta,
+    extra,
     temporadaId,
     search,
     estado,
@@ -40,7 +41,7 @@ export function useCosechas() {
   };
 
   return {
-    cosechas, loading, error, page, meta, temporadaId, search, estado, finalizada,
+    cosechas, loading, error, page, meta, extra, temporadaId, search, estado, finalizada,
     setPage: (p: number) => dispatch(setPage(p)),
     setTemporadaId: (id: number | null) => dispatch(setTemporadaId(id)),
     setSearch: (q: string) => dispatch(setSearch(q)),

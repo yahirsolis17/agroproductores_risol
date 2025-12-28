@@ -32,7 +32,7 @@ const CosechaFormModal: React.FC<Props> = ({ open, onClose, cosecha, onSubmit })
             onClose();                          // ← cerrar SOLO en éxito
           } catch (err: any) {
             const be = err?.response?.data || err?.data || {};
-            const beErrors = be?.errors || be?.data?.errors || {};
+            const beErrors = be?.data?.['errors'] ?? {};
             if (typeof beErrors?.nombre === 'string') {
               setErrors({ nombre: beErrors.nombre });
             }

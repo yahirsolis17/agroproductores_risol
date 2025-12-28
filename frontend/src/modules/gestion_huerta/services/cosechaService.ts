@@ -2,9 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import apiClient from '../../../global/api/apiClient';
 import { Cosecha, CosechaCreateData, CosechaUpdateData } from '../types/cosechaTypes';
-
-type Notif = { key: string; message: string; type: 'success' | 'error' | 'warning' | 'info' };
-type Meta  = { count: number; next: string | null; previous: string | null };
+import { ApiEnvelope, ListEnvelope } from '../types/shared';
 
 export const cosechaService = {
   // LIST (una sola llamada, con fallback a DRF nativo o envelope)
@@ -19,126 +17,75 @@ export const cosechaService = {
     if (search) params['search'] = search;
     if (estado) params['estado'] = estado;
     if (finalizada !== undefined) params['finalizada'] = finalizada;
-
-    const { data } = await apiClient.get<any>('/huerta/cosechas/', { params });
-
-    // Fallback DRF nativo (count/results)
-    // Fallback DRF nativo
-    if (data && typeof data.count === 'number' && Array.isArray(data.results)) {
-      return {
-        success: true,
-        notification: { key: 'no_notification', message: '', type: 'info' as const },
-        data: {
-          cosechas: data.results as Cosecha[],
-          meta: {
-            count: data.count,
-            next: data.next,
-            previous: data.previous,
-            total_registradas: data.count, // 👈 cuando no viene del envelope, usamos count
-          } as Meta,
-        },
-      };
-    }
-
-
-    // Envelope de tu backend
-    return data as {
-      success: boolean;
-      notification: Notif;
-      data: { cosechas: Cosecha[]; meta: Meta };
-    };
+    const { data } = await apiClient.get<ListEnvelope<Cosecha>>('/huerta/cosechas/', { params });
+    return data;
   },
 
   // CREATE
   async create(payload: CosechaCreateData) {
-    const response = await apiClient.post<{
-      success: boolean;
-      notification: Notif;
-      data: { cosecha: Cosecha };
-    }>('/huerta/cosechas/', payload);
+    const response = await apiClient.post<ApiEnvelope<{ cosecha: Cosecha }>>('/huerta/cosechas/', payload);
     return response.data;
   },
 
   // UPDATE (PATCH parcial)
   async update(id: number, payload: CosechaUpdateData) {
-    const response = await apiClient.patch<{
-      success: boolean;
-      notification: Notif;
-      data: { cosecha: Cosecha };
-    }>(`/huerta/cosechas/${id}/`, payload);
+    const response = await apiClient.patch<ApiEnvelope<{ cosecha: Cosecha }>>(
+      `/huerta/cosechas/${id}/`,
+      payload
+    );
     return response.data;
   },
 
   // DELETE
   async delete(id: number) {
-    const response = await apiClient.delete<{
-      success: boolean;
-      notification: Notif;
-      data: { info: string };
-    }>(`/huerta/cosechas/${id}/`);
+    const response = await apiClient.delete<ApiEnvelope<{ info: string }>>(`/huerta/cosechas/${id}/`);
     return response.data;
   },
 
   // ARCHIVAR
   async archivar(id: number) {
-    const response = await apiClient.post<{
-      success: boolean;
-      notification: Notif;
-      data: { cosecha: Cosecha };
-    }>(`/huerta/cosechas/${id}/archivar/`);
+    const response = await apiClient.post<ApiEnvelope<{ cosecha: Cosecha }>>(
+      `/huerta/cosechas/${id}/archivar/`
+    );
     return response.data;
   },
 
   // RESTAURAR
   async restaurar(id: number) {
-    const response = await apiClient.post<{
-      success: boolean;
-      notification: Notif;
-      data: { cosecha: Cosecha };
-    }>(`/huerta/cosechas/${id}/restaurar/`);
+    const response = await apiClient.post<ApiEnvelope<{ cosecha: Cosecha }>>(
+      `/huerta/cosechas/${id}/restaurar/`
+    );
     return response.data;
   },
 
   // FINALIZAR
   async finalizar(id: number) {
-    const response = await apiClient.post<{
-      success: boolean;
-      notification: Notif;
-      data: { cosecha: Cosecha };
-    }>(`/huerta/cosechas/${id}/finalizar/`);
+    const response = await apiClient.post<ApiEnvelope<{ cosecha: Cosecha }>>(
+      `/huerta/cosechas/${id}/finalizar/`
+    );
     return response.data;
   },
 
   // TOGGLE FINALIZADA
   async toggleFinalizada(id: number) {
-    const response = await apiClient.post<{
-      success: boolean;
-      notification: Notif;
-      data: { cosecha: Cosecha };
-    }>(`/huerta/cosechas/${id}/toggle-finalizada/`);
+    const response = await apiClient.post<ApiEnvelope<{ cosecha: Cosecha }>>(
+      `/huerta/cosechas/${id}/toggle-finalizada/`
+    );
     return response.data;
   },
 
   // REACTIVAR (alias de deshacer finalización)
   async reactivar(id: number) {
-    const response = await apiClient.post<{
-      success: boolean;
-      notification: Notif;
-      data: { cosecha: Cosecha };
-    }>(`/huerta/cosechas/${id}/reactivar/`);
+    const response = await apiClient.post<ApiEnvelope<{ cosecha: Cosecha }>>(
+      `/huerta/cosechas/${id}/reactivar/`
+    );
     return response.data;
   },
 
   // GET BY ID (normalizado)
-// src/modules/gestion_huerta/services/cosechaService.ts
-  getById: async (id: number): Promise<{ data: { cosecha: Cosecha } }> => {
-    const { data } = await apiClient.get<any>(`/huerta/cosechas/${id}/`);
-    // Envelope { success, notification, data: { cosecha } }
-    if (data && data.data && data.data.cosecha) {
-      return { data: { cosecha: data.data.cosecha as Cosecha } };
-    }
-    // Objeto plano Cosecha
-    return { data: { cosecha: data as Cosecha } };
+  getById: async (id: number): Promise<ApiEnvelope<{ cosecha: Cosecha }>> => {
+    const { data } = await apiClient.get<ApiEnvelope<{ cosecha: Cosecha }>>(`/huerta/cosechas/${id}/`);
+    return data;
   },
 
 };

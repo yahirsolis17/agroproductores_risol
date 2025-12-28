@@ -26,7 +26,7 @@ export function usePropietarios() {
   const dispatch = useAppDispatch();
 
   const {
-    list: propietarios,
+    items: propietarios,
     loading,
     error,
     page,
@@ -42,8 +42,8 @@ export function usePropietarios() {
 
   /* ——— Nuevo método: sólo propietarios con huertas ——— */
   const getConHuertas = async (search = '', cfg?: { signal?: AbortSignal }): Promise<Propietario[]> => {
-    const { propietarios: lista } = await propietarioService.getConHuertas(search, cfg);
-    return lista;
+    const res = await propietarioService.getConHuertas(search, cfg);
+    return res.data.results;
   };
 
 

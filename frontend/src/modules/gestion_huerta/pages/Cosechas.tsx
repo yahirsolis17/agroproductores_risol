@@ -45,7 +45,7 @@ const Cosechas: React.FC = () => {
 
   // Hook de cosechas
   const {
-    cosechas, loading, page, meta,
+    cosechas, loading, page, meta, extra,
     search, estado,
     setPage, setTemporadaId, setSearch, setEstado,
     addCosecha, renameCosecha, removeCosecha,
@@ -128,7 +128,7 @@ useEffect(() => {
   }, [temporadaId]);
 
   // Lógica de creación
-  const totalRegistradas = (meta as any)?.total_registradas ?? meta.count;  // 👈 NUEVO
+  const totalRegistradas = (extra.total_registradas as number | undefined) ?? meta.count;
   const maxReached = totalRegistradas >= 6;                                  // 👈 CAMBIA base
   const canCreate = Boolean(
     temporadaId &&

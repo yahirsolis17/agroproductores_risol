@@ -63,7 +63,7 @@ const HuertaFormModal: React.FC<Props> = ({
     } catch (err: unknown) {
       const error = err as { response?: { data: any }; data?: any };
       const backend = error?.response?.data || error?.data || {};
-      const beErrors = backend.errors || backend.data?.errors || {};
+      const beErrors = backend?.data?.['errors'] ?? {};
       const fErrors: Record<string, string> = {};
 
       if (Array.isArray(beErrors.non_field_errors)) {

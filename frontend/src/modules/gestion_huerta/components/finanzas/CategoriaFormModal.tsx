@@ -53,8 +53,7 @@ const CategoriaFormModal: React.FC<Props> = ({ open, onClose, onSuccess, initial
               be = maybe.response?.data ?? maybe.data ?? err;
             }
 
-            const fieldErrors: Record<string, any> =
-              be?.errors || be?.data?.errors || {};
+            const fieldErrors: Record<string, any> = be?.data?.['errors'] ?? {};
 
             Object.entries(fieldErrors).forEach(([k, v]) => {
               const msg = Array.isArray(v) ? v[0] : String(v);

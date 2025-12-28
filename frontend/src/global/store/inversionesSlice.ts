@@ -7,14 +7,13 @@ import {
   InversionHuertaUpdateData,
 } from '../../modules/gestion_huerta/types/inversionTypes';
 import type { RootState } from './store';
+import { PaginationMeta } from '../../modules/gestion_huerta/types/shared';
 
 export type EstadoFiltro = 'activas' | 'archivadas' | 'todas';
 export interface InversionFilters extends SvcFilters {}
 
-interface PaginationMeta { count: number; next: string | null; previous: string | null };
-
 interface InversionesState {
-  list: InversionHuerta[];
+  items: InversionHuerta[];
   loading: boolean;
   loaded: boolean;
   error: string | null;
@@ -32,12 +31,12 @@ interface InversionesState {
 const PAGE_SIZE = 10;
 
 const initialState: InversionesState = {
-  list: [],
+  items: [],
   loading: false,
   loaded: false,
   error: null,
   page: 1,
-  meta: { count: 0, next: null, previous: null },
+  meta: { count: 0, next: null, previous: null, page: 1, page_size: PAGE_SIZE, total_pages: 1 },
   huertaId: null,
   huertaRentadaId: null,
   temporadaId: null,
@@ -58,8 +57,8 @@ type PagePayload = { inversiones: InversionHuerta[]; meta: PaginationMeta; page:
 
 async function fetchSameOrPrevPageSilently(s: InversionesState): Promise<PagePayload> {
   const res1 = await inversionService.list(ctxFromState(s), s.page, PAGE_SIZE, s.filters);
-  const items1 = res1?.data?.inversiones ?? [];
-  const meta1  = res1?.data?.meta ?? { count: 0, next: null, previous: null };
+  const items1 = res1?.data?.results ?? [];
+  const meta1  = res1?.data?.meta ?? { count: 0, next: null, previous: null, page: s.page, page_size: PAGE_SIZE, total_pages: 1 };
 
   if (items1.length > 0 || s.page === 1) {
     return { inversiones: items1, meta: meta1, page: s.page };
@@ -67,8 +66,8 @@ async function fetchSameOrPrevPageSilently(s: InversionesState): Promise<PagePay
 
   const newPage = Math.max(1, s.page - 1);
   const res2 = await inversionService.list(ctxFromState(s), newPage, PAGE_SIZE, s.filters);
-  const items2 = res2?.data?.inversiones ?? [];
-  const meta2  = res2?.data?.meta ?? { count: 0, next: null, previous: null };
+  const items2 = res2?.data?.results ?? [];
+  const meta2  = res2?.data?.meta ?? { count: 0, next: null, previous: null, page: newPage, page_size: PAGE_SIZE, total_pages: 1 };
 
   return { inversiones: items2, meta: meta2, page: newPage };
 }
@@ -89,7 +88,7 @@ export const fetchInversiones = createAsyncThunk<
       const res = await inversionService.list(ctxFromState(s), s.page, PAGE_SIZE, s.filters, { signal });
       handleBackendNotification(res);
       return {
-        inversiones: res.data.inversiones,
+        inversiones: res.data.results,
         meta: res.data.meta,
         page: s.page,
       };
@@ -240,7 +239,7 @@ const inversionesSlice = createSlice({
   extraReducers: b => {
     b.addCase(fetchInversiones.pending, s => { s.loading = true; s.error = null; })
      .addCase(fetchInversiones.fulfilled, (s, { payload }) => {
-       s.list = payload.inversiones;
+       s.items = payload.inversiones;
        s.meta = payload.meta;
        s.page = payload.page;
        s.loading = false;
@@ -253,21 +252,21 @@ const inversionesSlice = createSlice({
      })
      .addCase(createInversion.fulfilled, (s, { payload }) => {
        if ((s.filters.estado ?? 'activas') !== 'archivadas') {
-         s.list.unshift(payload);
+         s.items.unshift(payload);
          s.meta.count += 1;
        }
      })
      .addCase(updateInversion.fulfilled, (s, { payload }) => {
-       const i = s.list.findIndex(inv => inv.id === payload.id);
-       if (i !== -1) s.list[i] = payload;
+       const i = s.items.findIndex(inv => inv.id === payload.id);
+       if (i !== -1) s.items[i] = payload;
      })
      .addCase(archiveInversion.fulfilled, (s, { payload }) => {
        const estado = s.filters.estado ?? 'activas';
        if (estado === 'todas') {
-         const i = s.list.findIndex(inv => inv.id === payload.inversion.id);
-         if (i !== -1) s.list[i] = payload.inversion;
+         const i = s.items.findIndex(inv => inv.id === payload.inversion.id);
+         if (i !== -1) s.items[i] = payload.inversion;
        } else if (payload.pageData) {
-         s.list = payload.pageData.inversiones;
+         s.items = payload.pageData.inversiones;
          s.meta = payload.pageData.meta;
          s.page = payload.pageData.page;
        }
@@ -275,20 +274,20 @@ const inversionesSlice = createSlice({
      .addCase(restoreInversion.fulfilled, (s, { payload }) => {
        const estado = s.filters.estado ?? 'activas';
        if (estado === 'todas') {
-         const i = s.list.findIndex(inv => inv.id === payload.inversion.id);
-         if (i !== -1) s.list[i] = payload.inversion;
+         const i = s.items.findIndex(inv => inv.id === payload.inversion.id);
+         if (i !== -1) s.items[i] = payload.inversion;
        } else if (estado === 'archivadas' && payload.pageData) {
-         s.list = payload.pageData.inversiones;
+         s.items = payload.pageData.inversiones;
          s.meta = payload.pageData.meta;
          s.page = payload.pageData.page;
        } else if (estado === 'activas') {
-         const i = s.list.findIndex(inv => inv.id === payload.inversion.id);
-         if (i !== -1) s.list.splice(i, 1);
-         s.list.unshift(payload.inversion);
+         const i = s.items.findIndex(inv => inv.id === payload.inversion.id);
+         if (i !== -1) s.items.splice(i, 1);
+         s.items.unshift(payload.inversion);
        }
      })
      .addCase(deleteInversion.fulfilled, (s, { payload }) => {
-       s.list = payload.pageData.inversiones;
+       s.items = payload.pageData.inversiones;
        s.meta = payload.pageData.meta;
        s.page = payload.pageData.page;
      });

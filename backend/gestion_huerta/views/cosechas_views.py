@@ -173,11 +173,10 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
                 "page": self.paginator.page.number,
                 "page_size": self.paginator.get_page_size(request),
                 "total_pages": self.paginator.page.paginator.num_pages,
-                "total_registradas": total_registradas,
             }
             return self.notify(
                 key="data_processed_success",
-                data={"results": serializer.data, "meta": meta}
+                data={"results": serializer.data, "meta": meta, "extra": {"total_registradas": total_registradas}}
             )
 
         serializer = self.get_serializer(queryset, many=True)
@@ -188,11 +187,10 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
             "page": 1,
             "page_size": len(serializer.data),
             "total_pages": 1,
-            "total_registradas": total_registradas,
         }
         return self.notify(
             key="data_processed_success",
-            data={"results": serializer.data, "meta": meta}
+            data={"results": serializer.data, "meta": meta, "extra": {"total_registradas": total_registradas}}
         )
 
     # ------------------------------ CREATE ------------------------------

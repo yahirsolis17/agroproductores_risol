@@ -111,13 +111,13 @@ const Huertas: React.FC = () => {
     abortNombre?.abort();
     abortNombre = new AbortController();
     try {
-      const { huertas } = await huertasCombinadasService.list(
+      const res = await huertasCombinadasService.list(
         1,
         'todos',
         { nombre: q },
         { signal: abortNombre.signal, pageSize }
       );
-      return Array.from(new Set(huertas.map(h => h.nombre))).map(n => ({ label: n, value: n }));
+      return Array.from(new Set(res.data.results.map(h => h.nombre))).map(n => ({ label: n, value: n }));
     } catch {
       return [];
     }
@@ -129,8 +129,8 @@ const Huertas: React.FC = () => {
     abortProp?.abort();
     abortProp = new AbortController();
     try {
-      const { propietarios } = await propietarioService.getConHuertas(q, { signal: abortProp.signal });
-      return propietarios.map(p => ({ label: `${p.nombre} ${p.apellidos}`, value: p.id }));
+      const res = await propietarioService.getConHuertas(q, { signal: abortProp.signal });
+      return res.data.results.map(p => ({ label: `${p.nombre} ${p.apellidos}`, value: p.id }));
     } catch {
       return [];
     }

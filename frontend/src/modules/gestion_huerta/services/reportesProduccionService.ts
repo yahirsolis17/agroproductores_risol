@@ -141,7 +141,7 @@ export const reportesProduccionService = {
         const resp = await apiClient.post(`${BASE}/cosecha/`, payload);
         try { handleBackendNotification(resp.data); } catch {}
         const unwrapped = unwrapJson(resp.data);
-        return { success: true, data: unwrapped, message: resp.data?.message, errors: resp.data?.errors };
+        return { success: true, data: unwrapped, message: resp.data?.message, errors: resp.data?.['errors'] };
       }
 
       const ext: 'pdf' | 'xlsx' = request.formato === 'pdf' ? 'pdf' : 'xlsx';
@@ -169,7 +169,7 @@ export const reportesProduccionService = {
         const resp = await apiClient.post(`${BASE}/temporada/`, payload);
         try { handleBackendNotification(resp.data); } catch {}
         const unwrapped = unwrapJson(resp.data);
-        return { success: true, data: unwrapped, message: resp.data?.message, errors: resp.data?.errors };
+        return { success: true, data: unwrapped, message: resp.data?.message, errors: resp.data?.['errors'] };
       }
 
       const ext: 'pdf' | 'xlsx' = request.formato === 'pdf' ? 'pdf' : 'xlsx';
@@ -207,7 +207,7 @@ export const reportesProduccionService = {
         const unwrapped = unwrapJson(resp.data);
         // 🔧 Normalizar año→año para calzar con tus tipos y componentes
         const normalized = normalizePerfilHuertaResponse(unwrapped);
-        return { success: true, data: normalized, message: resp.data?.message, errors: resp.data?.errors };
+        return { success: true, data: normalized, message: resp.data?.message, errors: resp.data?.['errors'] };
       }
 
       const ext: 'pdf' | 'xlsx' = request.formato === 'pdf' ? 'pdf' : 'xlsx';
