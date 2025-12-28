@@ -42,6 +42,7 @@ type VistaTab = 'activos' | 'archivados' | 'todos';
 
 const Huertas: React.FC = () => {
   const navigate = useNavigate();
+
   const hComb = useHuertasCombinadas();
   const { propietarios, loading: propsLoading, addPropietario, refetch: refetchProps } = usePropietarios();
 
@@ -52,14 +53,12 @@ const Huertas: React.FC = () => {
   // Tab local sincronizado con el store SOLO cuando cambia realmente
   const [tab, setTab] = useState<VistaTab>(hComb.estado as VistaTab);
   useEffect(() => {
-    // si el store cambia (p.ej. por navegación), reflejarlo en el tab local
     if (tab !== (hComb.estado as VistaTab)) {
       setTab(hComb.estado as VistaTab);
     }
   }, [hComb.estado]);
 
   useEffect(() => {
-    // evita resetear page=1 en cada montaje si ya coincide
     if (tab !== hComb.estado) {
       hComb.setEstado(tab);
     }
@@ -79,6 +78,24 @@ const Huertas: React.FC = () => {
       hasLoadedOnce.current = true;
     }
   }, [hComb.loading]);
+
+  // ✅ Fuente única para tabla (canon: items)
+  const dataForTable = useMemo<Registro[]>(() => {
+    return (hComb.items ?? []) as Registro[];
+  }, [hComb.items]);
+
+  // ✅ Refetch “central” seguro (sin asumir API interna del hook)
+  const refetchAll = async (): Promise<void> => {
+    const tasks: Promise<unknown>[] = [];
+
+    const anyComb = hComb as any;
+    if (typeof anyComb.refetch === 'function') tasks.push(anyComb.refetch());
+    else if (typeof anyComb.fetch === 'function') tasks.push(anyComb.fetch());
+
+    if (typeof refetchProps === 'function') tasks.push(refetchProps());
+
+    if (tasks.length) await Promise.all(tasks);
+  };
 
   interface Filters {
     tipo?: '' | 'propia' | 'rentada';
@@ -105,32 +122,47 @@ const Huertas: React.FC = () => {
     hComb.setFilters({});
   };
 
-  let abortNombre: AbortController | null = null;
+  // ✅ AbortControllers estables (no reinician en cada render)
+  const abortNombreRef = useRef<AbortController | null>(null);
+  const abortPropRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      abortNombreRef.current?.abort();
+      abortPropRef.current?.abort();
+    };
+  }, []);
+
   const loadNombreOptions = async (q: string) => {
     if (!q.trim()) return [];
-    abortNombre?.abort();
-    abortNombre = new AbortController();
+    abortNombreRef.current?.abort();
+    abortNombreRef.current = new AbortController();
+
     try {
       const res = await huertasCombinadasService.list(
         1,
         'todos',
         { nombre: q },
-        { signal: abortNombre.signal, pageSize }
+        { signal: abortNombreRef.current.signal, pageSize }
       );
-      return Array.from(new Set(res.data.results.map(h => h.nombre))).map(n => ({ label: n, value: n }));
+
+      return Array.from(new Set(res.data.results.map((h) => h.nombre))).map((n) => ({
+        label: n,
+        value: n,
+      }));
     } catch {
       return [];
     }
   };
 
-  let abortProp: AbortController | null = null;
   const loadPropietarioOptions = async (q: string) => {
     if (q.trim().length < 2) return [];
-    abortProp?.abort();
-    abortProp = new AbortController();
+    abortPropRef.current?.abort();
+    abortPropRef.current = new AbortController();
+
     try {
-      const res = await propietarioService.getConHuertas(q, { signal: abortProp.signal });
-      return res.data.results.map(p => ({ label: `${p.nombre} ${p.apellidos}`, value: p.id }));
+      const res = await propietarioService.getConHuertas(q, { signal: abortPropRef.current.signal });
+      return res.data.results.map((p) => ({ label: `${p.nombre} ${p.apellidos}`, value: p.id }));
     } catch {
       return [];
     }
@@ -150,13 +182,15 @@ const Huertas: React.FC = () => {
     {
       key: 'nombre',
       label: 'Buscar por Nombre',
-      type: 'async-select',
+      // ✅ TableLayout usa 'autocomplete-async'
+      type: 'autocomplete-async',
       loadOptions: loadNombreOptions,
     },
     {
       key: 'propietario',
       label: 'Buscar por Propietario',
-      type: 'async-select',
+      // ✅ TableLayout usa 'autocomplete-async'
+      type: 'autocomplete-async',
       loadOptions: loadPropietarioOptions,
     },
   ];
@@ -164,37 +198,42 @@ const Huertas: React.FC = () => {
   const savePropia = async (v: HuertaCreateData): Promise<void> => {
     const res = await huertaService.create(v);
     handleBackendNotification(res);
-    refetchAll();
+    await refetchAll();
   };
+
   const saveRentada = async (v: HuertaRentadaCreateData): Promise<void> => {
     const res = await huertaRentadaService.create(v);
     handleBackendNotification(res);
-    refetchAll();
+    await refetchAll();
   };
-  const saveEdit = async (
-    vals: HuertaUpdateData | HuertaRentadaUpdateData
-  ): Promise<void> => {
+
+  const saveEdit = async (vals: HuertaUpdateData | HuertaRentadaUpdateData): Promise<void> => {
     if (!editTarget) return;
+
     let res;
     if (editTarget.tipo === 'propia') {
       res = await huertaService.update(editTarget.data.id, vals as HuertaUpdateData);
     } else {
       res = await huertaRentadaService.update(editTarget.data.id, vals as HuertaRentadaUpdateData);
     }
+
     handleBackendNotification(res);
-    refetchAll();
+    await refetchAll();
     setModalOpen(false);
   };
 
   const askDelete = (h: Registro) => setDelDialog({ id: h.id, tipo: isRentada(h) ? 'rentada' : 'propia' });
+
   const confirmDelete = async (): Promise<void> => {
     if (!delDialog) return;
     try {
-      const res = delDialog.tipo === 'propia'
-        ? await huertaService.delete(delDialog.id)
-        : await huertaRentadaService.delete(delDialog.id);
+      const res =
+        delDialog.tipo === 'propia'
+          ? await huertaService.delete(delDialog.id)
+          : await huertaRentadaService.delete(delDialog.id);
+
       handleBackendNotification(res);
-      refetchAll();
+      await refetchAll();
     } catch (e: any) {
       handleBackendNotification(e?.response?.data);
     } finally {
@@ -205,29 +244,26 @@ const Huertas: React.FC = () => {
   const handleArchiveOrRestore = async (h: Registro, arc: boolean): Promise<void> => {
     let res;
     if (isRentada(h)) {
-      res = arc
-        ? await huertaRentadaService.restaurar(h.id)
-        : await huertaRentadaService.archivar(h.id);
+      res = arc ? await huertaRentadaService.restaurar(h.id) : await huertaRentadaService.archivar(h.id);
     } else {
       res = arc ? await huertaService.restaurar(h.id) : await huertaService.archivar(h.id);
     }
+
     handleBackendNotification(res);
-    refetchAll();
+    await refetchAll();
   };
 
   const propietariosParaModal = useMemo(() => {
     const extra = editTarget?.data.propietario_detalle;
-    return extra && !propietarios.some(p => p.id === extra.id)
-      ? [extra, ...propietarios]
-      : propietarios;
+    return extra && !propietarios.some((p) => p.id === extra.id) ? [extra, ...propietarios] : propietarios;
   }, [propietarios, editTarget]);
 
   // Primera carga
   if (!hasLoadedOnce.current) {
     return (
-      <Box className="flex justify-center p-12" >
+      <Box className="flex justify-center p-12">
         <CircularProgress size={48} />
-      </Box >
+      </Box>
     );
   }
 
@@ -279,11 +315,11 @@ const Huertas: React.FC = () => {
             filterValues={{ tipo: tipoFiltro, nombre: nombreFiltro, propietario: propietarioFiltro }}
             onFilterChange={handleFilterChange}
             limpiarFiltros={limpiarFiltros}
-            onEdit={h => { setEditTarget({ tipo: isRentada(h) ? 'rentada' : 'propia', data: h }); setModalOpen(true); }}
+            onEdit={(h) => { setEditTarget({ tipo: isRentada(h) ? 'rentada' : 'propia', data: h }); setModalOpen(true); }}
             onDelete={askDelete}
-            onArchive={h => handleArchiveOrRestore(h, false)}
-            onRestore={h => handleArchiveOrRestore(h, true)}
-            onTemporadas={h => {
+            onArchive={(h) => handleArchiveOrRestore(h, false)}
+            onRestore={(h) => handleArchiveOrRestore(h, true)}
+            onTemporadas={(h) => {
               const params = new URLSearchParams({
                 huerta_id: String(h.id),
                 tipo: isRentada(h) ? 'rentada' : 'propia',
@@ -295,7 +331,7 @@ const Huertas: React.FC = () => {
               }
               navigate(`/temporadas?${params.toString()}`);
             }}
-            onReporteHuerta={h => {
+            onReporteHuerta={(h) => {
               const params = new URLSearchParams({
                 tipo: isRentada(h) ? 'rentada' : 'propia',
               });
