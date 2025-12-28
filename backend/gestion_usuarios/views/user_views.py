@@ -550,7 +550,10 @@ class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        return Response(UsuarioSerializer(request.user).data)
+        return NotificationHandler.generate_response(
+            message_key="fetch_success",
+            data={"user": UsuarioSerializer(request.user).data},
+        )
 
 
 class UserPermissionsView(APIView):
@@ -584,7 +587,10 @@ class UserPermissionsView(APIView):
                 if code.startswith(('add_', 'change_', 'delete_', 'view_')):
                     filtered.append(p)
         plains = _to_plain(filtered)
-        return Response({"permissions": plains})
+        return NotificationHandler.generate_response(
+            message_key="fetch_success",
+            data={"permissions": plains},
+        )
 
 
 class PermisosFiltradosView(APIView):
@@ -606,7 +612,10 @@ class PermisosFiltradosView(APIView):
                 'nombre': nombre,           # 'Ver huertas', etc.
                 'modulo': modulo,           # 'Huertas'
             })
-        return Response(permisos)
+        return NotificationHandler.generate_response(
+            message_key="fetch_success",
+            data={"permisos": permisos},
+        )
 
 # ===== Parches de permisos: etiquetas, filtrado y overrides =====
 # Extiende etiquetas de modelos y acciones para el catálogo filtrado
@@ -664,7 +673,10 @@ try:
             cache_key = f"user:{user_id}:perms:v{int(epoch)}"
             cached = cache.get(cache_key)
             if cached is not None:
-                return Response({"permissions": cached})
+                return NotificationHandler.generate_response(
+                    message_key="fetch_success",
+                    data={"permissions": cached},
+                )
         except Exception:
             cached = None
 
@@ -681,7 +693,10 @@ try:
             cache.set(cache_key, plains, 600)
         except Exception:
             pass
-        return Response({"permissions": plains})
+        return NotificationHandler.generate_response(
+            message_key="fetch_success",
+            data={"permissions": plains},
+        )
     UserPermissionsView.get = _userperms_get  # type: ignore[attr-defined]
 except Exception:
     pass

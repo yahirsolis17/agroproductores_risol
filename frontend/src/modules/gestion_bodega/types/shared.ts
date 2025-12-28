@@ -71,6 +71,10 @@ export interface Paginated<T> {
   results: T[];
 }
 
+/** Meta de paginación estándar */
+import { PaginationMeta } from "../../../types/pagination";
+export type { PaginationMeta };
+
 /** Error genérico de API */
 export type ApiError =
   | { detail?: string; [key: string]: any }

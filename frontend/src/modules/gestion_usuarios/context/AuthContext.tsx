@@ -95,8 +95,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const fetchPermissions = async (): Promise<string[]> => {
     try {
       const { data } = await apiClient.get('/usuarios/me/permissions/');
-      setPermissions(data.permissions);
-      return data.permissions;
+      const perms = data?.data?.permissions ?? data.permissions ?? [];
+      setPermissions(perms);
+      return perms;
     } catch (err) {
       console.error('Error fetching permissions', err);
       setPermissions([]);

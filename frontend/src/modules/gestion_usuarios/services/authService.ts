@@ -74,7 +74,7 @@ const authService = {
   /* ---- INFO USUARIO ---- */
   getMe: async () => {
     const response = await apiClient.get('/usuarios/me/');
-    return response.data as User;
+    return (response.data?.data?.user ?? response.data) as User;
   },
 
   /* ---- LOGOUT ---- */

@@ -81,8 +81,8 @@ const Huertas: React.FC = () => {
 
   // ✅ Fuente única para tabla (canon: items)
   const dataForTable = useMemo<Registro[]>(() => {
-    return (hComb.items ?? []) as Registro[];
-  }, [hComb.items]);
+    return (hComb.huertas ?? []) as Registro[];
+  }, [hComb.huertas]);
 
   // ✅ Refetch “central” seguro (sin asumir API interna del hook)
   const refetchAll = async (): Promise<void> => {
