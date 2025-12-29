@@ -400,6 +400,11 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
 
   const selectedWeekObj = selectedWeek as any;
   const isExpiredWeek = useMemo(() => {
+    // P1 Robustez: Si el backend ya nos dice si expiró (con hora MX), confiamos en él.
+    if (typeof selectedWeekObj?.is_expired === "boolean") {
+      return selectedWeekObj.is_expired;
+    }
+
     if (!selectedWeekObj?.fecha_desde && !selectedWeekObj?.inicio) return false;
     // Si ya está cerrada, no expira (está finalizada)
     if (selectedWeekObj.fecha_hasta || selectedWeekObj.fin || selectedWeekObj.is_closed) return false;

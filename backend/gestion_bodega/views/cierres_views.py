@@ -1,27 +1,25 @@
-﻿# gestion_bodega/views/cierres_views.py
+# gestion_bodega/views/cierres_views.py
 from __future__ import annotations
 
-from typing import List, Dict
-from datetime import date
+from datetime import date, timedelta
+from typing import Dict, List
 
-from rest_framework import viewsets, status, serializers
-from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import serializers, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
 
-from gestion_bodega.models import CierreSemanal, TemporadaBodega
-from gestion_bodega.serializers import CierreSemanalSerializer, CierreTemporadaSerializer
-from gestion_bodega.permissions import HasModulePermission
-from gestion_bodega.utils.audit import ViewSetAuditMixin
-from gestion_bodega.utils.activity import registrar_actividad
 from agroproductores_risol.utils.pagination import GenericPagination
+from gestion_bodega.models import CierreSemanal, TemporadaBodega
+from gestion_bodega.permissions import HasModulePermission
+from gestion_bodega.serializers import CierreSemanalSerializer, CierreTemporadaSerializer
+from gestion_bodega.utils.activity import registrar_actividad
+from gestion_bodega.utils.audit import ViewSetAuditMixin
 from gestion_bodega.utils.notification_handler import NotificationHandler
-from gestion_bodega.utils.semana import (
-    tz_today_mx,
-    rango_por_semana_id,
-)
+from gestion_bodega.utils.semana import rango_por_semana_id, tz_today_mx
+
 
 class NotificationMixin:
     """Shortcut para devolver respuestas con el formato del frontend."""
@@ -34,44 +32,39 @@ class NotificationMixin:
         )
 
     def get_pagination_meta(self):
-        paginator = getattr(self, 'paginator', None)
-        page = getattr(paginator, 'page', None) if paginator else None
+        paginator = getattr(self, "paginator", None)
+        page = getattr(paginator, "page", None) if paginator else None
         if not paginator or page is None:
             return {
-                'count': 0,
-                'next': None,
-                'previous': None,
-                'page': None,
-                'page_size': None,
-                'total_pages': None,
+                "count": 0,
+                "next": None,
+                "previous": None,
+                "page": None,
+                "page_size": None,
+                "total_pages": None,
             }
         return {
-            'count': page.paginator.count,
-            'next': paginator.get_next_link(),
-            'previous': paginator.get_previous_link(),
-            'page': getattr(page, 'number', None),
-            'page_size': paginator.get_page_size(self.request) if hasattr(paginator, 'get_page_size') else None,
-            'total_pages': getattr(page.paginator, 'num_pages', None),
+            "count": page.paginator.count,
+            "next": paginator.get_next_link(),
+            "previous": paginator.get_previous_link(),
+            "page": getattr(page, "number", None),
+            "page_size": paginator.get_page_size(self.request) if hasattr(paginator, "get_page_size") else None,
+            "total_pages": getattr(page.paginator, "num_pages", None),
         }
 
 
 class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewSet):
-    """
-    Endpoints de cierre semanal y cierre de temporada.
-    """
+    """Endpoints de cierre semanal y cierre de temporada."""
+
     queryset = CierreSemanal.objects.all().order_by("-fecha_desde", "-id")
     serializer_class = CierreSemanalSerializer
     pagination_class = GenericPagination
 
     permission_classes = [IsAuthenticated, HasModulePermission]
     _perm_map = {
-        # Crear un cierre semanal requiere poder agregar registros de CierreSemanal
         "semanal": ["add_cierresemanal"],
-        # Cerrar temporada usa la capacidad de lifecycle sobre TemporadaBodega
         "temporada": ["finalize_temporadabodega"],
-        # Listado de cierres semanales
         "list": ["view_cierresemanal"],
-        # Índice de semanas (consulta)
         "index": ["view_cierresemanal"],
     }
 
@@ -90,46 +83,41 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
             return self.notify(
                 key="data_processed_success",
                 data={"results": data, "meta": self.get_pagination_meta()},
-                status_code=status.HTTP_200_OK
+                status_code=status.HTTP_200_OK,
             )
         return self.notify(key="data_processed_success", data={"results": data}, status_code=status.HTTP_200_OK)
 
-    # ──────────────────────────────────────────────────────────────────────
-    # NUEVO: índice real de semanas manuales registradas (no ISO infinitas)
-    # GET /bodega/cierres/index/?temporada=:id
-    # ──────────────────────────────────────────────────────────────────────
     @action(detail=False, methods=["get"], url_path="index")
     def index(self, request):
+        """
+        Devuelve el indice de semanas registradas para una temporada.
+        """
         temporada_id = request.query_params.get("temporada")
         if not temporada_id:
             return self.notify(
                 key="validation_error",
-                data={"errors": {"temporada": ["Este campo es obligatorio."]}},
+                data={"detail": "Se requiere el parametro 'temporada'"},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
         temporada = get_object_or_404(TemporadaBodega, pk=temporada_id)
-
-        # Traemos SOLO semanas realmente creadas para esta temporada/bodega
         cierres = list(
-            CierreSemanal.objects
-            .filter(bodega=temporada.bodega, temporada=temporada, is_active=True)
-            .order_by("fecha_desde", "id")
-            .values("id", "fecha_desde", "fecha_hasta", "iso_semana")
+            CierreSemanal.objects.filter(temporada_id=temporada.id)
+            .order_by("fecha_desde")
+            .values("id", "fecha_desde", "fecha_hasta")
         )
 
         if not cierres:
             return self.notify(
                 key="data_processed_success",
                 data={
-                    "temporada": {"id": temporada.id, "año": temporada.año, "finalizada": temporada.finalizada},
+                    "temporada": {"id": temporada.id, "anio": temporada.año, "finalizada": temporada.finalizada},
                     "current_semana_ix": None,
                     "weeks": [],
                 },
                 status_code=status.HTTP_200_OK,
             )
 
-        # Determinar índice "actual": preferimos semana abierta; si no, la última.
         idx_actual = None
         for i, s in enumerate(cierres):
             if s["fecha_hasta"] is None:
@@ -138,25 +126,26 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
         if idx_actual is None:
             idx_actual = len(cierres) - 1
 
-        # Construcción de salida homogénea
         weeks: List[Dict] = []
         for i, s in enumerate(cierres, start=1):
-            # Usamos helper centralizado para rango de semana (respeta +6 días y hoy)
             desde, hasta, label = rango_por_semana_id(s["id"])
-            weeks.append({
-                "semana_ix": i,
-                "desde": str(desde),
-                "hasta": str(hasta),
-                "iso_semana": label,
-                "is_closed": s["fecha_hasta"] is not None,
-                "semana_id": s["id"],
-            })
+            weeks.append(
+                {
+                    "semana_ix": i,
+                    "desde": str(desde),
+                    "hasta": str(hasta),
+                    "iso_semana": label,
+                    "is_closed": s["fecha_hasta"] is not None,
+                    "is_expired": s["fecha_hasta"] is None and (tz_today_mx() - s["fecha_desde"]).days > 6,
+                    "semana_id": s["id"],
+                }
+            )
 
         return self.notify(
             key="data_processed_success",
             data={
-                "temporada": {"id": temporada.id, "año": temporada.año, "finalizada": temporada.finalizada},
-                "current_semana_ix": idx_actual + 1,  # 1-based
+                "temporada": {"id": temporada.id, "anio": temporada.año, "finalizada": temporada.finalizada},
+                "current_semana_ix": idx_actual + 1,
                 "weeks": weeks,
             },
             status_code=status.HTTP_200_OK,
@@ -186,12 +175,12 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
 
         registrar_actividad(
             request.user,
-            f"Creó/actualizó cierre semanal (bodega {cierre.bodega_id}, temporada {cierre.temporada_id}, semana {cierre.id})",
+            f"Creo/actualizo cierre semanal (bodega {cierre.bodega_id}, temporada {cierre.temporada_id}, semana {cierre.id})",
         )
         return self.notify(
             key="cierre_semanal_creado",
             data={"cierre": CierreSemanalSerializer(cierre).data},
-            status_code=status.HTTP_201_CREATED
+            status_code=status.HTTP_201_CREATED,
         )
 
     @action(detail=False, methods=["post"])
@@ -213,48 +202,39 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
 
         registrar_actividad(
             request.user,
-            f"Finalizó temporada de bodega #{temporada.id} ({temporada.año})",
+            f"Finalizo temporada de bodega #{temporada.id} ({temporada.año})",
         )
         return self.notify(
             key="temporada_cerrada",
             data={"temporada": {"id": temporada.id, "año": temporada.año, "finalizada": True}},
-            status_code=status.HTTP_200_OK
+            status_code=status.HTTP_200_OK,
         )
 
     @action(detail=True, methods=["post"], url_path="cerrar")
     def cerrar(self, request, pk=None):
         """
-        Finaliza una semana abierta (CierreSemanal) asignándole fecha_hasta.
-        Si no se envía fecha_hasta, se usa la fecha local de hoy.
+        Finaliza una semana abierta (CierreSemanal) asignandole fecha_hasta.
+        Si no se envia fecha_hasta, se usa la fecha local de hoy.
         """
         cierre: CierreSemanal = self.get_object()
         if cierre.fecha_hasta is not None:
             return self.notify(
                 key="cierre_semanal_ya_cerrado",
-                data={"errors": {"fecha_hasta": ["La semana ya está cerrada."]}},
+                data={"errors": {"fecha_hasta": ["La semana ya esta cerrada."]}},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
         raw_fh = request.data.get("fecha_hasta")
-        fhasta = None
         try:
-            if raw_fh:
-                fhasta = date.fromisoformat(str(raw_fh))
-            else:
-                fhasta = tz_today_mx()
+            fhasta = date.fromisoformat(str(raw_fh)) if raw_fh else tz_today_mx()
         except Exception:
             return self.notify(
                 key="validation_error",
-                data={"errors": {"fecha_hasta": ["Formato de fecha inválido. Use YYYY-MM-DD."]}},
+                data={"errors": {"fecha_hasta": ["Formato de fecha invalido. Use YYYY-MM-DD."]}},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Validamos con el serializer actual (respeta reglas de 7 días, solape y única abierta)
-        # FIX DEADLOCK: Si la fecha propuesta excede los 7 días (ej. cierre tardío),
-        # truncamos silenciosamente al día 7 para permitir el cierre y liberar el bloqueo.
-        from datetime import timedelta
         limit_date = cierre.fecha_desde + timedelta(days=6)
-        
         if fhasta > limit_date:
             fhasta = limit_date
 
@@ -269,7 +249,7 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
 
         registrar_actividad(
             request.user,
-            f"Cerró semana de bodega {cierre.bodega_id} temporada {cierre.temporada_id} (semana {cierre.id} truncada a {fhasta})",
+            f"Cerro semana de bodega {cierre.bodega_id} temporada {cierre.temporada_id} (semana {cierre.id} truncada a {fhasta})",
         )
         return self.notify(
             key="cierre_semanal_cerrado",

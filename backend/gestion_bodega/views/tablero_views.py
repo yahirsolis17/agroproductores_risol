@@ -393,6 +393,11 @@ class TableroBodegaSummaryView(BaseDashboardAPIView):
             bodega_id = _to_int(request.query_params.get("bodega"))
             huerta_id = _to_int(request.query_params.get("huerta_id"))
 
+            # P1 Robustez: Auto-cierre si corresponde antes de calcular KPIs
+            from gestion_bodega.models import ensure_week_state
+            if bodega_id:
+                ensure_week_state(bodega_id, temporada_id)
+
             fdesde, fhasta, _ = _resolve_range(request, temporada_id, bodega_id)
 
             kpis_or_payload = build_summary(

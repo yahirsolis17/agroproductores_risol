@@ -43,20 +43,55 @@ def _resolver_semana_por_fecha(bodega_id: int, temporada_id: int, fecha):
 
     CierreSemanal = apps.get_model("gestion_bodega", "CierreSemanal")
 
-    qs = CierreSemanal.objects.filter(
+    # P2 Robustez: Optimización DB-side (Order by desc + First)
+    candidate = CierreSemanal.objects.filter(
         bodega_id=bodega_id,
         temporada_id=temporada_id,
         is_active=True,
-    )
+        fecha_desde__lte=fecha,
+    ).order_by("-fecha_desde").first()
 
-    chosen = None
-    for s in qs:
-        start = s.fecha_desde
-        end = s.fecha_hasta or (s.fecha_desde + timedelta(days=6))
-        if start <= fecha <= end:
-            if chosen is None or s.fecha_desde > chosen.fecha_desde:
-                chosen = s
-    return chosen
+    if candidate:
+        # Verificamos si la fecha cae dentro del rango efectivo de esa semana
+        end = candidate.fecha_hasta or (candidate.fecha_desde + timedelta(days=6))
+        if fecha <= end:
+            return candidate
+
+    return None
+
+# P1 Robustez: Auto-Cierre Backend
+def ensure_week_state(bodega_id: int, temporada_id: int):
+    """
+    Garantiza el estado consistente de la semana activa.
+    Si hay una semana abierta que ya expiró (hoy > inicio + 6), la cierra automáticamente con clamp.
+    Retorna la semana activa (si existe) tras el saneamiento.
+    """
+    CierreSemanal = apps.get_model("gestion_bodega", "CierreSemanal")
+    
+    # Buscamos semana abierta
+    abierta = CierreSemanal.objects.filter(
+        bodega_id=bodega_id, 
+        temporada_id=temporada_id, 
+        is_active=True, 
+        fecha_hasta__isnull=True
+    ).first()
+
+    if not abierta:
+        return None
+
+    hoy = timezone.localdate() # America/Mexico_City
+    limite_teorico = abierta.fecha_desde + timedelta(days=6)
+
+    # Si hoy ya superó el límite, la semana es zombie → auto-cerrar
+    if hoy > limite_teorico:
+        # Clamp: cerramos en el día 7 exacto
+        abierta.fecha_hasta = limite_teorico 
+        with transaction.atomic():
+            abierta.save(update_fields=["fecha_hasta", "actualizado_en"])
+        # Ya no está abierta, retornamos None (o la cerrada si fuera útil, pero el contrato es "semana activa")
+        return None
+    
+    return abierta
 
 
 def _is_today_or_yesterday_date(d):

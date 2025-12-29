@@ -26,7 +26,6 @@ import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 
 import { useTableroBodega } from "../hooks/useTableroBodega";
 import WeekSwitcher from "../components/tablero/WeekSwitcher";
-import QuickActions from "../components/tablero/QuickActions";
 
 import { setBreadcrumbs } from "../../../global/store/breadcrumbsSlice";
 import { formatDateISO, parseLocalDateStrict } from "../../../global/utils/date";
@@ -56,17 +55,6 @@ function prettyRange(fromISO: string, toISO: string) {
       year: d.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined,
     });
   return `${fmt(from)} – ${fmt(to)}`;
-}
-
-function withPreservedParams(href: string, preserveKeys: string[] = ["temporada", "bodega", "week_id"]) {
-  const current = new URLSearchParams(window.location.search);
-  const url = new URL(href, window.location.origin);
-  preserveKeys.forEach((k) => {
-    if (current.has(k) && !url.searchParams.has(k)) {
-      url.searchParams.set(k, current.get(k)!);
-    }
-  });
-  return url.pathname + (url.searchParams.toString() ? `?${url.searchParams.toString()}` : "");
 }
 
 // Animaciones (framer-motion)
@@ -509,6 +497,141 @@ const TableroBodegaPage: React.FC = () => {
         : "Iniciar semana";
 
   // Empaque → manda al bloque de Recepciones (sin duplicar lógica)
+  const renderWeekActions = () => (
+    <Box
+      display="flex"
+      justifyContent={{ xs: "flex-start", md: "flex-end" }}
+      gap={{ xs: 0.75, sm: 1 }}
+      flexWrap="wrap"
+    >
+      <Tooltip title={startTooltip}>
+        <span>
+          {isMobile ? (
+            <IconButton
+              size="small"
+              color="primary"
+              disabled={disableStartButton}
+              onClick={handleStart}
+              sx={{
+                borderRadius: 999,
+                backgroundColor: theme.palette.primary.main,
+                color: "white",
+                "&:hover": { backgroundColor: theme.palette.primary.dark },
+                "&.Mui-disabled": {
+                  backgroundColor: alpha(theme.palette.primary.main, 0.14),
+                  color: alpha(theme.palette.primary.contrastText, 0.6),
+                },
+              }}
+            >
+              {busyStart ? <CircularProgress size={16} color="inherit" /> : <PlayArrowIcon fontSize="small" />}
+            </IconButton>
+          ) : (
+            <Button
+              size="medium"
+              variant="contained"
+              startIcon={busyStart ? <CircularProgress size={16} /> : <PlayArrowIcon />}
+              disabled={disableStartButton}
+              onClick={handleStart}
+              sx={{
+                borderRadius: 999,
+                textTransform: "none",
+                fontWeight: 700,
+                px: { xs: 1.75, sm: 2.5 },
+                minHeight: 44,
+                boxShadow: "none",
+                "&.Mui-disabled": {
+                  background: alpha(theme.palette.primary.main, 0.14),
+                  color: alpha(theme.palette.primary.contrastText, 0.6),
+                  "& .MuiButton-startIcon": { color: alpha(theme.palette.primary.contrastText, 0.6) },
+                },
+              }}
+            >
+              Iniciar
+            </Button>
+          )}
+        </span>
+      </Tooltip>
+
+      {isActiveSelectedWeek && (
+        <Tooltip title="Finalizar semana">
+          <span>
+            {isMobile ? (
+              <IconButton
+                size="small"
+                disabled={!bodegaId || busyFinish || !canFinish}
+                onClick={handleFinish}
+                sx={{
+                  borderRadius: 999,
+                  border: `2px solid ${theme.palette.primary.main}`,
+                  color: theme.palette.primary.main,
+                  "&.Mui-disabled": {
+                    borderColor: alpha(theme.palette.action.disabled, 0.3),
+                    color: theme.palette.action.disabled,
+                  },
+                }}
+              >
+                {busyFinish ? <CircularProgress size={16} color="inherit" /> : <StopIcon fontSize="small" />}
+              </IconButton>
+            ) : (
+              <Button
+                size="medium"
+                variant="outlined"
+                startIcon={busyFinish ? <CircularProgress size={16} /> : <StopIcon />}
+                disabled={!bodegaId || busyFinish || !canFinish}
+                onClick={handleFinish}
+                sx={{
+                  borderRadius: 999,
+                  textTransform: "none",
+                  fontWeight: 700,
+                  px: { xs: 1.75, sm: 2.25 },
+                  minHeight: 44,
+                  borderWidth: 2,
+                  color: theme.palette.text.secondary,
+                  borderColor: alpha(theme.palette.text.secondary, 0.4),
+                  "&:hover": {
+                    borderWidth: 2,
+                    borderColor: alpha(theme.palette.text.secondary, 0.7),
+                    backgroundColor: alpha(theme.palette.text.secondary, 0.06),
+                  },
+                  "&.Mui-disabled": {
+                    borderColor: alpha(theme.palette.action.disabled, 0.3),
+                    color: alpha(theme.palette.action.disabled, 0.9),
+                  },
+                }}
+              >
+                Finalizar
+              </Button>
+            )}
+          </span>
+        </Tooltip>
+      )}
+
+      <Tooltip title="Reporte (pendiente de implementación)">
+        <span>
+          <Button
+            size="medium"
+            variant="text"
+            startIcon={<AssessmentIcon />}
+            disabled
+            sx={{
+              borderRadius: 999,
+              textTransform: "none",
+              fontWeight: 700,
+              px: { xs: 1.5, sm: 2 },
+              minHeight: 44,
+              color: theme.palette.text.secondary,
+              "&.Mui-disabled": {
+                color: alpha(theme.palette.text.secondary, 0.7),
+              },
+            }}
+          >
+            Reporte
+          </Button>
+        </span>
+      </Tooltip>
+    </Box>
+  );
+
   const handleGoPendientesEmpaque = useCallback(() => {
     setForcedOpen({ key: "recepciones", token: Date.now() });
     window.setTimeout(() => {
@@ -632,13 +755,7 @@ const TableroBodegaPage: React.FC = () => {
 
             {bodegaId && bodegaId > 0 && (
               <Box display="flex" justifyContent={{ xs: "flex-start", md: "flex-end" }}>
-                <QuickActions
-                  bodegaId={bodegaId}
-                  temporadaId={temporadaId}
-                  onNavigate={(href) => navigate(withPreservedParams(href))}
-                  dense
-                  pill
-                />
+                {renderWeekActions()}
               </Box>
             )}
           </Box>
@@ -802,131 +919,6 @@ const TableroBodegaPage: React.FC = () => {
               </Box>
             )}
           </AnimatePresence>
-
-          {/* Segunda fila: Botones de acción */}
-          <Box
-            display="flex"
-            alignItems="center"
-            gap={{ xs: 0.75, sm: 1 }}
-            component={motion.div}
-            variants={sectionTransition}
-            mt={{ xs: 1.5, md: 2 }}
-            flexWrap="wrap"
-          >
-            <Tooltip title={startTooltip}>
-              <span>
-                {isMobile ? (
-                  <IconButton
-                    size="small"
-                    color="primary"
-                    disabled={disableStartButton}
-                    onClick={handleStart}
-                    sx={{
-                      borderRadius: 2,
-                      backgroundColor: theme.palette.primary.main,
-                      color: "white",
-                      "&:hover": { backgroundColor: theme.palette.primary.dark },
-                      "&.Mui-disabled": {
-                        backgroundColor: alpha(theme.palette.primary.main, 0.14),
-                        color: alpha(theme.palette.primary.contrastText, 0.6),
-                      },
-                    }}
-                  >
-                    {busyStart ? <CircularProgress size={16} color="inherit" /> : <PlayArrowIcon fontSize="small" />}
-                  </IconButton>
-                ) : (
-                  <Button
-                    size="small"
-                    variant="contained"
-                    startIcon={busyStart ? <CircularProgress size={16} /> : <PlayArrowIcon />}
-                    disabled={disableStartButton}
-                    onClick={handleStart}
-                    sx={{
-                      borderRadius: 3,
-                      textTransform: "none",
-                      fontWeight: 600,
-                      px: 2,
-                      fontSize: { xs: "0.75rem", sm: "0.875rem" },
-                      boxShadow: "none",
-                      "&.Mui-disabled": {
-                        background: alpha(theme.palette.primary.main, 0.14),
-                        color: alpha(theme.palette.primary.contrastText, 0.6),
-                        "& .MuiButton-startIcon": {
-                          color: alpha(theme.palette.primary.contrastText, 0.6),
-                        },
-                      },
-                    }}
-                  >
-                    Iniciar
-                  </Button>
-                )}
-              </span>
-            </Tooltip>
-
-            <Tooltip title={!isActiveSelectedWeek ? "No hay semana abierta para cerrar" : "Finalizar semana"}>
-              <span>
-                {isMobile ? (
-                  <IconButton
-                    size="small"
-                    disabled={!bodegaId || busyFinish || !isActiveSelectedWeek || !canFinish}
-                    onClick={handleFinish}
-                    sx={{
-                      borderRadius: 2,
-                      border: `2px solid ${theme.palette.primary.main}`,
-                      color: theme.palette.primary.main,
-                      "&.Mui-disabled": {
-                        borderColor: alpha(theme.palette.action.disabled, 0.3),
-                        color: theme.palette.action.disabled,
-                      },
-                    }}
-                  >
-                    {busyFinish ? <CircularProgress size={16} color="inherit" /> : <StopIcon fontSize="small" />}
-                  </IconButton>
-                ) : (
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    startIcon={busyFinish ? <CircularProgress size={16} /> : <StopIcon />}
-                    disabled={!bodegaId || busyFinish || !isActiveSelectedWeek || !canFinish}
-                    onClick={handleFinish}
-                    sx={{
-                      borderRadius: 3,
-                      textTransform: "none",
-                      fontWeight: 600,
-                      px: 2,
-                      fontSize: { xs: "0.75rem", sm: "0.875rem" },
-                      borderWidth: 2,
-                      "&:hover": { borderWidth: 2 },
-                    }}
-                  >
-                    Finalizar
-                  </Button>
-                )}
-              </span>
-            </Tooltip>
-
-            {!isMobile && (
-              <Tooltip title="Reporte (pendiente de implementación)">
-                <span>
-                  <Button
-                    size="small"
-                    variant="text"
-                    startIcon={<AssessmentIcon />}
-                    disabled
-                    sx={{
-                      borderRadius: 3,
-                      textTransform: "none",
-                      fontWeight: 600,
-                      px: 2,
-                      fontSize: { xs: "0.75rem", sm: "0.875rem" }
-                    }}
-                  >
-                    Reporte
-                  </Button>
-                </span>
-              </Tooltip>
-            )}
-          </Box>
 
           {!!actionError && (
             <Box mt={1.5}>
