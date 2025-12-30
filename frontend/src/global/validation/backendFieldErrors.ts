@@ -1,4 +1,5 @@
 import { FormikHelpers, FormikValues } from 'formik';
+import { validationMessageKeys } from './validationMessageKeys';
 
 type FieldErrors = Record<string, string[]>;
 
@@ -93,12 +94,11 @@ export const normalizeBackendErrors = (err: unknown): NormalizedBackendErrors =>
 export const applyBackendErrorsToFormik = <Values extends FormikValues>(
   err: unknown,
   helpers: FormikHelpers<Values>,
-  options?: { fieldAliases?: Record<string, string>; fieldNames?: string[] }
+  options?: { fieldAliases?: Record<string, string> }
 ): NormalizedBackendErrors => {
   const normalized = normalizeBackendErrors(err);
   const { fieldErrors, formErrors } = normalized;
   const fieldAliases = options?.fieldAliases ?? {};
-  const fieldNames = options?.fieldNames ?? [];
 
   const mappedFieldErrors: FieldErrors = {};
   if (Object.keys(fieldErrors).length) {
@@ -106,11 +106,6 @@ export const applyBackendErrorsToFormik = <Values extends FormikValues>(
     const bannerErrors: string[] = [];
     Object.entries(fieldErrors).forEach(([key, value]) => {
       const alias = fieldAliases[key] ?? key;
-      if (fieldNames.length && !fieldNames.includes(alias)) {
-        bannerErrors.push(...value);
-        return;
-      }
-      mappedFieldErrors[alias] = value;
       flatErrors[alias] = value.length > 1 ? value : value[0];
     });
     if (Object.keys(flatErrors).length) {
@@ -118,10 +113,9 @@ export const applyBackendErrorsToFormik = <Values extends FormikValues>(
     }
 
     const touched: Record<string, boolean> = {};
-    Object.keys(mappedFieldErrors).forEach((key) => {
-      if (!fieldNames.length || fieldNames.includes(key)) {
-        touched[key] = true;
-      }
+    Object.keys(fieldErrors).forEach((key) => {
+      const alias = fieldAliases[key] ?? key;
+      touched[alias] = true;
     });
     if (Object.keys(touched).length) {
       helpers.setTouched(touched as any, false);
@@ -130,11 +124,6 @@ export const applyBackendErrorsToFormik = <Values extends FormikValues>(
       formErrors.push(...bannerErrors);
     }
   }
-
-  helpers.setStatus({
-    serverFieldErrors: mappedFieldErrors,
-    serverFormErrors: formErrors,
-  });
 
   return normalized;
 };
@@ -145,6 +134,6 @@ export const isValidationError = (input: unknown | NormalizedBackendErrors): boo
     : normalizeBackendErrors(input);
   if (normalized.status && [400, 409, 422].includes(normalized.status)) return true;
   if (normalized.hasErrorsPayload) return true;
-  if (normalized.messageKey && VALIDATION_MESSAGE_KEYS.has(normalized.messageKey)) return true;
+  if (normalized.messageKey && validationMessageKeys.has(normalized.messageKey)) return true;
   return false;
 };
