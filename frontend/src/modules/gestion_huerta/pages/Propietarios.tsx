@@ -30,6 +30,7 @@ import {
   PropietarioCreateData,
   Propietario as PropietarioT,
 } from '../types/propietarioTypes';
+import { sortForDisplay } from '../../../global/utils/uiTransforms';
 
 /* ──────────────────────────────────────────────────────────────
  *  Constantes
@@ -63,13 +64,14 @@ const Propietarios: React.FC = () => {
    *  Filtro “autocomplete” local enviado al backend
    * ──────────────────────────────────────────────────────────── */
   // Opciones de filtro autocomplete por id (como en huertas), ORDENADAS ALFABÉTICAMENTE
-  const nombreOptions = propietarios
-    .map((p) => ({
+  const nombreOptions = sortForDisplay(
+    propietarios.map((p) => ({
       label: `${p.nombre} ${p.apellidos} - ${p.telefono}`,
       value: p.id,
       firstLetter: p.nombre[0].toUpperCase(),
-    }))
-    .sort((a, b) => a.label.localeCompare(b.label, 'es'));
+    })),
+    (a, b) => a.label.localeCompare(b.label, 'es')
+  );
 
   // Filtro exacto por id (como en huertas)
 const handleFilterChange = (filters: Record<string, any>) => {

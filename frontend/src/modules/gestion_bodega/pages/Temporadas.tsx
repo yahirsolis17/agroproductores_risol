@@ -53,7 +53,7 @@ const onlyName = (s?: string) => (s || '').split(',')[0].trim();
 const toTitleCase = (value: string) =>
   value
     .toLocaleLowerCase('es-MX')
-    .replace(/\p{L}+/gu, (word) => word.charAt(0).toLocaleUpperCase('es-MX') + word.slice(1));
+    .replace(/\p{L}+/gu, (word) => word.charAt(0).toLocaleUpperCase('es-MX') + word.substring(1));
 
 const BodegaTemporadasPage: React.FC = () => {
   const dispatch = useAppDispatch();

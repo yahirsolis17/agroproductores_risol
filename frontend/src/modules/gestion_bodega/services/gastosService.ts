@@ -1,20 +1,55 @@
 import apiClient from '../../../global/api/apiClient';
+import { ensureSuccess } from '../../../global/utils/backendEnvelope';
+import type { BackendResponse } from '../../../global/types/apiTypes';
 
 export const gastosService = {
   compras: {
-    list: (params?: any) => apiClient.get('/bodega/compras-madera/', { params }),
-    create: (payload: any) => apiClient.post('/bodega/compras-madera/', payload),
-    update: (id: number, payload: any) => apiClient.put(`/bodega/compras-madera/${id}/`, payload),
-    partialUpdate: (id: number, payload: any) => apiClient.patch(`/bodega/compras-madera/${id}/`, payload),
-    destroy: (id: number) => apiClient.delete(`/bodega/compras-madera/${id}/`),
-    abonos: (id: number, payload: any) => apiClient.post(`/bodega/compras-madera/${id}/abonos/`, payload),
+    list: async (params?: any): Promise<BackendResponse<any>> => {
+      const res = await apiClient.get('/bodega/compras-madera/', { params });
+      return ensureSuccess(res.data) as BackendResponse<any>;
+    },
+    create: async (payload: any): Promise<BackendResponse<any>> => {
+      const res = await apiClient.post('/bodega/compras-madera/', payload);
+      return ensureSuccess(res.data) as BackendResponse<any>;
+    },
+    update: async (id: number, payload: any): Promise<BackendResponse<any>> => {
+      const res = await apiClient.put(`/bodega/compras-madera/${id}/`, payload);
+      return ensureSuccess(res.data) as BackendResponse<any>;
+    },
+    partialUpdate: async (id: number, payload: any): Promise<BackendResponse<any>> => {
+      const res = await apiClient.patch(`/bodega/compras-madera/${id}/`, payload);
+      return ensureSuccess(res.data) as BackendResponse<any>;
+    },
+    destroy: async (id: number): Promise<BackendResponse<any>> => {
+      const res = await apiClient.delete(`/bodega/compras-madera/${id}/`);
+      return ensureSuccess(res.data) as BackendResponse<any>;
+    },
+    abonos: async (id: number, payload: any): Promise<BackendResponse<any>> => {
+      const res = await apiClient.post(`/bodega/compras-madera/${id}/abonos/`, payload);
+      return ensureSuccess(res.data) as BackendResponse<any>;
+    },
   },
   consumibles: {
-    list: (params?: any) => apiClient.get('/bodega/consumibles/', { params }),
-    create: (payload: any) => apiClient.post('/bodega/consumibles/', payload),
-    update: (id: number, payload: any) => apiClient.put(`/bodega/consumibles/${id}/`, payload),
-    partialUpdate: (id: number, payload: any) => apiClient.patch(`/bodega/consumibles/${id}/`, payload),
-    destroy: (id: number) => apiClient.delete(`/bodega/consumibles/${id}/`),
+    list: async (params?: any): Promise<BackendResponse<any>> => {
+      const res = await apiClient.get('/bodega/consumibles/', { params });
+      return ensureSuccess(res.data) as BackendResponse<any>;
+    },
+    create: async (payload: any): Promise<BackendResponse<any>> => {
+      const res = await apiClient.post('/bodega/consumibles/', payload);
+      return ensureSuccess(res.data) as BackendResponse<any>;
+    },
+    update: async (id: number, payload: any): Promise<BackendResponse<any>> => {
+      const res = await apiClient.put(`/bodega/consumibles/${id}/`, payload);
+      return ensureSuccess(res.data) as BackendResponse<any>;
+    },
+    partialUpdate: async (id: number, payload: any): Promise<BackendResponse<any>> => {
+      const res = await apiClient.patch(`/bodega/consumibles/${id}/`, payload);
+      return ensureSuccess(res.data) as BackendResponse<any>;
+    },
+    destroy: async (id: number): Promise<BackendResponse<any>> => {
+      const res = await apiClient.delete(`/bodega/consumibles/${id}/`);
+      return ensureSuccess(res.data) as BackendResponse<any>;
+    },
   },
 };
 

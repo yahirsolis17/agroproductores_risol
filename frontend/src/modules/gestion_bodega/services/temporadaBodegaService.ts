@@ -163,7 +163,7 @@ function mapOrdering(ordering?: string): string | undefined {
 
   const raw = ordering;
   const desc = raw.startsWith('-');
-  const key = desc ? raw.slice(1) : raw;
+  const key = desc ? raw.substring(1) : raw;
 
   const nk = normalize(key);
   let mapped = key;

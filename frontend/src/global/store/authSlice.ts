@@ -21,11 +21,22 @@ interface AuthState {
   loadingPermissions: boolean;    // ← NUEVO: estado para el thunk
 }
 
+const readStoredUser = (): User | null => {
+  try {
+    const raw = localStorage.getItem('user');
+    return raw ? (JSON.parse(raw) as User) : null;
+  } catch {
+    return null;
+  }
+};
+
+const storedUser = readStoredUser();
+
 const initialState: AuthState = {
-  user: null,
-  token: null,
+  user: storedUser,
+  token: localStorage.getItem('accessToken'),
   permissions: JSON.parse(localStorage.getItem('permissions') ?? '[]'),
-  isAuthenticated: false,
+  isAuthenticated: Boolean(storedUser),
   loadingPermissions: false,
 };
 
@@ -55,6 +66,22 @@ export const changePasswordThunk = createAsyncThunk<
   }
 });
 
+export const logoutThunk = createAsyncThunk<void, void>(
+  'auth/logout',
+  async (_, { dispatch }) => {
+    try {
+      const refresh = localStorage.getItem('refreshToken');
+      const res = await apiClient.post('/usuarios/logout/', { refresh_token: refresh });
+      handleBackendNotification(res.data);
+    } catch (err: unknown) {
+      const errorData = (err as { response?: { data?: unknown } })?.response?.data;
+      handleBackendNotification(errorData);
+    } finally {
+      dispatch(logout());
+    }
+  }
+);
+
 export const authSlice = createSlice({
   name: 'auth',
   initialState,
@@ -76,6 +103,9 @@ export const authSlice = createSlice({
       state.permissions = [];
       state.isAuthenticated = false;
       localStorage.removeItem('permissions');
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
     },
     setPermissions: (state, action: PayloadAction<string[]>) => {
       state.permissions = action.payload;

@@ -1,4 +1,5 @@
 // src/global/store/userSlice.ts
+// STATE-UPDATE: local list pruning after mutations; allowed by UI-only policy.
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { userService } from '../../modules/gestion_usuarios/services/userService';
 import { User, PaginationMeta } from '../../modules/gestion_usuarios/types/userTypes';

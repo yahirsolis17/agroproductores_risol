@@ -1,3 +1,4 @@
+// STATE-UPDATE: local list pruning after mutations; allowed by UI-only policy.
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { Cosecha, CosechaCreateData, CosechaUpdateData } from '../../modules/gestion_huerta/types/cosechaTypes';
 import { cosechaService } from '../../modules/gestion_huerta/services/cosechaService';

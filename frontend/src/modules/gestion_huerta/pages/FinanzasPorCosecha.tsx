@@ -8,6 +8,7 @@ import { useAppDispatch } from '../../../global/store/store';
 import { temporadaService } from '../services/temporadaService';
 import { huertaService } from '../services/huertaService';
 import { huertaRentadaService } from '../services/huertaRentadaService';
+import { joinDisplayParts } from '../../../global/utils/uiTransforms';
 import { setBreadcrumbs, clearBreadcrumbs } from '../../../global/store/breadcrumbsSlice';
 import { breadcrumbRoutes } from '../../../global/constants/breadcrumbRoutes';
 
@@ -91,11 +92,11 @@ const FinanzasPorCosecha: React.FC = () => {
             if (huertaId && inferredTipo === 'propia') {
               const h = await huertaService.getById(huertaId);
               const det: any = h.data.huerta.propietario_detalle;
-              if (det) propietario = [det.nombre, det.apellidos].filter(Boolean).join(' ').trim() || '—';
+              if (det) propietario = joinDisplayParts([det.nombre, det.apellidos]).trim() || '—';
             } else if (huertaRentadaId && inferredTipo === 'rentada') {
               const hr = await huertaRentadaService.getById(huertaRentadaId);
               const det: any = hr.data.huerta_rentada.propietario_detalle;
-              if (det) propietario = [det.nombre, det.apellidos].filter(Boolean).join(' ').trim() || '—';
+              if (det) propietario = joinDisplayParts([det.nombre, det.apellidos]).trim() || '—';
             }
           } catch {
             // silencioso; propietario quedará vacío/guion si no se pudo

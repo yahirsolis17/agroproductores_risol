@@ -96,7 +96,7 @@ export function normalizeCalidadToUI(material: string, calidad: string): string 
   if (mat === "PLASTICO" && raw === "PRIMERA") return "Primera (≥ 2da)";
 
   // Para el resto (incluye madera PRIMERA, SEGUNDA, EXTRA, etc.)
-  return raw.charAt(0) + raw.slice(1).toLowerCase();
+  return raw.charAt(0) + raw.substring(1).toLowerCase();
 }
 
 function normalizeEmpaqueRow(row: unknown): EmpaqueRow {

@@ -1,4 +1,5 @@
 // src/global/store/temporadabodegaSlice.ts
+// STATE-UPDATE: local list pruning after mutations; allowed by UI-only policy.
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import type { RootState } from "./store";
 import { handleBackendNotification } from "../utils/NotificationEngine";

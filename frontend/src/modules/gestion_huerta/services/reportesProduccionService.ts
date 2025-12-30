@@ -7,104 +7,17 @@ import {
   ReporteTemporadaRequest,
   ReportePerfilHuertaRequest,
   ReporteProduccionResponse,
-  FilaResumenHistorico,
 } from '../types/reportesProduccionTypes';
+import {
+  unwrapReportePayload,
+  isJsonContent,
+  blobToJson,
+  downloadFile,
+  getFilename,
+} from '../utils/reportesPayload';
 
 // 🔁 Nueva base alineada al backend reestructurado
 const BASE = '/huerta/reportes';
-
-/** Desencapsula el payload típico del backend (NotificationHandler) */
-const unwrapJson = (json: any) => {
-  if (!json) return json;
-  if (json.data?.reporte) return json.data.reporte;
-  if (json.reporte) return json.reporte;
-  if (json.data) return json.data;
-  return json;
-};
-
-const isJsonContent = (ct?: string) =>
-  !!ct && (ct.includes('application/json') || ct.includes('text/json'));
-
-const blobToJson = async (blob: Blob) => {
-  const text = await blob.text();
-  try { return JSON.parse(text); } catch { return { message: text }; }
-};
-
-const downloadFile = (blob: Blob, filename: string) => {
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  window.URL.revokeObjectURL(url);
-};
-
-const getFilename = (cd?: string, fallback?: string) => {
-  if (!cd) return fallback;
-  // Soporta filename="..." y filename*=UTF-8''
-  const m = /filename\*?=(?:UTF-8''|")?([^\";]+)/i.exec(cd);
-  return m ? decodeURIComponent(m[1].replace(/"/g, '')) : fallback;
-};
-
-/** Normaliza el perfil: año→año y sanea codificaciones raras */
-const normalizePerfilHuertaResponse = (rep: any) => {
-  if (!rep || typeof rep !== 'object') return rep;
-
-  // La fuente exacta suele venir como objeto de reporte (no envuelto)
-  // Buscamos "resumen_historico" (top-level) o dentro de "ui.tablas"
-  const histPaths = [
-    ['resumen_historico'],
-    ['ui', 'tablas', 'resumen_historico'],
-  ];
-
-  const normalizeArray = (arr: any[]) => {
-    if (!Array.isArray(arr)) return arr;
-    const out: FilaResumenHistorico[] = arr.map((row: any) => {
-      // soportar "año", "año" o claves mal codificadas (por si acaso)
-      const año =
-        row?.año ??
-        row?.año ??
-        row?.['a\u00F1o'] ?? // 'año' unicode
-        row?.['año'] ?? // por si vienen bytes mal decodificados
-        row?.['aï¿½ï¿½o'] ??
-        row?.['añó'] ??
-        row?.['ano']; // fallback final (no ideal)
-      return {
-        año: año as any,
-        inversion: Number(row?.inversion ?? 0),
-        ventas: Number(row?.ventas ?? 0),
-        ganancia: Number(row?.ganancia ?? 0),
-        roi: Number(row?.roi ?? 0),
-        productividad: Number(row?.productividad ?? 0),
-        cosechas_count: Number(row?.cosechas_count ?? 0),
-      };
-    });
-    return out;
-  };
-
-  for (const p of histPaths) {
-    let node: any = rep;
-    for (const key of p) {
-      node = node?.[key];
-      if (node === undefined) break;
-    }
-    if (node !== undefined) {
-      const fixed = normalizeArray(node);
-      // re-asigna en la misma ruta
-      if (p.length === 1) {
-        (rep as any)[p[0]] = fixed;
-      } else if (p.length === 3) {
-        rep.ui = rep.ui || {};
-        rep.ui.tablas = rep.ui.tablas || {};
-        rep.ui.tablas.resumen_historico = fixed;
-      }
-    }
-  }
-
-  return rep;
-};
 
 /** Post que espera blob y, si es éxito, descarga; si es JSON de error, lo interpreta */
 async function postBlobAndDownload(
@@ -140,7 +53,7 @@ export const reportesProduccionService = {
       if (request.formato === 'json') {
         const resp = await apiClient.post(`${BASE}/cosecha/`, payload);
         try { handleBackendNotification(resp.data); } catch {}
-        const unwrapped = unwrapJson(resp.data);
+        const unwrapped = unwrapReportePayload(resp.data);
         return { success: true, data: unwrapped, message: resp.data?.message, errors: resp.data?.errors };
       }
 
@@ -168,7 +81,7 @@ export const reportesProduccionService = {
       if (request.formato === 'json') {
         const resp = await apiClient.post(`${BASE}/temporada/`, payload);
         try { handleBackendNotification(resp.data); } catch {}
-        const unwrapped = unwrapJson(resp.data);
+        const unwrapped = unwrapReportePayload(resp.data);
         return { success: true, data: unwrapped, message: resp.data?.message, errors: resp.data?.errors };
       }
 
@@ -204,10 +117,8 @@ export const reportesProduccionService = {
       if (request.formato === 'json') {
         const resp = await apiClient.post(`${BASE}/perfil-huerta/`, payload);
         try { handleBackendNotification(resp.data); } catch {}
-        const unwrapped = unwrapJson(resp.data);
-        // 🔧 Normalizar año→año para calzar con tus tipos y componentes
-        const normalized = normalizePerfilHuertaResponse(unwrapped);
-        return { success: true, data: normalized, message: resp.data?.message, errors: resp.data?.errors };
+        const unwrapped = unwrapReportePayload(resp.data);
+        return { success: true, data: unwrapped, message: resp.data?.message, errors: resp.data?.errors };
       }
 
       const ext: 'pdf' | 'xlsx' = request.formato === 'pdf' ? 'pdf' : 'xlsx';
