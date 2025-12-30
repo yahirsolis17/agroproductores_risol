@@ -14,6 +14,13 @@ type NormalizedBackendErrors = {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value && typeof value === 'object' && !Array.isArray(value));
 
+const VALIDATION_MESSAGE_KEYS = new Set<string>([
+  'validation_error',
+  'context_incomplete',
+  'contexto_invalido',
+  'missing_temporada',
+]);
+
 const toStringArray = (value: unknown): string[] => {
   if (!value) return [];
   if (Array.isArray(value)) {
@@ -33,8 +40,16 @@ const extractErrorsRecord = (payload: unknown): Record<string, unknown> | null =
 };
 
 export const normalizeBackendErrors = (err: unknown): NormalizedBackendErrors => {
-  const data = (err as any)?.data ?? (err as any)?.response?.data ?? err ?? {};
-  const status = (err as any)?.status ?? (err as any)?.response?.status;
+  const data =
+    (err as any)?.response?.data ??
+    (err as any)?.data ??
+    (err as any)?.payload ??
+    (err as any)?.errors ??
+    err ??
+    {};
+  const status =
+    (err as any)?.response?.status ??
+    (err as any)?.status;
   const candidate = extractErrorsRecord(data) ?? {};
   const fieldErrors: FieldErrors = {};
   const formErrors: string[] = [];
@@ -85,20 +100,29 @@ export const applyBackendErrorsToFormik = <Values extends FormikValues>(
   const { fieldErrors, formErrors } = normalized;
   const fieldAliases = options?.fieldAliases ?? {};
 
+  const mappedFieldErrors: FieldErrors = {};
   if (Object.keys(fieldErrors).length) {
     const flatErrors: Record<string, string[] | string> = {};
+    const bannerErrors: string[] = [];
     Object.entries(fieldErrors).forEach(([key, value]) => {
       const alias = fieldAliases[key] ?? key;
       flatErrors[alias] = value.length > 1 ? value : value[0];
     });
-    helpers.setErrors(flatErrors as any);
+    if (Object.keys(flatErrors).length) {
+      helpers.setErrors(flatErrors as any);
+    }
 
     const touched: Record<string, boolean> = {};
     Object.keys(fieldErrors).forEach((key) => {
       const alias = fieldAliases[key] ?? key;
       touched[alias] = true;
     });
-    helpers.setTouched(touched as any, false);
+    if (Object.keys(touched).length) {
+      helpers.setTouched(touched as any, false);
+    }
+    if (bannerErrors.length) {
+      formErrors.push(...bannerErrors);
+    }
   }
 
   return normalized;

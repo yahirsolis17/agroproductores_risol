@@ -9,14 +9,16 @@ export type FormikTextFieldProps = TextFieldProps & {
 
 const FormikTextField: React.FC<FormikTextFieldProps> = ({ name, onBlur, onFocus, onChange, helperText, ...props }) => {
   const [field, meta] = useField(name);
-  const { submitCount } = useFormikContext();
+  const { submitCount, status, setStatus } = useFormikContext();
   const [isFocused, setIsFocused] = useState(false);
   const everErroredRef = useRef(false);
 
-  const errorMessages = normalizeErrorMessages(meta.error);
+  const serverError = (status as any)?.serverFieldErrors?.[name];
+  const effectiveError = meta.error ?? serverError;
+  const errorMessages = normalizeErrorMessages(effectiveError);
   const hasError = errorMessages.length > 0;
 
-  const showError = hasError && !isFocused && (meta.touched || submitCount > 0);
+  const showError = hasError && !isFocused && (meta.touched || submitCount > 0 || Boolean(serverError));
 
   useEffect(() => {
     if (showError) {
@@ -32,7 +34,18 @@ const FormikTextField: React.FC<FormikTextFieldProps> = ({ name, onBlur, onFocus
       {...field}
       name={name}
       value={props.value ?? field.value ?? ''}
-      onChange={onChange ?? field.onChange}
+      onChange={(event) => {
+        if ((status as any)?.serverFieldErrors?.[name]) {
+          setStatus({
+            ...(status as any),
+            serverFieldErrors: {
+              ...(status as any)?.serverFieldErrors,
+              [name]: undefined,
+            },
+          });
+        }
+        (onChange ?? field.onChange)(event);
+      }}
       onFocus={(event) => {
         setIsFocused(true);
         onFocus?.(event);
