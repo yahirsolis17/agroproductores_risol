@@ -1,14 +1,15 @@
 // src/modules/gestion_usuarios/pages/Register.tsx
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
 import { useAuth } from '../context/AuthContext';
 import authService, { RegisterData } from '../services/authService';
 import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
+import { applyBackendErrorsToFormik } from '../../../global/validation/backendFieldErrors';
+import { focusFirstError } from '../../../global/validation/focusFirstError';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  TextField,
   Button,
   MenuItem,
   Select,
@@ -20,6 +21,8 @@ import {
   Paper,
   CircularProgress,
 } from '@mui/material';
+import FormAlertBanner from '../../../components/common/form/FormAlertBanner';
+import FormikTextField from '../../../components/common/form/FormikTextField';
 
 const validationSchema = Yup.object({
   nombre: Yup.string()
@@ -39,6 +42,7 @@ const validationSchema = Yup.object({
 const Register: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [formErrors, setFormErrors] = useState<string[]>([]);
 
   /* SEO / meta */
   useEffect(() => {
@@ -96,65 +100,81 @@ const Register: React.FC = () => {
               role: 'usuario',
             }}
             validationSchema={validationSchema}
+            validateOnChange={false}
+            validateOnBlur
+            validateOnMount={false}
             onSubmit={async (
               values: RegisterData,
-              { setSubmitting, setErrors },
+              helpers,
             ) => {
               try {
                 const res = await authService.register(values);
+                setFormErrors([]);
                 handleBackendNotification(res);
                 navigate('/users-admin');
               } catch (error: any) {
-                const backendErrors =
-                  error.response?.data?.data?.errors || {};
-                setErrors(
-                  Object.fromEntries(
-                    Object.entries(backendErrors).map(
-                      ([field, msgs]: any) => [field, msgs[0]],
-                    ),
-                  ),
-                );
-                handleBackendNotification(error.response?.data);
+                const normalized = applyBackendErrorsToFormik(error, helpers);
+                setFormErrors(normalized.formErrors);
+                if (!Object.keys(normalized.fieldErrors).length && !normalized.formErrors.length) {
+                  handleBackendNotification(error.response?.data);
+                }
               } finally {
-                setSubmitting(false);
+                helpers.setSubmitting(false);
               }
             }}
           >
-            {({ isSubmitting, handleChange, touched, errors, values }) => (
-              <Form noValidate className="space-y-4">
+            {({ isSubmitting, handleChange, handleBlur, touched, errors, values, setTouched, validateForm, submitForm, submitCount }) => (
+              <Form
+                noValidate
+                className="space-y-4"
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  const validationErrors = await validateForm();
+                  if (Object.keys(validationErrors).length) {
+                    const touchedFields = Object.keys(validationErrors).reduce<Record<string, boolean>>(
+                      (acc, key) => ({ ...acc, [key]: true }),
+                      {}
+                    );
+                    setTouched(touchedFields, false);
+                    focusFirstError(validationErrors, event.currentTarget);
+                    return;
+                  }
+                  submitForm();
+                }}
+              >
+                <FormAlertBanner
+                  open={formErrors.length > 0}
+                  severity="error"
+                  title="Revisa la información"
+                  messages={formErrors}
+                />
                 <Box>
-                  <TextField
+                  <FormikTextField
                     fullWidth
                     name="nombre"
                     label="Nombre"
                     value={values.nombre}
                     onChange={handleChange}
-                    error={touched.nombre && Boolean(errors.nombre)}
-                    helperText={touched.nombre && errors.nombre}
                   />
                 </Box>
 
                 <Box>
-                  <TextField
+                  <FormikTextField
                     fullWidth
                     name="apellido"
                     label="Apellido"
                     value={values.apellido}
                     onChange={handleChange}
-                    error={touched.apellido && Boolean(errors.apellido)}
-                    helperText={touched.apellido && errors.apellido}
                   />
                 </Box>
 
                 <Box>
-                  <TextField
+                  <FormikTextField
                     fullWidth
                     name="telefono"
                     label="Teléfono"
                     value={values.telefono}
                     onChange={handleChange}
-                    error={touched.telefono && Boolean(errors.telefono)}
-                    helperText={touched.telefono && errors.telefono}
                     inputProps={{ inputMode: 'numeric', pattern: '[0-9]*' }}
                   />
                 </Box>
@@ -162,7 +182,7 @@ const Register: React.FC = () => {
                 <Box>
                   <FormControl
                     fullWidth
-                    error={touched.role && Boolean(errors.role)}
+                    error={(touched.role || submitCount > 0) && Boolean(errors.role)}
                   >
                     <InputLabel id="role-label">Rol</InputLabel>
                     <Select
@@ -170,11 +190,12 @@ const Register: React.FC = () => {
                       name="role"
                       value={values.role}
                       onChange={handleChange}
+                      onBlur={handleBlur}
                       label="Rol"
                     >
                       <MenuItem value="usuario">Usuario</MenuItem>
                     </Select>
-                    {touched.role && (
+                    {(touched.role || submitCount > 0) && (
                       <FormHelperText>{errors.role}</FormHelperText>
                     )}
                   </FormControl>

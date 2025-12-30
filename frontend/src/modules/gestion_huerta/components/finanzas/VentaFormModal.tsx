@@ -2,7 +2,7 @@
 import React, { useEffect, useRef } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, Button, CircularProgress
+  Button, CircularProgress
 } from '@mui/material';
 import { Formik, Form, FormikHelpers, FormikProps } from 'formik';
 import * as Yup from 'yup';
@@ -15,6 +15,11 @@ import {
 
 import { PermissionButton } from '../../../../components/common/PermissionButton';
 import { handleBackendNotification } from '../../../../global/utils/NotificationEngine';
+import { applyBackendErrorsToFormik } from '../../../../global/validation/backendFieldErrors';
+import { focusFirstError } from '../../../../global/validation/focusFirstError';
+import FormikDateField from '../../../../components/common/form/FormikDateField';
+import FormikTextField from '../../../../components/common/form/FormikTextField';
+import FormAlertBanner from '../../../../components/common/form/FormAlertBanner';
 
 /** YYYY-MM-DD local (evita desfase de zona) */
 function formatLocalDateYYYYMMDD(d = new Date()) {
@@ -39,13 +44,6 @@ function formatMX(input: string | number): string {
   const n = typeof input === 'number' ? input : parseMXNumber(input);
   if (!Number.isFinite(n)) return '';
   return Math.trunc(n).toLocaleString('es-MX', { maximumFractionDigits: 0 });
-}
-
-function msg(e: unknown): string {
-  if (!e) return '';
-  if (typeof e === 'string') return e;
-  if (Array.isArray(e)) return e.map(x => (typeof x === 'string' ? x : '')).filter(Boolean)[0] || '';
-  return '';
 }
 
 type FormValues = {
@@ -109,6 +107,7 @@ interface Props {
 
 const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValues }) => {
   const formikRef = useRef<FormikProps<FormValues>>(null);
+  const [formErrors, setFormErrors] = React.useState<string[]>([]);
 
   useEffect(() => {
     if (open) {
@@ -147,50 +146,15 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
 
     try {
       await onSubmit(payload);
+      setFormErrors([]);
       onClose();
     } catch (err: unknown) {
-      const backend = (err as any)?.data || (err as any)?.response?.data || {};
-      const beErrors = backend.data?.errors || {};
-      const fieldErrors: Record<string, string> = {};
-
-      if (Array.isArray(beErrors.non_field_errors) && beErrors.non_field_errors.length) {
-        const m = String(beErrors.non_field_errors[0]);
-        ['fecha_venta', 'tipo_mango', 'num_cajas', 'precio_por_caja', 'gasto'].forEach((f) => {
-          fieldErrors[f] = m;
-        });
+      const normalized = applyBackendErrorsToFormik(err, helpers);
+      setFormErrors(normalized.formErrors);
+      if (!Object.keys(normalized.fieldErrors).length && !normalized.formErrors.length) {
+        const backend = (err as any)?.data || (err as any)?.response?.data || {};
+        handleBackendNotification(backend);
       }
-
-      Object.entries(beErrors).forEach(([f, val]: [string, unknown]) => {
-        const text = Array.isArray(val) ? String(val[0]) : String(val);
-        switch (f) {
-         case 'cosecha':
-         case 'cosecha_id':
-           // caen mensajes de “cosecha archivada/finalizada”
-           fieldErrors['fecha_venta'] = text; break;
-         case 'temporada':
-         case 'temporada_id':
-           // temporada archivada/finalizada
-           fieldErrors['fecha_venta'] = text; break;
-          case 'fecha':
-          case 'fecha_venta':
-            fieldErrors['fecha_venta'] = text; break;
-          case 'tipo_mango':
-            fieldErrors['tipo_mango'] = text; break;
-          case 'num_cajas':
-            fieldErrors['num_cajas'] = text; break;
-          case 'precio_por_caja':
-            fieldErrors['precio_por_caja'] = text; break;
-          case 'gasto':
-            fieldErrors['gasto'] = text; break;
-          case 'descripcion':
-            fieldErrors['descripcion'] = text; break;
-          default:
-            break;
-        }
-      });
-
-      helpers.setErrors(fieldErrors);
-      handleBackendNotification(backend);
     } finally {
       helpers.setSubmitting(false);
     }
@@ -249,15 +213,38 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
         initialValues={initialFormValues}
         enableReinitialize
         validationSchema={schema}
+        validateOnChange={false}
+        validateOnBlur
+        validateOnMount={false}
         onSubmit={handleSubmit}
       >
-        {({ values, errors, touched, isSubmitting, handleChange, handleBlur, setFieldValue }) => (
-          <Form>
+        {({ values, isSubmitting, handleChange, handleBlur, setFieldValue, setTouched, validateForm }) => (
+          <Form
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const validationErrors = await validateForm();
+              if (Object.keys(validationErrors).length) {
+                const touchedFields = Object.keys(validationErrors).reduce<Record<string, boolean>>(
+                  (acc, key) => ({ ...acc, [key]: true }),
+                  {}
+                );
+                setTouched(touchedFields, false);
+                focusFirstError(validationErrors, event.currentTarget);
+                return;
+              }
+              formikRef.current?.handleSubmit(event);
+            }}
+          >
             <DialogContent>
+              <FormAlertBanner
+                open={formErrors.length > 0}
+                severity="error"
+                title="Revisa la información"
+                messages={formErrors}
+              />
 
-              <TextField
+              <FormikDateField
                 label="Fecha"
-                type="date"
                 name="fecha_venta"
                 value={values.fecha_venta}
                 onChange={(e) => {
@@ -267,16 +254,13 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
                 onBlur={handleBlur}
                 margin="normal"
                 fullWidth
-                error={touched.fecha_venta && Boolean(msg(errors.fecha_venta))}
-                helperText={touched.fecha_venta && msg(errors.fecha_venta)}
-                InputLabelProps={{ shrink: true }}
                 inputProps={{
                   min: YESTERDAY_YMD,
                   max: TODAY_YMD,
                 }}
               />
 
-              <TextField
+              <FormikTextField
                 label="Tipo de mango"
                 name="tipo_mango"
                 value={values.tipo_mango}
@@ -288,11 +272,9 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
                 margin="normal"
                 fullWidth
                 placeholder="Ej. Ataulfo, Kent, Tommy Atkins…"
-                error={touched.tipo_mango && Boolean(msg(errors.tipo_mango))}
-                helperText={touched.tipo_mango && msg(errors.tipo_mango)}
               />
 
-              <TextField
+              <FormikTextField
                 label="Número de cajas"
                 name="num_cajas"
                 value={values.num_cajas}
@@ -302,11 +284,9 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
                 placeholder="Ej. 320"
                 margin="normal"
                 fullWidth
-                error={touched.num_cajas && Boolean(msg(errors.num_cajas))}
-                helperText={touched.num_cajas && msg(errors.num_cajas)}
               />
 
-              <TextField
+              <FormikTextField
                 label="Precio por caja"
                 name="precio_por_caja"
                 value={values.precio_por_caja}
@@ -316,11 +296,9 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
                 placeholder="Ej. 220"
                 margin="normal"
                 fullWidth
-                error={touched.precio_por_caja && Boolean(msg(errors.precio_por_caja))}
-                helperText={touched.precio_por_caja && msg(errors.precio_por_caja)}
               />
 
-              <TextField
+              <FormikTextField
                 label="Gasto"
                 name="gasto"
                 value={values.gasto}
@@ -330,11 +308,9 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
                 placeholder="Ej. 3,500"
                 margin="normal"
                 fullWidth
-                error={touched.gasto && Boolean(msg(errors.gasto))}
-                helperText={touched.gasto && msg(errors.gasto)}
               />
 
-              <TextField
+              <FormikTextField
                 label="Descripción (Opcional)"
                 name="descripcion"
                 value={values.descripcion}
@@ -344,8 +320,6 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
                 fullWidth
                 multiline
                 rows={2}
-                error={touched.descripcion && Boolean(msg(errors.descripcion))}
-                helperText={touched.descripcion && msg(errors.descripcion)}
                 inputProps={{
                 min: formatLocalDateYYYYMMDD(new Date(Date.now() - 24*60*60*1000)), // AYER
                 max: formatLocalDateYYYYMMDD(new Date()),                          // HOY

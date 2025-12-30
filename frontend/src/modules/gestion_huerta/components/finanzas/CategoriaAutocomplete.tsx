@@ -31,6 +31,8 @@ import { categoriaInversionService } from '../../services/categoriaInversionServ
 import useCategoriasInversion from '../../hooks/useCategoriasInversion';
 import CategoriaInversionEditModal from './CategoriaInversionEditModal';
 import { useAuth } from '../../../gestion_usuarios/context/AuthContext'; // 👈 añadido
+import { useField, useFormikContext } from 'formik';
+import { normalizeErrorMessages, renderErrorMessages } from '../../../../components/common/form/formFieldUtils';
 
 /* ---------- Encabezado por grupo ---------- */
 const GroupHeader = styled('div')(({ theme }) => ({
@@ -55,20 +57,20 @@ type Option = CategoriaInversion | { id: -1; nombre: 'Registrar nueva categoría
 const filter = createFilterOptions<Option>();
 
 type Props = {
-  valueId: number | null;
-  onChangeId: (id: number | null) => void;
+  name: string;
+  onChangeId?: (id: number | null) => void;
   label?: string;
-  error?: boolean;
-  helperText?: React.ReactNode; // ← acepta boolean|string|nodo, compatible con MUI y evita TS2322 en consumidores
 };
 
 const CategoriaAutocomplete: React.FC<Props> = ({
-  valueId,
+  name,
   onChangeId,
   label = 'Categoría',
-  error,
-  helperText,
 }) => {
+  const [field, meta, helpers] = useField<number | null>(name);
+  const { submitCount } = useFormikContext();
+  const [isFocused, setIsFocused] = useState(false);
+  const everErroredRef = useRef(false);
   const [list, setList] = useState<CategoriaInversion[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -100,13 +102,14 @@ const CategoriaAutocomplete: React.FC<Props> = ({
         const next = exists ? prev.map(c => (c.id === nueva.id ? nueva : c)) : [nueva, ...prev];
         return next.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
       });
-      onChangeId(nueva.id);
+      helpers.setValue(nueva.id);
+      onChangeId?.(nueva.id);
       setOpenList(false); // cerrar al autoseleccionar
       keepOpenRef.current = false;
     };
     window.addEventListener('categoria-created', handler as any);
     return () => window.removeEventListener('categoria-created', handler as any);
-  }, [onChangeId]);
+  }, [helpers, onChangeId]);
 
   const newOption: Option = { id: -1, nombre: 'Registrar nueva categoría' };
 
@@ -121,9 +124,9 @@ const CategoriaAutocomplete: React.FC<Props> = ({
   }, [list]);
 
   const value: Option | null = useMemo(() => {
-    if (!valueId) return null;
-    return (list.find(c => c.id === valueId) as Option) || null;
-  }, [valueId, list]);
+    if (!field.value) return null;
+    return (list.find(c => c.id === field.value) as Option) || null;
+  }, [field.value, list]);
 
   /* ---------- Menú contextual y modales ---------- */
   const [menu, setMenu] = useState<{ anchorEl: HTMLElement | null; cat: CategoriaInversion | null }>({
@@ -181,7 +184,10 @@ const CategoriaAutocomplete: React.FC<Props> = ({
   const confirmDelete = async () => {
     if (!deletingCategory) return;
     await removeCategoria(deletingCategory.id);
-    if (valueId === deletingCategory.id) onChangeId(null);
+    if (field.value === deletingCategory.id) {
+      helpers.setValue(null);
+      onChangeId?.(null);
+    }
     setConfirmOpen(false);
     setDeletingCategory(null);
     keepOpenRef.current = false;
@@ -208,6 +214,18 @@ const CategoriaAutocomplete: React.FC<Props> = ({
   const canArchive = isAdmin || hasPerm('archive_categoriainversion');
   const canRestore = isAdmin || hasPerm('restore_categoriainversion');
   const canDelete  = isAdmin || hasPerm('delete_categoriainversion');
+
+  const errorMessages = normalizeErrorMessages(meta.error);
+  const hasError = errorMessages.length > 0;
+  const showError = hasError && !isFocused && (meta.touched || submitCount > 0);
+
+  useEffect(() => {
+    if (showError) {
+      everErroredRef.current = true;
+    }
+  }, [showError]);
+
+  const showSuccess = everErroredRef.current && !hasError && !isFocused;
 
   return (
     <>
@@ -250,7 +268,8 @@ const CategoriaAutocomplete: React.FC<Props> = ({
         isOptionEqualToValue={(o, v) => (o as any).id === (v as any).id}
         onChange={(_, sel) => {
           if (!sel) {
-            onChangeId(null);
+            helpers.setValue(null);
+            onChangeId?.(null);
             setOpenList(false);
             keepOpenRef.current = false;
             return;
@@ -263,16 +282,50 @@ const CategoriaAutocomplete: React.FC<Props> = ({
             return;
           }
           if ('is_active' in s && !s.is_active) return; // no seleccionable si está archivada
-          onChangeId(s.id);
+          helpers.setValue(s.id);
+          onChangeId?.(s.id);
           setOpenList(false);
           keepOpenRef.current = false;
         }}
         renderInput={(params) => (
           <TextField
             {...params}
+            name={name}
             label={label}
-            error={error}
-            helperText={helperText}
+            onFocus={() => setIsFocused(true)}
+            onBlur={(event) => {
+              field.onBlur(event);
+              helpers.setTouched(true, false);
+              setIsFocused(false);
+            }}
+            error={showError}
+            helperText={showError ? renderErrorMessages(errorMessages) : ' '}
+            sx={(theme) => ({
+              '& .MuiOutlinedInput-root': {
+                transition: 'border-color 200ms ease, box-shadow 200ms ease',
+                ...(showSuccess
+                  ? {
+                      '& fieldset': {
+                        borderColor: theme.palette.success.main,
+                      },
+                      '&:hover fieldset': {
+                        borderColor: theme.palette.success.dark,
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: theme.palette.success.main,
+                        boxShadow: `0 0 0 3px ${theme.palette.success.light}`,
+                      },
+                    }
+                  : {}),
+              },
+              ...(showSuccess
+                ? {
+                    '& .MuiFormLabel-root': {
+                      color: theme.palette.success.main,
+                    },
+                  }
+                : {}),
+            })}
           />
         )}
         renderOption={(props, option) => {

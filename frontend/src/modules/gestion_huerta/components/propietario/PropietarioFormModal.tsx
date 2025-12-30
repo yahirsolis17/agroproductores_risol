@@ -1,10 +1,10 @@
 // src/modules/gestion_huerta/components/propietario/PropietarioFormModal.tsx
+import React, { useState } from 'react';
 import {
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
   CircularProgress,
   Button,
 } from '@mui/material';
@@ -12,6 +12,10 @@ import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
 import { PropietarioCreateData } from '../../types/propietarioTypes';
 import { PermissionButton } from '../../../../components/common/PermissionButton'; // ← Import
+import { applyBackendErrorsToFormik } from '../../../../global/validation/backendFieldErrors';
+import { focusFirstError } from '../../../../global/validation/focusFirstError';
+import FormAlertBanner from '../../../../components/common/form/FormAlertBanner';
+import FormikTextField from '../../../../components/common/form/FormikTextField';
 
 interface Props {
   open: boolean;
@@ -51,6 +55,7 @@ export default function PropietarioFormModal({
     telefono: '',
     direccion: '',
   };
+  const [formErrors, setFormErrors] = useState<string[]>([]);
 
   return (
     <Dialog
@@ -68,40 +73,59 @@ export default function PropietarioFormModal({
       <Formik
         initialValues={initialValues || defaults}
         validationSchema={yupSchema}
-        onSubmit={async (vals, { setSubmitting, setErrors }) => {
+        validateOnChange={false}
+        validateOnBlur
+        validateOnMount={false}
+        onSubmit={async (vals, helpers) => {
           try {
             const nuevo = await onSubmit(vals); // ← el thunk ya mostró el toast
+            setFormErrors([]);
             onSuccess?.(nuevo);
             onClose();
           } catch (error: any) {
-            const backend = error?.data || error?.response?.data || {};
-            const beErrors = backend.data?.errors || {};
-            const formikErrors: Record<string, string> = {};
-            Object.entries(beErrors).forEach(([key, value]) => {
-              formikErrors[key] = Array.isArray(value) ? value[0] : String(value);
-            });
-            setErrors(formikErrors);
+            const normalized = applyBackendErrorsToFormik(error, helpers);
+            setFormErrors(normalized.formErrors);
           } finally {
-            setSubmitting(false);
+            helpers.setSubmitting(false);
           }
         }}
 
       >
         {({
           values,
-          errors,
-          touched,
           handleChange,
           handleBlur,
           isSubmitting,
+          setTouched,
+          validateForm,
+          submitForm,
         }) => (
-          <Form>
+          <Form
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const validationErrors = await validateForm();
+              if (Object.keys(validationErrors).length) {
+                const touchedFields = Object.keys(validationErrors).reduce<Record<string, boolean>>(
+                  (acc, key) => ({ ...acc, [key]: true }),
+                  {}
+                );
+                setTouched(touchedFields, false);
+                focusFirstError(validationErrors, event.currentTarget);
+                return;
+              }
+              submitForm();
+            }}
+          >
             <DialogContent dividers className="space-y-4">
+              <FormAlertBanner
+                open={formErrors.length > 0}
+                severity="error"
+                title="Revisa la información"
+                messages={formErrors}
+              />
               {['nombre', 'apellidos', 'telefono', 'direccion'].map((field) => {
-                const error = errors[field as keyof typeof errors];
-                const isTouched = touched[field as keyof typeof touched];
                 return (
-                  <TextField
+                  <FormikTextField
                     key={field}
                     fullWidth
                     name={field}
@@ -109,8 +133,6 @@ export default function PropietarioFormModal({
                     value={values[field as keyof typeof values]}
                     onChange={handleChange}
                     onBlur={handleBlur}
-                    error={Boolean(isTouched && error)}
-                    helperText={isTouched && error}
                   />
                 );
               })}
