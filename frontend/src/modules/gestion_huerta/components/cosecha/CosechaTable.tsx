@@ -35,6 +35,8 @@ interface Props {
   onRestore: (c: Cosecha) => void;
   onToggleFinalizada: (c: Cosecha) => void;
   onVerFinanzas: (c: Cosecha) => void;
+  verFinanzasDisabled?: boolean;
+  verFinanzasTooltip?: string;
   onReporteCosecha?: (c: Cosecha) => void;
   emptyMessage?: string;
   loading?: boolean;
@@ -75,7 +77,7 @@ const columns: Column<Cosecha>[] = [
 const CosechaTable: React.FC<Props> = ({
   data, page, pageSize, metaPageSize, count, onPageChange,
   onRename, onDelete, onArchive, onRestore, onToggleFinalizada, onVerFinanzas,
-  onReporteCosecha, emptyMessage, loading,
+  onReporteCosecha, emptyMessage, loading, verFinanzasDisabled, verFinanzasTooltip,
 }) => (
   <TableLayout<Cosecha>
     data={data}
@@ -108,6 +110,8 @@ const CosechaTable: React.FC<Props> = ({
             // Integrado: Ver finanzas dentro del menú
             onVerFinanzas={() => onVerFinanzas(c)}
             permVerFinanzas="view_inversioneshuerta"
+            verFinanzasDisabled={verFinanzasDisabled}
+            verFinanzasTooltip={verFinanzasTooltip}
             /* 👇 permisos necesarios (solo añadidos; nada más cambia) */
             permEdit="change_cosecha"
             permArchiveOrRestore={['archive_cosecha', 'restore_cosecha']}

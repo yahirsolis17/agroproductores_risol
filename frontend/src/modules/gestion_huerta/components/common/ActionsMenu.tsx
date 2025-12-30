@@ -54,6 +54,8 @@ interface ActionsMenuProps {
   // Ver finanzas
   onVerFinanzas?: () => void;
   permVerFinanzas?: Perm;
+  verFinanzasDisabled?: boolean;
+  verFinanzasTooltip?: string;
 
   // 👉 NUEVOS: reportes
   onReporteCosecha?: () => void;
@@ -88,6 +90,8 @@ const ActionsMenu: React.FC<ActionsMenuProps> = ({
   permCosechas,
   onVerFinanzas,
   permVerFinanzas,
+  verFinanzasDisabled = false,
+  verFinanzasTooltip,
 
   // reportes
   onReporteCosecha,
@@ -207,10 +211,16 @@ const ActionsMenu: React.FC<ActionsMenuProps> = ({
         {onVerFinanzas && (
           (() => {
             const allowed = hasPerm(permVerFinanzas);
+            const disabled = !allowed || verFinanzasDisabled;
+            const tooltip = !allowed
+              ? 'No tienes permiso'
+              : verFinanzasDisabled
+                ? (verFinanzasTooltip ?? 'Contexto inválido')
+                : '';
             return (
-              <Tooltip title={allowed ? '' : 'No tienes permiso'} disableHoverListener={allowed}>
+              <Tooltip title={tooltip} disableHoverListener={!tooltip}>
                 <span style={{ display: 'block' }}>
-                  <MenuItem disabled={!allowed} onClick={() => handle(onVerFinanzas)}>
+                  <MenuItem disabled={disabled} onClick={() => handle(onVerFinanzas)}>
                     <ListItemIcon>
                       <PaidIcon fontSize="small" />
                     </ListItemIcon>

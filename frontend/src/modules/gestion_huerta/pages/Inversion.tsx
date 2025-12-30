@@ -2,6 +2,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useMemo, useState, useEffect } from 'react';
 import { Box, Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 
 import { useInversiones } from '../hooks/useInversiones';
 import { InversionHuerta, InversionCreateData, InversionUpdateData } from '../types/inversionTypes';
@@ -10,18 +11,20 @@ import InversionToolbar from '../components/finanzas/InversionToolbar';
 import InversionTable   from '../components/finanzas/InversionTable';
 import InversionFormModal from '../components/finanzas/InversionFormModal';
 import { categoriaInversionService } from '../services/categoriaInversionService';
-import { temporadaService } from '../services/temporadaService';
-import { cosechaService } from '../services/cosechaService';
-import { useParams } from 'react-router-dom';
 import { sortForDisplay } from '../../../global/utils/uiTransforms';
 
 const PAGE_SIZE = 10;
 
-const Inversion: React.FC = () => {
-  // 🔗 IDs desde la URL: /finanzas/:temporadaId/:cosechaId
-  const { temporadaId: tParam, cosechaId: cParam } = useParams<{ temporadaId: string; cosechaId: string }>();
-  const routeTemporadaId = Number(tParam) || null;
-  const routeCosechaId   = Number(cParam) || null;
+type EstadoData = { is_active: boolean; finalizada: boolean };
+
+type InversionProps = {
+  temporadaState: EstadoData | null;
+  cosechaState: EstadoData | null;
+  hasContext: boolean;
+};
+
+const Inversion: React.FC<InversionProps> = ({ temporadaState, cosechaState, hasContext }) => {
+  const navigate = useNavigate();
 
   const {
     inversiones,
@@ -36,7 +39,6 @@ const Inversion: React.FC = () => {
     archive,
     restore,
     removeInversion,
-    setContext, // ⚠️ lo usaremos, pero NO lo pondremos en deps del efecto
   } = useInversiones();
 
   /* ---------- Cargar TODAS las categorías (para nombres y filtro) ---------- */
@@ -58,47 +60,12 @@ const Inversion: React.FC = () => {
     return () => { alive = false; };
   }, []);
 
-  /* ---------- Estado de temporada y cosecha + establecer CONTEXTO ---------- */
-  const [tempState, setTempState] = useState<{ is_active: boolean; finalizada: boolean } | null>(null);
-  const [cosechaState, setCosechaState] = useState<{ is_active: boolean; finalizada: boolean } | null>(null);
-
-  useEffect(() => {
-    // Si faltan params de la ruta, no hay contexto que fijar
-    if (!routeTemporadaId || !routeCosechaId) return;
-
-    let alive = true;
-    (async () => {
-      try {
-        const [t, cRes] = await Promise.all([
-          temporadaService.getById(routeTemporadaId),
-          cosechaService.getById(routeCosechaId),
-        ]);
-        if (!alive) return;
-
-        const c = cRes.data.cosecha;
-
-        setTempState({ is_active: t.is_active, finalizada: t.finalizada });
-        setCosechaState({ is_active: c.is_active, finalizada: c.finalizada });
-
-        // 🔐 Fijar contexto en el slice (no incluir setContext en deps para evitar bucles)
-        setContext({
-          huertaId:        c.huerta ?? undefined,
-          huertaRentadaId: c.huerta_rentada ?? undefined,
-          temporadaId:     t.id,
-          cosechaId:       c.id,
-        });
-      } catch {
-        if (!alive) return;
-        setTempState(null);
-        setCosechaState(null);
-      }
-    })();
-
-    return () => { alive = false; };
-  // ⛔️ Importante: NO incluir setContext en deps; provoca re-ejecuciones infinitas
-  }, [routeTemporadaId, routeCosechaId]);
+  const tempState = temporadaState;
 
   const { canCreate, createTooltip } = useMemo(() => {
+    if (!hasContext) {
+      return { canCreate: false, createTooltip: 'No hay contexto. Regresa a Cosechas.' };
+    }
     if (!tempState || !cosechaState) {
       return { canCreate: false, createTooltip: 'Cargando estado de temporada y cosecha…' };
     }
@@ -115,7 +82,7 @@ const Inversion: React.FC = () => {
       return { canCreate: false, createTooltip: 'No se pueden registrar inversiones en una cosecha finalizada.' };
     }
     return { canCreate: true, createTooltip: '' };
-  }, [tempState, cosechaState]);
+  }, [hasContext, tempState, cosechaState]);
 
   // 🔔 Escuchar creaciones/ediciones para actualizar el map sin recargar
   useEffect(() => {
@@ -185,6 +152,30 @@ const Inversion: React.FC = () => {
     await removeInversion(delId);
     setDelId(null);
   };
+
+  if (!hasContext) {
+    return (
+      <Box p={2}>
+        <InversionToolbar
+          filters={filters}
+          onFiltersChange={changeFilters}
+          activeFiltersCount={activeFiltersCount}
+          onClearFilters={handleClearFilters}
+          onCreateClick={openCreate}
+          canCreate={false}
+          createTooltip="No hay contexto. Regresa a Cosechas."
+          totalCount={meta.count}
+          categoriesOptions={categorias}
+          categoriesLoading={catsLoading}
+        />
+        <Box mt={2}>
+          <Button variant="contained" onClick={() => navigate('/cosechas')}>
+            Volver a Cosechas
+          </Button>
+        </Box>
+      </Box>
+    );
+  }
 
   return (
     <Box p={2}>

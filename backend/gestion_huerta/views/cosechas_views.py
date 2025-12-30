@@ -195,6 +195,15 @@ class CosechaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet
             data={"results": serializer.data, "meta": meta}
         )
 
+    # ------------------------------ RETRIEVE ------------------------------
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return self.notify(
+            key="data_processed_success",
+            data={"cosecha": serializer.data},
+        )
+
     # ------------------------------ CREATE ------------------------------
     def create(self, request, *args, **kwargs):
         data = request.data.copy()

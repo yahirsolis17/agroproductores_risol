@@ -1,11 +1,12 @@
 // src/modules/gestion_huerta/pages/FinanzasPorCosecha.tsx
 import React, { useState, useEffect } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
-import { Paper, Typography, Box, CircularProgress, Divider, Tabs, Tab } from '@mui/material';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { Paper, Typography, Box, CircularProgress, Divider, Tabs, Tab, Button } from '@mui/material';
 import { motion } from 'framer-motion';
 
 import { useAppDispatch } from '../../../global/store/store';
 import { temporadaService } from '../services/temporadaService';
+import { cosechaService } from '../services/cosechaService';
 import { huertaService } from '../services/huertaService';
 import { huertaRentadaService } from '../services/huertaRentadaService';
 import { joinDisplayParts } from '../../../global/utils/uiTransforms';
@@ -17,6 +18,7 @@ import { setContext as setVentaContext } from '../../../global/store/ventasSlice
 
 import Inversion from './Inversion';
 import Venta     from './Venta';
+import { Cosecha } from '../types/cosechaTypes';
 
 type UrlParams = { temporadaId: string; cosechaId: string };
 
@@ -40,6 +42,7 @@ type CtxPayload = {
 
 const FinanzasPorCosecha: React.FC = () => {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
 
   const { temporadaId: tmp, cosechaId: ctm } = useParams<UrlParams>();
   const temporadaId = Number(tmp) || null;
@@ -51,7 +54,9 @@ const FinanzasPorCosecha: React.FC = () => {
   const huertaNombreQS = search.get('huerta_nombre') || '';
 
   const [tempInfo, setTempInfo] = useState<TempInfo | null>(null);
+  const [cosechaInfo, setCosechaInfo] = useState<Cosecha | null>(null);
   const [loadingTemp, setLoadingTemp] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [tab, setTab] = useState<'inversion' | 'venta'>('inversion');
 
   // Limpieza breadcrumbs al desmontar
@@ -59,20 +64,25 @@ const FinanzasPorCosecha: React.FC = () => {
     return () => { dispatch(clearBreadcrumbs()); };
   }, [dispatch]);
 
-  // Carga de temporada + encabezado + breadcrumbs
+  // Carga de temporada + cosecha + encabezado + breadcrumbs
   useEffect(() => {
     let cancelled = false;
 
-    if (!temporadaId) {
+    if (!temporadaId || !cosechaId) {
       dispatch(clearBreadcrumbs());
       setTempInfo(null);
+      setCosechaInfo(null);
       return;
     }
 
     (async () => {
       try {
         setLoadingTemp(true);
-        const t = await temporadaService.getById(temporadaId);
+        setLoadError(null);
+        const [t, c] = await Promise.all([
+          temporadaService.getById(temporadaId),
+          cosechaService.getById(cosechaId),
+        ]);
         if (cancelled) return;
 
         const huertaId        = t.huerta ?? null;
@@ -112,7 +122,18 @@ const FinanzasPorCosecha: React.FC = () => {
           is_active: t.is_active,
           finalizada: t.finalizada,
         };
+
+        const cosechaTemporadaId = c.temporada ?? null;
+        if (cosechaTemporadaId && cosechaTemporadaId !== t.id) {
+          setLoadError('La cosecha seleccionada no pertenece a esta temporada.');
+          setTempInfo(null);
+          setCosechaInfo(null);
+          dispatch(clearBreadcrumbs());
+          return;
+        }
+
         setTempInfo(info);
+        setCosechaInfo(c);
 
         // Breadcrumbs: Huertas → Temporadas → Cosechas → Ventas & Inversiones
         const origenId = huertaId ?? huertaRentadaId!;
@@ -130,6 +151,8 @@ const FinanzasPorCosecha: React.FC = () => {
         if (!cancelled) {
           dispatch(clearBreadcrumbs());
           setTempInfo(null);
+          setCosechaInfo(null);
+          setLoadError('No se pudo cargar la temporada o la cosecha.');
         }
       } finally {
         if (!cancelled) setLoadingTemp(false);
@@ -137,33 +160,46 @@ const FinanzasPorCosecha: React.FC = () => {
     })();
 
     return () => { cancelled = true; };
-  }, [temporadaId, dispatch, tipoFromQS, propietarioQS, huertaNombreQS]);
+  }, [temporadaId, cosechaId, dispatch, tipoFromQS, propietarioQS, huertaNombreQS]);
 
   // Inyectar contexto de inversiones y ventas
   useEffect(() => {
-    if (!temporadaId || !cosechaId || !tempInfo) return;
+    if (!temporadaId || !cosechaId || !tempInfo || !cosechaInfo) return;
 
     const payload: CtxPayload = {
       temporadaId,
       cosechaId,
-      ...(tempInfo.huertaId != null
-        ? { huertaId: tempInfo.huertaId }
-        : tempInfo.huertaRentadaId != null
-          ? { huertaRentadaId: tempInfo.huertaRentadaId }
-          : {})
+      ...(cosechaInfo.huerta != null
+        ? { huertaId: cosechaInfo.huerta }
+        : cosechaInfo.huerta_rentada != null
+          ? { huertaRentadaId: cosechaInfo.huerta_rentada }
+          : tempInfo.huertaId != null
+            ? { huertaId: tempInfo.huertaId }
+            : tempInfo.huertaRentadaId != null
+              ? { huertaRentadaId: tempInfo.huertaRentadaId }
+              : {})
     };
 
     dispatch(setInvContext(payload));
     dispatch(setVentaContext(payload));
-  }, [temporadaId, cosechaId, tempInfo, dispatch]);
+  }, [temporadaId, cosechaId, tempInfo, cosechaInfo, dispatch]);
 
-  if (!cosechaId) {
+  if (!temporadaId || !cosechaId) {
     return (
       <Box p={4}>
-        <Typography>Selecciona una cosecha primero.</Typography>
+        <Typography>Selecciona una temporada y una cosecha primero.</Typography>
+        <Box mt={2}>
+          <Button variant="contained" onClick={() => navigate('/cosechas')}>
+            Volver a Cosechas
+          </Button>
+        </Box>
       </Box>
     );
   }
+
+  const hasContext = Boolean(tempInfo && cosechaInfo);
+  const temporadaState = tempInfo ? { is_active: tempInfo.is_active, finalizada: tempInfo.finalizada } : null;
+  const cosechaState = cosechaInfo ? { is_active: cosechaInfo.is_active, finalizada: cosechaInfo.finalizada } : null;
 
   return (
     <motion.div className="p-6 max-w-6xl mx-auto" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
@@ -173,6 +209,15 @@ const FinanzasPorCosecha: React.FC = () => {
         {loadingTemp ? (
           <Box display="flex" justifyContent="center" my={4}>
             <CircularProgress />
+          </Box>
+        ) : loadError ? (
+          <Box mb={2}>
+            <Typography color="error">{loadError}</Typography>
+            <Box mt={2}>
+              <Button variant="contained" onClick={() => navigate('/cosechas')}>
+                Volver a Cosechas
+              </Button>
+            </Box>
           </Box>
         ) : tempInfo ? (
           <Box mb={2}>
@@ -184,18 +229,24 @@ const FinanzasPorCosecha: React.FC = () => {
           </Box>
         ) : null}
 
-        <Tabs
-          value={tab}
-          onChange={(_, v) => setTab(v)}
-          textColor="primary"
-          indicatorColor="primary"
-          sx={{ mb: 3 }}
-        >
-          <Tab value="inversion" label="Inversiones" />
-          <Tab value="venta" label="Ventas" />
-        </Tabs>
+        {!loadingTemp && !loadError && (
+          <>
+            <Tabs
+              value={tab}
+              onChange={(_, v) => setTab(v)}
+              textColor="primary"
+              indicatorColor="primary"
+              sx={{ mb: 3 }}
+            >
+              <Tab value="inversion" label="Inversiones" />
+              <Tab value="venta" label="Ventas" />
+            </Tabs>
 
-        {tab === 'inversion' ? <Inversion /> : <Venta />}
+            {tab === 'inversion'
+              ? <Inversion temporadaState={temporadaState} cosechaState={cosechaState} hasContext={hasContext} />
+              : <Venta temporadaState={temporadaState} cosechaState={cosechaState} hasContext={hasContext} />}
+          </>
+        )}
       </Paper>
     </motion.div>
   );
