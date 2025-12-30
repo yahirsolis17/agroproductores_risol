@@ -18,14 +18,11 @@ export type LogisticaRowUI = {
 type MetaLike = {
   page?: number;
   page_size?: number;
-  total?: number;
   count?: number;
-
-  pages?: number;
-  total_pages?: number;
-
   next?: string | null;
   previous?: string | null;
+  total_pages?: number;
+  total?: number;
 };
 
 type Props = {
@@ -36,13 +33,6 @@ type Props = {
   loading: boolean;
   onPageChange: (page: number) => void; // 1-based
 };
-
-const toInt = (v: any, fallback: number) => {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : fallback;
-};
-
-const clampMin = (n: number, min: number) => (n < min ? min : n);
 
 const formatFecha = (iso?: string | null) => {
   if (!iso) return "—";
@@ -87,20 +77,14 @@ const LogisticaSection: React.FC<Props> = ({
   loading,
   onPageChange,
 }) => {
-  // Normalización estricta para que TableLayout funcione sin tocarlo
-  const page = useMemo(() => clampMin(toInt(meta?.page, 1), 1), [meta?.page]);
-  const pageSize = useMemo(() => clampMin(toInt(meta?.page_size, 10), 1), [meta?.page_size]);
-
+  const page = useMemo(() => Math.max(1, Number(meta?.page ?? 1)), [meta?.page]);
+  const pageSize = useMemo(() => Math.max(1, Number(meta?.page_size ?? 10)), [meta?.page_size]);
   const count = useMemo(() => {
-    const total = toInt(meta?.total, 0);
-    const countFallback = toInt(meta?.count, 0);
-
-    // Si no viene total/count, usamos pages*pageSize SOLO para que la paginación no quede “rota”
-    const pages = toInt(meta?.pages ?? meta?.total_pages, 0);
-
-    const resolved = total > 0 ? total : countFallback > 0 ? countFallback : pages > 0 ? pages * pageSize : 0;
-    return resolved;
-  }, [meta?.total, meta?.count, meta?.pages, meta?.total_pages, pageSize]);
+    const base = Number(meta?.count ?? 0);
+    if (Number.isFinite(base) && base > 0) return base;
+    const legacyTotal = Number(meta?.total ?? 0);
+    return Number.isFinite(legacyTotal) ? legacyTotal : 0;
+  }, [meta?.count, meta?.total]);
 
   const emptyMessage = useMemo(() => {
     if (!hasWeeks) return "Aún no hay semanas registradas para mostrar logística.";

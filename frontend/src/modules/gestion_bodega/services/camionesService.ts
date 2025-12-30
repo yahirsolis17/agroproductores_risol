@@ -1,14 +1,40 @@
 import apiClient from '../../../global/api/apiClient';
+import { ensureSuccess } from '../../../global/utils/backendEnvelope';
+import type { BackendResponse } from '../../../global/types/apiTypes';
 
 export const camionesService = {
-  list: (params?: any) => apiClient.get('/bodega/camiones/', { params }),
-  create: (payload: any) => apiClient.post('/bodega/camiones/', payload),
-  update: (id: number, payload: any) => apiClient.put(`/bodega/camiones/${id}/`, payload),
-  partialUpdate: (id: number, payload: any) => apiClient.patch(`/bodega/camiones/${id}/`, payload),
-  destroy: (id: number) => apiClient.delete(`/bodega/camiones/${id}/`),
-  confirmar: (id: number) => apiClient.post(`/bodega/camiones/${id}/confirmar/`, {}),
-  addItem: (id: number, payload: any) => apiClient.post(`/bodega/camiones/${id}/items/add/`, payload),
-  removeItem: (id: number, payload: any) => apiClient.post(`/bodega/camiones/${id}/items/remove/`, payload),
+  list: async (params?: any): Promise<BackendResponse<any>> => {
+    const res = await apiClient.get('/bodega/camiones/', { params });
+    return ensureSuccess(res.data) as BackendResponse<any>;
+  },
+  create: async (payload: any): Promise<BackendResponse<any>> => {
+    const res = await apiClient.post('/bodega/camiones/', payload);
+    return ensureSuccess(res.data) as BackendResponse<any>;
+  },
+  update: async (id: number, payload: any): Promise<BackendResponse<any>> => {
+    const res = await apiClient.put(`/bodega/camiones/${id}/`, payload);
+    return ensureSuccess(res.data) as BackendResponse<any>;
+  },
+  partialUpdate: async (id: number, payload: any): Promise<BackendResponse<any>> => {
+    const res = await apiClient.patch(`/bodega/camiones/${id}/`, payload);
+    return ensureSuccess(res.data) as BackendResponse<any>;
+  },
+  destroy: async (id: number): Promise<BackendResponse<any>> => {
+    const res = await apiClient.delete(`/bodega/camiones/${id}/`);
+    return ensureSuccess(res.data) as BackendResponse<any>;
+  },
+  confirmar: async (id: number): Promise<BackendResponse<any>> => {
+    const res = await apiClient.post(`/bodega/camiones/${id}/confirmar/`, {});
+    return ensureSuccess(res.data) as BackendResponse<any>;
+  },
+  addItem: async (id: number, payload: any): Promise<BackendResponse<any>> => {
+    const res = await apiClient.post(`/bodega/camiones/${id}/items/add/`, payload);
+    return ensureSuccess(res.data) as BackendResponse<any>;
+  },
+  removeItem: async (id: number, payload: any): Promise<BackendResponse<any>> => {
+    const res = await apiClient.post(`/bodega/camiones/${id}/items/remove/`, payload);
+    return ensureSuccess(res.data) as BackendResponse<any>;
+  },
 };
 
 export default camionesService;
