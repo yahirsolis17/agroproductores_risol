@@ -64,6 +64,12 @@ export const moduleRoutes: ModuleRoute[] = [
     allowedRoles: ['admin', 'usuario'],
     element: lazyRoute(() => import('../../modules/gestion_huerta/pages/Cosechas')),
   },
+  {
+    path: '/cosechas/:temporadaId',
+    module: 'gestion_huerta',
+    allowedRoles: ['admin', 'usuario'],
+    element: lazyRoute(() => import('../../modules/gestion_huerta/pages/Cosechas')),
+  },
 
   // 👉 NUEVA RUTA: Finanzas por Cosecha
   {
