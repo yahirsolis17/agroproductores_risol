@@ -17,6 +17,7 @@ import CosechaFormModal from '../components/cosecha/CosechaFormModal';
 import { useCosechas } from '../hooks/useCosechas';
 import { Cosecha } from '../types/cosechaTypes';
 import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
+import { filterForDisplay } from '../../../global/utils/uiTransforms';
 
 import { setBreadcrumbs, clearBreadcrumbs } from '../../../global/store/breadcrumbsSlice';
 import { breadcrumbRoutes } from '../../../global/constants/breadcrumbRoutes';
@@ -167,10 +168,10 @@ useEffect(() => {
   const handleCreate = async () => {
     if (!temporadaId) return;
 
-    const visibles = cosechas
-      .map(c => c.nombre.match(/Cosecha\s+(\d+)/i)?.[1])
-      .filter(Boolean)
-      .map(Number);
+    const visibles = filterForDisplay(
+      cosechas.map(c => c.nombre.match(/Cosecha\s+(\d+)/i)?.[1]),
+      Boolean
+    ).map(Number);
 
     // Base sobre el total real en BD (activas + archivadas)
     const base = Math.max(totalRegistradas, ...(visibles.length ? visibles : [0])); // 👈 NUEVO

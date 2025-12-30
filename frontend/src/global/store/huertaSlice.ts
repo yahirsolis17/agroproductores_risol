@@ -1,3 +1,4 @@
+// STATE-UPDATE: local list pruning after mutations; allowed by UI-only policy.
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { huertaService } from '../../modules/gestion_huerta/services/huertaService';
 import { handleBackendNotification } from '../utils/NotificationEngine';

@@ -13,6 +13,7 @@ import { categoriaInversionService } from '../services/categoriaInversionService
 import { temporadaService } from '../services/temporadaService';
 import { cosechaService } from '../services/cosechaService';
 import { useParams } from 'react-router-dom';
+import { sortForDisplay } from '../../../global/utils/uiTransforms';
 
 const PAGE_SIZE = 10;
 
@@ -125,7 +126,7 @@ const Inversion: React.FC = () => {
         const next = exists
           ? prev.map(c => (c.id === cat.id ? { ...c, ...cat } : c))
           : [cat, ...prev];
-        return next.sort((a,b) => a.nombre.localeCompare(b.nombre, 'es'));
+        return sortForDisplay(next, (a, b) => a.nombre.localeCompare(b.nombre, 'es'));
       });
     };
     const onCreated = (e: any) => e?.detail && upsert(e.detail);
@@ -201,7 +202,7 @@ const Inversion: React.FC = () => {
         categoriesOptions={categorias}
         categoriesLoading={catsLoading}
         onCategoryCreated={(cat) =>
-          setCategorias(prev => [cat, ...prev].sort((a,b)=>a.nombre.localeCompare(b.nombre, 'es')))
+          setCategorias(prev => sortForDisplay([cat, ...prev], (a, b) => a.nombre.localeCompare(b.nombre, 'es')))
         }
       />
 

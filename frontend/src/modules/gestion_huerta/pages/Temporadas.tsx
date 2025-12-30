@@ -32,6 +32,7 @@ import { breadcrumbRoutes } from '../../../global/constants/breadcrumbRoutes';
 import { huertaService } from '../services/huertaService';
 import { huertaRentadaService } from '../services/huertaRentadaService';
 import { temporadaService } from '../services/temporadaService';
+import { joinDisplayParts } from '../../../global/utils/uiTransforms';
 
 const currentYear = new Date().getFullYear();
 const pageSize = 10;
@@ -142,7 +143,7 @@ const Temporadas: React.FC = () => {
           const huertaObj: any = h.data.huerta;
           const propietario =
             (huertaObj?.propietario_detalle
-              ? [huertaObj.propietario_detalle.nombre, huertaObj.propietario_detalle.apellidos].filter(Boolean).join(' ')
+              ? joinDisplayParts([huertaObj.propietario_detalle.nombre, huertaObj.propietario_detalle.apellidos])
               : '') || '—';
 
           setHeaderInfo({ nombre: huertaObj?.nombre ?? `#${huertaId}`, propietario });
@@ -153,7 +154,7 @@ const Temporadas: React.FC = () => {
           const hrObj: any = hr.data.huerta_rentada;
           const propietario =
             (hrObj?.propietario_detalle
-              ? [hrObj.propietario_detalle.nombre, hrObj.propietario_detalle.apellidos].filter(Boolean).join(' ')
+              ? joinDisplayParts([hrObj.propietario_detalle.nombre, hrObj.propietario_detalle.apellidos])
               : '') || '—';
 
           setHeaderInfo({ nombre: hrObj?.nombre ?? `#${huertaId}`, propietario });
@@ -275,7 +276,7 @@ const Temporadas: React.FC = () => {
 
     const payload: TemporadaCreateData = {
       año: currentYear,
-      fecha_inicio: new Date().toISOString().slice(0, 10),
+      fecha_inicio: new Date().toISOString().substring(0, 10),
       huerta: tipo === 'propia' ? huertaId : undefined,
       huerta_rentada: tipo === 'rentada' ? huertaId : undefined,
     };

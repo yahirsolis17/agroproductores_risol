@@ -1,9 +1,10 @@
 import { Crumb } from '../store/breadcrumbsSlice';
+import { filterForDisplay } from '../utils/uiTransforms';
 
 /** Helper: arma querystring ignorando nulos/vacíos y encodeando valores */
 function qs(params: Record<string, string | number | boolean | undefined | null>) {
-  const entries = Object.entries(params).filter(
-    ([, v]) => v !== undefined && v !== null && String(v).trim() !== ''
+  const entries = filterForDisplay(Object.entries(params), ([, v]) =>
+    v !== undefined && v !== null && String(v).trim() !== ''
   );
   if (!entries.length) return '';
   const q = entries

@@ -5,6 +5,7 @@
 import { useMemo, useCallback, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../../global/store/store";
+import { takeTopN, sortForDisplay } from "../../../global/utils/uiTransforms";
 
 import {
   setTemporadaId,
@@ -92,7 +93,9 @@ function mapSummaryToKpiCards(kpis: KpiSummary): KpiCard[] {
       id: "stock",
       title: "Stock actual",
       primary: fmtCajas(kpis.stock.total_kg),
-      secondary: Object.entries(kpis.stock.por_madurez || {}).slice(0, 3).map(([k, v]) => `${k}: ${fmtCajas(v as number)}`).join(" · ") || "—",
+      secondary: takeTopN(Object.entries(kpis.stock.por_madurez || {}), 3)
+        .map(([k, v]) => `${k}: ${fmtCajas(v as number)}`)
+        .join(" · ") || "—",
     });
   }
   if (kpis.ocupacion) {
@@ -100,7 +103,9 @@ function mapSummaryToKpiCards(kpis: KpiSummary): KpiCard[] {
       id: "ocupacion",
       title: "Ocupación",
       primary: fmtPct01(kpis.ocupacion.total_pct),
-      secondary: kpis.ocupacion.por_camara?.slice(0, 2).map((c) => `${c.camara} ${fmtPct01(c.pct)}`).join(" · ") || "—",
+      secondary: takeTopN(kpis.ocupacion.por_camara || [], 2)
+        .map((c) => `${c.camara} ${fmtPct01(c.pct)}`)
+        .join(" · ") || "—",
     });
   }
   if (kpis.rotacion) {
@@ -124,7 +129,9 @@ function mapSummaryToKpiCards(kpis: KpiSummary): KpiCard[] {
       id: "rechazos",
       title: "Rechazos QC",
       primary: fmtPct01(kpis.rechazos_qc.tasa_pct),
-      secondary: kpis.rechazos_qc.top_causas?.slice(0, 2).map((x) => `${x.causa} ${fmtPct01(x.pct)}`).join(" · ") || "—",
+      secondary: takeTopN(kpis.rechazos_qc.top_causas || [], 2)
+        .map((x) => `${x.causa} ${fmtPct01(x.pct)}`)
+        .join(" · ") || "—",
     });
   }
   if (kpis.lead_times) {
@@ -334,7 +341,7 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
   const alertsUI = useMemo(() => {
     const data = alerts as any;
     if (!data) return [];
-    const sorted = (data.alerts || []).slice().sort((a: any, b: any) => {
+    const sorted = sortForDisplay([...(data.alerts || [])], (a: any, b: any) => {
       const order: Record<string, number> = { critical: 0, warning: 1, info: 2 };
       return (order[a.severity] ?? 99) - (order[b.severity] ?? 99);
     });

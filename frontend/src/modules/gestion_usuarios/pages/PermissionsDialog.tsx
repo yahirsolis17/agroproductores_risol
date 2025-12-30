@@ -7,6 +7,7 @@ import { useAppDispatch, useAppSelector } from '../../../global/store/store';
 import { setPermissions } from '../../../global/store/authSlice';
 import permisoService, { Permiso } from '../services/permisoService';
 import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
+import { filterForDisplay } from '../../../global/utils/uiTransforms';
 
 import {
   Dialog,
@@ -86,7 +87,7 @@ const PermissionsDialog: React.FC<PermissionsDialogProps> = ({
         ]);
         // Ocultar módulos que no deben mostrarse en el diálogo
         const HIDDEN_MODULES = new Set(['Usuarios', 'Registro de actividad']);
-        const filtered = (allRes || []).filter(p => !HIDDEN_MODULES.has(p.modulo));
+        const filtered = filterForDisplay(allRes || [], (p) => !HIDDEN_MODULES.has(p.modulo));
         setAllPerms(filtered);
         setSelected(userPerms);
       } catch (err) {
@@ -110,7 +111,7 @@ const PermissionsDialog: React.FC<PermissionsDialogProps> = ({
   const toggle = (codename: string) =>
     setSelected((prev) =>
       prev.includes(codename)
-        ? prev.filter((p) => p !== codename)
+        ? filterForDisplay(prev, (p) => p !== codename)
         : [...prev, codename],
     );
 

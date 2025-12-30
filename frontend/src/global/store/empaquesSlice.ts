@@ -1,4 +1,5 @@
 // frontend/src/global/store/empaquesSlice.ts
+// STATE-UPDATE: local list pruning after mutations; allowed by UI-only policy.
 import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import type { RootState } from "./store";
 import type { PaginationMeta } from "../../modules/gestion_bodega/types/shared";
