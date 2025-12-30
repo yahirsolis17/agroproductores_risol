@@ -1,4 +1,5 @@
 import { toast } from 'react-toastify';
+import { isValidationError, normalizeBackendErrors } from '../validation/backendFieldErrors';
 
 // Debounce para evitar notificaciones duplicadas (especialmente en dev con StrictMode)
 let _lastNotif: { key?: string; message?: string; ts: number } | null = null;
@@ -34,6 +35,10 @@ const KEY_TO_TYPE: Record<string, 'success' | 'error' | 'warning' | 'info'> = {
 };
 
 export function handleBackendNotification(response: any) {
+  const normalized = normalizeBackendErrors(response);
+  if (isValidationError(normalized)) {
+    return;
+  }
   const notif = response?.notification;
   if (!notif) return;
 
