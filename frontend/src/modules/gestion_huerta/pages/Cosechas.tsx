@@ -226,8 +226,21 @@ useEffect(() => {
 
   // Navegar a Finanzas por Cosecha
   const handleVerFinanzas = (c: Cosecha) => {
+    if (!temporadaId) {
+      handleBackendNotification({
+        success: false,
+        message: 'Contexto inválido: selecciona una temporada para ver finanzas.',
+        message_key: 'contexto_invalido',
+      });
+      return;
+    }
     navigate(`/finanzas/${temporadaId}/${c.id}`);
   };
+
+  const verFinanzasDisabled = !temporadaId;
+  const verFinanzasTooltip = verFinanzasDisabled
+    ? 'Contexto inválido: vuelve a Temporadas y selecciona una temporada.'
+    : '';
 
   // Navegar a Reporte de Cosecha
   const handleReporteCosecha = (c: Cosecha) => {
@@ -319,6 +332,8 @@ useEffect(() => {
           onRestore={handleRestore}
           onToggleFinalizada={handleToggleFinal}
           onVerFinanzas={handleVerFinanzas}
+          verFinanzasDisabled={verFinanzasDisabled}
+          verFinanzasTooltip={verFinanzasTooltip}
           onReporteCosecha={handleReporteCosecha}
           emptyMessage={emptyMessage}
           loading={loading}   // 👈 deja que la tabla muestre el overlay; sin pantallazos
