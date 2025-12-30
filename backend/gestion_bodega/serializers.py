@@ -477,7 +477,7 @@ class ClasificacionEmpaqueBulkItemSerializer(serializers.Serializer):
     material = serializers.ChoiceField(choices=Material.choices)
     calidad = serializers.CharField(max_length=12)
     tipo_mango = serializers.CharField(max_length=80, allow_blank=True, required=False)
-    cantidad_cajas = serializers.IntegerField(min_value=1)
+    cantidad_cajas = serializers.IntegerField(min_value=0)
 
     def validate(self, data):
         mat = data.get("material")

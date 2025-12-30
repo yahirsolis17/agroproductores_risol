@@ -315,7 +315,7 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
         Snapshot semantics (estado final por recepción):
         - payload representa el set completo de líneas para esa recepción
         - ausente en payload => se archiva (si no tiene consumos; si tiene, 409)
-        - qty <= 0 no se permite (serializer rechaza), usar ausencia para archivar
+        - qty == 0 => intención explícita de archivar (si no tiene consumos; si tiene, 409)
 
         Request:
         {
@@ -361,6 +361,7 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
             # -------------------------------------------------------------------
             items_payload = ser.validated_data["items"]
             payload_map = {}
+            delete_keys = set()
             for item in items_payload:
                 material = item["material"]
                 calidad = str(item["calidad"]).strip()
@@ -369,14 +370,26 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
                 if material == "PLASTICO" and calidad in ["SEGUNDA", "EXTRA"]:
                     calidad = "PRIMERA"
 
-                payload_map[(material, calidad)] = qty
+                key = (material, calidad)
+                if qty == 0:
+                    if key not in payload_map:
+                        delete_keys.add(key)
+                    continue
+
+                payload_map[key] = payload_map.get(key, 0) + qty
+                if key in delete_keys:
+                    delete_keys.discard(key)
 
             total_payload = sum(payload_map.values())
             max_cajas = int(getattr(recepcion, "cajas_campo", 0) or 0)
             if total_payload > max_cajas:
                 return self.notify(
                     key="validation_error",
-                    data={"errors": {"items": "La suma de clasificaciones excede las cajas disponibles de la recepción."}},
+                    data={
+                        "errors": {"items": "La suma de clasificaciones excede las cajas disponibles de la recepción."},
+                        "requested_total": total_payload,
+                        "max_allowed": max_cajas,
+                    },
                     status_code=status.HTTP_400_BAD_REQUEST,
                 )
             # -------------------------------------------------------------------
@@ -404,8 +417,10 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
 
                 # Detectar bloqueos antes de modificar (archivar ausentes / modificar consumidos)
                 bloqueadas = []
-                for k, obj in existing.items():
-                    if k in payload_map:
+                keys_to_archive = (set(existing.keys()) - set(payload_map.keys())) | delete_keys
+                for k in keys_to_archive:
+                    obj = existing.get(k)
+                    if not obj:
                         continue
                     if obj.surtidos.exists():
                         bloqueadas.append(obj)
@@ -426,6 +441,10 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
                 if bloqueadas:
                     data_block = {
                         "recepcion_id": recepcion.id,
+                        "blocked_ids": [o.id for o in bloqueadas],
+                        "blocked_keys": [
+                            {"material": o.material, "calidad": o.calidad} for o in bloqueadas
+                        ],
                         "bloqueadas": [
                             {"id": o.id, "material": o.material, "calidad": o.calidad, "motivo": "Tiene consumos"}
                             for o in bloqueadas
@@ -437,9 +456,10 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
                         status_code=status.HTTP_409_CONFLICT,
                     )
 
-                # 1) Archivar ausentes
-                for k, obj in existing.items():
-                    if k in payload_map:
+                # 1) Archivar ausentes + delete intent
+                for k in keys_to_archive:
+                    obj = existing.get(k)
+                    if not obj:
                         continue
                     obj.archivar()
 
@@ -487,7 +507,11 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
                     transaction.set_rollback(True)
                     return self.notify(
                         key="validation_error",
-                        data={"errors": {"items": "La suma de clasificaciones excede las cajas disponibles de la recepción."}},
+                        data={
+                            "errors": {"items": "La suma de clasificaciones excede las cajas disponibles de la recepción."},
+                            "requested_total": total_final,
+                            "max_allowed": max_cajas,
+                        },
                         status_code=status.HTTP_400_BAD_REQUEST,
                     )
 

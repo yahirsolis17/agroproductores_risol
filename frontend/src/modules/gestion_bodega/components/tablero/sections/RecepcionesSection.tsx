@@ -59,9 +59,8 @@ function normalizeBackendCalidadToUILabel(material: "PLASTICO" | "MADERA", calid
 function buildInitialLinesPatchFromEmpaques(
   rows: any[],
   recepcionId: number
-): { patch: Record<string, number>; existingKeys: string[] } {
+): Record<string, number> {
   const patch: Record<string, number> = {};
-  const existingKeys: string[] = [];
 
   const filtered = Array.isArray(rows)
     ? rows.filter((r) => Number(r?.recepcion) === Number(recepcionId))
@@ -81,9 +80,7 @@ function buildInitialLinesPatchFromEmpaques(
     patch[key] = (patch[key] ?? 0) + safeQty;
   }
 
-  for (const k of Object.keys(patch)) existingKeys.push(k);
-
-  return { patch, existingKeys };
+  return patch;
 }
 
 const RecepcionesSection: React.FC<RecepcionesSectionProps> = ({
@@ -244,7 +241,6 @@ const RecepcionesSection: React.FC<RecepcionesSectionProps> = ({
   // Hidratar líneas existentes (precarga)
   const [empaqueLoading, setEmpaqueLoading] = useState(false);
   const [empaqueInitialLines, setEmpaqueInitialLines] = useState<Record<string, number> | null>(null);
-  const [empaqueExistingKeys, setEmpaqueExistingKeys] = useState<string[]>([]);
 
   const handleOpenEmpaque = useCallback((row: Captura) => {
     setSelectedRecepcion(row);
@@ -258,7 +254,6 @@ const RecepcionesSection: React.FC<RecepcionesSectionProps> = ({
     // Limpieza segura
     setEmpaqueLoading(false);
     setEmpaqueInitialLines(null);
-    setEmpaqueExistingKeys([]);
   }, []);
 
   // Evita inconsistencias: al cambiar semana o página, cerramos el empaque abierto
@@ -282,7 +277,6 @@ const RecepcionesSection: React.FC<RecepcionesSectionProps> = ({
 
     setEmpaqueLoading(true);
     setEmpaqueInitialLines(null);
-    setEmpaqueExistingKeys([]);
 
     empClearError();
 
@@ -310,14 +304,12 @@ const RecepcionesSection: React.FC<RecepcionesSectionProps> = ({
     if (empStatus === "failed") {
       setEmpaqueLoading(false);
       setEmpaqueInitialLines(null);
-      setEmpaqueExistingKeys([]);
       return;
     }
 
     if (empStatus === "succeeded") {
-      const { patch, existingKeys } = buildInitialLinesPatchFromEmpaques(empRows as any[], selectedRecepcion.id);
+      const patch = buildInitialLinesPatchFromEmpaques(empRows as any[], selectedRecepcion.id);
       setEmpaqueInitialLines(patch);
-      setEmpaqueExistingKeys(existingKeys);
       setEmpaqueLoading(false);
     }
   }, [openEmpaque, selectedRecepcion?.id, empStatus, empRows]);
@@ -401,24 +393,18 @@ const RecepcionesSection: React.FC<RecepcionesSectionProps> = ({
         onSave={async (lines) => {
           if (!selectedRecepcion || !bodegaId || !temporadaId) return;
 
-          const existingSet = new Set(empaqueExistingKeys);
-
           const items = Object.entries(lines)
             .map(([key, qty]) => {
               const [materialStr, calidad] = key.split(".");
               const material = materialStr === "PLASTICO" ? Material.PLASTICO : Material.MADERA;
 
               return {
-                _key: key, // helper interno para filtrar sin rearmar
                 material,
                 calidad,
                 tipo_mango: selectedRecepcion.tipo_mango ?? "",
                 cantidad_cajas: qty,
               };
-            })
-            // IMPORTANT: permitimos qty=0 SOLO si esa línea ya existía (para poder corregir hacia abajo)
-            .filter((i) => Number(i.cantidad_cajas) > 0 || existingSet.has(i._key))
-            .map(({ _key, ...rest }) => rest);
+            });
 
           try {
             await empBulkUpsert({
