@@ -21,6 +21,9 @@ import tableroBodegaReducer from './tableroBodegaSlice';
 import cierreSliceReducer from './cierresSlice';
 import empaquesSlice  from './empaquesSlice';
 import activityLogReducer from './activityLogSlice';
+import reporteTemporadaReducer from './reporteTemporadaSlice';
+import reporteCosechaReducer from './reporteCosechaSlice';
+import reportePerfilHuertaReducer from './reportePerfilHuertaSlice';
 export const store = configureStore({
   reducer: {
     auth: authReducer,
@@ -42,6 +45,9 @@ export const store = configureStore({
     cierres: cierreSliceReducer,
     empaques: empaquesSlice,
     activityLog: activityLogReducer,
+    reporteTemporada: reporteTemporadaReducer,
+    reporteCosecha: reporteCosechaReducer,
+    reportePerfilHuerta: reportePerfilHuertaReducer,
   },
 });
 
