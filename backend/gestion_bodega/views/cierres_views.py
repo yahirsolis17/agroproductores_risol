@@ -85,7 +85,19 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
                 data={"results": data, "meta": self.get_pagination_meta()},
                 status_code=status.HTTP_200_OK,
             )
-        return self.notify(key="data_processed_success", data={"results": data}, status_code=status.HTTP_200_OK)
+        meta = {
+            "count": len(data),
+            "next": None,
+            "previous": None,
+            "page": 1,
+            "page_size": len(data),
+            "total_pages": 1,
+        }
+        return self.notify(
+            key="data_processed_success",
+            data={"results": data, "meta": meta},
+            status_code=status.HTTP_200_OK,
+        )
 
     @action(detail=False, methods=["get"], url_path="index")
     def index(self, request):
@@ -96,7 +108,7 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
         if not temporada_id:
             return self.notify(
                 key="validation_error",
-                data={"detail": "Se requiere el parametro 'temporada'"},
+                data={"errors": {"detail": "Se requiere el parametro 'temporada'"}},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 

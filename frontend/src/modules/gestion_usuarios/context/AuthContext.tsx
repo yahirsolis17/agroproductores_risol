@@ -9,9 +9,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '../../../global/store/store';
 
 import authService, { User } from '../services/authService';
-import apiClient from '../../../global/api/apiClient';
 import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
-import { fetchPermissionsThunk } from '../../../global/store/authSlice';
+import { fetchPermissionsThunk, loginSuccess, logoutThunk } from '../../../global/store/authSlice';
 
 /* --------- API del contexto --------- */
 interface AuthContextProps {
@@ -42,18 +41,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
 
-  /* --- localStorage para sesión persistente --- */
-  const storedUser = authService.getUser();
-  const storedPerms = JSON.parse(localStorage.getItem('permissions') || '[]');
-
-  /* --- estado local del contexto --- */
-  const [user, setUser] = useState<User | null>(storedUser);
-  const [permissions, setPermissions] = useState<string[]>(storedPerms);
+  const { user, permissions } = useAppSelector((s) => s.auth);
   const [loading, setLoading] = useState(true);
-
-  /* --- 🔄  Sincronizar con Redux en tiempo real --- */
-  const reduxPerms = useAppSelector((s) => s.auth.permissions);
-  useEffect(() => setPermissions(reduxPerms), [reduxPerms]);
 
   /* --- helpers --- */
   const hasPerm = (perm: string) => permissions.includes(perm);
@@ -67,8 +56,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         if (authService.getAccessToken()) await refreshSession();
       } catch {
         authService.logout();
-        setUser(null);
-        setPermissions([]);
         localStorage.removeItem('permissions');
       } finally {
         setLoading(false);
@@ -110,9 +97,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   /* -------------------------------------------------------------------- */
   const refreshSession = async () => {
     const me = await authService.getMe();
-    setUser(me);
     localStorage.setItem('user', JSON.stringify(me));
-    await fetchPermissions();
+    const perms = await fetchPermissions();
+    dispatch(loginSuccess({ user: me, token: authService.getAccessToken() || '', permissions: perms }));
   };
 
   const login = async (telefono: string, password: string) => {
@@ -131,10 +118,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     localStorage.setItem('refreshToken', tokens.refresh);
 
     const loggedWithFlag = { ...logged, must_change_password };
-    setUser(loggedWithFlag);
     localStorage.setItem('user', JSON.stringify(loggedWithFlag));
 
-    await fetchPermissions();
+    const perms = await fetchPermissions();
+    dispatch(loginSuccess({ user: loggedWithFlag, token: tokens.access, permissions: perms }));
 
     navigate(must_change_password ? '/change-password' : '/dashboard', {
       replace: true,
@@ -142,18 +129,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   const logout = async () => {
-    try {
-      const refresh = localStorage.getItem('refreshToken');
-      await apiClient.post('/usuarios/logout/', { refresh_token: refresh });
-    } catch (err: any) {
-      handleBackendNotification(err?.response?.data);
-    } finally {
-      authService.logout();
-      setUser(null);
-      setPermissions([]);
-      localStorage.removeItem('permissions');
-      navigate('/login');
-    }
+    await dispatch(logoutThunk());
+    authService.logout();
+    localStorage.removeItem('permissions');
+    navigate('/login');
   };
 
   /* -------------------------------------------------------------------- */
