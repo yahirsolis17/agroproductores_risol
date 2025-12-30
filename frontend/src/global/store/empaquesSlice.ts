@@ -14,6 +14,29 @@ import { empaquesService } from "../../modules/gestion_bodega/services/empaquesS
 
 type Status = "idle" | "loading" | "succeeded" | "failed";
 
+/**
+ * Query params permitidos para fetch list sin caer en "as any".
+ * Mantiene EmpaquesFilters como base, y agrega los params operativos reales.
+ */
+export type EmpaquesQueryParams = EmpaquesFilters & {
+  // filtros típicos usados en tablero/recepciones/empaque
+  recepcion?: number;
+  bodega?: number;
+  temporada?: number;
+  semana?: number | null;
+
+  // flags/paginación/orden
+  is_active?: boolean;
+  page?: number;
+  page_size?: number;
+  ordering?: string;
+
+  // opcionales (si existen en backend)
+  material?: string;
+  calidad?: string;
+  tipo_mango?: string;
+};
+
 interface EmpaquesState {
   items: EmpaqueRow[];
   meta: PaginationMeta;
@@ -60,19 +83,32 @@ const initialState: EmpaquesState = {
 };
 
 function extractErrorMessage(err: unknown): string {
-  const data = (err as { response?: { data?: unknown } })?.response?.data;
-  if (typeof data === 'string') return data;
-  if (data && typeof data === 'object') {
+  const e = err as any;
+  const data = e?.response?.data;
+
+  // NotificationHandler común: { success, message_key, message, data }
+  if (data && typeof data === "object") {
     const d = data as Record<string, unknown>;
-    if (typeof d.message === 'string') return d.message;
-    if (typeof d.detail === 'string') return d.detail;
+    if (typeof d.message === "string") return d.message;
+    if (typeof d.detail === "string") return d.detail;
+
+    // Errores DRF típicos: { field: ["..."] }
+    // Intentamos colapsar en texto.
+    const fieldErrors = Object.values(d)
+      .flatMap((v) => (Array.isArray(v) ? v : []))
+      .filter((x) => typeof x === "string") as string[];
+
+    if (fieldErrors.length) return fieldErrors[0];
   }
-  return err instanceof Error ? err.message : 'Ocurrió un error inesperado.';
+
+  if (typeof data === "string") return data;
+
+  return err instanceof Error ? err.message : "Ocurrió un error inesperado.";
 }
 
 export const fetchEmpaques = createAsyncThunk(
   "empaques/fetchList",
-  async (params: EmpaquesFilters, { rejectWithValue }) => {
+  async (params: EmpaquesQueryParams, { rejectWithValue }) => {
     try {
       return await empaquesService.list(params);
     } catch (e: unknown) {
@@ -175,7 +211,6 @@ const empaquesSlice = createSlice({
 
       // BY ID
       .addCase(fetchEmpaqueById.pending, (state) => {
-        state.saving = false;
         state.error = null;
       })
       .addCase(fetchEmpaqueById.fulfilled, (state, action) => {
@@ -273,12 +308,8 @@ const empaquesSlice = createSlice({
   },
 });
 
-export const {
-  setEmpaquesFilters,
-  clearEmpaquesError,
-  clearEmpaquesCurrent,
-  clearEmpaquesBulkState,
-} = empaquesSlice.actions;
+export const { setEmpaquesFilters, clearEmpaquesError, clearEmpaquesCurrent, clearEmpaquesBulkState } =
+  empaquesSlice.actions;
 
 export default empaquesSlice.reducer;
 

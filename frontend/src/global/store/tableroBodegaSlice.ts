@@ -6,7 +6,7 @@
 
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 
-import { handleBackendNotification } from "../utils/NotificationEngine";
+
 import {
   getDashboardSummary,
   getDashboardQueues,
@@ -41,7 +41,6 @@ export interface TableroFilters {
   page: number;
   page_size: number;
   order_by: string | null;
-  isoSemana: string | null;
 }
 
 const DEFAULT_ORDER_BY: Record<QueueType, string> = {
@@ -61,7 +60,6 @@ const DEFAULT_FILTERS: TableroFilters = {
   page: 1,
   page_size: 10,
   order_by: DEFAULT_ORDER_BY.recepciones,
-  isoSemana: null,
 };
 
 // --------------------------
@@ -87,7 +85,7 @@ export interface TableroBodegaState {
   // Loading states
   loadingSummary: boolean;
   loadingAlerts: boolean;
-  loadingQueues: boolean;
+  loadingQueues: Record<QueueType, boolean>;
   loadingWeeksNav: boolean;
   startingWeek: boolean;
   finishingWeek: boolean;
@@ -95,7 +93,7 @@ export interface TableroBodegaState {
   // Errors
   errorSummary: string | null;
   errorAlerts: string | null;
-  errorQueues: string | null;
+  errorQueues: Record<QueueType, string | null>;
   errorWeeksNav: string | null;
 
   lastVisitedAt: number | null;
@@ -117,13 +115,13 @@ const initialState: TableroBodegaState = {
   selectedWeekId: null,
   loadingSummary: false,
   loadingAlerts: false,
-  loadingQueues: false,
+  loadingQueues: { recepciones: false, inventarios: false, despachos: false },
   loadingWeeksNav: false,
   startingWeek: false,
   finishingWeek: false,
   errorSummary: null,
   errorAlerts: null,
-  errorQueues: null,
+  errorQueues: { recepciones: null, inventarios: null, despachos: null },
   errorWeeksNav: null,
   lastVisitedAt: null,
 };
@@ -138,7 +136,7 @@ interface FetchParams {
   filters?: Partial<TableroFilters>;
 }
 
-export const fetchTablereSummary = createAsyncThunk<
+export const fetchTableroSummary = createAsyncThunk<
   DashboardSummaryResponse,
   FetchParams,
   { rejectValue: string }
@@ -193,9 +191,7 @@ export const tableroStartWeek = createAsyncThunk<
   { rejectValue: string }
 >("tableroBodega/startWeek", async (body, { rejectWithValue }) => {
   try {
-    const result = await apiStartWeek(body);
-    handleBackendNotification({ success: true, message: "Semana iniciada" });
-    return result;
+    return await apiStartWeek(body);
   } catch (err: unknown) {
     return rejectWithValue(err instanceof Error ? err.message : 'Error al iniciar semana');
   }
@@ -207,9 +203,7 @@ export const tableroFinishWeek = createAsyncThunk<
   { rejectValue: string }
 >("tableroBodega/finishWeek", async (body, { rejectWithValue }) => {
   try {
-    const result = await apiFinishWeek(body);
-    handleBackendNotification({ success: true, message: "Semana finalizada" });
-    return result;
+    return await apiFinishWeek(body);
   } catch (err: unknown) {
     return rejectWithValue(err instanceof Error ? err.message : 'Error al finalizar semana');
   }
@@ -258,15 +252,15 @@ const tableroBodegaSlice = createSlice({
   },
   extraReducers: (builder) => {
     // Summary
-    builder.addCase(fetchTablereSummary.pending, (state) => {
+    builder.addCase(fetchTableroSummary.pending, (state) => {
       state.loadingSummary = true;
       state.errorSummary = null;
     });
-    builder.addCase(fetchTablereSummary.fulfilled, (state, action) => {
+    builder.addCase(fetchTableroSummary.fulfilled, (state, action) => {
       state.loadingSummary = false;
       state.summary = action.payload;
     });
-    builder.addCase(fetchTablereSummary.rejected, (state, action) => {
+    builder.addCase(fetchTableroSummary.rejected, (state, action) => {
       state.loadingSummary = false;
       state.errorSummary = action.payload ?? "Error";
     });
@@ -286,17 +280,20 @@ const tableroBodegaSlice = createSlice({
     });
 
     // Queues
-    builder.addCase(fetchTableroQueues.pending, (state) => {
-      state.loadingQueues = true;
-      state.errorQueues = null;
+    builder.addCase(fetchTableroQueues.pending, (state, action) => {
+      const queueType = action.meta.arg.queueType;
+      state.loadingQueues[queueType] = true;
+      state.errorQueues[queueType] = null;
     });
     builder.addCase(fetchTableroQueues.fulfilled, (state, action) => {
-      state.loadingQueues = false;
-      state.queues[action.payload.type] = action.payload.data;
+      const queueType = action.payload.type;
+      state.loadingQueues[queueType] = false;
+      state.queues[queueType] = action.payload.data;
     });
     builder.addCase(fetchTableroQueues.rejected, (state, action) => {
-      state.loadingQueues = false;
-      state.errorQueues = action.payload ?? "Error";
+      const queueType = action.meta.arg.queueType;
+      state.loadingQueues[queueType] = false;
+      state.errorQueues[queueType] = action.payload ?? "Error";
     });
 
     // WeeksNav

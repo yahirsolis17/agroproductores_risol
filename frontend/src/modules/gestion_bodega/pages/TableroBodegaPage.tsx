@@ -30,8 +30,7 @@ import WeekSwitcher from "../components/tablero/WeekSwitcher";
 import { setBreadcrumbs } from "../../../global/store/breadcrumbsSlice";
 import { formatDateISO, parseLocalDateStrict } from "../../../global/utils/date";
 
-import { getWeekCurrent } from "../services/tableroBodegaService";
-import type { WeekCurrentResponse } from "../types/tableroBodegaTypes";
+// Fase 1: getWeekCurrent eliminado - hook maneja estado de semana
 
 import ResumenSection from "../components/tablero/sections/ResumenSection";
 import RecepcionesSection from "../components/tablero/sections/RecepcionesSection";
@@ -96,7 +95,7 @@ const TableroBodegaPage: React.FC = () => {
   const theme = useTheme();
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const [sp, setSp] = useSearchParams();
+  const [sp] = useSearchParams();
 
   // Media queries para responsive
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -133,80 +132,31 @@ const TableroBodegaPage: React.FC = () => {
     }
   }, [bodegaParam, bodegaId, navigate]);
 
-  // Hook maestro de Tablero
-  const hookAny = useTableroBodega({ bodegaId: bodegaId!, temporadaId }) as any;
+  // Hook maestro de Tablero (FUENTE ÚNICA DE VERDAD para semana)
+  const tablero = useTableroBodega({ bodegaId: bodegaId!, temporadaId });
 
   const {
     kpiCards,
     isLoadingSummary,
-    errorSummary,
+    // errorSummary no existe en hook - usar null por ahora
     refetchSummary,
     onApplyFilters,
     weekNav,
-    markForRefetch,
-    applyMarkedRefetch,
     apiStartWeek,
     apiFinishWeek,
-  } = hookAny;
+    // Fase 1: valores consolidados del hook (elimina duplicación)
+    hasActiveWeek,
+    isActiveSelectedWeek,
+    selectedWeek,
+    goPrevWeek: hookGoPrevWeek,
+    goNextWeek: hookGoNextWeek,
+    startingWeek,
+    finishingWeek,
+    isExpiredWeek,
+  } = tablero;
 
   const hasWeeks: boolean = !!weekNav?.hasWeeks;
-  const [weekSelectionInitialized, setWeekSelectionInitialized] = useState(false);
-
-  // Estado: semana activa actual (desde backend /week/current/)
-  const [weekState, setWeekState] = useState<WeekCurrentResponse | null>(null);
-  const [busyStart, setBusyStart] = useState(false);
-  const [busyFinish, setBusyFinish] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-
-  // Semana seleccionada (weeksNav + fallback /week/current/)
-  useEffect(() => {
-    const items = (weekNav?.items || []) as any[];
-    if (!items.length) return;
-    if (weekSelectionInitialized) return;
-
-    const openWeek = items.find((w: any) => w?.activa);
-    const currentId = urlWeekId && !Number.isNaN(urlWeekId) ? urlWeekId : null;
-    const currentWeek = currentId ? items.find((it: any) => it?.id === currentId) : undefined;
-
-    if (openWeek) {
-      const mustSwitch = !currentWeek || !currentWeek.activa || currentWeek.id !== openWeek.id;
-      if (mustSwitch) {
-        const next = new URLSearchParams(sp);
-        next.set("week_id", String(openWeek.id));
-        setSp(next, { replace: true });
-      }
-      setWeekSelectionInitialized(true);
-      return;
-    }
-
-    if (!currentWeek) {
-      const idxFromNav = ((weekNav?.indice ?? items.length) as number) - 1;
-      const safeIdx = Math.max(0, Math.min(items.length - 1, idxFromNav));
-      const fallback = items[safeIdx];
-      if (fallback?.id) {
-        const next = new URLSearchParams(sp);
-        next.set("week_id", String(fallback.id));
-        setSp(next, { replace: true });
-      }
-    }
-
-    setWeekSelectionInitialized(true);
-  }, [weekNav?.items, weekNav?.indice, urlWeekId, sp, setSp, weekSelectionInitialized]);
-
-  const selectedWeek = useMemo(() => {
-    const items = (weekNav?.items || []) as any[];
-    if (urlWeekId && items.length) {
-      const found = items.find((it) => it?.id === urlWeekId);
-      if (found) return found;
-    }
-    const idx1 = weekNav?.indice ?? null; // 1-based
-    if (items.length && idx1 && idx1 > 0) {
-      return items[Math.min(items.length - 1, Math.max(0, idx1 - 1))];
-    }
-    const wk = (weekState as any)?.week || null;
-    if (wk) return wk;
-    return null;
-  }, [weekNav?.items, weekNav?.indice, urlWeekId, weekState]);
 
   // Estado local del rango que maneja WeekSwitcher
   const [weekValue, setWeekValue] = useState<WeekValue>(() => {
@@ -221,7 +171,7 @@ const TableroBodegaPage: React.FC = () => {
     };
   });
 
-  // Sincronizar weekValue cuando cambia la semana seleccionada
+  // Sincronizar weekValue cuando cambia la semana seleccionada (del hook)
   useEffect(() => {
     const sw: any = selectedWeek;
     const from = sw?.fecha_desde || sw?.inicio;
@@ -230,31 +180,6 @@ const TableroBodegaPage: React.FC = () => {
       setWeekValue((prev) => (prev.from === from && prev.to === to ? prev : { from, to, isoSemana: "MANUAL" }));
     }
   }, [selectedWeek]);
-
-  // Estado de semana desde backend (/week/current/)
-  const refetchWeekState = useCallback(async () => {
-    if (!bodegaId || !temporadaId) return;
-    try {
-      const s = await getWeekCurrent(temporadaId, bodegaId);
-      setWeekState(s);
-    } catch {
-      // silencioso
-    }
-  }, [bodegaId, temporadaId]);
-
-  useEffect(() => {
-    refetchWeekState();
-  }, [refetchWeekState]);
-
-  // Si backend reporta una semana activa diferente a la URL, forzamos URL a la activa
-  useEffect(() => {
-    const activeId = (weekState as any)?.active_week?.id;
-    if (!activeId) return;
-    if (urlWeekId === activeId) return;
-    const next = new URLSearchParams(sp);
-    next.set("week_id", String(activeId));
-    setSp(next, { replace: true });
-  }, [weekState, urlWeekId, sp, setSp]);
 
   // Pretty range
   const rangoPretty = useMemo(() => {
@@ -297,13 +222,12 @@ const TableroBodegaPage: React.FC = () => {
     (range: { from?: string; to?: string; isoSemana?: string | null }) => {
       setWeekValue((prev) => ({ ...prev, ...range }));
       if (!range.from || !range.to) return;
-      const key = range.isoSemana ?? "MANUAL";
-      onApplyFilters?.({ fecha_desde: range.from, fecha_hasta: range.to, isoSemana: key });
+      onApplyFilters?.({ fecha_desde: range.from, fecha_hasta: range.to });
     },
     [onApplyFilters]
   );
 
-  // Índices prev/next (para WeekSwitcher)
+  // Índices prev/next (para WeekSwitcher) - usa hook para navegación
   const currentIndex = useMemo(() => {
     const items = (weekNav?.items || []) as any[];
     if (!items.length) return -1;
@@ -315,165 +239,42 @@ const TableroBodegaPage: React.FC = () => {
     return Math.max(0, Math.min(items.length - 1, idxFromNav));
   }, [weekNav?.items, weekNav?.indice, urlWeekId]);
 
-  // Virtual Mode detection
-  const isVirtualMode = !urlWeekId && !selectedWeek && hasWeeks;
+  // Fase 1: sin Virtual Mode (eliminado según contrato)
+  const disablePrev = !hasWeeks || currentIndex <= 0;
+  const disableNext = !hasWeeks || currentIndex >= (weekNav?.items?.length ?? 0) - 1;
 
-  const disablePrev = !hasWeeks || (currentIndex <= 0 && !isVirtualMode);
-
-  // Allow next if:
-  // 1. Not at end of list
-  // 2. OR at end of list, but that last week is CLOSED (so we can go to virtual week)
-  // 3. AND not already in virtual mode
-  const disableNext = useMemo(() => {
-    if (!hasWeeks) return true;
-    if (isVirtualMode) return true; // Can't go next from virtual
-    const items = (weekNav?.items || []) as any[];
-    const isAtEnd = currentIndex >= items.length - 1;
-    if (!isAtEnd) return false;
-
-    // Check if last week is closed
-    const lastWeek = items[items.length - 1];
-    const isClosed = lastWeek.fecha_hasta || lastWeek.fin || lastWeek.is_closed;
-    return !isClosed;
-  }, [hasWeeks, isVirtualMode, currentIndex, weekNav?.items]);
-
-  const goPrevWeek = useCallback(() => {
-    const items = (weekNav?.items || []) as any[];
-    if (!items.length) return;
-
-    // If in virtual mode, go back to last item
-    if (isVirtualMode) {
-      const last = items[items.length - 1];
-      if (last?.id) {
-        const next = new URLSearchParams(sp);
-        next.set("week_id", String(last.id));
-        setSp(next, { replace: true }); // Back to reality
-      }
-      return;
-    }
-
-    const idx = currentIndex <= 0 ? 0 : currentIndex - 1;
-    const target = items[idx];
-    if (target?.id) {
-      const next = new URLSearchParams(sp);
-      next.set("week_id", String(target.id));
-      setSp(next, { replace: false });
-    }
-  }, [weekNav?.items, currentIndex, sp, setSp, isVirtualMode]);
-
-  const goNextWeek = useCallback(() => {
-    const items = (weekNav?.items || []) as any[];
-    if (!items.length) return;
-
-    // logic for next
-    const isAtEnd = currentIndex >= items.length - 1;
-
-    if (isAtEnd) {
-      // Try to enter virtual mode
-      const lastWeek = items[items.length - 1];
-      const isClosed = lastWeek.fecha_hasta || lastWeek.fin || lastWeek.is_closed;
-
-      if (isClosed) {
-        // Enter Virtual Mode
-        const next = new URLSearchParams(sp);
-        next.delete("week_id");
-        setSp(next, { replace: true });
-
-        // Calc virtual dates: start = last end + 1 day
-        const lastEndStr = lastWeek.fecha_hasta || lastWeek.fin || lastWeek.fecha_desde; // Fallback
-        const lastEnd = parseLocalDateStrict(lastEndStr);
-        const virtualStart = new Date(lastEnd);
-        virtualStart.setDate(virtualStart.getDate() + 1);
-
-        const virtualEnd = new Date(virtualStart);
-        virtualEnd.setDate(virtualEnd.getDate() + 6);
-
-        setWeekValue({
-          from: formatDateISO(virtualStart),
-          to: formatDateISO(virtualEnd),
-          isoSemana: "MANUAL" // or calculate next ISO
-        });
-        return;
-      }
-      return; // Stuck
-    }
-
-    const idx = currentIndex + 1;
-    const target = items[idx];
-    if (target?.id) {
-      const next = new URLSearchParams(sp);
-      next.set("week_id", String(target.id));
-      setSp(next, { replace: false });
-    }
-  }, [weekNav?.items, currentIndex, sp, setSp]);
-
-  // Estado semana activa (robusto)
-  const { hasActiveWeek, isActiveSelectedWeek } = useMemo(() => {
-    const wk = selectedWeek as any;
-    const flagActiva = !!wk?.activa;
-
-    const active = (weekState?.active_week as any) ?? ((weekNav?.context as any)?.active_week as any) ?? null;
-
-    const estado = (active?.estado || "").toString().toUpperCase();
-    const isActiveGlobal = !!active && (estado === "ABIERTA" || estado === "ACTUAL" || !estado);
-
-    const selectedId = wk?.id ?? null;
-    const isSelectedActive = isActiveGlobal && active?.id != null && selectedId != null && active.id === selectedId;
-
-    const hasAnyActive = isActiveGlobal || flagActiva || ((weekNav?.items || []) as any[]).some((it) => it?.activa);
-
-    return {
-      hasActiveWeek: hasAnyActive,
-      isActiveSelectedWeek: isSelectedActive || flagActiva,
-    };
-  }, [weekState?.active_week, weekNav?.context, weekNav?.items, selectedWeek]);
+  // Fase 1: Navegación de semanas delegada al hook
+  const goPrevWeek = hookGoPrevWeek;
+  const goNextWeek = hookGoNextWeek;
 
   const canFinish = isActiveSelectedWeek;
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Acciones semana
+  // Acciones semana (Fase 1: usa Redux busy states y refetch del hook)
   // ───────────────────────────────────────────────────────────────────────────
   const handleStart = useCallback(async () => {
     setActionError(null);
     if (!bodegaId || !temporadaId) return;
     try {
-      setBusyStart(true);
       const from = weekValue.from;
       await apiStartWeek?.(from);
-
-      await refetchWeekState();
-
-      markForRefetch?.("summary");
-      markForRefetch?.("recepciones");
-      markForRefetch?.("despachos");
-      applyMarkedRefetch?.();
+      // apiStartWeek ya hace refetch de weeksNav y summary internamente
     } catch (e: any) {
       setActionError(e?.message || "No se pudo iniciar la semana.");
-    } finally {
-      setBusyStart(false);
     }
-  }, [apiStartWeek, bodegaId, temporadaId, weekValue.from, markForRefetch, applyMarkedRefetch, refetchWeekState]);
+  }, [apiStartWeek, bodegaId, temporadaId, weekValue.from]);
 
   const handleFinish = useCallback(async () => {
     setActionError(null);
     if (!bodegaId || !temporadaId) return;
     try {
-      setBusyFinish(true);
       const to = weekValue.to;
       await apiFinishWeek?.(to);
-
-      await refetchWeekState();
-
-      markForRefetch?.("summary");
-      markForRefetch?.("recepciones");
-      markForRefetch?.("despachos");
-      applyMarkedRefetch?.();
+      // apiFinishWeek ya hace refetch de weeksNav y summary internamente
     } catch (e: any) {
       setActionError(e?.message || "No se pudo finalizar la semana.");
-    } finally {
-      setBusyFinish(false);
     }
-  }, [apiFinishWeek, bodegaId, temporadaId, weekValue.to, markForRefetch, applyMarkedRefetch, refetchWeekState]);
+  }, [apiFinishWeek, bodegaId, temporadaId, weekValue.to]);
 
   // ───────────────────────────────────────────────────────────────────────────
   // Lógica de botón Iniciar (UX final)
@@ -486,7 +287,7 @@ const TableroBodegaPage: React.FC = () => {
     return fromSel === weekValue.from && toSel === weekValue.to;
   }, [selectedWeek, weekValue.from, weekValue.to]);
 
-  const disableStartButton = !bodegaId || busyStart || hasActiveWeek || isSameRangeAsSelectedWeek;
+  const disableStartButton = !bodegaId || startingWeek || hasActiveWeek || isSameRangeAsSelectedWeek;
 
   const startTooltip = !bodegaId
     ? "Selecciona una bodega válida."
@@ -523,13 +324,13 @@ const TableroBodegaPage: React.FC = () => {
                 },
               }}
             >
-              {busyStart ? <CircularProgress size={16} color="inherit" /> : <PlayArrowIcon fontSize="small" />}
+              {startingWeek ? <CircularProgress size={16} color="inherit" /> : <PlayArrowIcon fontSize="small" />}
             </IconButton>
           ) : (
             <Button
               size="medium"
               variant="contained"
-              startIcon={busyStart ? <CircularProgress size={16} /> : <PlayArrowIcon />}
+              startIcon={startingWeek ? <CircularProgress size={16} /> : <PlayArrowIcon />}
               disabled={disableStartButton}
               onClick={handleStart}
               sx={{
@@ -558,7 +359,7 @@ const TableroBodegaPage: React.FC = () => {
             {isMobile ? (
               <IconButton
                 size="small"
-                disabled={!bodegaId || busyFinish || !canFinish}
+                disabled={!bodegaId || finishingWeek || !canFinish}
                 onClick={handleFinish}
                 sx={{
                   borderRadius: 999,
@@ -570,14 +371,14 @@ const TableroBodegaPage: React.FC = () => {
                   },
                 }}
               >
-                {busyFinish ? <CircularProgress size={16} color="inherit" /> : <StopIcon fontSize="small" />}
+                {finishingWeek ? <CircularProgress size={16} color="inherit" /> : <StopIcon fontSize="small" />}
               </IconButton>
             ) : (
               <Button
                 size="medium"
                 variant="outlined"
-                startIcon={busyFinish ? <CircularProgress size={16} /> : <StopIcon />}
-                disabled={!bodegaId || busyFinish || !canFinish}
+                startIcon={finishingWeek ? <CircularProgress size={16} /> : <StopIcon />}
+                disabled={!bodegaId || finishingWeek || !canFinish}
                 onClick={handleFinish}
                 sx={{
                   borderRadius: 999,
@@ -864,7 +665,7 @@ const TableroBodegaPage: React.FC = () => {
 
           {/* Alerta de Semana Caducada */}
           <AnimatePresence>
-            {hookAny.isExpiredWeek && (
+            {isExpiredWeek && (
               <Box
                 component={motion.div as any}
                 initial={{ opacity: 0, height: 0, mb: 0 }}
@@ -887,7 +688,7 @@ const TableroBodegaPage: React.FC = () => {
                         color="inherit"
                         size="small"
                         onClick={handleFinish}
-                        disabled={busyFinish}
+                        disabled={finishingWeek}
                         sx={{ fontWeight: 700, bgcolor: "rgba(255,255,255,0.2)" }}
                       >
                         Finalizar Ahora
@@ -907,7 +708,7 @@ const TableroBodegaPage: React.FC = () => {
                       variant="contained"
                       color="inherit"
                       onClick={handleFinish}
-                      disabled={busyFinish}
+                      disabled={finishingWeek}
                       sx={{ mt: 1, color: "error.main", bgcolor: "white", "&:hover": { bgcolor: "rgba(255,255,255,0.9)" } }}
                       size="small"
                       fullWidth
@@ -944,13 +745,13 @@ const TableroBodegaPage: React.FC = () => {
             <Box component={motion.div} key={weekValue.from} {...pageTransition}>
               <TableroSectionsAccordion
                 isActiveSelectedWeek={isActiveSelectedWeek}
-                isExpiredWeek={hookAny.isExpiredWeek}
+                isExpiredWeek={isExpiredWeek}
                 forcedOpen={forcedOpen}
                 resumen={
                   <ResumenSection
                     items={kpiCards}
                     loading={!!isLoadingSummary}
-                    error={errorSummary}
+                    error={null}
                     onRetry={() => refetchSummary?.()}
                   />
                 }
@@ -963,7 +764,8 @@ const TableroBodegaPage: React.FC = () => {
                       semanaIndex={semanaIndex}
                       selectedWeek={selectedWeek}
                       isActiveSelectedWeek={isActiveSelectedWeek}
-                      isExpiredWeek={hookAny.isExpiredWeek}
+                      isExpiredWeek={isExpiredWeek}
+                      onMutateSuccess={refetchSummary}
                     />
                   </Box>
                 }
@@ -972,10 +774,10 @@ const TableroBodegaPage: React.FC = () => {
                   <LogisticaSection
                     hasWeeks={hasWeeks}
                     semanaIndex={semanaIndex}
-                    rows={(hookAny?.queueLogistica?.rows ?? []) as any[]}
-                    meta={hookAny?.queueLogistica?.meta ?? { page: 1, page_size: 10, total: 0 }}
-                    loading={!!hookAny?.isLoadingLogistica}
-                    onPageChange={hookAny?.onPageChangeLogistica ?? (() => { })}
+                    rows={(tablero?.queueLogistica?.rows ?? []) as any[]}
+                    meta={tablero?.queueLogistica?.meta ?? { page: 1, page_size: 10, total: 0 }}
+                    loading={!!tablero?.isLoadingLogistica}
+                    onPageChange={tablero?.onChangePage ?? (() => { })}
                   />
                 }
               />

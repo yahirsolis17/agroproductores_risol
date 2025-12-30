@@ -19,32 +19,136 @@ import type {
  */
 const BASE_URL = "/bodega/empaques/";
 
-function unwrapData<T>(resData: any): T {
+function unwrapData<T>(resData: unknown): T {
   // NotificationHandler: { success, message_key, message, data }
-  return (resData?.data ?? resData) as T;
+  const anyData = resData as any;
+  return (anyData?.data ?? anyData) as T;
 }
 
-function normalizeEmpaqueRow(row: any): EmpaqueRow {
-  return {
-    id: Number(row.id),
+function toNumberOrNull(v: unknown): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
 
-    recepcion: Number(row.recepcion),
-    bodega: Number(row.bodega),
-    temporada: Number(row.temporada),
-    semana: row.semana !== null && row.semana !== undefined ? Number(row.semana) : null,
+function clampInt(n: unknown): number {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return 0;
+  return Math.max(0, Math.floor(v));
+}
 
-    fecha: String(row.fecha),
-    material: row.material,
-    calidad: String(row.calidad),
-    tipo_mango: String(row.tipo_mango ?? ""),
-    cantidad_cajas: Number(row.cantidad_cajas ?? 0),
+/**
+ * Normaliza CALIDAD hacia backend (enum/códigos).
+ * - UI: "Niño" -> "NINIO"
+ * - UI: "Roña" -> "RONIA"
+ * - UI plástico: "Primera (≥ 2da)" -> "PRIMERA"
+ * - UI plástico: "Segunda"/"Extra" (si llegaran) -> "PRIMERA"
+ */
+export function normalizeCalidadToBackend(material: string, calidad: string): string {
+  const mat = String(material ?? "").trim().toUpperCase();
+  const raw = String(calidad ?? "").trim().toUpperCase();
 
-    is_active: Boolean(row.is_active),
-    archivado_en: row.archivado_en ?? null,
+  const aliases: Record<string, string> = {
+    "NIÑO": "NINIO",
+    "NINO": "NINIO",
+    "NINIO": "NINIO",
 
-    creado_en: String(row.creado_en ?? ""),
-    actualizado_en: String(row.actualizado_en ?? ""),
+    "ROÑA": "RONIA",
+    "RONA": "RONIA",
+    "RONIA": "RONIA",
+
+    "PRIMERA (≥ 2DA)": "PRIMERA",
+    "PRIMERA (>= 2DA)": "PRIMERA",
+    "PRIMERA (≥ 2DA.)": "PRIMERA",
+    "PRIMERA (>= 2DA.)": "PRIMERA",
   };
+
+  let c = aliases[raw] ?? raw;
+
+  // MADURO/MERMA válidos en ambos
+  if (c === "MADURO" || c === "MERMA") return c;
+
+  // excepción plástico: SEGUNDA/EXTRA se consolidan en PRIMERA
+  if (mat === "PLASTICO") {
+    if (c === "SEGUNDA" || c === "EXTRA") return "PRIMERA";
+  }
+
+  return c;
+}
+
+/**
+ * Normaliza CALIDAD hacia UI (labels).
+ * - Backend: "NINIO" -> "Niño"
+ * - Backend: "RONIA" -> "Roña"
+ * - Backend plástico: "PRIMERA" -> "Primera (≥ 2da)"
+ * - Backend madera: "PRIMERA" -> "Primera"
+ * - Otros: capitalización simple ("TERCERA" -> "Tercera")
+ */
+export function normalizeCalidadToUI(material: string, calidad: string): string {
+  const mat = String(material ?? "").trim().toUpperCase();
+  const raw = String(calidad ?? "").trim().toUpperCase();
+
+  if (!raw) return "";
+
+  if (raw === "NINIO") return "Niño";
+  if (raw === "RONIA") return "Roña";
+
+  if (mat === "PLASTICO" && raw === "PRIMERA") return "Primera (≥ 2da)";
+
+  // Para el resto (incluye madera PRIMERA, SEGUNDA, EXTRA, etc.)
+  return raw.charAt(0) + raw.slice(1).toLowerCase();
+}
+
+function normalizeEmpaqueRow(row: unknown): EmpaqueRow {
+  const r = row as any;
+
+  const material = String(r.material ?? "").toUpperCase();
+  const calidadUI = normalizeCalidadToUI(material, String(r.calidad ?? ""));
+
+  return {
+    id: Number(r.id),
+
+    recepcion: Number(r.recepcion),
+    bodega: Number(r.bodega),
+    temporada: Number(r.temporada),
+    semana: toNumberOrNull(r.semana),
+
+    fecha: String(r.fecha ?? ""),
+    material: r.material,
+    calidad: String(calidadUI),
+    tipo_mango: String(r.tipo_mango ?? ""),
+    cantidad_cajas: clampInt(r.cantidad_cajas),
+
+    is_active: Boolean(r.is_active),
+    archivado_en: r.archivado_en ?? null,
+
+    creado_en: String(r.creado_en ?? ""),
+    actualizado_en: String(r.actualizado_en ?? ""),
+  };
+}
+
+function buildMetaFromDRF(payload: any, resultsLen: number) {
+  // Soporta: { count, next, previous, results } clásico DRF
+  const count = Number(payload?.count ?? resultsLen);
+  const next = payload?.next ?? null;
+  const previous = payload?.previous ?? null;
+
+  // page/page_size/total_pages pueden venir en meta o no venir.
+  // Si no vienen, inferimos mínimos seguros.
+  const page = Number(payload?.page ?? 1);
+  const page_size = Number(
+  payload?.page_size !== undefined && payload?.page_size !== null
+    ? payload.page_size
+    : resultsLen || 10
+    );
+  const total_pages =
+    payload?.total_pages !== undefined
+      ? Number(payload.total_pages)
+      : page_size > 0
+        ? Math.max(1, Math.ceil(count / page_size))
+        : 1;
+
+  return { count, next, previous, page, page_size, total_pages };
 }
 
 export const empaquesService = {
@@ -52,15 +156,9 @@ export const empaquesService = {
     const res = await apiClient.get(BASE_URL, { params });
     const payload = unwrapData<any>(res.data);
 
-    const resultsRaw = payload?.results ?? payload?.empaques ?? [];
-    const meta = payload?.meta ?? {
-      count: resultsRaw.length,
-      next: null,
-      previous: null,
-      page: 1,
-      page_size: resultsRaw.length,
-      total_pages: 1,
-    };
+    // Preferimos estructura canónica: { results, meta }
+    const resultsRaw = payload?.results ?? payload?.empaques ?? (Array.isArray(payload) ? payload : []);
+    const meta = payload?.meta ?? buildMetaFromDRF(payload, Array.isArray(resultsRaw) ? resultsRaw.length : 0);
 
     return {
       results: (resultsRaw as any[]).map(normalizeEmpaqueRow),
@@ -71,6 +169,7 @@ export const empaquesService = {
   async retrieve(id: number): Promise<EmpaqueRow> {
     const res = await apiClient.get(`${BASE_URL}${id}/`);
     const payload = unwrapData<any>(res.data);
+
     const row = payload?.clasificacion ?? payload?.empaque ?? payload;
     return normalizeEmpaqueRow(row);
   },
@@ -78,6 +177,7 @@ export const empaquesService = {
   async create(dto: EmpaqueCreateDTO): Promise<EmpaqueRow> {
     const res = await apiClient.post(BASE_URL, dto);
     const payload = unwrapData<any>(res.data);
+
     const row = payload?.clasificacion ?? payload?.empaque ?? payload;
     return normalizeEmpaqueRow(row);
   },
@@ -85,6 +185,7 @@ export const empaquesService = {
   async update(id: number, dto: EmpaqueUpdateDTO): Promise<EmpaqueRow> {
     const res = await apiClient.put(`${BASE_URL}${id}/`, dto);
     const payload = unwrapData<any>(res.data);
+
     const row = payload?.clasificacion ?? payload?.empaque ?? payload;
     return normalizeEmpaqueRow(row);
   },
@@ -92,6 +193,7 @@ export const empaquesService = {
   async patch(id: number, dto: EmpaqueUpdateDTO): Promise<EmpaqueRow> {
     const res = await apiClient.patch(`${BASE_URL}${id}/`, dto);
     const payload = unwrapData<any>(res.data);
+
     const row = payload?.clasificacion ?? payload?.empaque ?? payload;
     return normalizeEmpaqueRow(row);
   },
@@ -105,8 +207,18 @@ export const empaquesService = {
   },
 
   async bulkUpsert(dto: EmpaqueBulkUpsertDTO): Promise<EmpaqueBulkUpsertResponse> {
-    const res = await apiClient.post(`${BASE_URL}bulk-upsert/`, dto);
+    const cleanDto: EmpaqueBulkUpsertDTO = {
+      ...dto,
+      items: dto.items.map((i) => ({
+        ...i,
+        calidad: normalizeCalidadToBackend(i.material, i.calidad),
+        cantidad_cajas: clampInt(i.cantidad_cajas),
+      })),
+    };
+
+    const res = await apiClient.post(`${BASE_URL}bulk-upsert/`, cleanDto);
     const payload = unwrapData<any>(res.data);
+
     return payload as EmpaqueBulkUpsertResponse;
   },
 };

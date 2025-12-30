@@ -10,7 +10,9 @@ import RecepcionFormModal from "../../capturas/RecepcionFormModal";
 import EmpaqueDrawer from "../../empaque/EmpaqueDrawer";
 
 import useCapturas from "../../../hooks/useCapturas";
+import useEmpaques from "../../../hooks/useEmpaques";
 import type { Captura } from "../../../types/capturasTypes";
+import { Material } from "../../../types/shared";
 
 type WeekLike = {
   id?: number;
@@ -33,6 +35,55 @@ interface RecepcionesSectionProps {
 
   /** Callback para que el Shell marque refetch de summary/recepciones/logística cuando hay mutaciones. */
   onMutateSuccess?: () => void;
+}
+
+function normalizeBackendCalidadToUILabel(material: "PLASTICO" | "MADERA", calidadRaw: any): string {
+  const raw = String(calidadRaw ?? "").trim().toUpperCase();
+
+  // Alias principales (compatibles con el normalizeCalidad del service)
+  if (raw === "NINIO" || raw === "NIÑO") return "Niño";
+  if (raw === "RONIA" || raw === "ROÑA") return "Roña";
+
+  // PLÁSTICO: SEGUNDA/EXTRA se tratan como PRIMERA (según regla ya aplicada en bulkUpsert)
+  if (material === "PLASTICO" && (raw === "PRIMERA" || raw === "SEGUNDA" || raw === "EXTRA")) {
+    return "Primera (≥ 2da)";
+  }
+
+  if (raw === "PRIMERA") return "Primera";
+
+  // Capitalización simple para el resto (TERCERA -> Tercera, MERMA -> Merma, etc.)
+  if (!raw) return "";
+  return raw.charAt(0) + raw.slice(1).toLowerCase();
+}
+
+function buildInitialLinesPatchFromEmpaques(
+  rows: any[],
+  recepcionId: number
+): { patch: Record<string, number>; existingKeys: string[] } {
+  const patch: Record<string, number> = {};
+  const existingKeys: string[] = [];
+
+  const filtered = Array.isArray(rows)
+    ? rows.filter((r) => Number(r?.recepcion) === Number(recepcionId))
+    : [];
+
+  for (const r of filtered) {
+    const material = String(r?.material ?? "").toUpperCase() as "PLASTICO" | "MADERA";
+    if (material !== "PLASTICO" && material !== "MADERA") continue;
+
+    const uiCalidad = normalizeBackendCalidadToUILabel(material, r?.calidad);
+    if (!uiCalidad) continue;
+
+    const key = `${material}.${uiCalidad}`;
+    const qty = Number(r?.cantidad_cajas ?? 0);
+    const safeQty = Number.isFinite(qty) ? Math.max(0, Math.floor(qty)) : 0;
+
+    patch[key] = (patch[key] ?? 0) + safeQty;
+  }
+
+  for (const k of Object.keys(patch)) existingKeys.push(k);
+
+  return { patch, existingKeys };
 }
 
 const RecepcionesSection: React.FC<RecepcionesSectionProps> = ({
@@ -61,6 +112,20 @@ const RecepcionesSection: React.FC<RecepcionesSectionProps> = ({
     restaurar: capRestaurar,
     remove: capRemove,
   } = useCapturas();
+
+  const {
+    // list state
+    empaques: empRows,
+    status: empStatus,
+
+    // actions
+    refetch: empRefetch,
+    clearError: empClearError,
+
+    // bulk upsert
+    bulkUpsert: empBulkUpsert,
+    bulkSaving: empBulkSaving,
+  } = useEmpaques(false); // false = no autoFetch
 
   const selectedWeekId = (selectedWeek as any)?.id as number | undefined;
 
@@ -176,6 +241,11 @@ const RecepcionesSection: React.FC<RecepcionesSectionProps> = ({
   const [openEmpaque, setOpenEmpaque] = useState(false);
   const [selectedRecepcion, setSelectedRecepcion] = useState<Captura | null>(null);
 
+  // Hidratar líneas existentes (precarga)
+  const [empaqueLoading, setEmpaqueLoading] = useState(false);
+  const [empaqueInitialLines, setEmpaqueInitialLines] = useState<Record<string, number> | null>(null);
+  const [empaqueExistingKeys, setEmpaqueExistingKeys] = useState<string[]>([]);
+
   const handleOpenEmpaque = useCallback((row: Captura) => {
     setSelectedRecepcion(row);
     setOpenEmpaque(true);
@@ -184,6 +254,11 @@ const RecepcionesSection: React.FC<RecepcionesSectionProps> = ({
   const handleCloseEmpaque = useCallback(() => {
     setOpenEmpaque(false);
     setSelectedRecepcion(null);
+
+    // Limpieza segura
+    setEmpaqueLoading(false);
+    setEmpaqueInitialLines(null);
+    setEmpaqueExistingKeys([]);
   }, []);
 
   // Evita inconsistencias: al cambiar semana o página, cerramos el empaque abierto
@@ -198,6 +273,54 @@ const RecepcionesSection: React.FC<RecepcionesSectionProps> = ({
     if (!selectedRecepcion.is_active) return "Recepción archivada (solo lectura).";
     return undefined;
   }, [selectedRecepcion, recepDisabled, recepReason]);
+
+  // Dispara fetch de empaques existentes al abrir el Drawer
+  useEffect(() => {
+    if (!openEmpaque) return;
+    if (!selectedRecepcion?.id) return;
+    if (!bodegaId || !temporadaId) return;
+
+    setEmpaqueLoading(true);
+    setEmpaqueInitialLines(null);
+    setEmpaqueExistingKeys([]);
+
+    empClearError();
+
+    // Importante: usamos el thunk/list vía hook (sin service directo) para mantener patrón Redux.
+    empRefetch(
+      {
+        recepcion: selectedRecepcion.id,
+        bodega: bodegaId,
+        temporada: temporadaId,
+        is_active: true,
+        page: 1,
+        page_size: 200,
+        ordering: "-id",
+      } as any
+    );
+  }, [openEmpaque, selectedRecepcion?.id, bodegaId, temporadaId, empRefetch, empClearError]);
+
+  // Cuando el list termina, construimos el patch de líneas y lo pasamos al Drawer
+  useEffect(() => {
+    if (!openEmpaque) return;
+    if (!selectedRecepcion?.id) return;
+
+    if (empStatus === "loading") return;
+
+    if (empStatus === "failed") {
+      setEmpaqueLoading(false);
+      setEmpaqueInitialLines(null);
+      setEmpaqueExistingKeys([]);
+      return;
+    }
+
+    if (empStatus === "succeeded") {
+      const { patch, existingKeys } = buildInitialLinesPatchFromEmpaques(empRows as any[], selectedRecepcion.id);
+      setEmpaqueInitialLines(patch);
+      setEmpaqueExistingKeys(existingKeys);
+      setEmpaqueLoading(false);
+    }
+  }, [openEmpaque, selectedRecepcion?.id, empStatus, empRows]);
 
   return (
     <Box sx={{ py: 1 }}>
@@ -271,8 +394,49 @@ const RecepcionesSection: React.FC<RecepcionesSectionProps> = ({
         recepcion={selectedRecepcion}
         blocked={!!empaqueReadOnlyReason}
         blockReason={empaqueReadOnlyReason}
-        // UI-only: en Fase 4 se conectará a backend y esta acción habilitará guardar
-        canSave={false}
+        canSave={true}
+        busy={empBulkSaving}
+        loadingInitial={empaqueLoading}
+        initialLines={empaqueInitialLines as any}
+        onSave={async (lines) => {
+          if (!selectedRecepcion || !bodegaId || !temporadaId) return;
+
+          const existingSet = new Set(empaqueExistingKeys);
+
+          const items = Object.entries(lines)
+            .map(([key, qty]) => {
+              const [materialStr, calidad] = key.split(".");
+              const material = materialStr === "PLASTICO" ? Material.PLASTICO : Material.MADERA;
+
+              return {
+                _key: key, // helper interno para filtrar sin rearmar
+                material,
+                calidad,
+                tipo_mango: selectedRecepcion.tipo_mango ?? "",
+                cantidad_cajas: qty,
+              };
+            })
+            // IMPORTANT: permitimos qty=0 SOLO si esa línea ya existía (para poder corregir hacia abajo)
+            .filter((i) => Number(i.cantidad_cajas) > 0 || existingSet.has(i._key))
+            .map(({ _key, ...rest }) => rest);
+
+          try {
+            await empBulkUpsert({
+              recepcion: selectedRecepcion.id!,
+              bodega: bodegaId,
+              temporada: temporadaId,
+              fecha: selectedRecepcion.fecha!, // Asumimos fecha de recepción por consistencia operativa
+              items,
+            }).unwrap();
+
+            // Refetch para que la tabla muestre "Empacado" y totales
+            await afterMutate();
+            handleCloseEmpaque();
+          } catch (err: any) {
+            // Error ya manejado por NotificationEngine si el backend manda 400/409.
+            console.error("Falló guardado empaque", err);
+          }
+        }}
       />
     </Box>
   );

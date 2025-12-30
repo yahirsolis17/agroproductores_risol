@@ -349,27 +349,27 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
         # Semana: heredamos de recepción si existe, si no resolvemos
         semana = getattr(recepcion, "semana", None) or _resolve_semana_for_fecha(bodega, temporada, f)
 
-        # ✅ Índice de existentes por (material, calidad) (sin fecha) para respetar UniqueConstraint
-        existing_qs = (
-            ClasificacionEmpaque.objects.select_for_update()
-            .filter(
-                recepcion=recepcion,
-                bodega=bodega,
-                temporada=temporada,
-            )
-        )
-
-        existing = {}
-        for obj in existing_qs:
-            k = (obj.material, str(obj.calidad).strip())
-            existing[k] = obj
-
         created_ids, updated_ids = [], []
 
-        # ✅ Server-truth: tipo_mango siempre viene de la recepción
+        # Server-truth: tipo_mango siempre viene de la recepción
         recepcion_tipo_mango = (getattr(recepcion, "tipo_mango", "") or "").strip()
 
         with transaction.atomic():
+            # Índice de existentes por (material, calidad) (sin fecha) para respetar UniqueConstraint
+            existing_qs = (
+                ClasificacionEmpaque.objects.select_for_update()
+                .filter(
+                    recepcion=recepcion,
+                    bodega=bodega,
+                    temporada=temporada,
+                )
+            )
+
+            existing = {}
+            for obj in existing_qs:
+                k = (obj.material, str(obj.calidad).strip())
+                existing[k] = obj
+
             for item in ser.validated_data["items"]:
                 material = item["material"]
                 calidad = str(item["calidad"]).strip()

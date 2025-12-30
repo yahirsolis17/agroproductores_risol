@@ -22,6 +22,53 @@ from .models import (
 )
 from gestion_bodega.utils.semana import semana_cerrada_ids
 
+def normalize_calidad(material: str, calidad_raw: str) -> str:
+    """
+    Normaliza 'calidad' según reglas de negocio.
+
+    - Siempre retorna un CÓDIGO (upper, sin acentos, sin espacios).
+    - Permite MADURO y MERMA tanto en MADERA como en PLASTICO.
+    - Solo PLASTICO: SEGUNDA/EXTRA -> PRIMERA.
+    """
+    if calidad_raw is None:
+        return ""
+
+    # Normalización básica (labels -> código)
+    cal = str(calidad_raw).strip().upper()
+
+    # Normalizar variantes con acento / escritura humana (por si llegan)
+    # (si tu frontend ya manda códigos, esto solo es guardrail)
+    aliases = {
+        "NIÑO": "NINIO",
+        "NINO": "NINIO",
+        "ROÑA": "RONIA",
+        "RONA": "RONIA",
+        "PRIMERA (≥ 2DA)": "PRIMERA",
+        "PRIMERA (>= 2DA)": "PRIMERA",
+        "PRIMERA (≥ 2DA.)": "PRIMERA",
+    }
+    cal = aliases.get(cal, cal)
+
+    # MADURO/MERMA válidos para ambos materiales
+    if cal in {"MADURO", "MERMA"}:
+        return cal
+
+    # Regla especial solo para PLASTICO
+    if material == Material.PLASTICO:
+        if cal in {"SEGUNDA", "EXTRA"}:
+            return "PRIMERA"
+
+        allowed_plastico = set(CalidadPlastico.values) | {"MADURO", "MERMA"}
+        if cal not in allowed_plastico:
+            raise serializers.ValidationError({"calidad": "Calidad inválida para PLÁSTICO."})
+        return cal
+
+    # MADERA
+    allowed_madera = set(CalidadMadera.values) | {"MADURO", "MERMA"}
+    if cal not in allowed_madera:
+        raise serializers.ValidationError({"calidad": "Calidad inválida para MADERA."})
+    return cal
+
 # ───────────────────────────────────────────────────────────────────────────
 # Helpers (alineados con gestion_huerta)
 # ───────────────────────────────────────────────────────────────────────────
@@ -369,15 +416,8 @@ class ClasificacionEmpaqueSerializer(serializers.ModelSerializer):
         if cantidad <= 0:
             raise serializers.ValidationError({"cantidad_cajas": "Debe ser mayor a 0."})
 
-        # Normalizaci?n de calidades seg?n material
-        if material == Material.PLASTICO:
-            if calidad in {"SEGUNDA", "EXTRA"}:
-                data["calidad"] = CalidadPlastico.PRIMERA
-            if data.get("calidad", calidad) not in set(CalidadPlastico.values):
-                raise serializers.ValidationError({"calidad": "Calidad inv?lida para PL?STICO."})
-        else:
-            if calidad not in set(CalidadMadera.values):
-                raise serializers.ValidationError({"calidad": "Calidad inv?lida para MADERA."})
+        # Canonizar calidad según material (incluye MADURO/MERMA + regla SEGUNDA/EXTRA en PLASTICO)
+        data["calidad"] = normalize_calidad(material, data.get("calidad", calidad))
 
         if fecha > timezone.localdate():
             raise serializers.ValidationError({"fecha": "La fecha no puede ser futura."})
@@ -442,14 +482,8 @@ class ClasificacionEmpaqueBulkItemSerializer(serializers.Serializer):
     def validate(self, data):
         mat = data.get("material")
         cal = data.get("calidad")
-        if mat == Material.PLASTICO:
-            if cal in {"SEGUNDA", "EXTRA"}:
-                data["calidad"] = CalidadPlastico.PRIMERA
-            if data.get("calidad", cal) not in set(CalidadPlastico.values):
-                raise serializers.ValidationError({"calidad": "Calidad inválida para PLÁSTICO."})
-        else:
-            if cal not in set(CalidadMadera.values):
-                raise serializers.ValidationError({"calidad": "Calidad inválida para MADERA."})
+        # Normalize + validate
+        data["calidad"] = normalize_calidad(mat, cal)
         return data
 
 

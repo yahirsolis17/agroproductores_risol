@@ -13,7 +13,7 @@ import {
   setFilters,
   setSelectedWeekId,
 
-  fetchTablereSummary,
+  fetchTableroSummary,
   fetchTableroAlerts,
   fetchTableroQueues,
   fetchTableroWeeksNav,
@@ -302,7 +302,7 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
   // Auto-fetch summary
   useEffect(() => {
     if (temporadaId && bodegaId) {
-      dispatch(fetchTablereSummary({ temporadaId, bodegaId, semanaId: selectedSemanaId, filters }));
+      dispatch(fetchTableroSummary({ temporadaId, bodegaId, semanaId: selectedSemanaId, filters }));
     }
   }, [dispatch, temporadaId, bodegaId, selectedSemanaId, filters]);
 
@@ -423,6 +423,23 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
   }, [selectedWeekObj]);
 
   // --------------------------
+  // Active Week Status (CONSOLIDADO - única fuente de verdad)
+  // --------------------------
+  const { hasActiveWeek, isActiveSelectedWeek } = useMemo(() => {
+    // La semana está activa si tiene fecha_hasta = null (abierta)
+    const isSelectedOpen = !selectedWeekObj?.fecha_hasta && !selectedWeekObj?.fin && !selectedWeekObj?.is_closed;
+    const selectedHasActivaFlag = !!selectedWeekObj?.activa;
+
+    // Hay alguna semana activa globalmente en la lista?
+    const anyActiveInList = items.some((it: any) => it?.activa || (!it?.fecha_hasta && !it?.fin));
+
+    return {
+      hasActiveWeek: anyActiveInList,
+      isActiveSelectedWeek: isSelectedOpen || selectedHasActivaFlag,
+    };
+  }, [selectedWeekObj, items]);
+
+  // --------------------------
   // Actions
   // --------------------------
   const onChangeQueue = useCallback((type: QueueType) => {
@@ -463,20 +480,44 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
   const apiStartWeekAction = useCallback(async (fromISO: string) => {
     await dispatch(tableroStartWeek({ bodega: bodegaId, temporada: temporadaId, fecha_desde: fromISO })).unwrap();
     dispatch(fetchTableroWeeksNav({ temporadaId, bodegaId }));
-    dispatch(fetchTablereSummary({ temporadaId, bodegaId, semanaId: selectedSemanaId, filters }));
+    dispatch(fetchTableroSummary({ temporadaId, bodegaId, semanaId: selectedSemanaId, filters }));
   }, [dispatch, bodegaId, temporadaId, selectedSemanaId, filters]);
 
   const apiFinishWeekAction = useCallback(async (toISO: string) => {
     if (!selectedSemanaId) throw new Error("No hay semana seleccionada para finalizar.");
     await dispatch(tableroFinishWeek({ bodega: bodegaId, temporada: temporadaId, semana_id: selectedSemanaId, fecha_hasta: toISO })).unwrap();
     dispatch(fetchTableroWeeksNav({ temporadaId, bodegaId }));
-    dispatch(fetchTablereSummary({ temporadaId, bodegaId, semanaId: selectedSemanaId, filters }));
+    dispatch(fetchTableroSummary({ temporadaId, bodegaId, semanaId: selectedSemanaId, filters }));
   }, [dispatch, bodegaId, temporadaId, selectedSemanaId, filters]);
+
+  // --------------------------
+  // Explicit Refetch Functions (Fase 2: eliminan refetchAll abusivo)
+  // --------------------------
+  const refetchSummaryFn = useCallback(() => {
+    if (!temporadaId || !bodegaId) return;
+    dispatch(fetchTableroSummary({ temporadaId, bodegaId, semanaId: selectedSemanaId, filters }));
+  }, [dispatch, temporadaId, bodegaId, selectedSemanaId, filters]);
+
+  const refetchQueuesFn = useCallback((type?: QueueType) => {
+    if (!temporadaId || !bodegaId) return;
+    const t = type ?? activeQueue;
+    dispatch(fetchTableroQueues({ temporadaId, bodegaId, semanaId: selectedSemanaId, filters, queueType: t }));
+  }, [dispatch, temporadaId, bodegaId, selectedSemanaId, filters, activeQueue]);
+
+  const refetchWeeksNavFn = useCallback(() => {
+    if (!temporadaId || !bodegaId) return;
+    dispatch(fetchTableroWeeksNav({ temporadaId, bodegaId }));
+  }, [dispatch, temporadaId, bodegaId]);
+
+  const refetchAlertsFn = useCallback(() => {
+    if (!temporadaId || !bodegaId) return;
+    dispatch(fetchTableroAlerts({ temporadaId, bodegaId }));
+  }, [dispatch, temporadaId, bodegaId]);
 
   const refetchAll = useCallback(() => {
     if (!temporadaId || !bodegaId) return;
     dispatch(fetchTableroWeeksNav({ temporadaId, bodegaId }));
-    dispatch(fetchTablereSummary({ temporadaId, bodegaId, semanaId: selectedSemanaId, filters }));
+    dispatch(fetchTableroSummary({ temporadaId, bodegaId, semanaId: selectedSemanaId, filters }));
     dispatch(fetchTableroAlerts({ temporadaId, bodegaId }));
     dispatch(fetchTableroQueues({ temporadaId, bodegaId, semanaId: selectedSemanaId, filters, queueType: activeQueue }));
   }, [dispatch, temporadaId, bodegaId, selectedSemanaId, filters, activeQueue]);
@@ -498,14 +539,20 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
     queueLogistica: { meta: { page: 1, page_size: 10, total: 0 }, rows: mapQueueToUI((queues.despachos as any)?.results ?? []) },
 
     // Loading/Error
-    loading: loadingSummary || loadingAlerts || loadingQueues || loadingWeeksNav,
+    loading: loadingSummary || loadingAlerts || loadingQueues[activeQueue] || loadingWeeksNav,
     loadingSummary, isLoadingSummary: loadingSummary,
+    isLoadingLogistica: loadingQueues.despachos,
     loadingAlerts,
-    loadingQueues,
+    loadingQueues, // Ahora es Record
     loadingWeeksNav,
     startingWeek,
     finishingWeek,
     isExpiredWeek,
+
+    // Week State (CONSOLIDADO - única fuente de verdad)
+    hasActiveWeek,
+    isActiveSelectedWeek,
+    selectedWeek: selectedWeekObj,
 
     // State
     temporadaLabel,
@@ -526,8 +573,17 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
     goNextWeek,
     apiStartWeek: apiStartWeekAction,
     apiFinishWeek: apiFinishWeekAction,
-    markForRefetch: refetchAll, refetchSummary: refetchAll,
+
+    // Refetch (Fase 2: funciones explícitas en lugar de refetchAll abusivo)
+    refetchSummary: refetchSummaryFn,
+    refetchQueues: refetchQueuesFn,
+    refetchWeeksNav: refetchWeeksNavFn,
+    refetchAlerts: refetchAlertsFn,
+    refetchAll,
+    // Mantener aliases para compatibilidad temporal (deprecar después)
+    markForRefetch: refetchAll,
     applyMarkedRefetch: refetchAll,
+
     dashboardHref,
   };
 }
