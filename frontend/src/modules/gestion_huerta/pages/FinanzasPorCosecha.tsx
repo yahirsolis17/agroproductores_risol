@@ -112,6 +112,14 @@ const FinanzasPorCosecha: React.FC = () => {
           }
         }
 
+        if (!huertaId && !huertaRentadaId) {
+          setLoadError('No se pudo determinar el origen de la huerta.');
+          setTempInfo(null);
+          setCosechaInfo(null);
+          dispatch(clearBreadcrumbs());
+          return;
+        }
+
         const info: TempInfo = {
           año: t.año,
           huertaId,
@@ -169,6 +177,9 @@ const FinanzasPorCosecha: React.FC = () => {
     const payload: CtxPayload = {
       temporadaId,
       cosechaId,
+      ...(tempInfo.huertaId != null
+        ? { huertaId: tempInfo.huertaId }
+        : { huertaRentadaId: tempInfo.huertaRentadaId ?? undefined })
       ...(cosechaInfo.huerta != null
         ? { huertaId: cosechaInfo.huerta }
         : cosechaInfo.huerta_rentada != null
