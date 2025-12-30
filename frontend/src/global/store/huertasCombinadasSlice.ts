@@ -12,11 +12,15 @@ interface HCState {
   estado: Estado;
   filters: HCFilters;
   meta: PaginationMeta;
+  nombreOptions: { label: string; value: string }[];
+  loadingNombreOptions: boolean;
 }
 
 const initialState: HCState = {
   items: [], loading: false, error: null, page: 1, estado: 'activos', filters: {},
   meta: { count: 0, next: null, previous: null, page: 1, page_size: 10, total_pages: 1 }, // ← actualizado
+  nombreOptions: [],
+  loadingNombreOptions: false,
 };
 
 export const fetchHuertasCombinadas = createAsyncThunk<
@@ -37,6 +41,25 @@ export const fetchHuertasCombinadas = createAsyncThunk<
   }
 );
 
+export const fetchHuertaNombreOptions = createAsyncThunk<
+  { label: string; value: string }[],
+  { query: string; pageSize?: number },
+  { rejectValue: string }
+>(
+  'huertasCombinadas/fetchNombreOptions',
+  async ({ query, pageSize }, thunkAPI) => {
+    try {
+      const { signal } = thunkAPI;
+      const res = await huertasCombinadasService.list(1, 'todos', { nombre: query }, { signal, pageSize });
+      const nombres = Array.from(new Set(res.data.results.map((h) => h.nombre)));
+      return nombres.map((n) => ({ label: n, value: n }));
+    } catch (err: unknown) {
+      handleBackendNotification(extractApiError(err));
+      return thunkAPI.rejectWithValue('Error al cargar huertas');
+    }
+  }
+);
+
 const hcSlice = createSlice({
   name: 'huertasCombinadas',
   initialState,
@@ -52,6 +75,17 @@ const hcSlice = createSlice({
     });
     b.addCase(fetchHuertasCombinadas.rejected, (s, { payload, error }) => {
       s.loading = false; s.error = (payload as string) ?? error.message ?? 'Error desconocido';
+    });
+
+    b.addCase(fetchHuertaNombreOptions.pending, (s) => {
+      s.loadingNombreOptions = true;
+    });
+    b.addCase(fetchHuertaNombreOptions.fulfilled, (s, { payload }) => {
+      s.loadingNombreOptions = false;
+      s.nombreOptions = payload;
+    });
+    b.addCase(fetchHuertaNombreOptions.rejected, (s) => {
+      s.loadingNombreOptions = false;
     });
   },
 });

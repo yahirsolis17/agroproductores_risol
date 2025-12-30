@@ -14,7 +14,7 @@ from agroproductores_risol.utils.pagination import GenericPagination
 from gestion_usuarios.permissions import IsAdmin, IsSelfOrAdmin
 from gestion_usuarios.models import Users, RegistroActividad
 from gestion_usuarios.utils.activity import registrar_actividad
-from gestion_usuarios.utils.notification_handler import NotificationHandler
+from agroproductores_risol.utils.notification_handler import NotificationHandler
 from gestion_usuarios.utils.throttles import (
     LoginThrottle,
     SensitiveActionThrottle,

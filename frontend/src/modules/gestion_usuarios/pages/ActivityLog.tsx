@@ -1,6 +1,5 @@
 // src/modules/gestion_usuarios/pages/ActivityLog.tsx
-import React, { useEffect, useState } from 'react';
-import apiClient from '../../../global/api/apiClient';
+import React, { useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
 import {
@@ -12,33 +11,12 @@ import {
 } from '@mui/material';
 import { Sort } from '@mui/icons-material';
 import { TableLayout, Column } from '../../../components/common/TableLayout';
-
-interface Activity {
-  id: number;
-  usuario: {
-    nombre: string;
-    apellido: string;
-    telefono: string;
-    role: 'admin' | 'usuario';
-  };
-  accion: string;
-  fecha_hora: string;
-  detalles?: string;
-  ip?: string;
-}
-
-interface Meta {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  page?: number | null;
-  page_size?: number | null;
-  total_pages?: number | null;
-}
+import { useAppDispatch, useAppSelector } from '../../../global/store/store';
+import { ActivityLogEntry, fetchActivityLog, setOrdering, setPage } from '../../../global/store/activityLogSlice';
 
 const pageSize = 10;
 
-const columns: Column<Activity>[] = [
+const columns: Column<ActivityLogEntry>[] = [
   {
     label: 'Fecha',
     key: 'fecha_hora',
@@ -78,44 +56,25 @@ const columns: Column<Activity>[] = [
 const ActivityLog: React.FC = () => {
   const { user } = useAuth();
 
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [meta, setMeta] = useState<Meta>({ count: 0, next: null, previous: null });
-  const [page, setPage] = useState(() => Number(localStorage.getItem('activityPage')) || 1);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [sortDesc, setSortDesc] = useState(true);
+  const dispatch = useAppDispatch();
+  const { items, meta, page, ordering, loading, error } = useAppSelector((s) => s.activityLog);
+  const sortDesc = ordering.startsWith('-');
 
   useEffect(() => {
     if (user?.role === 'admin') {
-      fetchActivities(page, sortDesc);
+      void dispatch(fetchActivityLog({ page, ordering }));
     }
-  }, [page, sortDesc, user]);
+  }, [dispatch, ordering, page, user]);
 
-  const fetchActivities = async (pageNumber: number, desc: boolean) => {
-    setIsLoading(true);
-    try {
-      const ordering = desc ? '-fecha_hora' : 'fecha_hora';
-      const res = await apiClient.get('/usuarios/actividad/', {
-        params: { page: pageNumber, ordering },
-      });
-
-      const { results, meta: m } = res.data.data;
-      setActivities(results);
-      setMeta(m);
-      localStorage.setItem('activityPage', String(pageNumber));
-      setError('');
-    } catch (error: any) {
-      if (error?.response?.status === 404 && pageNumber > 1) {
-        setPage(1); // fallback si la página ya no existe
-      } else {
-        setError('No se pudo obtener el historial de actividades.');
-      }
-    } finally {
-      setIsLoading(false);
+  useEffect(() => {
+    if (error?.status === 404 && page > 1) {
+      dispatch(setPage(1));
     }
+  }, [dispatch, error, page]);
+
+  const toggleSort = () => {
+    dispatch(setOrdering(sortDesc ? 'fecha_hora' : '-fecha_hora'));
   };
-
-  const toggleSort = () => setSortDesc((prev) => !prev);
 
   if (user?.role !== 'admin') {
     return <div className="p-6 text-center text-red-500">Acceso denegado</div>;
@@ -140,24 +99,24 @@ const ActivityLog: React.FC = () => {
           </Tooltip>
         </Box>
 
-        {error && (
+        {error?.message && (
           <Typography color="error" className="mb-4">
-            {error}
+            {error.message}
           </Typography>
         )}
 
 <TableLayout<Activity>
-  data={activities}
+  data={items}
   columns={columns}
   page={page}
   pageSize={meta.page_size ?? pageSize}
   metaPageSize={meta.page_size}
-  count={activities.length === 0 ? 0 : meta.count}
+  count={meta.count ?? 0}
   serverSidePagination
   rowKey={(a) => a.id}
-  onPageChange={setPage}
+  onPageChange={(nextPage) => dispatch(setPage(nextPage))}
   emptyMessage="No hay actividades registradas."
-  loading={isLoading}
+  loading={loading}
   striped
   dense
 />

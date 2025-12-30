@@ -18,7 +18,7 @@ from gestion_bodega.models import (
 from gestion_bodega.permissions import HasModulePermission
 from gestion_bodega.serializers import ClasificacionEmpaqueSerializer
 from gestion_bodega.utils.audit import ViewSetAuditMixin
-from gestion_bodega.utils.notification_handler import NotificationHandler
+from agroproductores_risol.utils.notification_handler import NotificationHandler
 from gestion_bodega.utils.semana import semana_cerrada_ids  # ✅ centralizado
 
 
@@ -159,7 +159,6 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
         return self.notify(
             key="data_processed_success",
             data={
-                "empaques": rows,
                 "results": rows,
                 "meta": meta,
             },

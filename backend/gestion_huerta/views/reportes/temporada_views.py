@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from gestion_huerta.services.reportes.temporada_service import generar_reporte_temporada
 from gestion_huerta.services.exportacion_service import ExportacionService
-from gestion_huerta.utils.notification_handler import NotificationHandler
+from agroproductores_risol.utils.notification_handler import NotificationHandler
 from gestion_huerta.utils.activity import registrar_actividad
 from gestion_huerta.permissions import HasHuertaModulePermissionAnd
 

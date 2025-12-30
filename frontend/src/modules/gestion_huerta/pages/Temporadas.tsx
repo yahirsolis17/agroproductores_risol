@@ -23,7 +23,6 @@ import TemporadaToolbar from '../components/temporada/TemporadaToolbar';
 import TemporadaFormModal from '../components/temporada/TemporadaFormModal';
 import { useTemporadas } from '../hooks/useTemporadas';
 import { TemporadaCreateData, Temporada } from '../types/temporadaTypes';
-import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
 
 // ⬇️ Consistencia de breadcrumbs
 import { setBreadcrumbs, clearBreadcrumbs } from '../../../global/store/breadcrumbsSlice';
@@ -236,6 +235,7 @@ const Temporadas: React.FC = () => {
   /* ──────────────────── EXISTE TEMPORADA ESTE AÑO (cualquier estado) ──────────────────── */
   const [existsThisYearAny, setExistsThisYearAny] = useState(false);
   const [checkingExists, setCheckingExists] = useState(false);
+  const [uiError, setUiError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -269,11 +269,7 @@ const Temporadas: React.FC = () => {
   /* ──────────────────── Acciones CRUD / toggle ──────────────────── */
   const handleCreate = async () => {
     if (!huertaId || !tipo) {
-      handleBackendNotification({
-        key: 'validation_error',
-        message: 'Debes seleccionar una huerta primero.',
-        type: 'warning',
-      });
+      setUiError('Debes seleccionar una huerta primero.');
       return;
     }
 
@@ -289,11 +285,11 @@ const Temporadas: React.FC = () => {
     });
 
     try {
+      setUiError(null);
       await addTemporada(payload);
-      handleBackendNotification({ key: 'temporada_create_success', message: 'Temporada creada.', type: 'success' });
       setConfirmOpen(false);
     } catch (err: any) {
-      handleBackendNotification(err?.notification || err?.response?.data?.notification || err);
+      setUiError('No se pudo crear la temporada.');
     }
   };
 
@@ -301,9 +297,8 @@ const Temporadas: React.FC = () => {
     if (delDialogId == null) return;
     try {
       await removeTemporada(delDialogId);
-      handleBackendNotification({ key: 'temporada_delete_success', message: 'Temporada eliminada.', type: 'success' });
     } catch (err: any) {
-      handleBackendNotification(err?.response?.data?.notification || err);
+      setUiError('No se pudo eliminar la temporada.');
     } finally {
       setDelDialogId(null);
     }
@@ -311,17 +306,17 @@ const Temporadas: React.FC = () => {
 
   const handleArchive = async (t: Temporada) => {
     try { await archiveTemporada(t.id); }
-    catch (e: any) { handleBackendNotification(e?.response?.data?.notification || e); }
+    catch { setUiError('No se pudo archivar la temporada.'); }
   };
 
   const handleRestore = async (t: Temporada) => {
     try { await restoreTemporada(t.id); }
-    catch (e: any) { handleBackendNotification(e?.response?.data?.notification || e); }
+    catch { setUiError('No se pudo restaurar la temporada.'); }
   };
 
   const handleFinalize = async (t: Temporada) => {
     try { await finalizeTemporada(t.id); }
-    catch (e: any) { handleBackendNotification(e?.response?.data?.notification || e); }
+    catch { setUiError('No se pudo finalizar la temporada.'); }
   };
 
   const handleCosechas = (t: Temporada) => {
@@ -371,6 +366,11 @@ const Temporadas: React.FC = () => {
         <Typography variant="h4" className="text-primary-dark font-bold mb-2">
           Gestión de Temporadas
         </Typography>
+        {uiError && (
+          <Typography color="error" sx={{ mb: 2 }}>
+            {uiError}
+          </Typography>
+        )}
 
         {/* Encabezado con nombre/propietario resuelto */}
         {huertaId && (

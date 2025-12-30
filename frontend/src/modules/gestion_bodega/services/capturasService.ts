@@ -110,11 +110,7 @@ function normalizeListPayload(res: any): CapturasListResponse {
 
   const dataLayer = getDataLayer(res);
 
-  const rawRows: any[] =
-    dataLayer.recepciones ??
-    dataLayer.capturas ??
-    dataLayer.results ??
-    [];
+  const rawRows: any[] = dataLayer.results ?? [];
 
   const capturas: Captura[] = Array.isArray(rawRows) ? rawRows.map(normalizeCapturaRow) : [];
 

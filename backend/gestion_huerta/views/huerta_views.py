@@ -36,7 +36,7 @@ from gestion_usuarios.permissions import HasModulePermission
 
 # Utilidades
 from gestion_huerta.utils.activity import registrar_actividad
-from gestion_huerta.utils.notification_handler import NotificationHandler
+from agroproductores_risol.utils.notification_handler import NotificationHandler
 from gestion_huerta.utils.audit import ViewSetAuditMixin
 from agroproductores_risol.utils.pagination import GenericPagination
 

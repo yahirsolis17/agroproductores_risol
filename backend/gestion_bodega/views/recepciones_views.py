@@ -21,7 +21,7 @@ from gestion_bodega.permissions import HasModulePermission
 from gestion_bodega.serializers import RecepcionSerializer
 from gestion_bodega.utils.activity import registrar_actividad
 from gestion_bodega.utils.audit import ViewSetAuditMixin
-from gestion_bodega.utils.notification_handler import NotificationHandler
+from agroproductores_risol.utils.notification_handler import NotificationHandler
 from gestion_bodega.utils.semana import semana_cerrada_ids as _semana_cerrada
 
 
@@ -267,7 +267,6 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
                 _inject_empaque_fields(d, captured=captured, packed=packed, merma=merma)
 
         payload = {
-            "recepciones": rows,
             "results": rows,
             "meta": meta,
         }

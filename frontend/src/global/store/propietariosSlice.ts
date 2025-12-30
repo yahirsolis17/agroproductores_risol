@@ -22,6 +22,8 @@ interface PropietarioState {
   estado: Estado;
   meta: PaginationMeta;
   filters: Record<string, string | number | boolean | undefined>;
+  options: { label: string; value: number }[];
+  loadingOptions: boolean;
 }
 
 const initialState: PropietarioState = {
@@ -33,6 +35,8 @@ const initialState: PropietarioState = {
   estado: 'activos',
   meta: { count: 0, next: null, previous: null, page: 1, page_size: 10, total_pages: 1 },
   filters: {},
+  options: [],
+  loadingOptions: false,
 };
 
 /* -------------------------------------------------------------------------- */
@@ -155,6 +159,25 @@ export const deletePropietario = createAsyncThunk<
   }
 );
 
+export const fetchPropietarioOptions = createAsyncThunk<
+  { label: string; value: number }[],
+  { query: string },
+  { rejectValue: string }
+>(
+  'propietarios/fetchOptions',
+  async ({ query }, thunkAPI) => {
+    try {
+      const { signal } = thunkAPI;
+      const res = await propietarioService.getConHuertas(query, { signal });
+      return res.data.results.map((p) => ({ label: `${p.nombre} ${p.apellidos}`, value: p.id }));
+    } catch (err: unknown) {
+      const errorData = (err as { response?: { data?: unknown } })?.response?.data;
+      handleBackendNotification(errorData);
+      return thunkAPI.rejectWithValue('Error al cargar propietarios');
+    }
+  }
+);
+
 /* -------------------------------------------------------------------------- */
 /*  SLICE                                                                      */
 /* -------------------------------------------------------------------------- */
@@ -216,6 +239,17 @@ const propietariosSlice = createSlice({
     b.addCase(deletePropietario.fulfilled, (s, { payload: id }) => {
       s.items = s.items.filter(p => p.id !== id);
       if (s.meta.count > 0) s.meta.count -= 1;
+    });
+
+    b.addCase(fetchPropietarioOptions.pending, (s) => {
+      s.loadingOptions = true;
+    });
+    b.addCase(fetchPropietarioOptions.fulfilled, (s, { payload }) => {
+      s.loadingOptions = false;
+      s.options = payload;
+    });
+    b.addCase(fetchPropietarioOptions.rejected, (s) => {
+      s.loadingOptions = false;
     });
   },
 });
