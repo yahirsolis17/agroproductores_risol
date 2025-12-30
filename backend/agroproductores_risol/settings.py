@@ -198,21 +198,21 @@ NUMBER_GROUPING = 3
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Logging ampliado: consola + archivos (bodega_debug.log y huerta_registration.log)
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'file': {
-            'level': 'DEBUG',
-            'class': 'logging.FileHandler',
-            'filename': os.path.join(BASE_DIR, 'huerta_registration.log'),
-        },
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['file'],
-            'level': 'DEBUG',
-            'propagate': True,
-        },
-    },
-}
+#LOGGING = {
+ #   'version': 1,
+  #  'disable_existing_loggers': False,
+   # 'handlers': {
+    #    'file': {
+     #       'level': 'DEBUG',
+      #      'class': 'logging.FileHandler',
+       #     'filename': os.path.join(BASE_DIR, 'huerta_registration.log'),
+#        #},
+ #   },
+  #  'loggers': {
+   #     'django': {
+    #        'handlers': ['file'],
+     #       'level': 'DEBUG',
+      #      'propagate': True,
+#       # },
+#    },
+#}

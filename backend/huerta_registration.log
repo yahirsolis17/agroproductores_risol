@@ -9726,3 +9726,22 @@ Bad Request: /bodega/empaques/bulk-upsert/
 (0.000) SELECT `gestion_bodega_temporadabodega`.`id`, `gestion_bodega_temporadabodega`.`creado_en`, `gestion_bodega_temporadabodega`.`actualizado_en`, `gestion_bodega_temporadabodega`.`is_active`, `gestion_bodega_temporadabodega`.`archivado_en`, `gestion_bodega_temporadabodega`.`archivado_por_cascada`, `gestion_bodega_temporadabodega`.`año`, `gestion_bodega_temporadabodega`.`bodega_id`, `gestion_bodega_temporadabodega`.`fecha_inicio`, `gestion_bodega_temporadabodega`.`fecha_fin`, `gestion_bodega_temporadabodega`.`finalizada` FROM `gestion_bodega_temporadabodega` WHERE `gestion_bodega_temporadabodega`.`id` = 4 LIMIT 21; args=(4,); alias=default
 Bad Request: /bodega/empaques/bulk-upsert/
 "POST /bodega/empaques/bulk-upsert/ HTTP/1.1" 400 356
+(0.000) 
+                SELECT VERSION(),
+                       @@sql_mode,
+                       @@default_storage_engine,
+                       @@sql_auto_is_null,
+                       @@lower_case_table_names,
+                       CONVERT_TZ('2001-01-01 01:00:00', 'UTC', 'UTC') IS NOT NULL
+            ; args=None; alias=default
+(0.000) SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED; args=None; alias=default
+(0.000) SELECT `gestion_usuarios_users`.`id`, `gestion_usuarios_users`.`password`, `gestion_usuarios_users`.`last_login`, `gestion_usuarios_users`.`is_superuser`, `gestion_usuarios_users`.`nombre`, `gestion_usuarios_users`.`apellido`, `gestion_usuarios_users`.`telefono`, `gestion_usuarios_users`.`role`, `gestion_usuarios_users`.`is_active`, `gestion_usuarios_users`.`archivado_en`, `gestion_usuarios_users`.`is_staff`, `gestion_usuarios_users`.`intentos_fallidos`, `gestion_usuarios_users`.`must_change_password` FROM `gestion_usuarios_users` WHERE `gestion_usuarios_users`.`id` = 1 LIMIT 21; args=(1,); alias=default
+(0.016) SELECT `django_content_type`.`app_label`, `auth_permission`.`codename` FROM `auth_permission` INNER JOIN `django_content_type` ON (`auth_permission`.`content_type_id` = `django_content_type`.`id`); args=(); alias=default
+(0.000) SELECT `django_content_type`.`app_label`, `auth_permission`.`codename` FROM `auth_permission` INNER JOIN `django_content_type` ON (`auth_permission`.`content_type_id` = `django_content_type`.`id`); args=(); alias=default
+"GET /usuarios/me/permissions/ HTTP/1.1" 200 3506
+(0.000) SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED; args=None; alias=default
+(0.000) SELECT `gestion_usuarios_users`.`id`, `gestion_usuarios_users`.`password`, `gestion_usuarios_users`.`last_login`, `gestion_usuarios_users`.`is_superuser`, `gestion_usuarios_users`.`nombre`, `gestion_usuarios_users`.`apellido`, `gestion_usuarios_users`.`telefono`, `gestion_usuarios_users`.`role`, `gestion_usuarios_users`.`is_active`, `gestion_usuarios_users`.`archivado_en`, `gestion_usuarios_users`.`is_staff`, `gestion_usuarios_users`.`intentos_fallidos`, `gestion_usuarios_users`.`must_change_password` FROM `gestion_usuarios_users` WHERE `gestion_usuarios_users`.`id` = 1 LIMIT 21; args=(1,); alias=default
+"GET /usuarios/me/permissions/ HTTP/1.1" 200 3506
+File C:\Users\Yahir\agroproductores_risol\backend\agroproductores_risol\settings.py previous mtime: 1767068661.8381722, current mtime: 1767076470.5040345
+C:\Users\Yahir\agroproductores_risol\backend\agroproductores_risol\settings.py notified as changed. Signal results: [(<function template_changed at 0x0000025126F672E0>, None), (<function translation_file_changed at 0x00000251278ED300>, None)].
+C:\Users\Yahir\agroproductores_risol\backend\agroproductores_risol\settings.py changed, reloading.
