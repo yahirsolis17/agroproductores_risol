@@ -303,6 +303,11 @@ NOTIFICATION_MESSAGES = {
         "type": "success",
         "code": 201,
     },
+    "clasificacion_excede_capacidad": {
+        "message": "La suma de clasificaciones excede las cajas disponibles.",
+        "type": "error",
+        "code": 400,
+    },
 
     # ==========================
     # Inventario de Plástico
@@ -661,6 +666,31 @@ NOTIFICATION_MESSAGES = {
         "message": "Temporada cerrada correctamente.",
         "type": "success",
         "code": 200,
+    },
+    "cierre_semanal_ya_cerrado": {
+        "message": "La semana ya se encuentra cerrada.",
+        "type": "error",
+        "code": 400,
+    },
+    "cierre_semanal_cerrado": {
+        "message": "Semana cerrada correctamente.",
+        "type": "success",
+        "code": 200,
+    },
+    "cierre_fecha_invalida": {
+        "message": "La fecha de cierre no es válida (debe ser posterior al inicio).",
+        "type": "error",
+        "code": 400,
+    },
+    "cierre_duracion_excedida": {
+        "message": "La duración de la semana excede el límite permitido (7 días).",
+        "type": "error",
+        "code": 400,
+    },
+    "semana_no_encontrada": {
+        "message": "No se encontró la semana indicada.",
+        "type": "error",
+        "code": 404,
     },
 
     # Extras de estado/alias frecuentes
