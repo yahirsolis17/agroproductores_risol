@@ -72,10 +72,9 @@ const FinanzasPorCosecha: React.FC = () => {
     (async () => {
       try {
         setLoadingTemp(true);
-        const res = await temporadaService.getById(temporadaId);
+        const t = await temporadaService.getById(temporadaId);
         if (cancelled) return;
 
-        const t = res.data.temporada;
         const huertaId        = t.huerta ?? null;
         const huertaRentadaId = t.huerta_rentada ?? null;
         const inferredTipo: 'propia' | 'rentada' | null =

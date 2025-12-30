@@ -69,13 +69,12 @@ const Inversion: React.FC = () => {
     let alive = true;
     (async () => {
       try {
-        const [tRes, cRes] = await Promise.all([
+        const [t, cRes] = await Promise.all([
           temporadaService.getById(routeTemporadaId),
           cosechaService.getById(routeCosechaId),
         ]);
         if (!alive) return;
 
-        const t = tRes.data.temporada;
         const c = cRes.data.cosecha;
 
         setTempState({ is_active: t.is_active, finalizada: t.finalizada });

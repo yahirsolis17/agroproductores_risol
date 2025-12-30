@@ -203,6 +203,16 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         ser = self.get_serializer(queryset, many=True)
         return self.notify_list(request=request, results=ser.data, paginator=None)
 
+    # -------------------------------- RETRIEVE ----------------------------------
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        ser = self.get_serializer(instance)
+        return self.notify(
+            key="data_processed_success",
+            data={"temporada": ser.data},
+            status_code=status.HTTP_200_OK,
+        )
+
     # ------------------------------- CREATE ---------------------------------
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
