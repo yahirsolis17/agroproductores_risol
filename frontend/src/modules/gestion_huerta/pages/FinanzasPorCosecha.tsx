@@ -179,7 +179,7 @@ const FinanzasPorCosecha: React.FC = () => {
       cosechaId,
       ...(tempInfo.huertaId != null
         ? { huertaId: tempInfo.huertaId }
-        : { huertaRentadaId: tempInfo.huertaRentadaId ?? undefined })
+        : { huertaRentadaId: tempInfo.huertaRentadaId ?? undefined }),
       ...(cosechaInfo.huerta != null
         ? { huertaId: cosechaInfo.huerta }
         : cosechaInfo.huerta_rentada != null
