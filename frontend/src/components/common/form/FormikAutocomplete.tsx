@@ -16,13 +16,15 @@ type Props<T> = Omit<BaseProps<T>, 'renderInput'> & {
 function FormikAutocomplete<T>(props: Props<T>) {
   const { name, label, helperText, textFieldProps, ...autoProps } = props;
   const [field, meta, helpers] = useField(name);
-  const { submitCount } = useFormikContext();
+  const { submitCount, status, setStatus } = useFormikContext();
   const [isFocused, setIsFocused] = useState(false);
   const everErroredRef = useRef(false);
 
-  const errorMessages = normalizeErrorMessages(meta.error);
+  const serverError = (status as any)?.serverFieldErrors?.[name];
+  const effectiveError = meta.error ?? serverError;
+  const errorMessages = normalizeErrorMessages(effectiveError);
   const hasError = errorMessages.length > 0;
-  const showError = hasError && !isFocused && (meta.touched || submitCount > 0);
+  const showError = hasError && !isFocused && (meta.touched || submitCount > 0 || Boolean(serverError));
 
   useEffect(() => {
     if (showError) {
@@ -36,6 +38,15 @@ function FormikAutocomplete<T>(props: Props<T>) {
     <Autocomplete
       {...autoProps}
       onChange={(event, value, reason, details) => {
+        if ((status as any)?.serverFieldErrors?.[name]) {
+          setStatus({
+            ...(status as any),
+            serverFieldErrors: {
+              ...(status as any)?.serverFieldErrors,
+              [name]: undefined,
+            },
+          });
+        }
         autoProps.onChange?.(event, value, reason, details);
       }}
       renderInput={(params) => (

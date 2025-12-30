@@ -37,8 +37,13 @@ export function unwrapResponse<T = any>(raw: any): CanonicalEnvelope<T> {
 export function ensureSuccess<T = any>(raw: any): CanonicalEnvelope<T> {
   const env = unwrapResponse<T>(raw);
   if (!env.success) {
-    const error: any = new Error(env.message || 'Operación no exitosa');
-    error.envelope = env;
+    const error: any = {
+      message: env.message || 'Operación no exitosa',
+      status: raw?.status ?? raw?.response?.status,
+      message_key: env.message_key,
+      data: env.data,
+      envelope: env,
+    };
     throw error;
   }
   return env;

@@ -5,10 +5,20 @@ type FieldErrors = Record<string, string[]>;
 type NormalizedBackendErrors = {
   fieldErrors: FieldErrors;
   formErrors: string[];
+  messageKey?: string;
+  status?: number;
+  hasErrorsPayload: boolean;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value && typeof value === 'object' && !Array.isArray(value));
+
+const VALIDATION_MESSAGE_KEYS = new Set<string>([
+  'validation_error',
+  'context_incomplete',
+  'contexto_invalido',
+  'missing_temporada',
+]);
 
 const toStringArray = (value: unknown): string[] => {
   if (!value) return [];
@@ -29,10 +39,27 @@ const extractErrorsRecord = (payload: unknown): Record<string, unknown> | null =
 };
 
 export const normalizeBackendErrors = (err: unknown): NormalizedBackendErrors => {
-  const data = (err as any)?.data ?? (err as any)?.response?.data ?? err ?? {};
+  const data =
+    (err as any)?.response?.data ??
+    (err as any)?.data ??
+    (err as any)?.payload ??
+    (err as any)?.errors ??
+    err ??
+    {};
+  const status =
+    (err as any)?.response?.status ??
+    (err as any)?.status;
   const candidate = extractErrorsRecord(data) ?? {};
   const fieldErrors: FieldErrors = {};
   const formErrors: string[] = [];
+  const messageKey =
+    (data as any)?.message_key ??
+    (data as any)?.messageKey ??
+    (data as any)?.notification?.key;
+  const hasErrorsPayload = Boolean(
+    (isRecord(data) && ('errors' in data || 'non_field_errors' in data || '__all__' in data)) ||
+      (isRecord(data) && 'data' in data && isRecord(data.data) && 'errors' in data.data)
+  );
 
   if (isRecord(candidate)) {
     Object.entries(candidate).forEach(([key, value]) => {
@@ -54,28 +81,70 @@ export const normalizeBackendErrors = (err: unknown): NormalizedBackendErrors =>
     }
   }
 
-  return { fieldErrors, formErrors };
+  return {
+    fieldErrors,
+    formErrors,
+    messageKey,
+    status,
+    hasErrorsPayload,
+  };
 };
 
 export const applyBackendErrorsToFormik = <Values extends FormikValues>(
   err: unknown,
-  helpers: FormikHelpers<Values>
+  helpers: FormikHelpers<Values>,
+  options?: { fieldAliases?: Record<string, string>; fieldNames?: string[] }
 ): NormalizedBackendErrors => {
-  const { fieldErrors, formErrors } = normalizeBackendErrors(err);
+  const normalized = normalizeBackendErrors(err);
+  const { fieldErrors, formErrors } = normalized;
+  const fieldAliases = options?.fieldAliases ?? {};
+  const fieldNames = options?.fieldNames ?? [];
 
+  const mappedFieldErrors: FieldErrors = {};
   if (Object.keys(fieldErrors).length) {
     const flatErrors: Record<string, string[] | string> = {};
+    const bannerErrors: string[] = [];
     Object.entries(fieldErrors).forEach(([key, value]) => {
-      flatErrors[key] = value.length > 1 ? value : value[0];
+      const alias = fieldAliases[key] ?? key;
+      if (fieldNames.length && !fieldNames.includes(alias)) {
+        bannerErrors.push(...value);
+        return;
+      }
+      mappedFieldErrors[alias] = value;
+      flatErrors[alias] = value.length > 1 ? value : value[0];
     });
-    helpers.setErrors(flatErrors as any);
+    if (Object.keys(flatErrors).length) {
+      helpers.setErrors(flatErrors as any);
+    }
 
     const touched: Record<string, boolean> = {};
-    Object.keys(fieldErrors).forEach((key) => {
-      touched[key] = true;
+    Object.keys(mappedFieldErrors).forEach((key) => {
+      if (!fieldNames.length || fieldNames.includes(key)) {
+        touched[key] = true;
+      }
     });
-    helpers.setTouched(touched as any, false);
+    if (Object.keys(touched).length) {
+      helpers.setTouched(touched as any, false);
+    }
+    if (bannerErrors.length) {
+      formErrors.push(...bannerErrors);
+    }
   }
 
-  return { fieldErrors, formErrors };
+  helpers.setStatus({
+    serverFieldErrors: mappedFieldErrors,
+    serverFormErrors: formErrors,
+  });
+
+  return normalized;
+};
+
+export const isValidationError = (input: unknown | NormalizedBackendErrors): boolean => {
+  const normalized = isRecord(input) && 'fieldErrors' in input && 'formErrors' in input
+    ? (input as NormalizedBackendErrors)
+    : normalizeBackendErrors(input);
+  if (normalized.status && [400, 409, 422].includes(normalized.status)) return true;
+  if (normalized.hasErrorsPayload) return true;
+  if (normalized.messageKey && VALIDATION_MESSAGE_KEYS.has(normalized.messageKey)) return true;
+  return false;
 };
