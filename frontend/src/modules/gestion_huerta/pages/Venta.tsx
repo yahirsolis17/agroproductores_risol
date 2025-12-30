@@ -56,14 +56,14 @@ const Venta: React.FC = () => {
     let alive = true;
     (async () => {
       try {
-        const [tRes, cRes] = await Promise.all([
+        const [t, cRes] = await Promise.all([
           temporadaService.getById(temporadaId),
           cosechaService.getById(cosechaId),
         ]);
         if (!alive) return;
         setTempState({
-          is_active: tRes.data.temporada.is_active,
-          finalizada: tRes.data.temporada.finalizada,
+          is_active: t.is_active,
+          finalizada: t.finalizada,
         });
         setCosechaState({
           is_active: cRes.data.cosecha.is_active,

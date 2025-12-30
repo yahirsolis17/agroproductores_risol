@@ -66,10 +66,8 @@ useEffect(() => {
   (async () => {
     try {
       setTempLoading(true);
-      const resp = await temporadaService.getById(temporadaId);
+      const t = await temporadaService.getById(temporadaId);
       if (cancelled) return;
-
-      const t = resp.data.temporada;
 
       setTempInfo({
         id: t.id,
