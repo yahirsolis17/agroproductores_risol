@@ -8,7 +8,7 @@ import {
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useDispatch } from 'react-redux';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 
 import CosechaToolbar from '../components/cosecha/CosechaToolbar';
 import CosechaTable from '../components/cosecha/CosechaTable';
@@ -29,7 +29,9 @@ const Cosechas: React.FC = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const temporadaId = Number(searchParams.get('temporada_id')) || null;
+  const { temporadaId: temporadaIdParam } = useParams<{ temporadaId?: string }>();
+  const temporadaId =
+    Number(temporadaIdParam || searchParams.get('temporada_id')) || null;
 
   // Info de la temporada
   const [tempLoading, setTempLoading] = useState(false);

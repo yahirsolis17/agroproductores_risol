@@ -321,13 +321,14 @@ const Temporadas: React.FC = () => {
   };
 
   const handleCosechas = (t: Temporada) => {
-    const params = new URLSearchParams({ temporada_id: String(t.id) });
+    const params = new URLSearchParams();
     if (huertaId) params.set('huerta_id', String(huertaId));
     if (tipo) params.set('tipo', tipo);
     if (displayHuertaNombre) params.set('huerta_nombre', displayHuertaNombre);
     if (displayPropietario && displayPropietario !== '—') params.set('propietario', displayPropietario);
 
-    navigate(`/cosechas?${params.toString()}`);
+    const qs = params.toString();
+    navigate(`/cosechas/${t.id}${qs ? `?${qs}` : ''}`);
   };
 
   const handleReporteTemporada = (t: Temporada) => {
