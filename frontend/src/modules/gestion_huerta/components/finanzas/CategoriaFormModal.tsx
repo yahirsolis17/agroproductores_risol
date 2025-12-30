@@ -1,8 +1,8 @@
 // src/modules/gestion_huerta/components/finanzas/CategoriaFormModal.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, Button, CircularProgress,
+  Button, CircularProgress,
 } from '@mui/material';
 import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
@@ -10,6 +10,10 @@ import { CategoriaInversion } from '../../types/categoriaInversionTypes';
 import useCategoriasInversion from '../../hooks/useCategoriasInversion';
 import { handleBackendNotification } from '../../../../global/utils/NotificationEngine';
 import {PermissionButton} from '../../../../components/common/PermissionButton';
+import { applyBackendErrorsToFormik, isValidationError } from '../../../../global/validation/backendFieldErrors';
+import { focusFirstError } from '../../../../global/validation/focusFirstError';
+import FormAlertBanner from '../../../../components/common/form/FormAlertBanner';
+import FormikTextField from '../../../../components/common/form/FormikTextField';
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -24,6 +28,7 @@ const schema = Yup.object({
 const CategoriaFormModal: React.FC<Props> = ({ open, onClose, onSuccess, initial }) => {
   const { addCategoria, editCategoria } = useCategoriasInversion();
   const isEdit = Boolean(initial);
+  const [formErrors, setFormErrors] = useState<string[]>([]);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
@@ -32,6 +37,9 @@ const CategoriaFormModal: React.FC<Props> = ({ open, onClose, onSuccess, initial
         initialValues={{ nombre: initial?.nombre ?? '' }}
         validationSchema={schema}
         enableReinitialize
+        validateOnChange={false}
+        validateOnBlur
+        validateOnMount={false}
         onSubmit={async (vals, helpers) => {
           try {
             const nombre = vals.nombre.trim();
@@ -46,36 +54,44 @@ const CategoriaFormModal: React.FC<Props> = ({ open, onClose, onSuccess, initial
             onSuccess(cat);
             onClose();
           } catch (err: unknown) {
-            // err puede ser: envelope (por rejectWithValue), AxiosError, string, etc.
-            let be: any = err;
-            if (typeof err === 'object' && err !== null) {
-              const maybe = err as { response?: { data?: any }; data?: any };
-              be = maybe.response?.data ?? maybe.data ?? err;
+            const normalized = applyBackendErrorsToFormik(err, helpers);
+            if (isValidationError(err)) {
+              setFormErrors(normalized.formErrors);
+            } else {
+              setFormErrors([]);
+              const backend = (err as any)?.data || (err as any)?.response?.data || {};
+              handleBackendNotification(backend);
             }
-
-            const fieldErrors: Record<string, any> =
-              be?.errors || be?.data?.errors || {};
-
-            Object.entries(fieldErrors).forEach(([k, v]) => {
-              const msg = Array.isArray(v) ? v[0] : String(v);
-              helpers.setFieldError(k, msg);
-            });
-
-            // Fuerza "touched" para que MUI pinte en rojo
-            if (fieldErrors?.nombre) {
-              helpers.setTouched({ nombre: true }, false);
-            }
-
-            handleBackendNotification(be);
           } finally {
             helpers.setSubmitting(false);
           }
         }}
       >
-        {({ values, errors, touched, handleChange, handleBlur, isSubmitting }) => (
-          <Form>
+        {({ values, handleChange, handleBlur, isSubmitting, setTouched, validateForm, submitForm }) => (
+          <Form
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const validationErrors = await validateForm();
+              if (Object.keys(validationErrors).length) {
+                const touchedFields = Object.keys(validationErrors).reduce<Record<string, boolean>>(
+                  (acc, key) => ({ ...acc, [key]: true }),
+                  {}
+                );
+                setTouched(touchedFields, false);
+                focusFirstError(validationErrors, event.currentTarget);
+                return;
+              }
+              submitForm();
+            }}
+          >
             <DialogContent dividers>
-              <TextField
+              <FormAlertBanner
+                open={formErrors.length > 0}
+                severity="error"
+                title="Revisa la información"
+                messages={formErrors}
+              />
+              <FormikTextField
                 autoFocus
                 fullWidth
                 id="nombre"
@@ -84,8 +100,6 @@ const CategoriaFormModal: React.FC<Props> = ({ open, onClose, onSuccess, initial
                 value={values.nombre}
                 onChange={handleChange}
                 onBlur={handleBlur}
-                error={Boolean(touched.nombre && errors.nombre)}
-                helperText={touched.nombre && errors.nombre}
               />
             </DialogContent>
             <DialogActions>

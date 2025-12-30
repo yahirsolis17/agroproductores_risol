@@ -10,7 +10,6 @@ import { handleBackendNotification } from '../../../global/utils/NotificationEng
 import {
   Box,
   Button,
-  TextField,
   CircularProgress,
   Paper,
   Typography,
@@ -20,6 +19,10 @@ import {
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material'; // Iconos para mostrar/ocultar contraseña
 import { motion } from 'framer-motion'; // Animaciones
+import { applyBackendErrorsToFormik, isValidationError } from '../../../global/validation/backendFieldErrors';
+import { focusFirstError } from '../../../global/validation/focusFirstError';
+import FormAlertBanner from '../../../components/common/form/FormAlertBanner';
+import FormikTextField from '../../../components/common/form/FormikTextField';
 
 // Esquema de validación para el formulario usando Yup
 const validationSchema = Yup.object({
@@ -44,6 +47,7 @@ const Login: React.FC = () => {
   const [blockEndTime, setBlockEndTime] = useState<number | null>(null); // Tiempo en que termina el bloqueo
   const [timeRemaining, setTimeRemaining] = useState<string>(''); // Tiempo restante de bloqueo (formato mm:ss)
   const [failedAttempts, setFailedAttempts] = useState(0); // Contador de intentos fallidos
+  const [formErrors, setFormErrors] = useState<string[]>([]);
 
   // useEffect para cargar información de bloqueo e intentos fallidos desde localStorage al montar el componente
   useEffect(() => {
@@ -94,11 +98,12 @@ const Login: React.FC = () => {
   }, [blockEndTime]);
 
   // Función que maneja el intento de login
-  const handleLoginAttempt = async (values: { telefono: string; password: string }, { setSubmitting, setErrors }: any) => {
+  const handleLoginAttempt = async (values: { telefono: string; password: string }, helpers: any) => {
     if (isBlocked) return; // Si está bloqueado, no permite intentar
 
     try {
       await login(values.telefono, values.password); // Intenta loguear
+      setFormErrors([]);
       // Si es exitoso, reinicia los intentos fallidos y limpia el bloqueo
       setFailedAttempts(0);
       localStorage.removeItem('loginFailedAttempts');
@@ -119,10 +124,16 @@ const Login: React.FC = () => {
       }
 
       // Muestra errores en el formulario y notificación
-      setErrors(res || { telefono: ' ', password: ' ' });
-      handleBackendNotification(res);
+      const normalized = applyBackendErrorsToFormik(error, helpers);
+      if (isValidationError(error)) {
+        setFormErrors(normalized.formErrors);
+      } else {
+        setFormErrors([]);
+        helpers.setErrors(res || { telefono: ' ', password: ' ' });
+        handleBackendNotification(res);
+      }
     } finally {
-      setSubmitting(false); // Finaliza el estado de envío
+      helpers.setSubmitting(false); // Finaliza el estado de envío
     }
   };
 
@@ -190,6 +201,9 @@ const Login: React.FC = () => {
           <Formik
             initialValues={{ telefono: '', password: '' }}
             validationSchema={validationSchema}
+            validateOnChange={false}
+            validateOnBlur
+            validateOnMount={false}
             onSubmit={handleLoginAttempt}
           >
             {({
@@ -199,11 +213,37 @@ const Login: React.FC = () => {
               values,
               errors,
               touched,
+              setTouched,
+              validateForm,
+              submitForm,
             }) => (
-              <Form className="space-y-6" noValidate>
+              <Form
+                className="space-y-6"
+                noValidate
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  const validationErrors = await validateForm();
+                  if (Object.keys(validationErrors).length) {
+                    const touchedFields = Object.keys(validationErrors).reduce<Record<string, boolean>>(
+                      (acc, key) => ({ ...acc, [key]: true }),
+                      {}
+                    );
+                    setTouched(touchedFields, false);
+                    focusFirstError(validationErrors, event.currentTarget);
+                    return;
+                  }
+                  submitForm();
+                }}
+              >
+                <FormAlertBanner
+                  open={formErrors.length > 0}
+                  severity="error"
+                  title="Revisa la información"
+                  messages={formErrors}
+                />
                 {/* Campo de teléfono */}
                 <Box>
-                  <TextField
+                  <FormikTextField
                     fullWidth
                     id="telefono"
                     name="telefono"
@@ -212,8 +252,6 @@ const Login: React.FC = () => {
                     value={values.telefono}
                     onChange={handleChange}
                     onBlur={handleBlur}
-                    error={touched.telefono && Boolean(errors.telefono)}
-                    helperText={touched.telefono && errors.telefono}
                     disabled={isBlocked}
                     aria-label="Número de teléfono"
                     aria-required="true"
@@ -235,7 +273,7 @@ const Login: React.FC = () => {
 
                 {/* Campo de contraseña */}
                 <Box>
-                  <TextField
+                  <FormikTextField
                     fullWidth
                     id="password"
                     name="password"
@@ -244,8 +282,6 @@ const Login: React.FC = () => {
                     value={values.password}
                     onChange={handleChange}
                     onBlur={handleBlur}
-                    error={touched.password && Boolean(errors.password)}
-                    helperText={touched.password && errors.password}
                     disabled={isBlocked}
                     aria-label="Contraseña"
                     aria-required="true"

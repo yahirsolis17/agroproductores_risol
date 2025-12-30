@@ -4,13 +4,20 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Stack from '@mui/material/Stack';
-import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import { Add } from '@mui/icons-material';
 import Tooltip from '@mui/material/Tooltip';
+import { Formik, Form } from 'formik';
 
 // Campos manuales: tipo (texto) y cantidad (nÃºmero)
 import { formatDateISO, parseLocalDateStrict } from '../../../../global/utils/date';
+import { applyBackendErrorsToFormik, isValidationError } from '../../../../global/validation/backendFieldErrors';
+import { focusFirstError } from '../../../../global/validation/focusFirstError';
+import { handleBackendNotification } from '../../../../global/utils/NotificationEngine';
+import FormAlertBanner from '../../../../components/common/form/FormAlertBanner';
+import FormikDateField from '../../../../components/common/form/FormikDateField';
+import FormikNumberField from '../../../../components/common/form/FormikNumberField';
+import FormikTextField from '../../../../components/common/form/FormikTextField';
 
 type CreatePayload = {
   fecha: string;
@@ -30,100 +37,169 @@ type Props = {
 };
 
 export default function FastCaptureModal({ open, onClose, onCreate, disabled, bodegaId, temporadaId }: Props) {
-  const [fecha, setFecha] = useState<string>(formatDateISO(new Date()));
-  const [tipo, setTipo] = useState<string>('');
-  const [cajas, setCajas] = useState<number>(1);
-  const [huertero, setHuertero] = useState<string>('');
-  const [obs, setObs] = useState<string>('');
+  const [formErrors, setFormErrors] = useState<string[]>([]);
 
   useEffect(() => {
     if (!open) return;
-    setFecha(formatDateISO(new Date()));
-    setTipo('');
-    setCajas(1);
-    setHuertero('');
-    setObs('');
+    setFormErrors([]);
   }, [open]);
 
-  const disabledSubmit = useMemo(() => {
-    if (disabled) return true;
-    if (!bodegaId || !temporadaId) return true;
-    const d = parseLocalDateStrict(fecha);
-    return isNaN(d.getTime()) || !tipo || !(cajas > 0);
-  }, [disabled, bodegaId, temporadaId, fecha, tipo, cajas]);
+  const initialValues = useMemo(() => ({
+    fecha: formatDateISO(new Date()),
+    tipo_mango: '',
+    cantidad_cajas: '1',
+    huertero_nombre: '',
+    observaciones: '',
+  }), []);
 
-  const pickHoy = () => setFecha(formatDateISO(new Date()));
-  const pickAyer = () => {
-    const d = parseLocalDateStrict(new Date());
-    d.setDate(d.getDate() - 1);
-    setFecha(formatDateISO(d));
-  };
-
-  const handleCreate = async () => {
-    const payload: CreatePayload = {
-      fecha,
-      tipo_mango: tipo,
-      cantidad_cajas: cajas,
-      huertero_nombre: huertero || undefined,
-      observaciones: obs || undefined,
-    };
-    await onCreate(payload);
-    onClose();
+  const validate = (values: typeof initialValues) => {
+    const errors: Partial<Record<keyof typeof initialValues, string>> = {};
+    const parsed = parseLocalDateStrict(values.fecha);
+    if (isNaN(parsed.getTime())) {
+      errors.fecha = 'Fecha inválida.';
+    }
+    if (!values.tipo_mango.trim()) {
+      errors.tipo_mango = 'El tipo es requerido.';
+    }
+    const n = Number(values.cantidad_cajas);
+    if (!Number.isFinite(n) || Math.trunc(n) <= 0) {
+      errors.cantidad_cajas = 'Debe ser un entero mayor a 0.';
+    }
+    return errors;
   };
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>Captura rapida</DialogTitle>
-      <DialogContent dividers>
-        <Stack spacing={2} sx={{ mt: 1 }}>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Button variant="outlined" size="small" onClick={pickHoy}>Hoy</Button>
-            <Button variant="outlined" size="small" onClick={pickAyer}>Ayer</Button>
-            <TextField
-              label="Fecha"
-              type="date"
-              size="small"
-              InputLabelProps={{ shrink: true }}
-              value={fecha}
-              onChange={(e) => setFecha(e.target.value)}
-            />
-          </Stack>
+      <Formik
+        initialValues={initialValues}
+        enableReinitialize
+        validate={validate}
+        validateOnChange={false}
+        validateOnBlur
+        validateOnMount={false}
+        onSubmit={async (values, helpers) => {
+          try {
+            const payload: CreatePayload = {
+              fecha: values.fecha,
+              tipo_mango: values.tipo_mango,
+              cantidad_cajas: Math.trunc(Number(values.cantidad_cajas)),
+              huertero_nombre: values.huertero_nombre || undefined,
+              observaciones: values.observaciones || undefined,
+            };
+            await onCreate(payload);
+            setFormErrors([]);
+            onClose();
+          } catch (err: unknown) {
+            const normalized = applyBackendErrorsToFormik(err, helpers);
+            if (isValidationError(err)) {
+              setFormErrors(normalized.formErrors);
+            } else {
+              setFormErrors([]);
+              const backend = (err as any)?.data || (err as any)?.response?.data || {};
+              handleBackendNotification(backend);
+            }
+          } finally {
+            helpers.setSubmitting(false);
+          }
+        }}
+      >
+        {({ isSubmitting, setFieldValue, values, setTouched, validateForm, submitForm }) => {
+          const disabledSubmit = disabled || !bodegaId || !temporadaId;
+          const pickHoy = () => setFieldValue('fecha', formatDateISO(new Date()));
+          const pickAyer = () => {
+            const d = parseLocalDateStrict(new Date());
+            d.setDate(d.getDate() - 1);
+            setFieldValue('fecha', formatDateISO(d));
+          };
 
-          <TextField
-            label="Tipo de mango"
-            size="small"
-            value={tipo}
-            onChange={(e) => setTipo(e.target.value)}
-          />
+          return (
+            <Form
+              onSubmit={async (event) => {
+                event.preventDefault();
+                const validationErrors = await validateForm();
+                if (Object.keys(validationErrors).length) {
+                  const touchedFields = Object.keys(validationErrors).reduce<Record<string, boolean>>(
+                    (acc, key) => ({ ...acc, [key]: true }),
+                    {}
+                  );
+                  setTouched(touchedFields, false);
+                  focusFirstError(validationErrors, event.currentTarget);
+                  return;
+                }
+                submitForm();
+              }}
+            >
+              <DialogContent dividers>
+                <FormAlertBanner
+                  open={formErrors.length > 0}
+                  severity="error"
+                  title="Revisa la información"
+                  messages={formErrors}
+                />
+                <Stack spacing={2} sx={{ mt: 1 }}>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Button variant="outlined" size="small" onClick={pickHoy}>Hoy</Button>
+                    <Button variant="outlined" size="small" onClick={pickAyer}>Ayer</Button>
+                    <FormikDateField
+                      label="Fecha"
+                      name="fecha"
+                      size="small"
+                      InputLabelProps={{ shrink: true }}
+                      value={values.fecha}
+                    />
+                  </Stack>
 
-          <TextField
-            label="Cantidad de cajas"
-            type="number"
-            size="small"
-            inputProps={{ min: 1 }}
-            value={Number.isFinite(cajas) ? cajas : ''}
-            onChange={(e) => {
-              const v = parseInt(e.target.value, 10);
-              setCajas(Number.isFinite(v) && v > 0 ? v : 0);
-            }}
-          />
+                  <FormikTextField
+                    label="Tipo de mango"
+                    name="tipo_mango"
+                    size="small"
+                  />
 
-          <TextField label="Huertero (opcional)" size="small" value={huertero} onChange={(e) => setHuertero(e.target.value)} />
+                  <FormikNumberField
+                    label="Cantidad de cajas"
+                    name="cantidad_cajas"
+                    type="number"
+                    size="small"
+                    inputProps={{ min: 1 }}
+                  />
 
-          <TextField label="Observaciones (opcional)" size="small" multiline minRows={2} value={obs} onChange={(e) => setObs(e.target.value)} />
-        </Stack>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancelar</Button>
-        <Tooltip title={disabled ? 'Operación no disponible' : ''} disableHoverListener={!disabled}>
-          <span>
-            <Button variant="contained" onClick={handleCreate} disabled={disabledSubmit} startIcon={<Add />} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 500 }}>Crear</Button>
-          </span>
-        </Tooltip>
-      </DialogActions>
+                  <FormikTextField
+                    label="Huertero (opcional)"
+                    name="huertero_nombre"
+                    size="small"
+                  />
+
+                  <FormikTextField
+                    label="Observaciones (opcional)"
+                    name="observaciones"
+                    size="small"
+                    multiline
+                    minRows={2}
+                  />
+                </Stack>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={onClose}>Cancelar</Button>
+                <Tooltip title={disabled ? 'Operación no disponible' : ''} disableHoverListener={!disabled}>
+                  <span>
+                    <Button
+                      variant="contained"
+                      type="submit"
+                      disabled={disabledSubmit || isSubmitting}
+                      startIcon={<Add />}
+                      sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 500 }}
+                    >
+                      Crear
+                    </Button>
+                  </span>
+                </Tooltip>
+              </DialogActions>
+            </Form>
+          );
+        }}
+      </Formik>
     </Dialog>
   );
 }
-
-
 

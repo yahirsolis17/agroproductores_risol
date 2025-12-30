@@ -5,12 +5,19 @@ import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
-import TextField from "@mui/material/TextField";
 import Alert from "@mui/material/Alert";
 import AlertTitle from "@mui/material/AlertTitle";
 import { Save, Add } from "@mui/icons-material";
+import { Formik, Form } from "formik";
 
 import { formatDateISO, parseLocalDateStrict } from "../../../../global/utils/date";
+import { applyBackendErrorsToFormik, isValidationError } from "../../../../global/validation/backendFieldErrors";
+import { focusFirstError } from "../../../../global/validation/focusFirstError";
+import { handleBackendNotification } from "../../../../global/utils/NotificationEngine";
+import FormAlertBanner from "../../../../components/common/form/FormAlertBanner";
+import FormikDateField from "../../../../components/common/form/FormikDateField";
+import FormikNumberField from "../../../../components/common/form/FormikNumberField";
+import FormikTextField from "../../../../components/common/form/FormikTextField";
 
 import type { Captura, CapturaCreateDTO, CapturaUpdateDTO } from "../../types/capturasTypes";
 
@@ -43,128 +50,72 @@ export default function RecepcionFormModal({
 }: Props) {
   const isEdit = !!initial;
 
-  const [fecha, setFecha] = useState<string>(() => (initial?.fecha ? initial.fecha : formatDateISO(new Date())));
-  const [huertero, setHuertero] = useState<string>(initial?.huertero_nombre ?? "");
-  const [tipo, setTipo] = useState<string>(initial?.tipo_mango ?? "");
-  const [cajasInput, setCajasInput] = useState<string>(() =>
-    initial?.cantidad_cajas != null ? String(initial.cantidad_cajas) : ""
-  );
-  const [obs, setObs] = useState<string>(initial?.observaciones ?? "");
-
-  const [touchedTipo, setTouchedTipo] = useState(false);
-  const [touchedCajas, setTouchedCajas] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [formErrors, setFormErrors] = useState<string[]>([]);
 
   useEffect(() => {
     if (!open) return;
-    setTouchedTipo(false);
-    setTouchedCajas(false);
-    setSubmitted(false);
-
-    if (initial) {
-      setFecha(initial.fecha);
-      setHuertero(initial.huertero_nombre ?? "");
-      setTipo(initial.tipo_mango ?? "");
-      setCajasInput(initial.cantidad_cajas != null ? String(initial.cantidad_cajas) : "");
-      setObs(initial.observaciones ?? "");
-    } else {
-      setFecha(formatDateISO(new Date()));
-      setHuertero("");
-      setTipo("");
-      setCajasInput("");
-      setObs("");
-    }
+    setFormErrors([]);
   }, [open, initial]);
-
-  const parsedDate = useMemo(() => parseLocalDateStrict(fecha), [fecha]);
-  const fechaValida = useMemo(() => !isNaN(parsedDate.getTime()), [parsedDate]);
-
-  const outOfWeekRange = useMemo(() => {
-    if (!weekRange?.from || !weekRange?.to || !fechaValida) return false;
-    const from = parseLocalDateStrict(weekRange.from);
-    const to = parseLocalDateStrict(weekRange.to);
-    const d = new Date(parsedDate.getTime());
-    from.setHours(0, 0, 0, 0);
-    to.setHours(0, 0, 0, 0);
-    d.setHours(0, 0, 0, 0);
-    return d < from || d > to;
-  }, [weekRange?.from, weekRange?.to, parsedDate, fechaValida]);
-
-  const isTodayOrYesterday = useMemo(() => {
-    if (!fechaValida) return false;
-    const d = new Date(parsedDate.getTime());
-    const today = new Date();
-    d.setHours(0, 0, 0, 0);
-    today.setHours(0, 0, 0, 0);
-    const diffMs = today.getTime() - d.getTime();
-    const diffDays = diffMs / (1000 * 60 * 60 * 24);
-    return diffDays === 0 || diffDays === 1;
-  }, [parsedDate, fechaValida]);
-
-  const tipoValido = useMemo(() => typeof tipo === "string" && tipo.trim().length > 0, [tipo]);
-
-  const cajasParsed = useMemo(() => {
-    const raw = (cajasInput ?? "").trim();
-    if (raw === "") return null;
-    const n = Number(raw);
-    if (!Number.isFinite(n)) return null;
-    return Math.trunc(n);
-  }, [cajasInput]);
-
-  const cajasValidas = useMemo(() => cajasParsed != null && cajasParsed > 0, [cajasParsed]);
 
   const creationHasContext = useMemo(() => !!bodegaId && !!temporadaId, [bodegaId, temporadaId]);
 
-  const disabledSubmit = useMemo(() => {
-    if (blocked || busy) return true;
-    if (!fechaValida || outOfWeekRange) return true;
-    if (!tipoValido || !cajasValidas) return true;
-    if (!isEdit && !creationHasContext) return true;
-    if (!isTodayOrYesterday) return true;
-    return false;
-  }, [blocked, busy, fechaValida, outOfWeekRange, tipoValido, cajasValidas, isEdit, creationHasContext, isTodayOrYesterday]);
+  const initialValues = useMemo(() => ({
+    fecha: initial?.fecha ?? formatDateISO(new Date()),
+    huertero_nombre: initial?.huertero_nombre ?? "",
+    tipo_mango: initial?.tipo_mango ?? "",
+    cantidad_cajas: initial?.cantidad_cajas != null ? String(initial.cantidad_cajas) : "",
+    observaciones: initial?.observaciones ?? "",
+  }), [initial]);
 
-  const handleSubmit = async () => {
-    setSubmitted(true);
-    if (disabledSubmit) return;
-
-    const payloadBase = {
-      bodega: initial?.bodega ?? (bodegaId as number),
-      temporada: initial?.temporada ?? (temporadaId as number),
-      fecha,
-      huertero_nombre: huertero,
-      tipo_mango: tipo.trim(),
-      cantidad_cajas: cajasParsed as number,
-      observaciones: obs?.trim() ? obs.trim() : "",
-    };
-
-    try {
-      if (isEdit && initial) {
-        const payload: CapturaUpdateDTO = { ...payloadBase };
-        await onUpdate(initial.id, payload);
+  const validate = (values: typeof initialValues) => {
+    const errors: Partial<Record<keyof typeof initialValues, string>> = {};
+    const parsedDate = parseLocalDateStrict(values.fecha);
+    const fechaValida = !isNaN(parsedDate.getTime());
+    if (!fechaValida) {
+      errors.fecha = "Fecha inválida.";
+    } else {
+      const outOfWeekRange = (() => {
+        if (!weekRange?.from || !weekRange?.to) return false;
+        const from = parseLocalDateStrict(weekRange.from);
+        const to = parseLocalDateStrict(weekRange.to);
+        const d = new Date(parsedDate.getTime());
+        from.setHours(0, 0, 0, 0);
+        to.setHours(0, 0, 0, 0);
+        d.setHours(0, 0, 0, 0);
+        return d < from || d > to;
+      })();
+      if (outOfWeekRange && weekRange?.from && weekRange?.to) {
+        const f = parseLocalDateStrict(weekRange.from).toLocaleDateString();
+        const t = parseLocalDateStrict(weekRange.to).toLocaleDateString();
+        errors.fecha = `Fuera del rango de la semana (${f} - ${t}).`;
       } else {
-        const payload: CapturaCreateDTO = { ...payloadBase };
-        await onCreate(payload);
+        const isTodayOrYesterday = (() => {
+          const d = new Date(parsedDate.getTime());
+          const today = new Date();
+          d.setHours(0, 0, 0, 0);
+          today.setHours(0, 0, 0, 0);
+          const diffMs = today.getTime() - d.getTime();
+          const diffDays = diffMs / (1000 * 60 * 60 * 24);
+          return diffDays === 0 || diffDays === 1;
+        })();
+        if (!isTodayOrYesterday) {
+          errors.fecha = "El sistema solo acepta capturas para HOY o AYER.";
+        }
       }
-      onClose();
-    } catch {
-      // Notificación ya mostrada por el servicio; mantener modal abierto.
     }
+
+    if (!values.tipo_mango.trim()) {
+      errors.tipo_mango = "El tipo es requerido.";
+    }
+
+    const raw = values.cantidad_cajas.trim();
+    const n = raw ? Number(raw) : NaN;
+    if (!Number.isFinite(n) || Math.trunc(n) <= 0) {
+      errors.cantidad_cajas = "Debe ser un entero mayor a 0.";
+    }
+
+    return errors;
   };
-
-  const fechaHelperText = useMemo(() => {
-    if (!fechaValida) return "Fecha inválida.";
-    if (outOfWeekRange && weekRange?.from && weekRange?.to) {
-      const f = parseLocalDateStrict(weekRange.from).toLocaleDateString();
-      const t = parseLocalDateStrict(weekRange.to).toLocaleDateString();
-      return `Fuera del rango de la semana (${f} - ${t}).`;
-    }
-    if (!isTodayOrYesterday) return "El sistema solo acepta capturas para HOY o AYER.";
-    return "Solo HOY o AYER según reglas del backend.";
-  }, [fechaValida, outOfWeekRange, weekRange?.from, weekRange?.to, isTodayOrYesterday]);
-
-  const tipoError = (!tipoValido && (touchedTipo || submitted)) || false;
-  const cajasError = (!cajasValidas && (touchedCajas || submitted)) || false;
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm" aria-labelledby="recepcion-form-title">
@@ -172,86 +123,175 @@ export default function RecepcionFormModal({
         {isEdit ? "Editar recepción" : "Registrar recepción"}
       </DialogTitle>
 
-      <DialogContent dividers>
-        {blocked && (
-          <Alert severity="warning" variant="outlined" sx={{ mb: 2, borderRadius: 2 }}>
-            <AlertTitle>Operación bloqueada</AlertTitle>
-            {blockReason || "Semana cerrada o temporada finalizada. El formulario está en solo lectura."}
-          </Alert>
-        )}
+      <Formik
+        initialValues={initialValues}
+        enableReinitialize
+        validate={validate}
+        validateOnChange={false}
+        validateOnBlur
+        validateOnMount={false}
+        onSubmit={async (values, helpers) => {
+          const raw = values.cantidad_cajas.trim();
+          const n = Math.trunc(Number(raw));
+          const payloadBase = {
+            bodega: initial?.bodega ?? (bodegaId as number),
+            temporada: initial?.temporada ?? (temporadaId as number),
+            fecha: values.fecha,
+            huertero_nombre: values.huertero_nombre,
+            tipo_mango: values.tipo_mango.trim(),
+            cantidad_cajas: n,
+            observaciones: values.observaciones?.trim() ? values.observaciones.trim() : "",
+          };
 
-        <Stack spacing={2}>
-          <TextField
-            label="Fecha"
-            type="date"
-            size="small"
-            InputLabelProps={{ shrink: true }}
-            value={fecha}
-            onChange={(e) => setFecha(e.target.value)}
-            error={!fechaValida || outOfWeekRange || !isTodayOrYesterday}
-            helperText={fechaHelperText}
-            disabled={blocked || busy}
-          />
+          try {
+            if (isEdit && initial) {
+              const payload: CapturaUpdateDTO = { ...payloadBase };
+              await onUpdate(initial.id, payload);
+            } else {
+              const payload: CapturaCreateDTO = { ...payloadBase };
+              await onCreate(payload);
+            }
+            setFormErrors([]);
+            onClose();
+          } catch (err: unknown) {
+            const normalized = applyBackendErrorsToFormik(err, helpers);
+            if (isValidationError(err)) {
+              setFormErrors(normalized.formErrors);
+            } else {
+              setFormErrors([]);
+              const backend = (err as any)?.data || (err as any)?.response?.data || {};
+              handleBackendNotification(backend);
+            }
+          } finally {
+            helpers.setSubmitting(false);
+          }
+        }}
+      >
+        {({ isSubmitting, values, setTouched, validateForm, submitForm }) => {
+          const parsedDate = parseLocalDateStrict(values.fecha);
+          const fechaValida = !isNaN(parsedDate.getTime());
+          const outOfWeekRange = (() => {
+            if (!weekRange?.from || !weekRange?.to || !fechaValida) return false;
+            const from = parseLocalDateStrict(weekRange.from);
+            const to = parseLocalDateStrict(weekRange.to);
+            const d = new Date(parsedDate.getTime());
+            from.setHours(0, 0, 0, 0);
+            to.setHours(0, 0, 0, 0);
+            d.setHours(0, 0, 0, 0);
+            return d < from || d > to;
+          })();
 
-          <TextField
-            label="Huertero"
-            size="small"
-            value={huertero}
-            onChange={(e) => setHuertero(e.target.value)}
-            disabled={blocked || busy}
-          />
+          const isTodayOrYesterday = (() => {
+            if (!fechaValida) return false;
+            const d = new Date(parsedDate.getTime());
+            const today = new Date();
+            d.setHours(0, 0, 0, 0);
+            today.setHours(0, 0, 0, 0);
+            const diffMs = today.getTime() - d.getTime();
+            const diffDays = diffMs / (1000 * 60 * 60 * 24);
+            return diffDays === 0 || diffDays === 1;
+          })();
 
-          <TextField
-            label="Tipo de mango"
-            size="small"
-            value={tipo}
-            onChange={(e) => setTipo(e.target.value)}
-            onBlur={() => setTouchedTipo(true)}
-            error={tipoError}
-            helperText={tipoError ? "El tipo es requerido." : " "}
-            disabled={blocked || busy}
-          />
+          const raw = values.cantidad_cajas.trim();
+          const n = raw ? Number(raw) : NaN;
+          const cajasValidas = Number.isFinite(n) && Math.trunc(n) > 0;
 
-          <TextField
-            label="Cantidad de cajas"
-            type="number"
-            size="small"
-            inputProps={{ min: 1, step: 1 }}
-            value={cajasInput}
-            onChange={(e) => setCajasInput(e.target.value)}
-            onBlur={() => setTouchedCajas(true)}
-            error={cajasError}
-            helperText={cajasError ? "Debe ser un entero mayor a 0." : " "}
-            disabled={blocked || busy}
-          />
+          const tipoValido = values.tipo_mango.trim().length > 0;
 
-          <TextField
-            label="Observaciones"
-            size="small"
-            multiline
-            minRows={2}
-            value={obs}
-            onChange={(e) => setObs(e.target.value)}
-            disabled={blocked || busy}
-          />
-        </Stack>
-      </DialogContent>
+          const disabledSubmit = blocked || busy || !fechaValida || outOfWeekRange || !tipoValido || !cajasValidas || (!isEdit && !creationHasContext) || !isTodayOrYesterday;
 
-      <DialogActions>
-        <Button onClick={onClose} sx={{ textTransform: "none" }}>
-          Cancelar
-        </Button>
-        <Button
-          variant="contained"
-          onClick={handleSubmit}
-          disabled={disabledSubmit}
-          startIcon={isEdit ? <Save /> : <Add />}
-          sx={{ borderRadius: 2, textTransform: "none", fontWeight: 600 }}
-        >
-          {isEdit ? "Guardar cambios" : "Crear"}
-        </Button>
-      </DialogActions>
+          return (
+            <Form
+              onSubmit={async (event) => {
+                event.preventDefault();
+                const validationErrors = await validateForm();
+                if (Object.keys(validationErrors).length) {
+                  const touchedFields = Object.keys(validationErrors).reduce<Record<string, boolean>>(
+                    (acc, key) => ({ ...acc, [key]: true }),
+                    {}
+                  );
+                  setTouched(touchedFields, false);
+                  focusFirstError(validationErrors, event.currentTarget);
+                  return;
+                }
+                submitForm();
+              }}
+            >
+              <DialogContent dividers>
+                {blocked && (
+                  <Alert severity="warning" variant="outlined" sx={{ mb: 2, borderRadius: 2 }}>
+                    <AlertTitle>Operación bloqueada</AlertTitle>
+                    {blockReason || "Semana cerrada o temporada finalizada. El formulario está en solo lectura."}
+                  </Alert>
+                )}
+                <FormAlertBanner
+                  open={formErrors.length > 0}
+                  severity="error"
+                  title="Revisa la información"
+                  messages={formErrors}
+                />
+
+                <Stack spacing={2}>
+                  <FormikDateField
+                    label="Fecha"
+                    name="fecha"
+                    size="small"
+                    InputLabelProps={{ shrink: true }}
+                    disabled={blocked || busy}
+                  />
+
+                  <FormikTextField
+                    label="Huertero"
+                    name="huertero_nombre"
+                    size="small"
+                    disabled={blocked || busy}
+                  />
+
+                  <FormikTextField
+                    label="Tipo de mango"
+                    name="tipo_mango"
+                    size="small"
+                    disabled={blocked || busy}
+                  />
+
+                  <FormikNumberField
+                    label="Cantidad de cajas"
+                    name="cantidad_cajas"
+                    type="number"
+                    size="small"
+                    inputProps={{ min: 1, step: 1 }}
+                    disabled={blocked || busy}
+                  />
+
+                  <FormikTextField
+                    label="Observaciones"
+                    name="observaciones"
+                    size="small"
+                    multiline
+                    minRows={2}
+                    disabled={blocked || busy}
+                  />
+                </Stack>
+              </DialogContent>
+
+              <DialogActions>
+                <Button onClick={onClose} sx={{ textTransform: "none" }}>
+                  Cancelar
+                </Button>
+                <Button
+                  variant="contained"
+                  type="submit"
+                  disabled={disabledSubmit || isSubmitting}
+                  startIcon={isEdit ? <Save /> : <Add />}
+                  sx={{ borderRadius: 2, textTransform: "none", fontWeight: 600 }}
+                >
+                  {isEdit ? "Guardar cambios" : "Crear"}
+                </Button>
+              </DialogActions>
+            </Form>
+          );
+        }}
+      </Formik>
     </Dialog>
   );
 }
-

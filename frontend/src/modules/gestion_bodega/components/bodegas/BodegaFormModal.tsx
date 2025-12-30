@@ -1,12 +1,16 @@
 // src/modules/gestion_bodega/components/bodegas/BodegaFormModal.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, Button, Box, CircularProgress
+  Button, Box, CircularProgress
 } from '@mui/material';
-import { Formik, Form, Field, FieldProps } from 'formik';
+import { Formik, Form } from 'formik';
 import { PermissionButton } from '../../../../components/common/PermissionButton';
 import { handleBackendNotification } from '../../../../global/utils/NotificationEngine';
+import { applyBackendErrorsToFormik, isValidationError } from '../../../../global/validation/backendFieldErrors';
+import { focusFirstError } from '../../../../global/validation/focusFirstError';
+import FormAlertBanner from '../../../../components/common/form/FormAlertBanner';
+import FormikTextField from '../../../../components/common/form/FormikTextField';
 
 import type {
   Bodega,
@@ -50,6 +54,7 @@ const BodegaFormModal: React.FC<Props> = ({
     nombre: initialValues?.nombre ?? '',
     ubicacion: initialValues?.ubicacion ?? '',
   };
+  const [formErrors, setFormErrors] = useState<string[]>([]);
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
@@ -61,64 +66,71 @@ const BodegaFormModal: React.FC<Props> = ({
         initialValues={init}
         validate={validate}
         enableReinitialize
-        onSubmit={async (vals, { setSubmitting, setErrors }) => {
+        validateOnChange={false}
+        validateOnBlur
+        validateOnMount={false}
+        onSubmit={async (vals, helpers) => {
           try {
             const payload: BodegaCreateData | BodegaUpdateData = {
               nombre: vals.nombre.trim(),
               ubicacion: vals.ubicacion.trim() || undefined,
             };
             await onSubmit(payload);
+            setFormErrors([]);
             onClose();
           } catch (err: any) {
-            const backend = err?.response?.data || err?.data || {};
-            const beErrors = backend.errors || backend.data?.errors || {};
-            const fErrors: Record<string, string> = {};
-
-            if (Array.isArray(beErrors?.non_field_errors)) {
-              const msg = beErrors.non_field_errors[0];
-              ['nombre', 'ubicacion'].forEach((f) => (fErrors[f] = msg));
+            const normalized = applyBackendErrorsToFormik(err, helpers);
+            if (isValidationError(err)) {
+              setFormErrors(normalized.formErrors);
+            } else {
+              setFormErrors([]);
+              const backend = err?.response?.data || err?.data || {};
+              handleBackendNotification(backend);
             }
-            Object.entries(beErrors).forEach(([field, msgs]: [string, unknown]) => {
-              if (field !== 'non_field_errors') fErrors[field] = Array.isArray(msgs) ? (msgs as string[])[0] : String(msgs);
-            });
-
-            setErrors(fErrors);
-            handleBackendNotification(backend);
           } finally {
-            setSubmitting(false);
+            helpers.setSubmitting(false);
           }
         }}
       >
-        {({ errors, touched, isSubmitting }) => (
-          <Form>
+        {({ isSubmitting, setTouched, validateForm, submitForm }) => (
+          <Form
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const validationErrors = await validateForm();
+              if (Object.keys(validationErrors).length) {
+                const touchedFields = Object.keys(validationErrors).reduce<Record<string, boolean>>(
+                  (acc, key) => ({ ...acc, [key]: true }),
+                  {}
+                );
+                setTouched(touchedFields, false);
+                focusFirstError(validationErrors, event.currentTarget);
+                return;
+              }
+              submitForm();
+            }}
+          >
             <DialogContent dividers>
+              <FormAlertBanner
+                open={formErrors.length > 0}
+                severity="error"
+                title="Revisa la información"
+                messages={formErrors}
+              />
               <Box display="grid" gap={2}>
-                <Field name="nombre">
-                  {({ field }: FieldProps) => (
-                    <TextField
-                      {...field}
-                      label="Nombre"
-                      fullWidth
-                      size="small"
-                      autoFocus
-                      error={Boolean(touched.nombre && errors.nombre)}
-                      helperText={touched.nombre && errors.nombre}
-                    />
-                  )}
-                </Field>
+                <FormikTextField
+                  name="nombre"
+                  label="Nombre"
+                  fullWidth
+                  size="small"
+                  autoFocus
+                />
 
-                <Field name="ubicacion">
-                  {({ field }: FieldProps) => (
-                    <TextField
-                      {...field}
-                      label="Ubicación"
-                      fullWidth
-                      size="small"
-                      error={Boolean(touched.ubicacion && errors.ubicacion)}
-                      helperText={touched.ubicacion && errors.ubicacion}
-                    />
-                  )}
-                </Field>
+                <FormikTextField
+                  name="ubicacion"
+                  label="Ubicación"
+                  fullWidth
+                  size="small"
+                />
               </Box>
             </DialogContent>
 
