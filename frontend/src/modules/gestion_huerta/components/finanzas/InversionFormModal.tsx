@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, Button, CircularProgress
+  Button, CircularProgress
 } from '@mui/material';
 import { Formik, Form, FormikHelpers, FormikProps } from 'formik';
 import * as Yup from 'yup';
@@ -16,6 +16,11 @@ import {
 
 import { PermissionButton } from '../../../../components/common/PermissionButton';
 import { handleBackendNotification } from '../../../../global/utils/NotificationEngine';
+import { applyBackendErrorsToFormik } from '../../../../global/validation/backendFieldErrors';
+import { focusFirstError } from '../../../../global/validation/focusFirstError';
+import FormikDateField from '../../../../components/common/form/FormikDateField';
+import FormikTextField from '../../../../components/common/form/FormikTextField';
+import FormAlertBanner from '../../../../components/common/form/FormAlertBanner';
 import useCategoriasInversion from '../../hooks/useCategoriasInversion';
 import { CategoriaInversion } from '../../types/categoriaInversionTypes';
 import CategoriaInversionFormModal from './CategoriaFormModal';
@@ -45,12 +50,6 @@ function formatMX(input: string | number): string {
   return Math.trunc(n).toLocaleString('es-MX', { maximumFractionDigits: 0 });
 }
 
-function msg(e: unknown): string {
-  if (!e) return '';
-  if (typeof e === 'string') return e;
-  if (Array.isArray(e)) return e.map(x => (typeof x === 'string' ? x : '')).filter(Boolean)[0] || '';
-  return '';
-}
 
 type FormValues = {
   fecha: string;
@@ -96,6 +95,7 @@ interface Props {
 const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValues }) => {
   const formikRef = useRef<FormikProps<FormValues>>(null);
   const [openCatModal, setOpenCatModal] = useState(false);
+  const [formErrors, setFormErrors] = useState<string[]>([]);
   const { refetch: refetchCategorias } = useCategoriasInversion();
 
   useEffect(() => {
@@ -142,26 +142,15 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
 
     try {
       await onSubmit(payload);
+      setFormErrors([]);
       onClose();
     } catch (err: unknown) {
-      const backend = (err as any)?.data || (err as any)?.response?.data || {};
-      const beErrors = backend.data?.errors || {};
-      const fieldErrors: Record<string, string> = {};
-      // replicate general errors across key fields
-      if (Array.isArray(beErrors.non_field_errors)) {
-        const m = beErrors.non_field_errors[0] || 'Error de validación';
-        ['fecha', 'categoria', 'gastos_insumos', 'gastos_mano_obra'].forEach((f) => {
-          fieldErrors[f] = m;
-        });
+      const normalized = applyBackendErrorsToFormik(err, helpers);
+      setFormErrors(normalized.formErrors);
+      if (!Object.keys(normalized.fieldErrors).length && !normalized.formErrors.length) {
+        const backend = (err as any)?.data || (err as any)?.response?.data || {};
+        handleBackendNotification(backend);
       }
-      Object.entries(beErrors).forEach(([f, msgVal]: [string, unknown]) => {
-        if (f !== 'non_field_errors') {
-          const text = Array.isArray(msgVal) ? String((msgVal as any)[0]) : String(msgVal);
-          fieldErrors[f] = text;
-        }
-      });
-      helpers.setErrors(fieldErrors);
-      handleBackendNotification(backend);
     } finally {
       helpers.setSubmitting(false);
     }
@@ -221,44 +210,51 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
           initialValues={initialFormValues}
           enableReinitialize
           validationSchema={schema}
+          validateOnChange={false}
+          validateOnBlur
+          validateOnMount={false}
           onSubmit={handleSubmit}
         >
-          {({ values, errors, touched, isSubmitting, handleChange, handleBlur, setFieldValue }) => (
-            <Form>
+          {({ values, errors, isSubmitting, handleChange, handleBlur, setFieldValue, setTouched, validateForm }) => (
+            <Form
+              onSubmit={async (event) => {
+                event.preventDefault();
+                const validationErrors = await validateForm();
+                if (Object.keys(validationErrors).length) {
+                  const touchedFields = Object.keys(validationErrors).reduce<Record<string, boolean>>(
+                    (acc, key) => ({ ...acc, [key]: true }),
+                    {}
+                  );
+                  setTouched(touchedFields, false);
+                  focusFirstError(validationErrors, event.currentTarget);
+                  return;
+                }
+                formikRef.current?.handleSubmit(event);
+              }}
+            >
               <DialogContent>
+                <FormAlertBanner
+                  open={formErrors.length > 0}
+                  severity="error"
+                  title="Revisa la información"
+                  messages={formErrors}
+                />
                 {/* Fecha */}
-            <TextField
-              label="Fecha"
-              type="date"
-              name="fecha"
-              value={values.fecha}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              margin="normal"
-              fullWidth
-              inputProps={{ min: yesterday, max: today }}   // <-- límites UI
-              error={touched.fecha && Boolean(msg(errors.fecha))}
-              helperText={touched.fecha && msg(errors.fecha)}
-            />
-
-                <CategoriaAutocomplete
-                  valueId={values.categoria}
-                  onChangeId={(id: number | null) => {
-                    // Actualiza el valor en el formulario
-                    setFieldValue('categoria', id ?? 0);
-                    // Al seleccionar una categoría válida, limpia el error asociado
-                    if (id) {
-                      formikRef.current?.setFieldError('categoria', undefined);
-                    }
-                    formikRef.current?.setFieldTouched('categoria', true, false);
-                  }}
-                  label="Categoría"
-                  error={Boolean(touched.categoria && msg(errors.categoria))}
-                  helperText={touched.categoria ? (msg(errors.categoria) || undefined) : undefined}
+                <FormikDateField
+                  label="Fecha"
+                  name="fecha"
+                  value={values.fecha}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  margin="normal"
+                  fullWidth
+                  inputProps={{ min: yesterday, max: today }}   // <-- límites UI
                 />
 
+                <CategoriaAutocomplete name="categoria" label="Categoría" />
+
                 {/* Gasto insumos */}
-                <TextField
+                <FormikTextField
                   label="Gasto insumos"
                   name="gastos_insumos"
                   value={values.gastos_insumos}
@@ -270,12 +266,10 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
                   placeholder="Ej. 12,500"
                   margin="normal"
                   fullWidth
-                  error={touched.gastos_insumos && Boolean(msg(errors.gastos_insumos))}
-                  helperText={touched.gastos_insumos && msg(errors.gastos_insumos)}
                 />
 
                 {/* Gastos mano de obra */}
-                <TextField
+                <FormikTextField
                   label="Gasto mano de obra"
                   name="gastos_mano_obra"
                   value={values.gastos_mano_obra}
@@ -287,12 +281,10 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
                   placeholder="Ej. 8,000"
                   margin="normal"
                   fullWidth
-                  error={touched.gastos_mano_obra && Boolean(msg(errors.gastos_mano_obra))}
-                  helperText={touched.gastos_mano_obra && msg(errors.gastos_mano_obra)}
                 />
 
                 {/* Descripción */}
-                <TextField
+                <FormikTextField
                   label="Descripción"
                   name="descripcion"
                   value={values.descripcion}
@@ -302,8 +294,6 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
                   fullWidth
                   multiline
                   rows={2}
-                  error={touched.descripcion && Boolean(msg(errors.descripcion))}
-                  helperText={touched.descripcion && msg(errors.descripcion)}
                 />
               </DialogContent>
               <DialogActions>
