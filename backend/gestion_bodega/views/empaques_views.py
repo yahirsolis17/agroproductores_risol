@@ -3,6 +3,7 @@ from datetime import timedelta
 
 from django.db import transaction
 from django.db.models import Sum, Q
+from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, status, filters, serializers
 from rest_framework.decorators import action
@@ -11,6 +12,7 @@ from rest_framework.permissions import IsAuthenticated
 from agroproductores_risol.utils.pagination import GenericPagination
 from gestion_bodega.models import (
     ClasificacionEmpaque,
+    Recepcion,
     CierreSemanal,
 )
 from gestion_bodega.permissions import HasModulePermission
@@ -310,6 +312,11 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
     @action(detail=False, methods=["post"], url_path="bulk-upsert")
     def bulk_upsert(self, request):
         """
+        Snapshot semantics (estado final por recepción):
+        - payload representa el set completo de líneas para esa recepción
+        - ausente en payload => se archiva (si no tiene consumos; si tiene, 409)
+        - qty <= 0 no se permite (serializer rechaza), usar ausencia para archivar
+
         Request:
         {
           "recepcion": id,
@@ -338,85 +345,164 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        recepcion = ser.validated_data["recepcion"]
-        bodega = ser.validated_data["bodega"]
-        temporada = ser.validated_data["temporada"]
-        f = ser.validated_data["fecha"]
+        try:
+            recepcion = ser.validated_data["recepcion"]
+            bodega = ser.validated_data["bodega"]
+            temporada = ser.validated_data["temporada"]
+            f = ser.validated_data["fecha"]
 
-        if semana_cerrada_ids(bodega.id, temporada.id, f):
-            return self.notify(key="clasificacion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
+            if semana_cerrada_ids(bodega.id, temporada.id, f):
+                return self.notify(key="clasificacion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
 
-        # Semana: heredamos de recepción si existe, si no resolvemos
-        semana = getattr(recepcion, "semana", None) or _resolve_semana_for_fecha(bodega, temporada, f)
+            semana = getattr(recepcion, "semana", None) or _resolve_semana_for_fecha(bodega, temporada, f)
 
-        created_ids, updated_ids = [], []
-
-        # Server-truth: tipo_mango siempre viene de la recepción
-        recepcion_tipo_mango = (getattr(recepcion, "tipo_mango", "") or "").strip()
-
-        with transaction.atomic():
-            # Índice de existentes por (material, calidad) (sin fecha) para respetar UniqueConstraint
-            existing_qs = (
-                ClasificacionEmpaque.objects.select_for_update()
-                .filter(
-                    recepcion=recepcion,
-                    bodega=bodega,
-                    temporada=temporada,
-                )
-            )
-
-            existing = {}
-            for obj in existing_qs:
-                k = (obj.material, str(obj.calidad).strip())
-                existing[k] = obj
-
-            for item in ser.validated_data["items"]:
+            # -------------------------------------------------------------------
+            # FASE 1.1: Validación Global (Snapshot)
+            # -------------------------------------------------------------------
+            items_payload = ser.validated_data["items"]
+            payload_map = {}
+            for item in items_payload:
                 material = item["material"]
                 calidad = str(item["calidad"]).strip()
                 qty = int(item.get("cantidad_cajas") or 0)
 
-                k = (material, calidad)
+                if material == "PLASTICO" and calidad in ["SEGUNDA", "EXTRA"]:
+                    calidad = "PRIMERA"
 
-                if k in existing:
-                    obj = existing[k]
+                payload_map[(material, calidad)] = qty
 
+            total_payload = sum(payload_map.values())
+            max_cajas = int(getattr(recepcion, "cajas_campo", 0) or 0)
+            if total_payload > max_cajas:
+                return self.notify(
+                    key="validation_error",
+                    data={"errors": {"items": "La suma de clasificaciones excede las cajas disponibles de la recepción."}},
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+            # -------------------------------------------------------------------
+
+            created_ids, updated_ids = [], []
+            recepcion_tipo_mango = (getattr(recepcion, "tipo_mango", "") or "").strip()
+
+            with transaction.atomic():
+                # Lock maestro por recepción para serializar operaciones
+                recepcion_locked = Recepcion.objects.select_for_update().get(pk=recepcion.id)
+                # Lock de líneas existentes
+                existing_qs = (
+                    ClasificacionEmpaque.objects.select_for_update()
+                    .filter(
+                        recepcion=recepcion_locked,
+                        bodega=bodega,
+                        temporada=temporada,
+                    )
+                )
+
+                existing = {}
+                for obj in existing_qs:
+                    k = (obj.material, str(obj.calidad).strip())
+                    existing[k] = obj
+
+                # Detectar bloqueos antes de modificar (archivar ausentes / modificar consumidos)
+                bloqueadas = []
+                for k, obj in existing.items():
+                    if k in payload_map:
+                        continue
                     if obj.surtidos.exists():
-                        return self.notify(
-                            key="clasificacion_con_consumos_inmutable",
-                            data={"info": f"Línea {material}/{calidad} tiene consumos y no se puede modificar."},
-                            status_code=status.HTTP_409_CONFLICT,
-                        )
-
-                    changed = (
+                        bloqueadas.append(obj)
+                for (material, calidad), qty in payload_map.items():
+                    if (material, calidad) not in existing:
+                        continue
+                    obj = existing[(material, calidad)]
+                    cambio = (
                         obj.cantidad_cajas != qty
                         or obj.is_active is False
                         or obj.fecha != f
                         or obj.semana_id != (semana.id if semana else None)
                         or (str(getattr(obj, "tipo_mango", "") or "").strip() != recepcion_tipo_mango)
                     )
+                    if cambio and obj.surtidos.exists():
+                        bloqueadas.append(obj)
 
-                    if changed:
-                        obj.cantidad_cajas = qty
-                        obj.is_active = True
-                        obj.fecha = f
-                        obj.semana = semana
-                        obj.tipo_mango = recepcion_tipo_mango
-                        obj.save(update_fields=["cantidad_cajas", "is_active", "fecha", "semana", "tipo_mango", "actualizado_en"])
-                        updated_ids.append(obj.id)
-
-                else:
-                    obj = ClasificacionEmpaque.objects.create(
-                        recepcion=recepcion,
-                        bodega=bodega,
-                        temporada=temporada,
-                        fecha=f,
-                        semana=semana,
-                        material=material,
-                        calidad=calidad,
-                        tipo_mango=recepcion_tipo_mango,
-                        cantidad_cajas=qty,
+                if bloqueadas:
+                    data_block = {
+                        "recepcion_id": recepcion.id,
+                        "bloqueadas": [
+                            {"id": o.id, "material": o.material, "calidad": o.calidad, "motivo": "Tiene consumos"}
+                            for o in bloqueadas
+                        ],
+                    }
+                    return self.notify(
+                        key="clasificacion_con_consumos_inmutable",
+                        data=data_block,
+                        status_code=status.HTTP_409_CONFLICT,
                     )
-                    created_ids.append(obj.id)
+
+                # 1) Archivar ausentes
+                for k, obj in existing.items():
+                    if k in payload_map:
+                        continue
+                    obj.archivar()
+
+                # 2) Upsert snapshot
+                for (material, calidad), qty in payload_map.items():
+                    if (material, calidad) in existing:
+                        obj = existing[(material, calidad)]
+                        changed = (
+                            obj.cantidad_cajas != qty
+                            or obj.is_active is False
+                            or obj.fecha != f
+                            or obj.semana_id != (semana.id if semana else None)
+                            or (str(getattr(obj, "tipo_mango", "") or "").strip() != recepcion_tipo_mango)
+                        )
+                        if changed:
+                            obj.cantidad_cajas = qty
+                            obj.is_active = True
+                            obj.fecha = f
+                            obj.semana = semana
+                            obj.tipo_mango = recepcion_tipo_mango
+                            obj.save(update_fields=["cantidad_cajas", "is_active", "fecha", "semana", "tipo_mango", "actualizado_en"])
+                            updated_ids.append(obj.id)
+                    else:
+                        obj = ClasificacionEmpaque.objects.create(
+                            recepcion=recepcion_locked,
+                            bodega=bodega,
+                            temporada=temporada,
+                            fecha=f,
+                            semana=semana,
+                            material=material,
+                            calidad=calidad,
+                            tipo_mango=recepcion_tipo_mango,
+                            cantidad_cajas=qty,
+                        )
+                        created_ids.append(obj.id)
+
+                # 3) Validación final de capacidad ya con snapshot aplicado
+                total_final = (
+                    ClasificacionEmpaque.objects.filter(recepcion=recepcion_locked, is_active=True)
+                    .aggregate(total=Sum("cantidad_cajas"))
+                    .get("total")
+                    or 0
+                )
+                if total_final > max_cajas:
+                    transaction.set_rollback(True)
+                    return self.notify(
+                        key="validation_error",
+                        data={"errors": {"items": "La suma de clasificaciones excede las cajas disponibles de la recepción."}},
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                    )
+
+        except serializers.ValidationError as e:
+            return self.notify(
+                key="validation_error",
+                data={"errors": e.detail if hasattr(e, "detail") else str(e)},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as e:
+            return self.notify(
+                key="unexpected_error",
+                data={"errors": str(e)},
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
         # Resumen para chip/tabla (MERMA exacta)
         agg = (

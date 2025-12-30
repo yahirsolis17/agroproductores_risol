@@ -1,0 +1,22 @@
+DEBUG: Week Finish payload: {'bodega': 3, 'temporada': 3, 'semana_id': 4, 'fecha_hasta': '2026-01-04'}
+Error al finalizar semana: {'fecha_hasta': ['No se puede cerrar una semana con fecha futura.']}
+Traceback (most recent call last):
+  File "C:\Users\Yahir\agroproductores_risol\backend\gestion_bodega\views\tablero_views.py", line 891, in post
+    cw.save(update_fields=["fecha_hasta", "actualizado_en"])
+  File "C:\Users\Yahir\agroproductores_risol\backend\gestion_bodega\models.py", line 1212, in save
+    self.full_clean()
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\db\models\base.py", line 1556, in full_clean
+    raise ValidationError(errors)
+django.core.exceptions.ValidationError: {'fecha_hasta': ['No se puede cerrar una semana con fecha futura.']}
+DEBUG: Bulk UPSERT payload: {'recepcion': 59, 'bodega': 3, 'temporada': 3, 'fecha': '2025-12-29', 'items': [{'material': 'PLASTICO', 'calidad': 'PRIMERA', 'tipo_mango': 'manila', 'cantidad_cajas': 20}, {'material': 'PLASTICO', 'calidad': 'TERCERA', 'tipo_mango': 'manila', 'cantidad_cajas': 20}, {'material': 'PLASTICO', 'calidad': 'NINIO', 'tipo_mango': 'manila', 'cantidad_cajas': 20}, {'material': 'PLASTICO', 'calidad': 'RONIA', 'tipo_mango': 'manila', 'cantidad_cajas': 20}, {'material': 'PLASTICO', 'calidad': 'MADURO', 'tipo_mango': 'manila', 'cantidad_cajas': 20}, {'material': 'PLASTICO', 'calidad': 'MERMA', 'tipo_mango': 'manila', 'cantidad_cajas': 20}]}
+DEBUG: Bulk UPSERT payload: {'recepcion': 59, 'bodega': 3, 'temporada': 3, 'fecha': '2025-12-29', 'items': [{'material': 'PLASTICO', 'calidad': 'PRIMERA', 'tipo_mango': 'manila', 'cantidad_cajas': 20}, {'material': 'PLASTICO', 'calidad': 'TERCERA', 'tipo_mango': 'manila', 'cantidad_cajas': 20}, {'material': 'PLASTICO', 'calidad': 'NINIO', 'tipo_mango': 'manila', 'cantidad_cajas': 20}, {'material': 'PLASTICO', 'calidad': 'RONIA', 'tipo_mango': 'manila', 'cantidad_cajas': 20}, {'material': 'PLASTICO', 'calidad': 'MADURO', 'tipo_mango': 'manila', 'cantidad_cajas': 20}, {'material': 'PLASTICO', 'calidad': 'MERMA', 'tipo_mango': 'manila', 'cantidad_cajas': 20}]}
+DEBUG: Week Finish payload: {'bodega': 3, 'temporada': 3, 'semana_id': 4, 'fecha_hasta': '2026-01-04'}
+Error al finalizar semana: {'fecha_hasta': ['No se puede cerrar una semana con fecha futura.']}
+Traceback (most recent call last):
+  File "C:\Users\Yahir\agroproductores_risol\backend\gestion_bodega\views\tablero_views.py", line 891, in post
+    cw.save(update_fields=["fecha_hasta", "actualizado_en"])
+  File "C:\Users\Yahir\agroproductores_risol\backend\gestion_bodega\models.py", line 1212, in save
+    self.full_clean()
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\db\models\base.py", line 1556, in full_clean
+    raise ValidationError(errors)
+django.core.exceptions.ValidationError: {'fecha_hasta': ['No se puede cerrar una semana con fecha futura.']}

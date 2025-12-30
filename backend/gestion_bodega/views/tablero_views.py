@@ -885,7 +885,14 @@ class TableroBodegaWeekFinishView(BaseWeekAPIView):
                     )
 
                 cw.fecha_hasta = h
-                cw.save(update_fields=["fecha_hasta", "actualizado_en"])
+                try:
+                    cw.save(update_fields=["fecha_hasta", "actualizado_en"])
+                except DjangoValidationError as e:
+                    return NotificationHandler.generate_response(
+                        "validation_error",
+                        data={"errors": getattr(e, "message_dict", None) or {"detail": str(e)}},
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                    )
 
             aw = _current_or_last_week_ctx(bodega_id, temporada_id)
             week_payload = _week_simple_payload(cw)

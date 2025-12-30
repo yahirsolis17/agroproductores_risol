@@ -535,18 +535,20 @@ class ClasificacionEmpaqueBulkUpsertSerializer(serializers.Serializer):
         # suma de ?tems no excede disponible
         total_items = sum(int(i.get("cantidad_cajas") or 0) for i in data["items"])
 
-        with transaction.atomic():
-            qs = (
-                ClasificacionEmpaque.objects.select_for_update()
-                .filter(recepcion=recepcion, is_active=True)
-            )
-            ya_clasificado = qs.aggregate(total=Sum("cantidad_cajas"))["total"] or 0
-            cajas_recepcion = getattr(recepcion, "cajas_campo", 0) or 0
-
-        if (ya_clasificado + total_items) > cajas_recepcion:
-            raise serializers.ValidationError(
-                {"items": "La suma de clasificaciones excede las cajas disponibles de la recepci?n."}
-            )
+        # VALIDACIÓN ELIMINADA: Causaba doble conteo al actualizar (ya_clasificado + nuevo).
+        # La validación correcta de capacidad (Snapshot) se realiza en la Vista (bulk_upsert).
+        # with transaction.atomic():
+        #     qs = (
+        #         ClasificacionEmpaque.objects.select_for_update()
+        #         .filter(recepcion=recepcion, is_active=True)
+        #     )
+        #     ya_clasificado = qs.aggregate(total=Sum("cantidad_cajas"))["total"] or 0
+        #     cajas_recepcion = getattr(recepcion, "cajas_campo", 0) or 0
+        #
+        # if (ya_clasificado + total_items) > cajas_recepcion:
+        #     raise serializers.ValidationError(
+        #         {"items": "La suma de clasificaciones excede las cajas disponibles de la recepci?n."}
+        #     )
 
         return data
 

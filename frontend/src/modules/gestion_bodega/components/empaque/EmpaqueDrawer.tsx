@@ -183,8 +183,8 @@ export default function EmpaqueDrawer({
   const [lines, setLines] = useState<Record<LineKey, number>>(() => buildInitialLines());
   const [quickActions, setQuickActions] = useState<string[]>([]);
 
-  // Para no pisar edición del usuario cuando initialLines llega async
-  const [dirty, setDirty] = useState(false);
+  // Snapshot inicial para Dirty Check real (reemplaza 'dirty' manual)
+  const [initialSnapshot, setInitialSnapshot] = useState<Record<LineKey, number>>(() => buildInitialLines());
 
   // Key estable para rehidratar sin efectos raros de referencia
   const initialKey = useMemo(() => JSON.stringify(initialLines ?? {}), [initialLines]);
@@ -195,19 +195,30 @@ export default function EmpaqueDrawer({
     setNotes(recepcion.observaciones ?? "");
     setLines(buildInitialLines()); // base en 0
     setQuickActions([]);
-    setDirty(false);
+    setInitialSnapshot(buildInitialLines()); // Reset snapshot
   }, [recepcion?.id]);
 
-  // Hidrata líneas existentes cuando llegan (solo si NO hay cambios del usuario)
+  // Hidrata líneas existentes cuando llegan
   useEffect(() => {
     if (!recepcion) return;
     if (!initialLines) return;
-    if (dirty) return;
 
-    setLines(mergeWithBase(initialLines));
-    // No marcamos dirty: esto es hidratación, no edición.
+    // Si ya hay cambios locales (dirty real), NO sobrescribimos con initialLines tardío
+    // exceptuando la primera carga.
+    // Aquí simplificamos: si llega nueva data inicial, reseteamos *si* no hemos tocado nada.
+
+    const base = mergeWithBase(initialLines);
+    if (JSON.stringify(lines) === JSON.stringify(initialSnapshot)) {
+      setLines(base);
+      setInitialSnapshot(base);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recepcion?.id, initialKey]);
+
+  // Dirty Check Calculado
+  const isDirty = useMemo(() => {
+    return JSON.stringify(lines) !== JSON.stringify(initialSnapshot);
+  }, [lines, initialSnapshot]);
 
   const totals = useMemo(() => {
     const sumByMaterial = (m: Material) =>
@@ -235,14 +246,12 @@ export default function EmpaqueDrawer({
     setLines((prev) => ({ ...prev, [key]: newValue }));
 
     if (newValue !== oldValue) {
-      setDirty(true);
       const [, quality] = key.split(".");
       setQuickActions((prev) => [`${quality}: ${oldValue} → ${newValue}`, ...prev.slice(0, 4)]);
     }
   };
 
   const bumpLine = (key: LineKey, delta: number) => {
-    setDirty(true);
     setLines((prev) => ({ ...prev, [key]: Math.max(0, clampInt(prev[key]) + delta) }));
   };
 
@@ -259,7 +268,6 @@ export default function EmpaqueDrawer({
     const distribution = Math.floor(totals.remaining / linesToUpdate.length);
     const updates = linesToUpdate.reduce((acc, key) => ({ ...acc, [key]: distribution }), {});
 
-    setDirty(true);
     setLines((prev) => ({ ...prev, ...updates }));
     setQuickActions((prev) => [`Distribución automática: ${distribution} cajas/calidad`, ...prev]);
   };
@@ -329,8 +337,9 @@ export default function EmpaqueDrawer({
               </IconButton>
 
               <TextField
-                value={value}
+                value={value === 0 ? "" : value}
                 onChange={(e) => setLine(key, e.target.value)}
+                placeholder="0"
                 disabled={inputsDisabled}
                 type="number"
                 inputProps={{
@@ -513,6 +522,24 @@ export default function EmpaqueDrawer({
         </Box>
       </Alert>
     </motion.div>
+  ) : overPacked ? (
+    <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
+      <Alert
+        severity="error"
+        sx={{
+          borderRadius: 3,
+          border: "none",
+          bgcolor: alpha(theme.palette.error.main, 0.1),
+          backdropFilter: "blur(10px)",
+          alignItems: "center",
+        }}
+        icon={<WarningIcon color="error" />}
+      >
+        <Typography variant="body2" sx={{ fontWeight: 700, color: "error.main" }}>
+          Excediste la capacidad de la recepción ({totals.packed} / {captured}). Ajusta las cantidades.
+        </Typography>
+      </Alert>
+    </motion.div>
   ) : null;
 
   // Footer mejorado
@@ -542,8 +569,7 @@ export default function EmpaqueDrawer({
         <Button
           startIcon={<ResetIcon />}
           onClick={() => {
-            setLines(buildInitialLines());
-            setDirty(false);
+            setLines(initialSnapshot);
           }}
           disabled={inputsDisabled || busy}
           sx={{ borderRadius: 3, fontWeight: 700 }}
@@ -566,7 +592,7 @@ export default function EmpaqueDrawer({
             <Button
               variant="contained"
               startIcon={busy ? <CircularProgress size={20} /> : <SaveIcon />}
-              disabled={!canSave || inputsDisabled || overPacked || busy || !!loadingInitial}
+              disabled={!canSave || inputsDisabled || overPacked || busy || !!loadingInitial || !isDirty}
               onClick={() => onSave && onSave(lines)}
               sx={{
                 borderRadius: 3,

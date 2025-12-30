@@ -197,21 +197,22 @@ NUMBER_GROUPING = 3
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Logging: silencia el spam de requests 200/OPTIONS en runserver sin tocar funcionalidad.
+# Logging ampliado: consola + archivos (bodega_debug.log y huerta_registration.log)
 LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'file': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'huerta_registration.log'),
         },
     },
-    "loggers": {
-        # Django runserver (desactiva trazas INFO de cada request)
-        "django.server": {
-            "handlers": ["console"],
-            "level": "WARNING",
-            "propagate": False,
+    'loggers': {
+        'django': {
+            'handlers': ['file'],
+            'level': 'DEBUG',
+            'propagate': True,
         },
     },
 }

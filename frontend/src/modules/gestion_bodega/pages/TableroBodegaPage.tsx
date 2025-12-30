@@ -268,7 +268,13 @@ const TableroBodegaPage: React.FC = () => {
     setActionError(null);
     if (!bodegaId || !temporadaId) return;
     try {
-      const to = weekValue.to;
+      let to = weekValue.to;
+      // FIX: No permitir cerrar con fecha futura (backend lanza 400/500).
+      // Si la fecha planeada es futura, cerramos con el día de HOY.
+      const today = formatDateISO(new Date());
+      if (to && to > today) {
+        to = today;
+      }
       await apiFinishWeek?.(to);
       // apiFinishWeek ya hace refetch de weeksNav y summary internamente
     } catch (e: any) {

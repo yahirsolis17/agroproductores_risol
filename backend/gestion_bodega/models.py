@@ -633,15 +633,6 @@ class ClasificacionEmpaque(TimeStampedModel):
             if self.recepcion_id and self.recepcion.semana_id and self.recepcion.semana_id != self.semana_id:
                 errors["semana"] = "La semana de la clasificación debe coincidir con la de la recepción."
 
-        # ✅ Regla crítica: no exceder cajas disponibles de la recepción (solo activas)
-        if self.recepcion_id and self.cantidad_cajas and self.recepcion.cajas_campo:
-            qs = ClasificacionEmpaque.objects.filter(recepcion_id=self.recepcion_id, is_active=True)
-            if self.pk:
-                qs = qs.exclude(pk=self.pk)
-            ya = qs.aggregate(total=Sum("cantidad_cajas"))["total"] or 0
-            if (ya + self.cantidad_cajas) > (self.recepcion.cajas_campo or 0):
-                errors["cantidad_cajas"] = "La clasificación excede las cajas disponibles de la recepción."
-
         if errors:
             raise ValidationError(errors)
 
