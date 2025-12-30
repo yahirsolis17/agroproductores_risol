@@ -180,6 +180,15 @@ const FinanzasPorCosecha: React.FC = () => {
       ...(tempInfo.huertaId != null
         ? { huertaId: tempInfo.huertaId }
         : { huertaRentadaId: tempInfo.huertaRentadaId ?? undefined })
+      ...(cosechaInfo.huerta != null
+        ? { huertaId: cosechaInfo.huerta }
+        : cosechaInfo.huerta_rentada != null
+          ? { huertaRentadaId: cosechaInfo.huerta_rentada }
+          : tempInfo.huertaId != null
+            ? { huertaId: tempInfo.huertaId }
+            : tempInfo.huertaRentadaId != null
+              ? { huertaRentadaId: tempInfo.huertaRentadaId }
+              : {})
     };
 
     dispatch(setInvContext(payload));
