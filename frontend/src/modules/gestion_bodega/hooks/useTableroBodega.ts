@@ -526,6 +526,18 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
     `/bodega/tablero?temporada=${temporadaId}&bodega=${bodegaId}${selectedSemanaId ? `&week_id=${selectedSemanaId}` : ""}`,
     [temporadaId, bodegaId, selectedSemanaId]);
 
+  const fallbackMeta = useMemo(
+    () => ({
+      page: filters.page ?? 1,
+      page_size: filters.page_size ?? 10,
+      count: 0,
+      next: null,
+      previous: null,
+      total_pages: 1,
+    }),
+    [filters.page, filters.page_size]
+  );
+
   // --------------------------
   // Return
   // --------------------------
@@ -534,9 +546,18 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
     kpiCards,
     alerts: alertsUI,
     queue: queueUI,
-    queueRecepciones: { meta: { page: 1, page_size: 10, total: 0 }, rows: mapQueueToUI((queues.recepciones as any)?.results ?? []) },
-    queueInventarios: { meta: { page: 1, page_size: 10, total: 0 }, rows: mapQueueToUI((queues.inventarios as any)?.results ?? []) },
-    queueLogistica: { meta: { page: 1, page_size: 10, total: 0 }, rows: mapQueueToUI((queues.despachos as any)?.results ?? []) },
+    queueRecepciones: {
+      meta: queues.recepciones?.meta ?? fallbackMeta,
+      rows: mapQueueToUI((queues.recepciones as any)?.results ?? []),
+    },
+    queueInventarios: {
+      meta: queues.inventarios?.meta ?? fallbackMeta,
+      rows: mapQueueToUI((queues.inventarios as any)?.results ?? []),
+    },
+    queueLogistica: {
+      meta: queues.despachos?.meta ?? fallbackMeta,
+      rows: mapQueueToUI((queues.despachos as any)?.results ?? []),
+    },
 
     // Loading/Error
     loading: loadingSummary || loadingAlerts || loadingQueues[activeQueue] || loadingWeeksNav,

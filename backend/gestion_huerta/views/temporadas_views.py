@@ -235,13 +235,19 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         if not instance.is_active:
             return self.notify(
                 key="temporada_archivada_no_editar",
-                data={"info": "No puedes editar una temporada archivada."},
+                data={
+                    "errors": {"detail": "No puedes editar una temporada archivada."},
+                    "info": "No puedes editar una temporada archivada.",
+                },
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
         if instance.finalizada:
             return self.notify(
                 key="temporada_finalizada_no_editar",
-                data={"info": "No puedes editar una temporada finalizada."},
+                data={
+                    "errors": {"detail": "No puedes editar una temporada finalizada."},
+                    "info": "No puedes editar una temporada finalizada.",
+                },
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -262,19 +268,19 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         if temp.is_active:
             return self.notify(
                 key="temporada_debe_estar_archivada",
-                data={"error": "Debes archivar la temporada antes de eliminarla."},
+                data={"errors": {"detail": "Debes archivar la temporada antes de eliminarla."}},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
         if not temp.finalizada:
             return self.notify(
                 key="temporada_no_finalizada",
-                data={"error": "Debes finalizar la temporada antes de eliminarla."},
+                data={"errors": {"detail": "Debes finalizar la temporada antes de eliminarla."}},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
         if temp.cosechas.exists():
             return self.notify(
                 key="temporada_con_dependencias",
-                data={"error": "No se puede eliminar. Tiene cosechas asociadas."},
+                data={"errors": {"detail": "No se puede eliminar. Tiene cosechas asociadas."}},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -297,14 +303,20 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
             info = "finalizar" if required == "finalize_temporada" else "reactivar"
             return self.notify(
                 key="permission_denied",
-                data={"info": f"No tienes permiso para {info} temporadas."},
+                data={
+                    "errors": {"detail": f"No tienes permiso para {info} temporadas."},
+                    "info": f"No tienes permiso para {info} temporadas.",
+                },
                 status_code=status.HTTP_403_FORBIDDEN,
             )
 
         if not temp.is_active:
             return self.notify(
                 key="temporada_archivada_no_finalizar",
-                data={"info": "No puedes finalizar/reactivar una temporada archivada."},
+                data={
+                    "errors": {"detail": "No puedes finalizar/reactivar una temporada archivada."},
+                    "info": "No puedes finalizar/reactivar una temporada archivada.",
+                },
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -327,7 +339,10 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         if not _has_perm(request.user, "archive_temporada"):
             return self.notify(
                 key="permission_denied",
-                data={"info": "No tienes permiso para archivar temporadas."},
+                data={
+                    "errors": {"detail": "No tienes permiso para archivar temporadas."},
+                    "info": "No tienes permiso para archivar temporadas.",
+                },
                 status_code=status.HTTP_403_FORBIDDEN,
             )
 
@@ -335,7 +350,10 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         if not temp.is_active:
             return self.notify(
                 key="temporada_ya_archivada",
-                data={"info": "Esta temporada ya está archivada."},
+                data={
+                    "errors": {"detail": "Esta temporada ya está archivada."},
+                    "info": "Esta temporada ya está archivada.",
+                },
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -345,7 +363,10 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         except Exception:
             return self.notify(
                 key="operacion_atomica_fallida",
-                data={"info": "No se pudo completar la operación."},
+                data={
+                    "errors": {"detail": "No se pudo completar la operación."},
+                    "info": "No se pudo completar la operación.",
+                },
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -362,7 +383,10 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         if not _has_perm(request.user, "restore_temporada"):
             return self.notify(
                 key="permission_denied",
-                data={"info": "No tienes permiso para restaurar temporadas."},
+                data={
+                    "errors": {"detail": "No tienes permiso para restaurar temporadas."},
+                    "info": "No tienes permiso para restaurar temporadas.",
+                },
                 status_code=status.HTTP_403_FORBIDDEN,
             )
 
@@ -370,7 +394,10 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         if temp.is_active:
             return self.notify(
                 key="temporada_no_archivada",
-                data={"info": "Esta temporada ya está activa."},
+                data={
+                    "errors": {"detail": "Esta temporada ya está activa."},
+                    "info": "Esta temporada ya está activa.",
+                },
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -378,13 +405,19 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         if temp.huerta_id and not temp.huerta.is_active:
             return self.notify(
                 key="temporada_origen_archivado_no_restaurar",
-                data={"info": "No puedes restaurar una temporada cuya huerta está archivada."},
+                data={
+                    "errors": {"detail": "No puedes restaurar una temporada cuya huerta está archivada."},
+                    "info": "No puedes restaurar una temporada cuya huerta está archivada.",
+                },
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
         if temp.huerta_rentada_id and not temp.huerta_rentada.is_active:
             return self.notify(
                 key="temporada_origen_archivado_no_restaurar",
-                data={"info": "No puedes restaurar una temporada cuya huerta rentada está archivada."},
+                data={
+                    "errors": {"detail": "No puedes restaurar una temporada cuya huerta rentada está archivada."},
+                    "info": "No puedes restaurar una temporada cuya huerta rentada está archivada.",
+                },
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -394,7 +427,10 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         except Exception:
             return self.notify(
                 key="operacion_atomica_fallida",
-                data={"info": "No se pudo completar la operación."},
+                data={
+                    "errors": {"detail": "No se pudo completar la operación."},
+                    "info": "No se pudo completar la operación.",
+                },
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
