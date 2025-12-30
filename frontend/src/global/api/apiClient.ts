@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import authService from '../../modules/gestion_usuarios/services/authService';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -50,3 +50,14 @@ apiClient.interceptors.response.use(
 );
 
 export default apiClient;
+
+export type ApiClientAxiosError = AxiosError<unknown>;
+
+export const isApiClientAxiosError = (err: unknown): err is ApiClientAxiosError => {
+  return axios.isAxiosError(err);
+};
+
+export const getApiClientErrorPayload = (err: unknown): unknown => {
+  if (!axios.isAxiosError(err)) return null;
+  return err.response?.data ?? null;
+};

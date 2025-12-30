@@ -1,6 +1,7 @@
 // frontend/src/global/store/empaquesSlice.ts
 // STATE-UPDATE: local list pruning after mutations; allowed by UI-only policy.
 import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { isApiClientAxiosError, getApiClientErrorPayload } from "../../global/api/apiClient";
 import type { RootState } from "./store";
 import type { PaginationMeta } from "../../modules/gestion_bodega/types/shared";
 import type {
@@ -10,32 +11,72 @@ import type {
   EmpaqueUpdateDTO,
   EmpaqueBulkUpsertDTO,
   EmpaqueBulkUpsertSummary,
+  EmpaqueBulkUpsertResponse,
 } from "../../modules/gestion_bodega/types/empaquesTypes";
 import { empaquesService } from "../../modules/gestion_bodega/services/empaquesService";
 
 type Status = "idle" | "loading" | "succeeded" | "failed";
 
+export type EstadoFiltro = "activos" | "archivados" | "todos";
+
 /**
- * Query params permitidos para fetch list sin caer en "as any".
- * Mantiene EmpaquesFilters como base, y agrega los params operativos reales.
+ * Query params tipados para evitar casts y tipos laxos.
+ * Conserva EmpaquesFilters como base y agrega params operativos reales.
  */
-export type EmpaquesQueryParams = EmpaquesFilters & {
-  // filtros típicos usados en tablero/recepciones/empaque
-  recepcion?: number;
-  bodega?: number;
-  temporada?: number;
-  semana?: number | null;
+export type EmpaquesQueryParams = EmpaquesFilters &
+  Partial<{
+    page: number;
+    page_size: number;
+    estado: EstadoFiltro;
+    search: string;
+    ordering: string;
+    temporada_id: number;
+    semana: number;
+    recepcion: number;
+    bodega: number;
+    is_active: boolean;
+    material: string;
+    calidad: string;
+    tipo_mango: string;
+  }>;
 
-  // flags/paginación/orden
-  is_active?: boolean;
-  page?: number;
-  page_size?: number;
-  ordering?: string;
+type BackendErrorEnvelope = {
+  success?: boolean;
+  message_key?: string;
+  message?: string;
+  data?: unknown;
+};
 
-  // opcionales (si existen en backend)
-  material?: string;
-  calidad?: string;
-  tipo_mango?: string;
+const normalizeBackendError = (err: unknown): BackendErrorEnvelope => {
+  if (isApiClientAxiosError(err)) {
+    const payload = getApiClientErrorPayload(err);
+    if (payload && typeof payload === "object") {
+      const p = payload as Record<string, unknown>;
+      return {
+        success: typeof p.success === "boolean" ? p.success : false,
+        message_key: typeof p.message_key === "string" ? p.message_key : "unexpected_error",
+        message: typeof p.message === "string" ? p.message : "Error inesperado",
+        data: p.data,
+      };
+    }
+    return {
+      success: false,
+      message_key: "unexpected_error",
+      message: err.message || "Error de red/servidor",
+    };
+  }
+
+  if (err instanceof Error) {
+    return { success: false, message_key: "unexpected_error", message: err.message };
+  }
+
+  return { success: false, message_key: "unexpected_error", message: "Error inesperado" };
+};
+
+const toErrorMessage = (env?: BackendErrorEnvelope | string | null): string => {
+  if (!env) return "Error inesperado.";
+  if (typeof env === "string") return env;
+  return env.message ?? "Error inesperado.";
 };
 
 interface EmpaquesState {
@@ -55,6 +96,11 @@ interface EmpaquesState {
   lastBulkCreatedIds: number[];
   lastBulkUpdatedIds: number[];
 }
+
+type EmpaquesListResponse = {
+  results: EmpaqueRow[];
+  meta: PaginationMeta;
+};
 
 const emptyMeta: PaginationMeta = {
   count: 0,
@@ -83,95 +129,77 @@ const initialState: EmpaquesState = {
   lastBulkUpdatedIds: [],
 };
 
-function extractErrorMessage(err: unknown): string {
-  const e = err as any;
-  const data = e?.response?.data;
-
-  // NotificationHandler común: { success, message_key, message, data }
-  if (data && typeof data === "object") {
-    const d = data as Record<string, unknown>;
-    if (typeof d.message === "string") return d.message;
-    if (typeof d.detail === "string") return d.detail;
-
-    // Errores DRF típicos: { field: ["..."] }
-    // Intentamos colapsar en texto.
-    const fieldErrors = Object.values(d)
-      .flatMap((v) => (Array.isArray(v) ? v : []))
-      .filter((x) => typeof x === "string") as string[];
-
-    if (fieldErrors.length) return fieldErrors[0];
+export const fetchEmpaques = createAsyncThunk<
+  EmpaquesListResponse,
+  EmpaquesQueryParams,
+  { rejectValue: BackendErrorEnvelope }
+>("empaques/fetchList", async (params, { rejectWithValue }) => {
+  try {
+    return await empaquesService.list(params);
+  } catch (err: unknown) {
+    return rejectWithValue(normalizeBackendError(err));
   }
+});
 
-  if (typeof data === "string") return data;
-
-  return err instanceof Error ? err.message : "Ocurrió un error inesperado.";
-}
-
-export const fetchEmpaques = createAsyncThunk(
-  "empaques/fetchList",
-  async (params: EmpaquesQueryParams, { rejectWithValue }) => {
-    try {
-      return await empaquesService.list(params);
-    } catch (e: unknown) {
-      return rejectWithValue(extractErrorMessage(e));
-    }
+export const fetchEmpaqueById = createAsyncThunk<
+  EmpaqueRow,
+  number,
+  { rejectValue: BackendErrorEnvelope }
+>("empaques/fetchById", async (id, { rejectWithValue }) => {
+  try {
+    return await empaquesService.retrieve(id);
+  } catch (err: unknown) {
+    return rejectWithValue(normalizeBackendError(err));
   }
-);
+});
 
-export const fetchEmpaqueById = createAsyncThunk(
-  "empaques/fetchById",
-  async (id: number, { rejectWithValue }) => {
-    try {
-      return await empaquesService.retrieve(id);
-    } catch (e: unknown) {
-      return rejectWithValue(extractErrorMessage(e));
-    }
+export const createEmpaque = createAsyncThunk<
+  EmpaqueRow,
+  EmpaqueCreateDTO,
+  { rejectValue: BackendErrorEnvelope }
+>("empaques/create", async (dto, { rejectWithValue }) => {
+  try {
+    return await empaquesService.create(dto);
+  } catch (err: unknown) {
+    return rejectWithValue(normalizeBackendError(err));
   }
-);
+});
 
-export const createEmpaque = createAsyncThunk(
-  "empaques/create",
-  async (dto: EmpaqueCreateDTO, { rejectWithValue }) => {
-    try {
-      return await empaquesService.create(dto);
-    } catch (e: unknown) {
-      return rejectWithValue(extractErrorMessage(e));
-    }
+export const updateEmpaque = createAsyncThunk<
+  EmpaqueRow,
+  { id: number; dto: EmpaqueUpdateDTO },
+  { rejectValue: BackendErrorEnvelope }
+>("empaques/update", async ({ id, dto }, { rejectWithValue }) => {
+  try {
+    return await empaquesService.update(id, dto);
+  } catch (err: unknown) {
+    return rejectWithValue(normalizeBackendError(err));
   }
-);
+});
 
-export const updateEmpaque = createAsyncThunk(
-  "empaques/update",
-  async ({ id, dto }: { id: number; dto: EmpaqueUpdateDTO }, { rejectWithValue }) => {
-    try {
-      return await empaquesService.update(id, dto);
-    } catch (e: unknown) {
-      return rejectWithValue(extractErrorMessage(e));
-    }
+export const archivarEmpaque = createAsyncThunk<
+  { id: number },
+  number,
+  { rejectValue: BackendErrorEnvelope }
+>("empaques/archivar", async (id, { rejectWithValue }) => {
+  try {
+    return await empaquesService.archivar(id);
+  } catch (err: unknown) {
+    return rejectWithValue(normalizeBackendError(err));
   }
-);
+});
 
-export const archivarEmpaque = createAsyncThunk(
-  "empaques/archivar",
-  async (id: number, { rejectWithValue }) => {
-    try {
-      return await empaquesService.archivar(id);
-    } catch (e: unknown) {
-      return rejectWithValue(extractErrorMessage(e));
-    }
+export const bulkUpsertEmpaques = createAsyncThunk<
+  EmpaqueBulkUpsertResponse,
+  EmpaqueBulkUpsertDTO,
+  { rejectValue: BackendErrorEnvelope }
+>("empaques/bulkUpsert", async (dto, { rejectWithValue }) => {
+  try {
+    return await empaquesService.bulkUpsert(dto);
+  } catch (err: unknown) {
+    return rejectWithValue(normalizeBackendError(err));
   }
-);
-
-export const bulkUpsertEmpaques = createAsyncThunk(
-  "empaques/bulkUpsert",
-  async (dto: EmpaqueBulkUpsertDTO, { rejectWithValue }) => {
-    try {
-      return await empaquesService.bulkUpsert(dto);
-    } catch (e: unknown) {
-      return rejectWithValue(extractErrorMessage(e));
-    }
-  }
-);
+});
 
 const empaquesSlice = createSlice({
   name: "empaques",
@@ -207,7 +235,7 @@ const empaquesSlice = createSlice({
       })
       .addCase(fetchEmpaques.rejected, (state, action) => {
         state.status = "failed";
-        state.error = String(action.payload ?? "Error al cargar empaques.");
+        state.error = toErrorMessage(action.payload ?? null);
       })
 
       // BY ID
@@ -218,7 +246,7 @@ const empaquesSlice = createSlice({
         state.current = action.payload;
       })
       .addCase(fetchEmpaqueById.rejected, (state, action) => {
-        state.error = String(action.payload ?? "Error al cargar el empaque.");
+        state.error = toErrorMessage(action.payload ?? null);
       })
 
       // CREATE
@@ -240,7 +268,7 @@ const empaquesSlice = createSlice({
       })
       .addCase(createEmpaque.rejected, (state, action) => {
         state.saving = false;
-        state.error = String(action.payload ?? "Error al crear el empaque.");
+        state.error = toErrorMessage(action.payload ?? null);
       })
 
       // UPDATE
@@ -257,7 +285,7 @@ const empaquesSlice = createSlice({
       })
       .addCase(updateEmpaque.rejected, (state, action) => {
         state.saving = false;
-        state.error = String(action.payload ?? "Error al actualizar el empaque.");
+        state.error = toErrorMessage(action.payload ?? null);
       })
 
       // ARCHIVAR (DELETE soft)
@@ -285,7 +313,7 @@ const empaquesSlice = createSlice({
       })
       .addCase(archivarEmpaque.rejected, (state, action) => {
         state.saving = false;
-        state.error = String(action.payload ?? "Error al archivar el empaque.");
+        state.error = toErrorMessage(action.payload ?? null);
       })
 
       // BULK UPSERT
@@ -304,7 +332,7 @@ const empaquesSlice = createSlice({
       })
       .addCase(bulkUpsertEmpaques.rejected, (state, action) => {
         state.bulkSaving = false;
-        state.bulkError = String(action.payload ?? "Error en bulk upsert.");
+        state.bulkError = toErrorMessage(action.payload ?? null);
       });
   },
 });
