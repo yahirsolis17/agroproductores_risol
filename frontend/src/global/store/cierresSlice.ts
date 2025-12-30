@@ -121,9 +121,7 @@ export const createCierreSemanal = createAsyncThunk<
   { rejectValue: string }
 >("cierres/createSemanal", async (payload, { rejectWithValue }) => {
   try {
-    const result = await cierresService.semanal(payload);
-    handleBackendNotification({ success: true, message: "Semana creada" });
-    return result;
+    return await cierresService.semanal(payload);
   } catch (err: unknown) {
     const errData = (err as { payload?: unknown; response?: { data?: unknown }; message?: string });
     handleBackendNotification(errData.payload || errData.response?.data);
@@ -137,9 +135,7 @@ export const closeCierreTemporada = createAsyncThunk<
   { rejectValue: string }
 >("cierres/closeTemporada", async (payload, { rejectWithValue }) => {
   try {
-    const result = await cierresService.temporada(payload);
-    handleBackendNotification({ success: true, message: "Temporada cerrada" });
-    return result;
+    return await cierresService.temporada(payload);
   } catch (err: unknown) {
     const errData = (err as { payload?: unknown; response?: { data?: unknown }; message?: string });
     handleBackendNotification(errData.payload || errData.response?.data);

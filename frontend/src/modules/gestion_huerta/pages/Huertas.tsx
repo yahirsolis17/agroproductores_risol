@@ -23,14 +23,13 @@ import PropietarioFormModal from '../components/propietario/PropietarioFormModal
 import HuertaTable, { Registro } from '../components/huerta/HuertaTable';
 
 import { useHuertasCombinadas } from '../hooks/useHuertasCombinadas';
+import { useHuertas } from '../hooks/useHuertas';
+import { useHuertasRentadas } from '../hooks/useHuertaRentada';
 import { usePropietarios } from '../hooks/usePropietarios';
 
-import { huertaService } from '../services/huertaService';
-import { huertaRentadaService } from '../services/huertaRentadaService';
-import { propietarioService } from '../services/propietarioService';
-import { huertasCombinadasService } from '../services/huertasCombinadasService';
-
-import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
+import { useAppDispatch, useAppSelector } from '../../../global/store/store';
+import { fetchHuertaNombreOptions } from '../../../global/store/huertasCombinadasSlice';
+import { fetchPropietarioOptions } from '../../../global/store/propietariosSlice';
 import { FilterConfig } from '../../../components/common/TableLayout';
 import { isRentada } from '../utils/huertaTypeGuards';
 
@@ -44,7 +43,12 @@ const Huertas: React.FC = () => {
   const navigate = useNavigate();
 
   const hComb = useHuertasCombinadas();
+  const huertas = useHuertas();
+  const huertasRentadas = useHuertasRentadas();
   const { propietarios, loading: propsLoading, addPropietario, refetch: refetchProps } = usePropietarios();
+  const dispatch = useAppDispatch();
+  const nombreOptions = useAppSelector((s) => s.huertasCombinadas.nombreOptions);
+  const propietarioOptions = useAppSelector((s) => s.propietarios.options);
 
   const [tipoFiltro, setTipoFiltro] = useState<'' | 'propia' | 'rentada'>('');
   const [nombreFiltro, setNombreFiltro] = useState<string | null>(null);
@@ -123,48 +127,37 @@ const Huertas: React.FC = () => {
   };
 
   // ✅ AbortControllers estables (no reinician en cada render)
-  const abortNombreRef = useRef<AbortController | null>(null);
-  const abortPropRef = useRef<AbortController | null>(null);
+  const abortNombreRef = useRef<{ abort?: () => void } | null>(null);
+  const abortPropRef = useRef<{ abort?: () => void } | null>(null);
 
   useEffect(() => {
     return () => {
-      abortNombreRef.current?.abort();
-      abortPropRef.current?.abort();
+      abortNombreRef.current?.abort?.();
+      abortPropRef.current?.abort?.();
     };
   }, []);
 
   const loadNombreOptions = async (q: string) => {
     if (!q.trim()) return [];
-    abortNombreRef.current?.abort();
-    abortNombreRef.current = new AbortController();
-
+    abortNombreRef.current?.abort?.();
+    const thunk = dispatch(fetchHuertaNombreOptions({ query: q, pageSize }));
+    abortNombreRef.current = thunk;
     try {
-      const res = await huertasCombinadasService.list(
-        1,
-        'todos',
-        { nombre: q },
-        { signal: abortNombreRef.current.signal, pageSize }
-      );
-
-      return Array.from(new Set(res.data.results.map((h) => h.nombre))).map((n) => ({
-        label: n,
-        value: n,
-      }));
+      return await thunk.unwrap();
     } catch {
-      return [];
+      return nombreOptions;
     }
   };
 
   const loadPropietarioOptions = async (q: string) => {
     if (q.trim().length < 2) return [];
-    abortPropRef.current?.abort();
-    abortPropRef.current = new AbortController();
-
+    abortPropRef.current?.abort?.();
+    const thunk = dispatch(fetchPropietarioOptions({ query: q }));
+    abortPropRef.current = thunk;
     try {
-      const res = await propietarioService.getConHuertas(q, { signal: abortPropRef.current.signal });
-      return res.data.results.map((p) => ({ label: `${p.nombre} ${p.apellidos}`, value: p.id }));
+      return await thunk.unwrap();
     } catch {
-      return [];
+      return propietarioOptions;
     }
   };
 
@@ -196,28 +189,24 @@ const Huertas: React.FC = () => {
   ];
 
   const savePropia = async (v: HuertaCreateData): Promise<void> => {
-    const res = await huertaService.create(v);
-    handleBackendNotification(res);
+    await huertas.addHuerta(v);
     await refetchAll();
   };
 
   const saveRentada = async (v: HuertaRentadaCreateData): Promise<void> => {
-    const res = await huertaRentadaService.create(v);
-    handleBackendNotification(res);
+    await huertasRentadas.addHuerta(v);
     await refetchAll();
   };
 
   const saveEdit = async (vals: HuertaUpdateData | HuertaRentadaUpdateData): Promise<void> => {
     if (!editTarget) return;
 
-    let res;
     if (editTarget.tipo === 'propia') {
-      res = await huertaService.update(editTarget.data.id, vals as HuertaUpdateData);
+      await huertas.editHuerta(editTarget.data.id, vals as HuertaUpdateData);
     } else {
-      res = await huertaRentadaService.update(editTarget.data.id, vals as HuertaRentadaUpdateData);
+      await huertasRentadas.editHuerta(editTarget.data.id, vals as HuertaRentadaUpdateData);
     }
 
-    handleBackendNotification(res);
     await refetchAll();
     setModalOpen(false);
   };
@@ -227,29 +216,33 @@ const Huertas: React.FC = () => {
   const confirmDelete = async (): Promise<void> => {
     if (!delDialog) return;
     try {
-      const res =
-        delDialog.tipo === 'propia'
-          ? await huertaService.delete(delDialog.id)
-          : await huertaRentadaService.delete(delDialog.id);
-
-      handleBackendNotification(res);
+      if (delDialog.tipo === 'propia') {
+        await huertas.removeHuerta(delDialog.id);
+      } else {
+        await huertasRentadas.removeHuerta(delDialog.id);
+      }
       await refetchAll();
     } catch (e: any) {
-      handleBackendNotification(e?.response?.data);
     } finally {
       setDelDialog(null);
     }
   };
 
   const handleArchiveOrRestore = async (h: Registro, arc: boolean): Promise<void> => {
-    let res;
     if (isRentada(h)) {
-      res = arc ? await huertaRentadaService.restaurar(h.id) : await huertaRentadaService.archivar(h.id);
+      if (arc) {
+        await huertasRentadas.restore(h.id);
+      } else {
+        await huertasRentadas.archive(h.id);
+      }
     } else {
-      res = arc ? await huertaService.restaurar(h.id) : await huertaService.archivar(h.id);
+      if (arc) {
+        await huertas.restore(h.id);
+      } else {
+        await huertas.archive(h.id);
+      }
     }
 
-    handleBackendNotification(res);
     await refetchAll();
   };
 

@@ -1,5 +1,6 @@
 // frontend/src/modules/gestion_bodega/services/cierresService.ts
 import apiClient from "../../../global/api/apiClient";
+import { handleBackendNotification } from "../../../global/utils/NotificationEngine";
 import type {
   CierreSemanalListResponse,
   CierreSemanalCreatePayload,
@@ -27,6 +28,11 @@ function ensureSuccess<T>(resp: any): T {
   return data as T;
 }
 
+function notifyAndUnwrap<T>(resp: any): T {
+  handleBackendNotification(resp);
+  return ensureSuccess<T>(resp);
+}
+
 const BASE = "/bodega/cierres";
 
 export const cierresService = {
@@ -35,8 +41,15 @@ export const cierresService = {
    * Devuelve { data: { results, meta } }
    */
   async list(params?: Record<string, any>): Promise<CierreSemanalListResponse> {
-    const resp = await apiClient.get(`${BASE}/`, { params });
-    return ensureSuccess<CierreSemanalListResponse>(resp.data);
+    try {
+      const resp = await apiClient.get(`${BASE}/`, { params });
+      return notifyAndUnwrap<CierreSemanalListResponse>(resp.data);
+    } catch (err: unknown) {
+      const payload = (err as { payload?: unknown; response?: { data?: unknown } })?.payload
+        ?? (err as { response?: { data?: unknown } })?.response?.data;
+      handleBackendNotification(payload);
+      throw err;
+    }
   },
 
   /**
@@ -44,8 +57,15 @@ export const cierresService = {
    * Devuelve mapping completo de semanas de la temporada.
    */
   async index(temporadaId: number): Promise<CierresIndexResponse> {
-    const resp = await apiClient.get(`${BASE}/index/`, { params: { temporada: temporadaId } });
-    return ensureSuccess<CierresIndexResponse>(resp.data);
+    try {
+      const resp = await apiClient.get(`${BASE}/index/`, { params: { temporada: temporadaId } });
+      return notifyAndUnwrap<CierresIndexResponse>(resp.data);
+    } catch (err: unknown) {
+      const payload = (err as { payload?: unknown; response?: { data?: unknown } })?.payload
+        ?? (err as { response?: { data?: unknown } })?.response?.data;
+      handleBackendNotification(payload);
+      throw err;
+    }
   },
 
   /**
@@ -54,8 +74,15 @@ export const cierresService = {
    * Retorna { cierre: CierreSemanal }
    */
   async semanal(payload: CierreSemanalCreatePayload): Promise<CierreSemanalCreateResponse> {
-    const resp = await apiClient.post(`${BASE}/semanal/`, payload);
-    return ensureSuccess<CierreSemanalCreateResponse>(resp.data);
+    try {
+      const resp = await apiClient.post(`${BASE}/semanal/`, payload);
+      return notifyAndUnwrap<CierreSemanalCreateResponse>(resp.data);
+    } catch (err: unknown) {
+      const payload = (err as { payload?: unknown; response?: { data?: unknown } })?.payload
+        ?? (err as { response?: { data?: unknown } })?.response?.data;
+      handleBackendNotification(payload);
+      throw err;
+    }
   },
 
   /**
@@ -63,8 +90,15 @@ export const cierresService = {
    * Body: { temporada }
    */
   async temporada(payload: CierreTemporadaPayload): Promise<CierreTemporadaResponse> {
-    const resp = await apiClient.post(`${BASE}/temporada/`, payload);
-    return ensureSuccess<CierreTemporadaResponse>(resp.data);
+    try {
+      const resp = await apiClient.post(`${BASE}/temporada/`, payload);
+      return notifyAndUnwrap<CierreTemporadaResponse>(resp.data);
+    } catch (err: unknown) {
+      const payload = (err as { payload?: unknown; response?: { data?: unknown } })?.payload
+        ?? (err as { response?: { data?: unknown } })?.response?.data;
+      handleBackendNotification(payload);
+      throw err;
+    }
   },
 };
 

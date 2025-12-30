@@ -13,7 +13,7 @@ from django.utils import timezone
 # Servicio específico de perfil de huerta
 from gestion_huerta.services.reportes.perfil_huerta_service import generar_perfil_huerta
 from gestion_huerta.services.exportacion_service import ExportacionService
-from gestion_huerta.utils.notification_handler import NotificationHandler
+from agroproductores_risol.utils.notification_handler import NotificationHandler
 from gestion_huerta.utils.activity import registrar_actividad
 from gestion_huerta.permissions import HasHuertaModulePermissionAnd
 

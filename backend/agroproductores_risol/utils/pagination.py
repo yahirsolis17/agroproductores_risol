@@ -4,7 +4,7 @@ from rest_framework.pagination import PageNumberPagination
 # Idealmente NotificationHandler debería vivir en un lugar "global" (agroproductores_risol/utils)
 # para que este import no acople pagination a un módulo.
 # Si hoy tu NotificationHandler ya se usa como estándar del sistema, esto te elimina la bifurcación.
-from gestion_huerta.utils.notification_handler import NotificationHandler
+from agroproductores_risol.utils.notification_handler import NotificationHandler
 
 
 class GenericPagination(PageNumberPagination):

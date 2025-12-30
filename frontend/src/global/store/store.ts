@@ -20,6 +20,7 @@ import capturasReducer from './capturasSlice';
 import tableroBodegaReducer from './tableroBodegaSlice';
 import cierreSliceReducer from './cierresSlice';
 import empaquesSlice  from './empaquesSlice';
+import activityLogReducer from './activityLogSlice';
 export const store = configureStore({
   reducer: {
     auth: authReducer,
@@ -40,6 +41,7 @@ export const store = configureStore({
     capturas: capturasReducer,
     cierres: cierreSliceReducer,
     empaques: empaquesSlice,
+    activityLog: activityLogReducer,
   },
 });
 

@@ -2,6 +2,7 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import apiClient from '../../global/api/apiClient';  // Ajusta ruta si hace falta
 import { ensureSuccess } from '../utils/backendEnvelope';
+import { handleBackendNotification } from '../utils/NotificationEngine';
 
 interface User {
   id: number;
@@ -37,6 +38,22 @@ export const fetchPermissionsThunk = createAsyncThunk<string[]>(
     return env.data.permissions;
   }
 );
+
+export const changePasswordThunk = createAsyncThunk<
+  void,
+  { new_password: string; confirm_password: string },
+  { rejectValue: unknown }
+>('auth/changePassword', async (payload, { rejectWithValue }) => {
+  try {
+    const res = await apiClient.post('/usuarios/change-password/', payload);
+    handleBackendNotification(res.data);
+    return;
+  } catch (err: unknown) {
+    const errorData = (err as { response?: { data?: unknown } })?.response?.data;
+    handleBackendNotification(errorData);
+    return rejectWithValue(errorData);
+  }
+});
 
 export const authSlice = createSlice({
   name: 'auth',

@@ -22,8 +22,8 @@ import type {
  *  - POST   /bodega/bodegas/:id/restaurar/
  *
  * El backend responde con envelope { success, notification, data: {...} } en create/update/delete/acciones.
- * En list() damos soporte doble:
- *   - Envelope → data: { bodegas, meta }
+ * En list() usamos el contrato canónico:
+ *   - Envelope → data: { results, meta }
  *   - DRF paginado → { count,next,previous,results }
  */
 
@@ -68,17 +68,12 @@ function toMeta(r: any, pageFallback = 1): PaginationMeta {
 }
 
 function pickListPayload(data: any): { bodegas: Bodega[]; meta: PaginationMeta } {
-  // Envelope propio: { success, notification, data: { bodegas, meta } }
-  if (data?.data?.bodegas) {
+  // Envelope canónico: { success, notification, data: { results, meta } }
+  if (Array.isArray(data?.data?.results)) {
     return {
-      bodegas: data.data.bodegas as Bodega[],
+      bodegas: data.data.results as Bodega[],
       meta: toMeta(data.data, data?.data?.meta?.page ?? 1),
     };
-  }
-
-  // Envelope flexible (algunos list devuelven { bodegas, meta } en raíz)
-  if (data?.bodegas && data?.meta) {
-    return { bodegas: data.bodegas as Bodega[], meta: toMeta(data, data?.meta?.page ?? 1) };
   }
 
   // DRF puro (results + count/next/previous)
@@ -89,9 +84,9 @@ function pickListPayload(data: any): { bodegas: Bodega[]; meta: PaginationMeta }
     };
   }
 
-  // Fallback defensivo
+  // Fallback defensivo (lista vacía con meta seguro)
   return {
-    bodegas: (data?.bodegas as Bodega[]) ?? [],
+    bodegas: [],
     meta: toMeta(data, 1),
   };
 }

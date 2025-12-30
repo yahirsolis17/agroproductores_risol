@@ -13,9 +13,9 @@ import {
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 
-import apiClient from '../../../global/api/apiClient';
 import { useAuth } from '../context/AuthContext';
-import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
+import { useAppDispatch } from '../../../global/store/store';
+import { changePasswordThunk } from '../../../global/store/authSlice';
 
 const ChangePassword: React.FC = () => {
   /* ----------------- form state ----------------- */
@@ -29,6 +29,7 @@ const ChangePassword: React.FC = () => {
 
   /* ----------------- auth / nav ----------------- */
   const { user, refreshSession } = useAuth();
+  const dispatch = useAppDispatch();
   const navigate   = useNavigate();
   const location   = useLocation();      // 👈 para saber si es voluntario
 
@@ -47,33 +48,27 @@ const ChangePassword: React.FC = () => {
 
     if (newPass.length < 4) {
       const msg = 'La contraseña debe tener al menos 4 caracteres.';
-      setErrNew(msg);  handleBackendNotification({
-        notification: { key: 'validation_error', message: msg, type: 'error' }
-      });
+      setErrNew(msg);
       return;
     }
     if (newPass !== confirm) {
       const msg = 'Las contraseñas no coinciden.';
-      setErrConfirm(msg); handleBackendNotification({
-        notification: { key: 'validation_error', message: msg, type: 'error' }
-      });
+      setErrConfirm(msg);
       return;
     }
 
     try {
       setLoad(true);
-      const res = await apiClient.post('/usuarios/change-password/', {
+      await dispatch(changePasswordThunk({
         new_password: newPass,
         confirm_password: confirm,
-      });
-      handleBackendNotification(res.data);
+      })).unwrap();
       await refreshSession();
       navigate('/dashboard');
     } catch (err: any) {
-      const be = err.response?.data?.data?.errors || {};
+      const be = err?.data?.errors || err?.data?.data?.errors || {};
       if (be.new_password)      setErrNew(be.new_password[0]);
       if (be.confirm_password)  setErrConfirm(be.confirm_password[0]);
-      handleBackendNotification(err.response?.data);
     } finally { setLoad(false); }
   };
 

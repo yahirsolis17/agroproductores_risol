@@ -17,7 +17,7 @@ from gestion_bodega.permissions import HasModulePermission
 from gestion_bodega.serializers import CierreSemanalSerializer, CierreTemporadaSerializer
 from gestion_bodega.utils.activity import registrar_actividad
 from gestion_bodega.utils.audit import ViewSetAuditMixin
-from gestion_bodega.utils.notification_handler import NotificationHandler
+from agroproductores_risol.utils.notification_handler import NotificationHandler
 from gestion_bodega.utils.semana import rango_por_semana_id, tz_today_mx
 
 

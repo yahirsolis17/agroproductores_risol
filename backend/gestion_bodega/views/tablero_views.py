@@ -33,7 +33,7 @@ from gestion_bodega.utils.kpis import (
     queue_inventarios_qs,
     queue_recepciones_qs,
 )
-from gestion_bodega.utils.notification_handler import NotificationHandler
+from agroproductores_risol.utils.notification_handler import NotificationHandler
 from gestion_bodega.utils.activity import registrar_actividad
 
 logger = logging.getLogger(__name__)

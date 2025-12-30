@@ -20,7 +20,7 @@ from gestion_bodega.serializers import (
 # Utilidades (mismo patrón que en gestión_huerta)
 from gestion_bodega.utils.audit import ViewSetAuditMixin
 from gestion_bodega.utils.activity import registrar_actividad
-from gestion_bodega.utils.notification_handler import NotificationHandler
+from agroproductores_risol.utils.notification_handler import NotificationHandler
 
 
 # ---------------------------------------------------------------------------
@@ -163,7 +163,7 @@ class BodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
             }
         return self.notify(
             key="data_processed_success",
-            data={"bodegas": data, "meta": meta},
+            data={"results": data, "meta": meta},
             status_code=status.HTTP_200_OK,
         )
 

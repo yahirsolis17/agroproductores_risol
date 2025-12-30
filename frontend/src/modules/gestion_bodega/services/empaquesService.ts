@@ -157,7 +157,7 @@ export const empaquesService = {
     const payload = unwrapData<any>(res.data);
 
     // Preferimos estructura canónica: { results, meta }
-    const resultsRaw = payload?.results ?? payload?.empaques ?? (Array.isArray(payload) ? payload : []);
+    const resultsRaw = payload?.results ?? (Array.isArray(payload) ? payload : []);
     const meta = payload?.meta ?? buildMetaFromDRF(payload, Array.isArray(resultsRaw) ? resultsRaw.length : 0);
 
     return {
