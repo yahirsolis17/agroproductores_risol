@@ -149,7 +149,15 @@ const VentaFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialValue
       setFormErrors([]);
       onClose();
     } catch (err: unknown) {
-      const normalized = applyBackendErrorsToFormik(err, helpers);
+      const normalized = applyBackendErrorsToFormik(err, helpers, {
+        fieldAliases: {
+          fecha: 'fecha_venta',
+          cosecha: 'fecha_venta',
+          cosecha_id: 'fecha_venta',
+          temporada: 'fecha_venta',
+          temporada_id: 'fecha_venta',
+        },
+      });
       if (isValidationError(err)) {
         setFormErrors(normalized.formErrors);
       } else {
