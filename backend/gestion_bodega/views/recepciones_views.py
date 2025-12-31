@@ -4,6 +4,7 @@ from datetime import date, timedelta
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import Sum, Q
+import django_filters
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
@@ -136,6 +137,20 @@ def _resolve_semana_for_fecha(bodega: Bodega, temporada: TemporadaBodega, fecha:
 
 from gestion_bodega.utils.recepcion_aggregates import annotate_recepcion_status
 
+
+class RecepcionFilter(django_filters.FilterSet):
+    empaque_status = django_filters.CharFilter(field_name="empaque_status", lookup_expr="exact")
+
+    class Meta:
+        model = Recepcion
+        fields = {
+            "bodega": ["exact"],
+            "temporada": ["exact"],
+            "semana": ["exact"],
+            "fecha": ["exact", "gte", "lte"],
+            "is_active": ["exact"],
+        }
+
 # ... (Existing helpers can be removed or kept if used elsewhere, but manual map building is deleted)
 
 class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
@@ -149,14 +164,7 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
 
     # ✅ Filtros activados para evitar data leaks
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = {
-        "bodega": ["exact"],
-        "temporada": ["exact"],
-        "semana": ["exact"],
-        "fecha": ["exact", "gte", "lte"],
-        "is_active": ["exact"],
-        "empaque_status": ["exact"], # Para filtrar "SIN_EMPAQUE", "PARCIAL", etc. (agregado via annotate)
-    }
+    filterset_class = RecepcionFilter
     search_fields = ["folio", "huertero_nombre", "tipo_mango", "observaciones"]
     ordering_fields = ["fecha", "id", "creado_en"]
     ordering = ["-fecha", "-id"]
