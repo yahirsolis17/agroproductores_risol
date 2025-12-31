@@ -230,11 +230,6 @@ const TableroBodegaPage: React.FC = () => {
     setOpenEmpaque(true);
   }, []);
 
-  const handleOpenBulkEmpaque = useCallback(() => {
-    setSelectedRecepcionForEmpaque(null); // NULL indicates Bulk Mode
-    setOpenEmpaque(true);
-  }, []);
-
   const handleCloseEmpaque = useCallback(() => {
     setOpenEmpaque(false);
     setSelectedRecepcionForEmpaque(null);
@@ -966,6 +961,14 @@ const TableroBodegaPage: React.FC = () => {
                 isActiveSelectedWeek={isActiveSelectedWeek}
                 isExpiredWeek={isExpiredWeek}
                 forcedOpen={forcedOpen}
+                onSectionOpen={(key) => {
+                  if (key === "empaque") {
+                    tablero?.refetchQueues?.("inventarios");
+                  }
+                  if (key === "logistica") {
+                    tablero?.refetchQueues?.("despachos");
+                  }
+                }}
                 resumen={
                   <ResumenSection
                     items={kpiCards}
@@ -993,7 +996,6 @@ const TableroBodegaPage: React.FC = () => {
                 empaque={
                   <EmpaqueSection
                     onVerPendientes={handleGoPendientesEmpaque}
-                    onEmpacarMasivo={handleOpenBulkEmpaque}
                     pendientes={tablero?.summary?.kpis?.empaque?.pendientes}
                     empacadas={tablero?.summary?.kpis?.empaque?.empacadas}
                     cajasEmpacadas={tablero?.summary?.kpis?.empaque?.cajas_empacadas}
