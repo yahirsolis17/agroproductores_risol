@@ -1,4 +1,4 @@
-﻿// frontend/src/modules/gestion_bodega/pages/TableroBodegaPage.tsx
+// frontend/src/modules/gestion_bodega/pages/TableroBodegaPage.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
@@ -46,27 +46,13 @@ import useEmpaques from "../hooks/useEmpaques";
 import { Material } from "../types/shared";
 import { normalizeCalidadToUI } from "../services/empaquesService";
 
-// ───────────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 // Utils
-// ───────────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 
 function normalizeBackendCalidadToUILabel(material: "PLASTICO" | "MADERA", calidadRaw: any): string {
-  const raw = String(calidadRaw ?? "").trim().toUpperCase();
-
-  // Alias principales (compatibles con el normalizeCalidad del service)
-  if (raw === "NINIO" || raw === "NIÑO") return "Niño";
-  if (raw === "RONIA" || raw === "ROÑA") return "Roña";
-
-  // PLÁSTICO: SEGUNDA/EXTRA se tratan como PRIMERA (según regla ya aplicada en bulkUpsert)
-  if (material === "PLASTICO" && (raw === "PRIMERA" || raw === "SEGUNDA" || raw === "EXTRA")) {
-    return "Primera (≥ 2da)";
-  }
-
-  if (raw === "PRIMERA") return "Primera";
-
-  // Capitalización simple para el resto (TERCERA -> Tercera, MERMA -> Merma, etc.)
-  if (!raw) return "";
-  return raw.charAt(0) + raw.slice(1).toLowerCase();
+  // Reutiliza el normalizador canonico para que las claves coincidan con EmpaqueDrawer.
+  return normalizeCalidadToUI(material, calidadRaw);
 }
 
 function buildInitialLinesPatchFromEmpaques(
@@ -104,7 +90,7 @@ function prettyRange(fromISO: string, toISO: string) {
       month: "short",
       year: d.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined,
     });
-  return `${fmt(from)} – ${fmt(to)}`;
+  return `${fmt(from)} � ${fmt(to)}`;
 }
 
 // Animaciones (framer-motion)
@@ -139,9 +125,9 @@ const staggerChildren = {
 
 type WeekValue = { from: string; to: string; isoSemana: string | null };
 
-// ───────────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 // Componente principal
-// ───────────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 const TableroBodegaPage: React.FC = () => {
   const theme = useTheme();
   const dispatch = useDispatch();
@@ -156,13 +142,13 @@ const TableroBodegaPage: React.FC = () => {
   const bodegaParam = sp.get("bodega");
   const bodegaId = bodegaParam ? Number(bodegaParam) : undefined;
 
-  // Refs para navegación interna (Empaque → Recepciones)
+  // Refs para navegaci�n interna (Empaque ? Recepciones)
   const recepcionesRef = useRef<HTMLDivElement | null>(null);
 
-  // Acordeón: override puntual (Empaque -> Recepciones) con token para ser idempotente
+  // Acorde�n: override puntual (Empaque -> Recepciones) con token para ser idempotente
   const [forcedOpen, setForcedOpen] = useState<{ key: TableroSectionKey; token: number } | null>(null);
 
-  // Si cambia la semana, devolvemos el acordeón al default inteligente
+  // Si cambia la semana, devolvemos el acorde�n al default inteligente
   const weekIdParam = sp.get("week_id");
   const urlWeekId = weekIdParam ? Number(weekIdParam) : null;
 
@@ -183,7 +169,7 @@ const TableroBodegaPage: React.FC = () => {
     }
   }, [bodegaParam, bodegaId, navigate]);
 
-  // Hook maestro de Tablero (FUENTE ÚNICA DE VERDAD para semana)
+  // Hook maestro de Tablero (FUENTE �NICA DE VERDAD para semana)
   const tablero = useTableroBodega({ bodegaId: bodegaId!, temporadaId });
 
   const {
@@ -195,7 +181,7 @@ const TableroBodegaPage: React.FC = () => {
     weekNav,
     apiStartWeek,
     apiFinishWeek,
-    // Fase 1: valores consolidados del hook (elimina duplicación)
+    // Fase 1: valores consolidados del hook (elimina duplicaci�n)
     hasActiveWeek,
     isActiveSelectedWeek,
     selectedWeek,
@@ -351,7 +337,7 @@ const TableroBodegaPage: React.FC = () => {
     }
   };
 
-  // Modal Camión State
+  // Modal Cami�n State
   const [camionModalOpen, setCamionModalOpen] = useState(false);
   const [selectedCamion, setSelectedCamion] = useState<any | null>(null);
 
@@ -422,7 +408,7 @@ const TableroBodegaPage: React.FC = () => {
     const tLabel = weekNav?.context?.temporada_label || "";
 
     const crumbs = [
-      { label: `Bodegas – ${bLabel}`, path: "/bodega" },
+      { label: `Bodegas � ${bLabel}`, path: "/bodega" },
       {
         label: `Temporada ${tLabel}`,
         path:
@@ -437,7 +423,7 @@ const TableroBodegaPage: React.FC = () => {
     dispatch(setBreadcrumbs(crumbs));
   }, [dispatch, bodegaId, temporadaId, weekNav?.context?.bodega_label, weekNav?.context?.temporada_label, hasWeeks, semanaIndex]);
 
-  // WeekSwitcher → aplica rango al tablero
+  // WeekSwitcher ? aplica rango al tablero
   const handleWeekChange = useCallback(
     (range: { from?: string; to?: string; isoSemana?: string | null }) => {
       setWeekValue((prev) => ({ ...prev, ...range }));
@@ -447,7 +433,7 @@ const TableroBodegaPage: React.FC = () => {
     [onApplyFilters]
   );
 
-  // Índices prev/next (para WeekSwitcher) - usa hook para navegación
+  // �ndices prev/next (para WeekSwitcher) - usa hook para navegaci�n
   const currentIndex = useMemo(() => {
     const items = (weekNav?.items || []) as any[];
     if (!items.length) return -1;
@@ -459,19 +445,19 @@ const TableroBodegaPage: React.FC = () => {
     return Math.max(0, Math.min(items.length - 1, idxFromNav));
   }, [weekNav?.items, weekNav?.indice, urlWeekId]);
 
-  // Fase 1: sin Virtual Mode (eliminado según contrato)
+  // Fase 1: sin Virtual Mode (eliminado seg�n contrato)
   const disablePrev = !hasWeeks || currentIndex <= 0;
   const disableNext = !hasWeeks || currentIndex >= (weekNav?.items?.length ?? 0) - 1;
 
-  // Fase 1: Navegación de semanas delegada al hook
+  // Fase 1: Navegaci�n de semanas delegada al hook
   const goPrevWeek = hookGoPrevWeek;
   const goNextWeek = hookGoNextWeek;
 
   const canFinish = isActiveSelectedWeek;
 
-  // ───────────────────────────────────────────────────────────────────────────
+  // ---------------------------------------------------------------------------
   // Acciones semana (Fase 1: usa Redux busy states y refetch del hook)
-  // ───────────────────────────────────────────────────────────────────────────
+  // ---------------------------------------------------------------------------
   const handleStart = useCallback(async () => {
     setActionError(null);
     if (!bodegaId || !temporadaId) return;
@@ -490,7 +476,7 @@ const TableroBodegaPage: React.FC = () => {
     try {
       let to = weekValue.to;
       // FIX: No permitir cerrar con fecha futura (backend lanza 400/500).
-      // Si la fecha planeada es futura, cerramos con el día de HOY.
+      // Si la fecha planeada es futura, cerramos con el d�a de HOY.
       const today = formatDateISO(new Date());
       if (to && to > today) {
         to = today;
@@ -502,9 +488,9 @@ const TableroBodegaPage: React.FC = () => {
     }
   }, [apiFinishWeek, bodegaId, temporadaId, weekValue.to]);
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Lógica de botón Iniciar (UX final)
-  // ───────────────────────────────────────────────────────────────────────────
+  // ---------------------------------------------------------------------------
+  // L�gica de bot�n Iniciar (UX final)
+  // ---------------------------------------------------------------------------
   const isSameRangeAsSelectedWeek = useMemo(() => {
     const sw: any = selectedWeek;
     if (!sw || !weekValue.from || !weekValue.to) return false;
@@ -516,14 +502,14 @@ const TableroBodegaPage: React.FC = () => {
   const disableStartButton = !bodegaId || startingWeek || hasActiveWeek || isSameRangeAsSelectedWeek;
 
   const startTooltip = !bodegaId
-    ? "Selecciona una bodega válida."
+    ? "Selecciona una bodega v�lida."
     : hasActiveWeek
       ? "Ya existe una semana abierta para esta bodega y temporada."
       : isSameRangeAsSelectedWeek
-        ? "Esta semana ya está registrada. Ajusta el rango para iniciar una nueva."
+        ? "Esta semana ya est� registrada. Ajusta el rango para iniciar una nueva."
         : "Iniciar semana";
 
-  // Empaque → manda al bloque de Recepciones (sin duplicar lógica)
+  // Empaque ? manda al bloque de Recepciones (sin duplicar l�gica)
   const renderWeekActions = () => (
     <Box
       display="flex"
@@ -633,7 +619,7 @@ const TableroBodegaPage: React.FC = () => {
         </Tooltip>
       )}
 
-      <Tooltip title="Reporte (pendiente de implementación)">
+      <Tooltip title="Reporte (pendiente de implementaci�n)">
         <span>
           <Button
             size="medium"
@@ -666,9 +652,9 @@ const TableroBodegaPage: React.FC = () => {
     }, 60);
   }, []);
 
-  // ───────────────────────────────────────────────────────────────────────────
+  // ---------------------------------------------------------------------------
   // Render
-  // ───────────────────────────────────────────────────────────────────────────
+  // ---------------------------------------------------------------------------
   return (
     <Box
       p={{ xs: 1.5, sm: 2, md: 2.5 }}
@@ -850,7 +836,7 @@ const TableroBodegaPage: React.FC = () => {
                   }}
                 >
                   <CalendarTodayIcon sx={{ fontSize: { xs: 14, sm: 16 } }} />
-                  {rangoPretty || "—"}
+                  {rangoPretty || "�"}
                 </Typography>
               )}
 
@@ -926,7 +912,7 @@ const TableroBodegaPage: React.FC = () => {
                     Semana Caducada
                   </Typography>
                   <Typography variant="body2">
-                    Esta semana ha excedido su duración máxima de 7 días. El sistema ha bloqueado nuevas operaciones.
+                    Esta semana ha excedido su duraci�n m�xima de 7 d�as. El sistema ha bloqueado nuevas operaciones.
                     Debes <strong>finalizarla ahora</strong> para continuar operando.
                   </Typography>
                   {isMobile && (
@@ -965,7 +951,7 @@ const TableroBodegaPage: React.FC = () => {
           )}
         </Box>
 
-        {/* Cuerpo semanal (Acordeón: 1 abierto por defecto) */}
+        {/* Cuerpo semanal (Acorde�n: 1 abierto por defecto) */}
         <Box sx={{ px: { xs: 1.5, sm: 2, md: 3 }, py: 1 }}>
           <AnimatePresence initial={false} mode="wait">
             <Box component={motion.div} key={weekValue.from} {...pageTransition}>
@@ -1035,7 +1021,7 @@ const TableroBodegaPage: React.FC = () => {
         </Box>
       </Paper >
 
-      {/* Modal Camión */}
+      {/* Modal Cami�n */}
       {bodegaId && temporadaId && (
         <CamionFormModal
           open={camionModalOpen}
@@ -1064,3 +1050,5 @@ const TableroBodegaPage: React.FC = () => {
 };
 
 export default TableroBodegaPage;
+
+
