@@ -1017,12 +1017,14 @@ class CamionConsumoEmpaqueSerializer(serializers.ModelSerializer):
     camion_id = serializers.PrimaryKeyRelatedField(queryset=CamionSalida.objects.all(), source="camion", write_only=True)
     clasificacion_id = serializers.PrimaryKeyRelatedField(queryset=ClasificacionEmpaque.objects.all(), source="clasificacion_empaque", write_only=True)
     clasificacion_desc = serializers.StringRelatedField(source="clasificacion_empaque", read_only=True)
+    tipo_mango = serializers.CharField(source="clasificacion_empaque.tipo_mango", read_only=True)
 
     class Meta:
         model = CamionConsumoEmpaque
         fields = [
             "id", "camion", "camion_id",
             "clasificacion_empaque", "clasificacion_id", "clasificacion_desc",
+            "tipo_mango",
             "cantidad",
             "creado_en", "actualizado_en",
         ]
