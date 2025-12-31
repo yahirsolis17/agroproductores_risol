@@ -51,6 +51,7 @@ def _path_with_bodega(base_tail: str, bodega_id: Optional[int]) -> str:
 
 def kpi_recepcion(
     temporada_id: int,
+    bodega_id: Optional[int],
     fecha_desde: Optional[str],
     fecha_hasta: Optional[str],
     huerta_id: Optional[int],
@@ -61,6 +62,8 @@ def kpi_recepcion(
     NOTA: 'kg_total' aquí representa CAJAS (compat con UI actual).
     """
     qs = Recepcion.objects.filter(temporada_id=temporada_id, is_active=True)
+    if bodega_id:
+        qs = qs.filter(bodega_id=bodega_id)
 
     # huerta_id no aplica hoy (no hay FK a huerta en el modelo actual)
     if semana_id:
@@ -132,6 +135,7 @@ from django.db.models.functions import Coalesce
 
 def kpi_empaque(
     temporada_id: int,
+    bodega_id: Optional[int],
     fecha_desde: Optional[str],
     fecha_hasta: Optional[str],
     huerta_id: Optional[int],
@@ -142,6 +146,8 @@ def kpi_empaque(
     """
     # 1) Métricas de Volumen (Cajas empacadas y Merma)
     qs_emp = ClasificacionEmpaque.objects.filter(temporada_id=temporada_id, is_active=True)
+    if bodega_id:
+        qs_emp = qs_emp.filter(bodega_id=bodega_id)
     if semana_id:
         qs_emp = qs_emp.filter(semana_id=semana_id)
     qs_emp = _apply_date_range(qs_emp, "fecha", fecha_desde, fecha_hasta)
@@ -156,6 +162,8 @@ def kpi_empaque(
     # 2) Métricas de Estado (Recepciones pendientes vs terminadas)
     # Consideramos recepciones que CAEN en el rango.
     qs_rec = Recepcion.objects.filter(temporada_id=temporada_id, is_active=True)
+    if bodega_id:
+        qs_rec = qs_rec.filter(bodega_id=bodega_id)
     if semana_id:
         qs_rec = qs_rec.filter(semana_id=semana_id)
     qs_rec = _apply_date_range(qs_rec, "fecha", fecha_desde, fecha_hasta)
@@ -186,6 +194,7 @@ def kpi_empaque(
 
 def build_summary(
     temporada_id: int,
+    bodega_id: Optional[int],
     fecha_desde: Optional[str],
     fecha_hasta: Optional[str],
     huerta_id: Optional[int],
@@ -196,8 +205,8 @@ def build_summary(
     """
     return {
         "kpis": {
-            "recepcion": kpi_recepcion(temporada_id, fecha_desde, fecha_hasta, huerta_id, semana_id=semana_id),
-            "empaque": kpi_empaque(temporada_id, fecha_desde, fecha_hasta, huerta_id, semana_id=semana_id),
+            "recepcion": kpi_recepcion(temporada_id, bodega_id, fecha_desde, fecha_hasta, huerta_id, semana_id=semana_id),
+            "empaque": kpi_empaque(temporada_id, bodega_id, fecha_desde, fecha_hasta, huerta_id, semana_id=semana_id),
             "stock": kpi_stock(temporada_id, huerta_id),
             "ocupacion": kpi_ocupacion(temporada_id),
             "rotacion": kpi_rotacion(temporada_id),
@@ -214,6 +223,7 @@ def build_summary(
 
 def queue_recepciones_qs(
     temporada_id: int,
+    bodega_id: Optional[int] = None,
     fecha_desde: Optional[str] = None,
     fecha_hasta: Optional[str] = None,
     huerta_id: Optional[int] = None,           # no aplicable hoy (no hay FK huerta)
@@ -228,6 +238,8 @@ def queue_recepciones_qs(
     Soporta rango de fechas; el resto de filtros no aplica al modelo actual.
     """
     qs = Recepcion.objects.filter(temporada_id=temporada_id, is_active=True)
+    if bodega_id:
+        qs = qs.filter(bodega_id=bodega_id)
 
     if semana_id:
         qs = qs.filter(semana_id=semana_id)
@@ -252,6 +264,7 @@ def queue_recepciones_qs(
 
 def queue_inventarios_qs(
     temporada_id: int,
+    bodega_id: Optional[int] = None,
     fecha_desde: Optional[str] = None,
     fecha_hasta: Optional[str] = None,
     huerta_id: Optional[int] = None,   # no aplicable hoy
@@ -264,6 +277,8 @@ def queue_inventarios_qs(
     Filtros soportados: rango y calidad/madurez (ambos caen en 'calidad').
     """
     qs = ClasificacionEmpaque.objects.filter(temporada_id=temporada_id, is_active=True)
+    if bodega_id:
+        qs = qs.filter(bodega_id=bodega_id)
 
     if semana_id:
         qs = qs.filter(semana_id=semana_id)
@@ -285,15 +300,21 @@ def queue_inventarios_qs(
 
 def queue_despachos_qs(
     temporada_id: int,
+    bodega_id: Optional[int] = None,
     fecha_desde: Optional[str] = None,
     fecha_hasta: Optional[str] = None,
+    estado: Optional[str] = None,
 ) -> QuerySet:
     """
     Usa CamionSalida para la vista mínima de 'despachos':
     fecha_salida y suma de cajas del manifiesto (CamionItem).
     """
     qs = CamionSalida.objects.filter(temporada_id=temporada_id, is_active=True)
+    if bodega_id:
+        qs = qs.filter(bodega_id=bodega_id)
     qs = _apply_date_range(qs, "fecha_salida", fecha_desde, fecha_hasta)
+    if estado:
+        qs = qs.filter(estado=estado)
 
     return (
         qs.values("id", "fecha_salida", "estado")
@@ -395,11 +416,14 @@ def build_alerts(
     d7 = today - timedelta(days=7)
 
     # 1) Sin recepciones en 72h
-    rec_72h = Recepcion.objects.filter(
+    rec_72h_qs = Recepcion.objects.filter(
         temporada_id=temporada_id,
         is_active=True,
         fecha__gte=d72,
-    ).exists()
+    )
+    if bodega_id:
+        rec_72h_qs = rec_72h_qs.filter(bodega_id=bodega_id)
+    rec_72h = rec_72h_qs.exists()
     if not rec_72h:
         alerts.append({
             "code": "NO_RECEPCIONES_72H",
@@ -413,12 +437,15 @@ def build_alerts(
         })
 
     # 2) Despachos en BORRADOR con fecha pasada (>24h)
-    despachos_atrasados = CamionSalida.objects.filter(
+    despachos_qs = CamionSalida.objects.filter(
         temporada_id=temporada_id,
         is_active=True,
         estado="BORRADOR",
         fecha_salida__lt=d24,
-    ).exists()
+    )
+    if bodega_id:
+        despachos_qs = despachos_qs.filter(bodega_id=bodega_id)
+    despachos_atrasados = despachos_qs.exists()
     if despachos_atrasados:
         alerts.append({
             "code": "DESPACHOS_ATRASADOS",
@@ -432,11 +459,14 @@ def build_alerts(
         })
 
     # 3) Sin inventarios en los últimos 7 días
-    emp_7d = ClasificacionEmpaque.objects.filter(
+    emp_7d_qs = ClasificacionEmpaque.objects.filter(
         temporada_id=temporada_id,
         is_active=True,
         fecha__gte=d7,
-    ).exists()
+    )
+    if bodega_id:
+        emp_7d_qs = emp_7d_qs.filter(bodega_id=bodega_id)
+    emp_7d = emp_7d_qs.exists()
     if not emp_7d:
         alerts.append({
             "code": "SIN_INVENTARIO_7D",

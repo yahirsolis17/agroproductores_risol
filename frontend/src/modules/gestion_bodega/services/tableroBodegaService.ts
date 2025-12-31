@@ -90,6 +90,7 @@ function toQueryParams(
     estado_lote,
     calidad,
     madurez,
+    estado,
     solo_pendientes,
     page,
     page_size,
@@ -107,6 +108,7 @@ function toQueryParams(
   if (estado_lote) params.estado_lote = estado_lote;
   if (calidad) params.calidad = calidad;
   if (madurez) params.madurez = madurez;
+  if (estado) params.estado = estado;
   if (solo_pendientes != null) params.solo_pendientes = solo_pendientes;
   if (page != null) params.page = page;
   if (page_size != null) params.page_size = page_size;
