@@ -6,7 +6,7 @@ from django.db import transaction
 from django.db.models import Sum, Q
 import django_filters
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import serializers, status, viewsets
+from rest_framework import serializers, status, viewsets, filters
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 
@@ -115,24 +115,6 @@ def _map_recepcion_validation_errors(errors) -> tuple[str, dict, int]:
     if _msg_in(errors, "No existe una semana") or _msg_in(errors, "Inicia una semana"):
         return "recepcion_semana_invalida", {"errors": errors}, status.HTTP_400_BAD_REQUEST
     return "validation_error", {"errors": errors}, status.HTTP_400_BAD_REQUEST
-
-
-def _inject_empaque_fields(row: dict, *, captured: int, packed: int, merma: int) -> None:
-    if not isinstance(row, dict):
-        return
-    captured_val = int(captured or 0)
-    packed_val = int(packed or 0)
-    merma_val = int(merma or 0)
-    if packed_val <= 0:
-        status_val = "SIN_EMPAQUE"
-    elif captured_val > 0 and packed_val >= captured_val:
-        status_val = "EMPACADO"
-    else:
-        status_val = "PARCIAL"
-    row["cajas_empaquetadas"] = packed_val
-    row["cajas_disponibles"] = max(0, captured_val - packed_val)
-    row["cajas_merma"] = merma_val
-    row["empaque_status"] = status_val
 
 
 def _resolve_semana_for_fecha(bodega: Bodega, temporada: TemporadaBodega, fecha: date):
