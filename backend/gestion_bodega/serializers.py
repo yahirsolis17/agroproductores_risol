@@ -1295,6 +1295,10 @@ class QueueItemSerializer(serializers.Serializer):
     fecha = serializers.DateField()  # DRF formatea YYYY-MM-DD por defecto
     huerta = serializers.CharField(allow_null=True, required=False)
     kg = serializers.FloatField()
+    # Aliases para compatibilidad con EmpaqueDrawer y otros componentes
+    cajas_campo = serializers.FloatField(source="kg", read_only=True)
+    cantidad_cajas = serializers.FloatField(source="kg", read_only=True)
+
     estado = serializers.CharField()
 
     # Opcionales usados para badges o metadata libre
