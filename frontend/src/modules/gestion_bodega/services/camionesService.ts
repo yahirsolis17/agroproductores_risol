@@ -35,6 +35,15 @@ export const camionesService = {
     const res = await apiClient.post(`/bodega/camiones/${id}/items/remove/`, payload);
     return ensureSuccess(res.data) as BackendResponse<any>;
   },
+  // Phase 2: Real Inventory
+  addCarga: async (id: number, payload: { clasificacion_id: number; cantidad: number }): Promise<BackendResponse<any>> => {
+    const res = await apiClient.post(`/bodega/camiones/${id}/cargas/add/`, payload);
+    return ensureSuccess(res.data) as BackendResponse<any>;
+  },
+  removeCarga: async (id: number, payload: { carga_id: number }): Promise<BackendResponse<any>> => {
+    const res = await apiClient.post(`/bodega/camiones/${id}/cargas/remove/`, payload);
+    return ensureSuccess(res.data) as BackendResponse<any>;
+  },
 };
 
 export default camionesService;

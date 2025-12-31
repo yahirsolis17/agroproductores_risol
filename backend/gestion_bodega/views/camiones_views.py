@@ -5,8 +5,8 @@ from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
 
-from gestion_bodega.models import CamionSalida, CamionItem, CierreSemanal
-from gestion_bodega.serializers import CamionSalidaSerializer, CamionItemSerializer
+from gestion_bodega.models import CamionSalida, CamionItem, CierreSemanal, CamionConsumoEmpaque
+from gestion_bodega.serializers import CamionSalidaSerializer, CamionItemSerializer, CamionConsumoEmpaqueSerializer
 from gestion_bodega.permissions import HasModulePermission
 from gestion_bodega.utils.audit import ViewSetAuditMixin
 from agroproductores_risol.utils.pagination import GenericPagination
@@ -107,6 +107,10 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
 
     def update(self, request, *args, **kwargs):
         obj = self.get_object()
+        # Phase 3: Immutability - CONFIRMADO trucks cannot be edited
+        if obj.estado == "CONFIRMADO":
+            return self.notify(key="camion_inmutable", status_code=status.HTTP_409_CONFLICT)
+        
         ser = self.get_serializer(obj, data=request.data)
         try:
             ser.is_valid(raise_exception=True)
@@ -124,6 +128,10 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
 
     def partial_update(self, request, *args, **kwargs):
         obj = self.get_object()
+        # Phase 3: Immutability
+        if obj.estado == "CONFIRMADO":
+            return self.notify(key="camion_inmutable", status_code=status.HTTP_409_CONFLICT)
+        
         ser = self.get_serializer(obj, data=request.data, partial=True)
         try:
             ser.is_valid(raise_exception=True)
@@ -141,6 +149,10 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
 
     def destroy(self, request, *args, **kwargs):
         obj = self.get_object()
+        # Phase 3: Immutability - CONFIRMADO trucks cannot be deleted
+        if obj.estado == "CONFIRMADO":
+            return self.notify(key="camion_inmutable", status_code=status.HTTP_409_CONFLICT)
+        
         if _semana_cerrada(obj.bodega_id, obj.temporada_id, obj.fecha_salida):
             return self.notify(key="camion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
         with transaction.atomic():
@@ -198,4 +210,61 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
             item.archivar()
 
         return self.notify(key="camion_item_archivado", status_code=status.HTTP_200_OK)
+
+    # ----- Cargas reales (consumo de stock) -----
+    @action(detail=True, methods=["post"], url_path="cargas/add")
+    def add_carga(self, request, pk=None):
+        obj = self.get_object()
+        # Phase 3: Immutability - cannot add cargas to CONFIRMADO truck
+        if obj.estado == "CONFIRMADO":
+            return self.notify(key="camion_inmutable", status_code=status.HTTP_409_CONFLICT)
+        
+        # Inyectamos camion_id (el serializer espera la FK por id, no instancia ni campo 'camion')
+        data = {**request.data, "camion_id": obj.id}
+        
+        # Compatibilidad: mapear clasificacion_empaque_id -> clasificacion_id
+        if "clasificacion_empaque_id" in data and "clasificacion_id" not in data:
+            data["clasificacion_id"] = data["clasificacion_empaque_id"]
+
+        ser = CamionConsumoEmpaqueSerializer(data=data)
+        try:
+            ser.is_valid(raise_exception=True)
+        except serializers.ValidationError:
+            return self.notify(key="validation_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
+
+        if _semana_cerrada(obj.bodega_id, obj.temporada_id, obj.fecha_salida):
+            return self.notify(key="camion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
+
+        with transaction.atomic():
+            carga = ser.save()
+
+        return self.notify(key="camion_carga_creada", data={"carga": CamionConsumoEmpaqueSerializer(carga).data}, status_code=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"], url_path="cargas/remove")
+    def remove_carga(self, request, pk=None):
+        obj = self.get_object()
+        # Phase 3: Immutability - cannot remove cargas from CONFIRMADO truck
+        if obj.estado == "CONFIRMADO":
+            return self.notify(key="camion_inmutable", status_code=status.HTTP_409_CONFLICT)
+        
+        carga_id = request.data.get("carga_id")
+        if not carga_id:
+            return self.notify(key="validation_error", data={"errors": {"carga_id": ["Requerido"]}}, status_code=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            carga = obj.cargas.get(pk=carga_id)
+        except CamionConsumoEmpaque.DoesNotExist:
+            return self.notify(key="recurso_no_encontrado", status_code=status.HTTP_404_NOT_FOUND)
+
+        if _semana_cerrada(obj.bodega_id, obj.temporada_id, obj.fecha_salida):
+            return self.notify(key="camion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
+
+        with transaction.atomic():
+            if hasattr(carga, "archivar"):
+                carga.archivar()
+            else:
+                carga.delete()
+
+        return self.notify(key="recurso_eliminado", status_code=status.HTTP_200_OK)
+
 

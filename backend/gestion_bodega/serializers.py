@@ -13,11 +13,11 @@ from rest_framework import serializers
 from .models import (
     Material, CalidadMadera, CalidadPlastico,
     Bodega, TemporadaBodega, Cliente,
-    Recepcion, ClasificacionEmpaque,
+    LoteBodega, Recepcion, ClasificacionEmpaque,
     InventarioPlastico, MovimientoPlastico,
     CompraMadera, AbonoMadera,
     Pedido, PedidoRenglon, SurtidoRenglon,
-    CamionSalida, CamionItem,
+    CamionSalida, CamionItem, CamionConsumoEmpaque,
     Consumible, CierreSemanal,
 )
 from gestion_bodega.utils.semana import semana_cerrada_ids
@@ -336,74 +336,164 @@ class ClienteSerializer(serializers.ModelSerializer):
 # ───────────────────────────────────────────────────────────────────────────
 
 class RecepcionSerializer(serializers.ModelSerializer):
-    bodega    = serializers.PrimaryKeyRelatedField(queryset=Bodega.objects.all())
-    temporada = serializers.PrimaryKeyRelatedField(queryset=TemporadaBodega.objects.all())
-    # Mantener alias del FE pero hacerlo obligatorio en creación/validación
-    cantidad_cajas = serializers.IntegerField(source="cajas_campo", required=True)
-    semana = serializers.PrimaryKeyRelatedField(read_only=True)
-    observaciones = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    bodega_nombre = serializers.ReadOnlyField(source="bodega.nombre")
+    temporada_nombre = serializers.ReadOnlyField(source="temporada.__str__")
+    semana_str = serializers.SerializerMethodField()
+    # Input manual para resolver/crear LoteBodega (se autogenera si viene vacío)
+    codigo_lote = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    # Display: código del lote asociado
+    lote_codigo = serializers.CharField(source="lote.codigo_lote", read_only=True)
+    
+    # ALIAS: Frontend usa cantidad_cajas; se mapea a cajas_campo
+    cantidad_cajas = serializers.IntegerField(source="cajas_campo", write_only=True)
+    cajas_campo = serializers.IntegerField(read_only=True)
+    
+    # Calculated fields (annotated in queryset via recepcion_aggregates.py)
+    cajas_empaquetadas = serializers.IntegerField(read_only=True)
+    cajas_disponibles = serializers.IntegerField(read_only=True)
+    cajas_merma = serializers.IntegerField(read_only=True)
+    empaque_status = serializers.CharField(read_only=True)
+    
+    # F1: Folio Operativo
+    folio = serializers.SerializerMethodField()
 
     class Meta:
         model = Recepcion
         fields = [
-            "id", "bodega", "temporada", "semana",
+            "id", "folio", "bodega", "bodega_nombre",
+            "temporada", "temporada_nombre",
+            "semana", "semana_str",
             "fecha", "huertero_nombre", "tipo_mango",
-            "cajas_campo", "cantidad_cajas", "observaciones",
-            "is_active", "archivado_en", "creado_en", "actualizado_en",
+            "cajas_campo",  # read-only
+            "cantidad_cajas",  # input alias
+            "lote", "lote_codigo", "codigo_lote",  # Lote fields
+            "observaciones",
+            "creado_en", "actualizado_en",
+            "is_active",
+            "cajas_empaquetadas", "cajas_disponibles", "cajas_merma", "empaque_status",
         ]
-        read_only_fields = ["is_active", "archivado_en", "creado_en", "actualizado_en", "cajas_campo", "semana"]
+        read_only_fields = [
+            "folio",
+            "creado_en", "actualizado_en", "is_active", "lote",
+            "cajas_campo",
+            "cajas_empaquetadas", "cajas_disponibles", "cajas_merma", "empaque_status",
+        ]
 
-    def validate_cajas_campo(self, v):
-        if v is None or v <= 0:
-            raise serializers.ValidationError("La cantidad de cajas debe ser mayor a 0.")
-        return v
+    def get_folio(self, obj) -> str:
+        return f"REC-{obj.id}"
 
-    def validate_cantidad_cajas(self, v):
-        return self.validate_cajas_campo(v)
+    def get_semana_str(self, obj):
+        return str(obj.semana) if obj.semana else None
 
-    def validate(self, data):
-        bodega    = data.get("bodega")    or getattr(self.instance, "bodega", None)
-        temporada = data.get("temporada") or getattr(self.instance, "temporada", None)
-        fecha     = data.get("fecha")     or getattr(self.instance, "fecha", None)
+    def validate_codigo_lote(self, value):
+        return value.strip().upper() if value else ""
 
-        if "observaciones" in data and data["observaciones"] is None:
-            data["observaciones"] = ""
+    def _build_codigo_lote(self, data: Dict[str, Any]) -> str:
+        """
+        Genera un código legible y determinístico usando el contexto:
+        B{bodega}-T{temporada}-S{semana}-H{huertero}-M{mango}-C{cajas}
+        """
+        def _slug(val: Any, length: int) -> str:
+            txt = str(val or "").strip().upper().replace(" ", "")
+            return (txt[:length] or "X" * min(length, 3))
 
-        if not (bodega and temporada and fecha):
-            return data
+        bodega = getattr(data.get("bodega"), "id", data.get("bodega")) or "B"
+        temporada = getattr(data.get("temporada"), "id", data.get("temporada")) or "T"
+        semana_obj = data.get("semana")
+        semana = getattr(semana_obj, "id", semana_obj) or "S"
 
-        # 1) reglas duras bodega/temporada
-        _assert_bodega_temporada_operables(bodega, temporada)
+        huertero = _slug(data.get("huertero_nombre"), 3)
+        mango = _slug(data.get("tipo_mango"), 4)
+        cajas_val = data.get("cajas_campo") or data.get("cantidad_cajas") or 0
+        try:
+            cajas = int(cajas_val)
+        except Exception:
+            cajas = 0
 
-        # 2) fecha no futura
-        if fecha > timezone.localdate():
-            raise serializers.ValidationError({"fecha": "La fecha no puede ser futura."})
+        code = f"B{bodega}-T{temporada}-S{semana}-H{huertero}-M{mango}-C{cajas:03d}"
+        return code[:50]  # Límite del modelo
 
-        # 3) debe existir semana que cubra la fecha (aunque luego se bloquee por cerrada)
-        _require_semana(bodega, temporada, fecha)
+    def _resolve_lote(self, validated_data):
+        """
+        Busca o crea LoteBodega según codigo_lote.
+        """
+        codigo = str(validated_data.pop("codigo_lote", "") or "").strip()
+        if not codigo:
+            bodega = validated_data.get("bodega") or getattr(self.instance, "bodega", None)
+            temporada = validated_data.get("temporada") or getattr(self.instance, "temporada", None)
+            fecha = validated_data.get("fecha") or getattr(self.instance, "fecha", None)
+            if not validated_data.get("semana") and bodega and temporada and fecha:
+                validated_data["semana"] = _require_semana(bodega, temporada, fecha)
+            codigo = self._build_codigo_lote(validated_data)
+        if not codigo:
+            return None
 
-        # 4) prioridad: semana cerrada (mensaje más relevante)
-        if _semana_bloqueada(bodega, temporada, fecha):
-            raise serializers.ValidationError("Esta semana está cerrada; no se permiten más cambios en ese rango.")
+        bodega = validated_data.get("bodega")
+        temporada = validated_data.get("temporada")
+        
+        # En update, si no vienen en data, usarlos de la instancia (self.instance)
+        if self.instance:
+            bodega = bodega or self.instance.bodega
+            temporada = temporada or self.instance.temporada
 
-        # 5) regla operativa: hoy/ayer
-        if not _is_today_or_yesterday(fecha):
-            raise serializers.ValidationError({"fecha": "La fecha de recepción solo puede ser HOY o AYER (máx. 24 h)."})
-        return data
+        # Si aún no tenemos contexto (ej. create parcial fallido?), retornamos None o error
+        if not bodega or not temporada:
+            return None
+        
+        # Buscar existente
+        lote = LoteBodega.objects.filter(
+            bodega=bodega, 
+            temporada=temporada, 
+            codigo_lote=codigo
+        ).first()
+
+        if lote:
+            return lote
+
+        # Crear nuevo (necesitamos semana para el contexto de creación)
+        # Intentamos usar la semana de la recepción (si viene o ya existe)
+        semana = validated_data.get("semana")
+        if not semana and self.instance:
+            semana = self.instance.semana
+        
+        # Si no viene explicita, el modelo Recepcion intentará resolverla en clean(),
+        # pero necesitamos crear el Lote ANTES de guardar Recepcion si queremos asignarlo.
+        # Así que usamos el helper de modelo si hace falta.
+        if not semana and "fecha" in validated_data:
+             from gestion_bodega.models import _resolver_semana_por_fecha
+             semana = _resolver_semana_por_fecha(bodega.id, temporada.id, validated_data["fecha"])
+        
+        if not semana:
+            # Si no podemos determinar semana, no podemos crear el lote con integridad
+            raise serializers.ValidationError({"codigo_lote": "No se puede crear un nuevo lote sin una semana válida establecida."})
+
+        lote = LoteBodega.objects.create(
+            bodega=bodega,
+            temporada=temporada,
+            semana=semana,
+            codigo_lote=codigo,
+            origen_nombre=validated_data.get("huertero_nombre", "")
+        )
+        return lote
 
     def create(self, validated_data):
-        bodega = validated_data["bodega"]
-        temporada = validated_data["temporada"]
-        fecha = validated_data["fecha"]
-        validated_data["semana"] = _require_semana(bodega, temporada, fecha)
+        lote = self._resolve_lote(validated_data)
+        if lote:
+            validated_data["lote"] = lote
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
-        bodega = validated_data.get("bodega", instance.bodega)
-        temporada = validated_data.get("temporada", instance.temporada)
-        fecha = validated_data.get("fecha", instance.fecha)
-        validated_data["semana"] = _require_semana(bodega, temporada, fecha)
+        lote = self._resolve_lote(validated_data)
+        if lote:
+            validated_data["lote"] = lote
+        # Si venía vacío el input, ¿borramos el lote? 
+        # Decisión UX: Si el usuario borra el texto, ¿quiere desvincular? 
+        # Por seguridad, solo cambiamos si viene un código explicito. 
+        # Si quiere quitarlo, debería ser otra acción o keyword explícita.
+        # Por ahora: solo update si hay nuevo código.
+        
         return super().update(instance, validated_data)
+
 
 
 class ClasificacionEmpaqueSerializer(serializers.ModelSerializer):
@@ -411,6 +501,7 @@ class ClasificacionEmpaqueSerializer(serializers.ModelSerializer):
     bodega_id     = serializers.PrimaryKeyRelatedField(queryset=Bodega.objects.all(),           source="bodega",     write_only=True)
     temporada_id  = serializers.PrimaryKeyRelatedField(queryset=TemporadaBodega.objects.all(),  source="temporada",  write_only=True)
     semana = serializers.PrimaryKeyRelatedField(read_only=True)
+    lote_codigo = serializers.ReadOnlyField(source="lote.codigo_lote")
 
     class Meta:
         model = ClasificacionEmpaque
@@ -418,9 +509,10 @@ class ClasificacionEmpaqueSerializer(serializers.ModelSerializer):
             "id", "recepcion", "bodega", "temporada", "semana",
             "recepcion_id", "bodega_id", "temporada_id",
             "fecha", "material", "calidad", "tipo_mango", "cantidad_cajas",
+            "lote", "lote_codigo",
             "is_active", "archivado_en", "creado_en", "actualizado_en",
         ]
-        read_only_fields = ["recepcion", "bodega", "temporada", "semana", "tipo_mango", "is_active", "archivado_en", "creado_en", "actualizado_en"]
+        read_only_fields = ["recepcion", "bodega", "temporada", "semana", "tipo_mango", "is_active", "archivado_en", "creado_en", "actualizado_en", "lote"]
 
     def validate_material(self, v):
         if v not in Material.values:
@@ -435,6 +527,7 @@ class ClasificacionEmpaqueSerializer(serializers.ModelSerializer):
         material   = data.get("material")   or getattr(self.instance, "material", None)
         calidad    = data.get("calidad")    or getattr(self.instance, "calidad", None)
         cantidad   = data.get("cantidad_cajas") or getattr(self.instance, "cantidad_cajas", None)
+
 
         if not all([recepcion, bodega, temporada, fecha, material, calidad, cantidad]):
             return data
@@ -524,27 +617,37 @@ class ClasificacionEmpaqueBulkItemSerializer(serializers.Serializer):
 
 
 class ClasificacionEmpaqueBulkUpsertSerializer(serializers.Serializer):
-    recepcion = serializers.PrimaryKeyRelatedField(queryset=Recepcion.objects.all())
+    recepcion = serializers.PrimaryKeyRelatedField(queryset=Recepcion.objects.all(), required=False, allow_null=True)
     bodega = serializers.PrimaryKeyRelatedField(queryset=Bodega.objects.all())
     temporada = serializers.PrimaryKeyRelatedField(queryset=TemporadaBodega.objects.all())
     fecha = serializers.DateField()
     items = ClasificacionEmpaqueBulkItemSerializer(many=True)
 
     def validate(self, data):
-        recepcion = data["recepcion"]
+        recepcion = data.get("recepcion")
         bodega = data["bodega"]
         temporada = data["temporada"]
         f = data.get("fecha")
 
         _assert_bodega_temporada_operables(bodega, temporada)
 
-        # Recepcion consistente
-        if getattr(recepcion, "bodega_id", None) != bodega.id:
-            raise serializers.ValidationError({"recepcion": "La recepci?n no pertenece a esta bodega."})
-        if getattr(recepcion, "temporada_id", None) != temporada.id:
-            raise serializers.ValidationError({"recepcion": "La recepci?n no pertenece a esta temporada."})
-        if getattr(recepcion, "is_active", True) is False:
-            raise serializers.ValidationError({"recepcion": "La recepci?n está archivada; no se permiten clasificaciones."})
+        if recepcion:
+            # Recepcion consistente
+            if getattr(recepcion, "bodega_id", None) != bodega.id:
+                raise serializers.ValidationError({"recepcion": "La recepción no pertenece a esta bodega."})
+            if getattr(recepcion, "temporada_id", None) != temporada.id:
+                raise serializers.ValidationError({"recepcion": "La recepción no pertenece a esta temporada."})
+            if getattr(recepcion, "is_active", True) is False:
+                raise serializers.ValidationError({"recepcion": "La recepción está archivada; no se permiten clasificaciones."})
+            
+            # Fecha y semana consistency
+            if recepcion.fecha and f < recepcion.fecha:
+                raise serializers.ValidationError({"fecha": "La fecha de clasificación no puede ser anterior a la recepción."})
+            
+            semana = _require_semana(bodega, temporada, f)
+            if getattr(recepcion, "semana_id", None) and semana and recepcion.semana_id != semana.id:
+                raise serializers.ValidationError({"fecha": "La fecha cae en una semana distinta a la de la recepción."})
+
 
         if f > timezone.localdate():
             raise serializers.ValidationError({"fecha": "La fecha no puede ser futura."})
@@ -910,10 +1013,55 @@ class CamionItemSerializer(serializers.ModelSerializer):
         return data
 
 
+class CamionConsumoEmpaqueSerializer(serializers.ModelSerializer):
+    camion_id = serializers.PrimaryKeyRelatedField(queryset=CamionSalida.objects.all(), source="camion", write_only=True)
+    clasificacion_id = serializers.PrimaryKeyRelatedField(queryset=ClasificacionEmpaque.objects.all(), source="clasificacion_empaque", write_only=True)
+    clasificacion_desc = serializers.StringRelatedField(source="clasificacion_empaque", read_only=True)
+
+    class Meta:
+        model = CamionConsumoEmpaque
+        fields = [
+            "id", "camion", "camion_id",
+            "clasificacion_empaque", "clasificacion_id", "clasificacion_desc",
+            "cantidad",
+            "creado_en", "actualizado_en",
+        ]
+        read_only_fields = ["camion", "clasificacion_empaque", "creado_en", "actualizado_en"]
+
+    def validate(self, data):
+        cantidad = data.get("cantidad") or getattr(self.instance, "cantidad", None)
+        clasif = data.get("clasificacion_empaque") or getattr(self.instance, "clasificacion_empaque", None)
+        camion = data.get("camion") or getattr(self.instance, "camion", None)
+
+        if cantidad is None or cantidad <= 0:
+            raise serializers.ValidationError({"cantidad": "Debe ser mayor a 0."})
+
+        # Validacion integridad bodega/temporada
+        if camion and clasif:
+            # Si el clasificacion tiene recepcion, usamos esa bodega. Si no, usamos su bodega_id directo si existiera (modelo actual linkea a recepcion o directo?)
+            # ClasificacionEmpaque tiene bodega/temporada directas.
+            if camion.bodega_id != clasif.bodega_id:
+                raise serializers.ValidationError({"clasificacion_empaque": "La clasificación no pertenece a la misma bodega del camión."})
+            if camion.temporada_id != clasif.temporada_id:
+                raise serializers.ValidationError({"clasificacion_empaque": "La clasificación no pertenece a la misma temporada del camión."})
+
+        # Validar disponibilidad real (import lazy para evitar ciclos si fuera necesario, aunque utils es seguro)
+        from gestion_bodega.utils.inventario_empaque import validate_consumo_camion
+        try:
+            exclude = self.instance.pk if self.instance else None
+            validate_consumo_camion(clasif.pk, cantidad, exclude_id=exclude)
+        except ValueError as e:
+            raise serializers.ValidationError({"cantidad": str(e)})
+            
+        return data
+
+
 class CamionSalidaSerializer(serializers.ModelSerializer):
+
     bodega_id    = serializers.PrimaryKeyRelatedField(queryset=Bodega.objects.all(),           source="bodega",    write_only=True)
     temporada_id = serializers.PrimaryKeyRelatedField(queryset=TemporadaBodega.objects.all(), source="temporada", write_only=True)
     items        = CamionItemSerializer(many=True, read_only=True)
+    cargas       = CamionConsumoEmpaqueSerializer(many=True, read_only=True)
 
     class Meta:
         model = CamionSalida
@@ -921,7 +1069,7 @@ class CamionSalidaSerializer(serializers.ModelSerializer):
             "id", "bodega", "temporada", "bodega_id", "temporada_id",
             "numero", "estado", "fecha_salida", "placas", "chofer",
             "destino", "receptor", "observaciones",
-            "items",
+            "items", "cargas",
             "is_active", "archivado_en", "creado_en", "actualizado_en",
         ]
         read_only_fields = ["bodega", "temporada", "numero", "estado", "is_active", "archivado_en", "creado_en", "actualizado_en"]
@@ -1126,6 +1274,7 @@ class KpiOcupacionCamaraSerializer(serializers.Serializer):
 
 class KpiSummarySerializer(serializers.Serializer):
     recepcion = serializers.DictField(child=serializers.FloatField(), required=False)
+    empaque = serializers.DictField(required=False)
     stock = serializers.DictField(required=False)
     ocupacion = serializers.DictField(required=False)
     rotacion = serializers.DictField(required=False)

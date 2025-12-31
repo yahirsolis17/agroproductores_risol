@@ -52,7 +52,8 @@ function getEmpaqueChipProps(row: Captura, blocked: boolean) {
     };
   }
 
-  const captured = Number(row.cantidad_cajas) || 0;
+  // Fallback: cantidad_cajas (alias) o cajas_campo (campo real)
+  const captured = Number(row.cantidad_cajas) || Number((row as any).cajas_campo) || 0;
   const packed = Number(row.cajas_empaquetadas) || 0;
   const st = safeStatus(row.empaque_status);
 

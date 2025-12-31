@@ -5,6 +5,8 @@ import InventoryIcon from "@mui/icons-material/Inventory";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import LocalMallIcon from "@mui/icons-material/LocalMall";
 import ReportProblemIcon from "@mui/icons-material/ReportProblem";
+import { TableLayout } from "../../../../../components/common/TableLayout";
+import type { QueueItem } from "../../../types/tableroBodegaTypes";
 
 type Metric = {
   label: string;
@@ -18,9 +20,13 @@ interface EmpaqueSectionProps {
   empacadas?: number;
   cajasEmpacadas?: number;
   merma?: number;
+  inventoryRows?: QueueItem[];
 
   /** Acción opcional: aplica filtro visual en Recepciones (Fase 5). */
   onVerPendientes?: () => void;
+
+  /** Acción opcional: abre el drawer en modo masivo (Fase E). */
+  onEmpacarMasivo?: () => void;
 
   /** Texto opcional por si quieres personalizar guía. */
   helperText?: string;
@@ -31,7 +37,9 @@ const EmpaqueSection: React.FC<EmpaqueSectionProps> = ({
   empacadas = 0,
   cajasEmpacadas = 0,
   merma = 0,
+  inventoryRows = [],
   onVerPendientes,
+  onEmpacarMasivo,
   helperText,
 }) => {
   const theme = useTheme();
@@ -72,7 +80,7 @@ const EmpaqueSection: React.FC<EmpaqueSectionProps> = ({
 
             <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500, lineHeight: 1.6 }}>
               {helperText ??
-                "En este tablero, Empaque no tendrá tabla principal. Se abre como Drawer desde la columna “Empaque” en Recepciones (chip/acción)."}
+                "En este tablero, Empaque no tendrá tabla principal. Se abre como Drawer desde la columna “Empaque” en Recepciones (chip/acción) o usa el modo masivo."}
             </Typography>
 
             <Box sx={{ mt: 1.5, display: "flex", gap: 1, flexWrap: "wrap" }}>
@@ -92,8 +100,23 @@ const EmpaqueSection: React.FC<EmpaqueSectionProps> = ({
                 Ver pendientes
               </Button>
 
+              <Button
+                size="small"
+                variant="contained"
+                onClick={onEmpacarMasivo}
+                disabled={!onEmpacarMasivo}
+                sx={{
+                  borderRadius: 3,
+                  textTransform: "none",
+                  fontWeight: 700,
+                  boxShadow: "none",
+                }}
+              >
+                Empacar Masivo
+              </Button>
+
               <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, alignSelf: "center" }}>
-                (Fase 3–4: el Drawer reemplaza este placeholder)
+                (Fase E: Bulk FIFO disponible)
               </Typography>
             </Box>
           </Box>
@@ -140,6 +163,39 @@ const EmpaqueSection: React.FC<EmpaqueSectionProps> = ({
               </Box>
             ))}
           </Box>
+        </Box>
+
+        {/* Inventory Table */}
+        <Box mt={3}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>
+            Stock Disponible (Inventario Real)
+          </Typography>
+          <TableLayout<QueueItem>
+            data={inventoryRows}
+            columns={[
+              { label: "Ref", key: "ref" },
+              { label: "Fecha", key: "fecha" },
+              {
+                label: "Clasificación",
+                key: "meta",
+                render: (r) => {
+                  const m = r.meta || {};
+                  return `${m.material || "?"} ${m.calidad || ""} ${m.tipo || ""}`;
+                }
+              },
+              { label: "Origen", key: "huerta", render: (r) => r.huerta || "—" },
+              { label: "Cajas", key: "kg", align: "right", render: (r) => r.kg },
+            ]}
+            rowKey={(r) => r.id}
+            page={1}
+            pageSize={100} // Show all first page or handle pagination if passed
+            count={inventoryRows.length}
+            onPageChange={() => { }}
+            loading={false}
+            dense
+            striped={false}
+            emptyMessage="No hay stock disponible registrado."
+          />
         </Box>
       </Paper>
     </Box>

@@ -47,7 +47,7 @@ import {
   TouchApp as TouchIcon,
 } from "@mui/icons-material";
 
-import { formatDateDisplay } from "../../../../global/utils/date";
+import { formatDateDisplay, formatDateISO } from "../../../../global/utils/date";
 import AppDrawer from "../../../../components/common/AppDrawer";
 import { motion } from "framer-motion";
 
@@ -57,6 +57,7 @@ type RecepcionLike = {
   huertero_nombre?: string;
   tipo_mango?: string;
   cantidad_cajas?: number;
+  cajas_campo?: number; // Campo real del backend (fallback)
   observaciones?: string | null;
   is_active?: boolean;
 };
@@ -72,7 +73,7 @@ type Props = {
   blocked?: boolean;
   blockReason?: string;
   canSave?: boolean;
-  onSave?: (lines: Record<LineKey, number>) => Promise<void>;
+  onSave?: (lines: Record<LineKey, number>, date?: string) => Promise<void>;
   busy?: boolean;
 
   /**
@@ -168,7 +169,18 @@ export default function EmpaqueDrawer({
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const isTablet = useMediaQuery(theme.breakpoints.down("lg"));
 
-  const captured = clampInt(recepcion?.cantidad_cajas ?? 0);
+  const isBulk = !recepcion;
+  const [bulkDate, setBulkDate] = useState<string>(formatDateISO(new Date()));
+
+  // Reset bulk date on open
+  useEffect(() => {
+    if (open && isBulk) {
+      setBulkDate(formatDateISO(new Date()));
+    }
+  }, [open, isBulk]);
+
+  // Fallback: cantidad_cajas (alias) o cajas_campo (campo real)
+  const captured = clampInt(recepcion?.cantidad_cajas ?? recepcion?.cajas_campo ?? 0);
   const isArchived = recepcion ? recepcion.is_active === false : false;
 
   // Solo lectura real (reglas de negocio)
@@ -191,21 +203,21 @@ export default function EmpaqueDrawer({
 
   // Reset al cambiar recepción
   useEffect(() => {
-    if (!recepcion) return;
-    setNotes(recepcion.observaciones ?? "");
+    // Si es bulk, no reseteamos lines al cambiar "recepcion" (porque es null), 
+    // pero sí cuando abre (manejado arriba).
+    if (!open) return;
+
+    setNotes(recepcion?.observaciones ?? "");
     setLines(buildInitialLines()); // base en 0
     setQuickActions([]);
-    setInitialSnapshot(buildInitialLines()); // Reset snapshot
-  }, [recepcion?.id]);
+    setInitialSnapshot(buildInitialLines());
+  }, [recepcion?.id, open]);
 
   // Hidrata líneas existentes cuando llegan
   useEffect(() => {
+    if (isBulk) return; // Bulk mode starts empty always (or could load daily summary? No, simple input)
     if (!recepcion) return;
     if (!initialLines) return;
-
-    // Si ya hay cambios locales (dirty real), NO sobrescribimos con initialLines tardío
-    // exceptuando la primera carga.
-    // Aquí simplificamos: si llega nueva data inicial, reseteamos *si* no hemos tocado nada.
 
     const base = mergeWithBase(initialLines);
     if (JSON.stringify(lines) === JSON.stringify(initialSnapshot)) {
@@ -229,14 +241,20 @@ export default function EmpaqueDrawer({
     const plastico = sumByMaterial("PLASTICO");
     const madera = sumByMaterial("MADERA");
     const packed = plastico + madera;
-    const remaining = Math.max(0, captured - packed);
-    const progress = captured > 0 ? Math.min(100, (packed / captured) * 100) : 0;
+
+    let remaining = 0;
+    let progress = 0;
+
+    if (!isBulk) {
+      remaining = Math.max(0, captured - packed);
+      progress = captured > 0 ? Math.min(100, (packed / captured) * 100) : 0;
+    }
 
     return { plastico, madera, packed, remaining, progress };
-  }, [lines, captured]);
+  }, [lines, captured, isBulk]);
 
-  const overPacked = totals.packed > captured && captured > 0;
-  const completionStatus = totals.progress >= 100 ? "complete" : totals.progress > 0 ? "partial" : "empty";
+  const overPacked = !isBulk && totals.packed > captured && captured > 0;
+  const completionStatus = isBulk ? "incomplete" : (totals.progress >= 100 ? "complete" : totals.progress > 0 ? "partial" : "empty");
 
   // Funciones de utilidad
   const setLine = (key: LineKey, value: any) => {
@@ -256,6 +274,7 @@ export default function EmpaqueDrawer({
   };
 
   const distributeRemaining = () => {
+    if (isBulk) return;
     if (totals.remaining <= 0) return;
 
     const activeQualities = activeTab === "PLASTICO" ? PLASTIC_QUALITIES : WOOD_QUALITIES;
@@ -432,10 +451,11 @@ export default function EmpaqueDrawer({
     </Box>
   );
 
+  // Mode label and color based on state
   const modeLabel = loadingInitial ? "CARGANDO" : readOnly ? "SOLO LECTURA" : "EDITANDO";
   const modeColor = loadingInitial ? "info" : readOnly ? "warning" : "success";
 
-  // Header mejorado
+  // Header improved
   const header = (
     <Box>
       <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 2 }}>
@@ -451,36 +471,50 @@ export default function EmpaqueDrawer({
               mb: 0.5,
             }}
           >
-            {recepcion ? `Recepción #${recepcion.id}` : "Nueva Recepción"}
+            {isBulk ? "Empaque Masivo (FIFO)" : (recepcion ? `Recepción #${recepcion.id}` : "Nueva Recepción")}
           </Typography>
 
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-            <Chip
-              icon={<InventoryIcon />}
-              label={recepcion?.huertero_nombre || "—"}
-              size="small"
-              sx={{ fontWeight: 700 }}
-            />
-            <Chip
-              icon={<MaterialIcon />}
-              label={recepcion?.tipo_mango || "—"}
-              size="small"
-              sx={{ fontWeight: 700 }}
-            />
-            <Chip
-              icon={<ShippingIcon />}
-              label={recepcion?.fecha ? formatDateDisplay(recepcion.fecha) : "—"}
-              size="small"
-              sx={{ fontWeight: 700 }}
-            />
+            {isBulk ? (
+              <TextField
+                type="date"
+                size="small"
+                value={bulkDate}
+                onChange={(e) => setBulkDate(e.target.value)}
+                sx={{ width: 160 }}
+                label="Fecha de Empaque"
+                InputLabelProps={{ shrink: true }}
+              />
+            ) : (
+              <>
+                <Chip
+                  icon={<InventoryIcon />}
+                  label={recepcion?.huertero_nombre || "—"}
+                  size="small"
+                  sx={{ fontWeight: 700 }}
+                />
+                <Chip
+                  icon={<MaterialIcon />}
+                  label={recepcion?.tipo_mango || "—"}
+                  size="small"
+                  sx={{ fontWeight: 700 }}
+                />
+                <Chip
+                  icon={<ShippingIcon />}
+                  label={recepcion?.fecha ? formatDateDisplay(recepcion.fecha) : "—"}
+                  size="small"
+                  sx={{ fontWeight: 700 }}
+                />
+              </>
+            )}
           </Box>
         </Box>
 
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-          <StatusIndicator />
+          {!isBulk && <StatusIndicator />}
           <Chip
-            label={modeLabel}
-            color={modeColor as any}
+            label={isBulk ? "MODO FIFO" : modeLabel}
+            color={isBulk ? "secondary" : modeColor as any}
             variant="outlined"
             sx={{ fontWeight: 900, letterSpacing: 0.5 }}
           />
@@ -494,6 +528,18 @@ export default function EmpaqueDrawer({
       )}
     </Box>
   );
+
+  // Banner ...
+
+  // Footer ...
+  // Update onSave call
+
+  // Need to update the onSave button onClick in the replaced content manually effectively by including it in the replace?
+  // I need to replace the footer definition too or just the header part and props.
+  // The tool replaces a block. I can try to replace the whole file content or a large chunk.
+  // Viewing lines 75 to 640...
+  // I will replace a large chunk from props definition down to header/footer logic usage.
+
 
   // Banner de estado
   const banner = blockReason ? (
@@ -593,7 +639,7 @@ export default function EmpaqueDrawer({
               variant="contained"
               startIcon={busy ? <CircularProgress size={20} /> : <SaveIcon />}
               disabled={!canSave || inputsDisabled || overPacked || busy || !!loadingInitial || !isDirty}
-              onClick={() => onSave && onSave(lines)}
+              onClick={() => onSave && onSave(lines, isBulk ? bulkDate : undefined)}
               sx={{
                 borderRadius: 3,
                 fontWeight: 900,

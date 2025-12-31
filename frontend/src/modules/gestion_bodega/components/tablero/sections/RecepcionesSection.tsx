@@ -7,12 +7,8 @@ import CapturasToolbar from "../../capturas/CapturasToolbar";
 import CapturasTable from "../../capturas/CapturasTable";
 import RecepcionFormModal from "../../capturas/RecepcionFormModal";
 
-import EmpaqueDrawer from "../../empaque/EmpaqueDrawer";
-
 import useCapturas from "../../../hooks/useCapturas";
-import useEmpaques from "../../../hooks/useEmpaques";
 import type { Captura } from "../../../types/capturasTypes";
-import { Material } from "../../../types/shared";
 
 type WeekLike = {
   id?: number;
@@ -35,52 +31,12 @@ interface RecepcionesSectionProps {
 
   /** Callback para que el Shell marque refetch de summary/recepciones/logística cuando hay mutaciones. */
   onMutateSuccess?: () => void;
-}
 
-function normalizeBackendCalidadToUILabel(material: "PLASTICO" | "MADERA", calidadRaw: any): string {
-  const raw = String(calidadRaw ?? "").trim().toUpperCase();
+  /** Acción para abrir el Drawer de empaque (lifted state) */
+  onOpenEmpaque: (recepcion: Captura) => void;
 
-  // Alias principales (compatibles con el normalizeCalidad del service)
-  if (raw === "NINIO" || raw === "NIÑO") return "Niño";
-  if (raw === "RONIA" || raw === "ROÑA") return "Roña";
-
-  // PLÁSTICO: SEGUNDA/EXTRA se tratan como PRIMERA (según regla ya aplicada en bulkUpsert)
-  if (material === "PLASTICO" && (raw === "PRIMERA" || raw === "SEGUNDA" || raw === "EXTRA")) {
-    return "Primera (≥ 2da)";
-  }
-
-  if (raw === "PRIMERA") return "Primera";
-
-  // Capitalización simple para el resto (TERCERA -> Tercera, MERMA -> Merma, etc.)
-  if (!raw) return "";
-  return raw.charAt(0) + raw.slice(1).toLowerCase();
-}
-
-function buildInitialLinesPatchFromEmpaques(
-  rows: any[],
-  recepcionId: number
-): Record<string, number> {
-  const patch: Record<string, number> = {};
-
-  const filtered = Array.isArray(rows)
-    ? rows.filter((r) => Number(r?.recepcion) === Number(recepcionId))
-    : [];
-
-  for (const r of filtered) {
-    const material = String(r?.material ?? "").toUpperCase() as "PLASTICO" | "MADERA";
-    if (material !== "PLASTICO" && material !== "MADERA") continue;
-
-    const uiCalidad = normalizeBackendCalidadToUILabel(material, r?.calidad);
-    if (!uiCalidad) continue;
-
-    const key = `${material}.${uiCalidad}`;
-    const qty = Number(r?.cantidad_cajas ?? 0);
-    const safeQty = Number.isFinite(qty) ? Math.max(0, Math.floor(qty)) : 0;
-
-    patch[key] = (patch[key] ?? 0) + safeQty;
-  }
-
-  return patch;
+  /** Token que al cambiar dispara refetch de capturas (usado post-empaque save) */
+  empaqueRefetchToken?: number;
 }
 
 const RecepcionesSection: React.FC<RecepcionesSectionProps> = ({
@@ -91,6 +47,8 @@ const RecepcionesSection: React.FC<RecepcionesSectionProps> = ({
   isActiveSelectedWeek,
   isExpiredWeek,
   onMutateSuccess,
+  onOpenEmpaque,
+  empaqueRefetchToken,
 }) => {
   const {
     items: capRows,
@@ -109,20 +67,6 @@ const RecepcionesSection: React.FC<RecepcionesSectionProps> = ({
     restaurar: capRestaurar,
     remove: capRemove,
   } = useCapturas();
-
-  const {
-    // list state
-    empaques: empRows,
-    status: empStatus,
-
-    // actions
-    refetch: empRefetch,
-    clearError: empClearError,
-
-    // bulk upsert
-    bulkUpsert: empBulkUpsert,
-    bulkSaving: empBulkSaving,
-  } = useEmpaques(false); // false = no autoFetch
 
   const selectedWeekId = (selectedWeek as any)?.id as number | undefined;
 
@@ -157,6 +101,16 @@ const RecepcionesSection: React.FC<RecepcionesSectionProps> = ({
     void capRefetch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasWeeks, selectedWeekId]);
+
+  // ─────────────────────────────────────────────────────────────
+  // External refetch trigger (post-empaque save)
+  // ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (empaqueRefetchToken && empaqueRefetchToken > 0) {
+      void capRefetch();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empaqueRefetchToken]);
 
   // Bloqueos (operación)
   const recepDisabled = !capCanOperate
@@ -232,88 +186,6 @@ const RecepcionesSection: React.FC<RecepcionesSectionProps> = ({
     [capRemove, afterMutate]
   );
 
-  // ─────────────────────────────────────────────────────────────
-  // Empaque (abre desde ActionsMenu → onEmpaque)
-  // ─────────────────────────────────────────────────────────────
-  const [openEmpaque, setOpenEmpaque] = useState(false);
-  const [selectedRecepcion, setSelectedRecepcion] = useState<Captura | null>(null);
-
-  // Hidratar líneas existentes (precarga)
-  const [empaqueLoading, setEmpaqueLoading] = useState(false);
-  const [empaqueInitialLines, setEmpaqueInitialLines] = useState<Record<string, number> | null>(null);
-
-  const handleOpenEmpaque = useCallback((row: Captura) => {
-    setSelectedRecepcion(row);
-    setOpenEmpaque(true);
-  }, []);
-
-  const handleCloseEmpaque = useCallback(() => {
-    setOpenEmpaque(false);
-    setSelectedRecepcion(null);
-
-    // Limpieza segura
-    setEmpaqueLoading(false);
-    setEmpaqueInitialLines(null);
-  }, []);
-
-  // Evita inconsistencias: al cambiar semana o página, cerramos el empaque abierto
-  useEffect(() => {
-    handleCloseEmpaque();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedWeekId, capMeta?.page]);
-
-  const empaqueReadOnlyReason = useMemo(() => {
-    if (!selectedRecepcion) return undefined;
-    if (recepDisabled) return recepReason || "Operación bloqueada.";
-    if (!selectedRecepcion.is_active) return "Recepción archivada (solo lectura).";
-    return undefined;
-  }, [selectedRecepcion, recepDisabled, recepReason]);
-
-  // Dispara fetch de empaques existentes al abrir el Drawer
-  useEffect(() => {
-    if (!openEmpaque) return;
-    if (!selectedRecepcion?.id) return;
-    if (!bodegaId || !temporadaId) return;
-
-    setEmpaqueLoading(true);
-    setEmpaqueInitialLines(null);
-
-    empClearError();
-
-    // Importante: usamos el thunk/list vía hook (sin service directo) para mantener patrón Redux.
-    empRefetch(
-      {
-        recepcion: selectedRecepcion.id,
-        bodega: bodegaId,
-        temporada: temporadaId,
-        is_active: true,
-        page: 1,
-        page_size: 200,
-        ordering: "-id",
-      } as any
-    );
-  }, [openEmpaque, selectedRecepcion?.id, bodegaId, temporadaId, empRefetch, empClearError]);
-
-  // Cuando el list termina, construimos el patch de líneas y lo pasamos al Drawer
-  useEffect(() => {
-    if (!openEmpaque) return;
-    if (!selectedRecepcion?.id) return;
-
-    if (empStatus === "loading") return;
-
-    if (empStatus === "failed") {
-      setEmpaqueLoading(false);
-      setEmpaqueInitialLines(null);
-      return;
-    }
-
-    if (empStatus === "succeeded") {
-      const patch = buildInitialLinesPatchFromEmpaques(empRows as any[], selectedRecepcion.id);
-      setEmpaqueInitialLines(patch);
-      setEmpaqueLoading(false);
-    }
-  }, [openEmpaque, selectedRecepcion?.id, empStatus, empRows]);
-
   return (
     <Box sx={{ py: 1 }}>
       <Box sx={{ mb: 2 }}>
@@ -375,57 +247,14 @@ const RecepcionesSection: React.FC<RecepcionesSectionProps> = ({
           onArchive={handleArchiveRecepcion}
           onRestore={handleRestoreRecepcion}
           onDelete={handleDeleteRecepcion}
-          onEmpaque={handleOpenEmpaque}
+          onEmpaque={onOpenEmpaque}
           blocked={recepDisabled}
         />
       </Paper>
-
-      <EmpaqueDrawer
-        open={openEmpaque}
-        onClose={handleCloseEmpaque}
-        recepcion={selectedRecepcion}
-        blocked={!!empaqueReadOnlyReason}
-        blockReason={empaqueReadOnlyReason}
-        canSave={true}
-        busy={empBulkSaving}
-        loadingInitial={empaqueLoading}
-        initialLines={empaqueInitialLines as any}
-        onSave={async (lines) => {
-          if (!selectedRecepcion || !bodegaId || !temporadaId) return;
-
-          const items = Object.entries(lines)
-            .map(([key, qty]) => {
-              const [materialStr, calidad] = key.split(".");
-              const material = materialStr === "PLASTICO" ? Material.PLASTICO : Material.MADERA;
-
-              return {
-                material,
-                calidad,
-                tipo_mango: selectedRecepcion.tipo_mango ?? "",
-                cantidad_cajas: qty,
-              };
-            });
-
-          try {
-            await empBulkUpsert({
-              recepcion: selectedRecepcion.id!,
-              bodega: bodegaId,
-              temporada: temporadaId,
-              fecha: selectedRecepcion.fecha!, // Asumimos fecha de recepción por consistencia operativa
-              items,
-            }).unwrap();
-
-            // Refetch para que la tabla muestre "Empacado" y totales
-            await afterMutate();
-            handleCloseEmpaque();
-          } catch (err: any) {
-            // Error ya manejado por NotificationEngine si el backend manda 400/409.
-            console.error("Falló guardado empaque", err);
-          }
-        }}
-      />
     </Box>
   );
 };
 
 export default RecepcionesSection;
+
+

@@ -7,6 +7,7 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Alert from "@mui/material/Alert";
 import AlertTitle from "@mui/material/AlertTitle";
+import TextField from "@mui/material/TextField";
 import { Save, Add } from "@mui/icons-material";
 import { Formik, Form } from "formik";
 
@@ -58,13 +59,19 @@ export default function RecepcionFormModal({
 
   const creationHasContext = useMemo(() => !!bodegaId && !!temporadaId, [bodegaId, temporadaId]);
 
-  const initialValues = useMemo(() => ({
-    fecha: initial?.fecha ?? formatDateISO(new Date()),
-    huertero_nombre: initial?.huertero_nombre ?? "",
-    tipo_mango: initial?.tipo_mango ?? "",
-    cantidad_cajas: initial?.cantidad_cajas != null ? String(initial.cantidad_cajas) : "",
-    observaciones: initial?.observaciones ?? "",
-  }), [initial]);
+  const initialValues = useMemo(
+    () => ({
+      fecha: initial?.fecha ?? formatDateISO(new Date()),
+      huertero_nombre: initial?.huertero_nombre ?? "",
+      tipo_mango: initial?.tipo_mango ?? "",
+      cantidad_cajas: initial?.cantidad_cajas != null ? String(initial.cantidad_cajas) : "",
+      observaciones: initial?.observaciones ?? "",
+      codigo_lote: (initial as any)?.lote_codigo ?? (initial as any)?.codigo_lote ?? "",
+    }),
+    [initial]
+  );
+
+  const toCantidadString = (v: unknown) => (typeof v === "string" ? v : v == null ? "" : String(v));
 
   const validate = (values: typeof initialValues) => {
     const errors: Partial<Record<keyof typeof initialValues, string>> = {};
@@ -107,7 +114,7 @@ export default function RecepcionFormModal({
       errors.tipo_mango = "El tipo es requerido.";
     }
 
-    const raw = values.cantidad_cajas.trim();
+    const raw = toCantidadString(values.cantidad_cajas).trim();
     const n = raw ? Number(raw) : NaN;
     if (!Number.isFinite(n) || Math.trunc(n) <= 0) {
       errors.cantidad_cajas = "Debe ser un entero mayor a 0.";
@@ -116,11 +123,32 @@ export default function RecepcionFormModal({
     return errors;
   };
 
+  const buildLotePreview = (values: typeof initialValues) => {
+    const slug = (v: unknown, len: number, fallback: string) => {
+      const t = typeof v === "string" ? v : v == null ? "" : String(v);
+      const s = t.trim().toUpperCase().replace(/\s+/g, "");
+      return (s || fallback).slice(0, len);
+    };
+    const semanaFromDate = () => {
+      const d = parseLocalDateStrict(values.fecha);
+      if (isNaN(d.getTime())) return "S";
+      const w = d.toISOString().slice(0, 10);
+      return `S${w}`;
+    };
+    const b = bodegaId || "B";
+    const t = temporadaId || "T";
+    const s = semanaFromDate();
+    const h = slug(values.huertero_nombre, 3, "HX");
+    const m = slug(values.tipo_mango, 4, "MX");
+    const raw = toCantidadString(values.cantidad_cajas).trim();
+    const n = Number.isFinite(Number(raw)) ? Math.max(0, Math.trunc(Number(raw))) : 0;
+    const c = `C${String(n).padStart(3, "0")}`;
+    return `B${b}-T${t}-${s}-H${h}-M${m}-${c}`;
+  };
+
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm" aria-labelledby="recepcion-form-title">
-      <DialogTitle id="recepcion-form-title">
-        {isEdit ? "Editar recepción" : "Registrar recepción"}
-      </DialogTitle>
+      <DialogTitle id="recepcion-form-title">{isEdit ? "Editar recepción" : "Registrar recepción"}</DialogTitle>
 
       <Formik
         initialValues={initialValues}
@@ -130,7 +158,7 @@ export default function RecepcionFormModal({
         validateOnBlur
         validateOnMount={false}
         onSubmit={async (values, helpers) => {
-          const raw = values.cantidad_cajas.trim();
+          const raw = toCantidadString(values.cantidad_cajas).trim();
           const n = Math.trunc(Number(raw));
           const payloadBase = {
             bodega: initial?.bodega ?? (bodegaId as number),
@@ -140,6 +168,7 @@ export default function RecepcionFormModal({
             tipo_mango: values.tipo_mango.trim(),
             cantidad_cajas: n,
             observaciones: values.observaciones?.trim() ? values.observaciones.trim() : "",
+            codigo_lote: values.codigo_lote?.trim() || undefined,
           };
 
           try {
@@ -185,13 +214,21 @@ export default function RecepcionFormModal({
             return diffDays === 0 || diffDays === 1;
           })();
 
-          const raw = values.cantidad_cajas.trim();
+          const raw = toCantidadString(values.cantidad_cajas).trim();
           const n = raw ? Number(raw) : NaN;
           const cajasValidas = Number.isFinite(n) && Math.trunc(n) > 0;
 
           const tipoValido = values.tipo_mango.trim().length > 0;
 
-          const disabledSubmit = blocked || busy || !fechaValida || outOfWeekRange || !tipoValido || !cajasValidas || (!isEdit && !creationHasContext) || !isTodayOrYesterday;
+          const disabledSubmit =
+            blocked ||
+            busy ||
+            !fechaValida ||
+            outOfWeekRange ||
+            !tipoValido ||
+            !cajasValidas ||
+            (!isEdit && !creationHasContext) ||
+            !isTodayOrYesterday;
 
           return (
             <Form
@@ -233,19 +270,20 @@ export default function RecepcionFormModal({
                     disabled={blocked || busy}
                   />
 
-                  <FormikTextField
-                    label="Huertero"
-                    name="huertero_nombre"
+                  {/* Lote autogenerado solo lectura */}
+                  <TextField
+                    label="Lote (autogenerado)"
+                    name="codigo_lote"
                     size="small"
-                    disabled={blocked || busy}
+                    value={values.codigo_lote || buildLotePreview(values)}
+                    InputProps={{ readOnly: true }}
+                    helperText="Se genera automáticamente al guardar."
+                    disabled
                   />
 
-                  <FormikTextField
-                    label="Tipo de mango"
-                    name="tipo_mango"
-                    size="small"
-                    disabled={blocked || busy}
-                  />
+                  <FormikTextField label="Huertero" name="huertero_nombre" size="small" disabled={blocked || busy} />
+
+                  <FormikTextField label="Tipo de mango" name="tipo_mango" size="small" disabled={blocked || busy} />
 
                   <FormikNumberField
                     label="Cantidad de cajas"

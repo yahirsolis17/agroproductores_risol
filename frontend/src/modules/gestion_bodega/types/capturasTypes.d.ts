@@ -29,6 +29,10 @@ export interface Captura {
   fecha: string; // "YYYY-MM-DD"
   huertero_nombre: string;
   tipo_mango: string;
+
+  // Campo real del modelo (backend: cajas_campo)
+  cajas_campo?: number;
+  // Alias para frontend (backend ahora envía ambos)
   cantidad_cajas: number;
 
   observaciones?: string | null;
@@ -57,6 +61,7 @@ export type CapturaCreateDTO = {
   tipo_mango: string;
   cantidad_cajas: number;
   observaciones?: string | null;
+  codigo_lote?: string; // New: Trazabilidad manual
 };
 
 export type CapturaUpdateDTO = CapturaCreateDTO;

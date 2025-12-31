@@ -398,8 +398,44 @@ class Cliente(TimeStampedModel):
 
 
 # ───────────────────────────────────────────────────────────────────────────
-# Operación (Recepciones / Clasificación)
+# Operación (Lotes / Recepciones / Clasificación)
 # ───────────────────────────────────────────────────────────────────────────
+
+class LoteBodega(TimeStampedModel):
+    """
+    Agrupador lógico de trazabilidad interna (Manual).
+    Permite seguir el rastro de recepciones -> empaques -> salidas sin depender de huerta.
+    Código único por Bodega + Temporada.
+    """
+    bodega = models.ForeignKey(Bodega, on_delete=models.PROTECT, related_name="lotes")
+    temporada = models.ForeignKey(TemporadaBodega, on_delete=models.CASCADE, related_name="lotes")
+    # Semana de creación (contexto temporal)
+    semana = models.ForeignKey("CierreSemanal", on_delete=models.PROTECT, related_name="lotes_creados")
+    
+    codigo_lote = models.CharField(max_length=50)
+    origen_nombre = models.CharField(max_length=120, blank=True, default="")
+    notas = models.TextField(blank=True, default="")
+
+    class Meta:
+        ordering = ["-id"]
+        constraints = [
+            UniqueConstraint(
+                fields=["bodega", "temporada", "codigo_lote"],
+                name="uniq_lote_codigo_por_temporada"
+            )
+        ]
+        indexes = [
+            Index(fields=["bodega", "temporada", "codigo_lote"], name="idx_lote_bt_codigo"),
+        ]
+
+    def __str__(self) -> str:
+        return f"Lote {self.codigo_lote}"
+
+    def clean(self):
+        if self.temporada_id and (not self.temporada.is_active):
+            raise ValidationError({"temporada": "La temporada debe estar activa."})
+
+
 class Recepcion(TimeStampedModel):
     """
     Entrada de mango de campo (sin empacar) — origen libre.
@@ -413,7 +449,10 @@ class Recepcion(TimeStampedModel):
     huertero_nombre = models.CharField(max_length=120, blank=True, default="")
     tipo_mango = models.CharField(max_length=80)
     cajas_campo = models.PositiveIntegerField()
+    # Nuevo: Trazabilidad manual
+    lote = models.ForeignKey(LoteBodega, on_delete=models.SET_NULL, null=True, blank=True, related_name="recepciones")
     observaciones = models.TextField(blank=True, default="")
+
 
     class Meta:
         ordering = ["-fecha", "-id"]
@@ -473,6 +512,14 @@ class Recepcion(TimeStampedModel):
                 semana_fin = self.semana.fecha_hasta or (self.semana.fecha_desde + timedelta(days=6))
                 if not (self.semana.fecha_desde <= self.fecha <= semana_fin):
                     errors["fecha"] = "La fecha de la recepción debe estar dentro del rango de la semana."
+
+        # Validar Lote si existe
+        if self.lote_id:
+            if self.lote.bodega_id != self.bodega_id:
+                 errors["lote"] = "El lote no pertenece a esta bodega."
+            if self.lote.temporada_id != self.temporada_id:
+                 errors["lote"] = "El lote no pertenece a esta temporada."
+
 
         if errors:
             raise ValidationError(errors)
@@ -534,7 +581,13 @@ class ClasificacionEmpaque(TimeStampedModel):
     material = models.CharField(max_length=10, choices=Material.choices)
     calidad = models.CharField(max_length=12)  # madera/plástico (texto)
     tipo_mango = models.CharField(max_length=80)
+    material = models.CharField(max_length=10, choices=Material.choices)
+    calidad = models.CharField(max_length=12)  # madera/plástico (texto)
+    tipo_mango = models.CharField(max_length=80)
     cantidad_cajas = models.PositiveIntegerField()
+    # Derivado de Recepción
+    lote = models.ForeignKey(LoteBodega, on_delete=models.SET_NULL, null=True, blank=True, related_name="clasificaciones")
+
 
     class Meta:
         ordering = ["-fecha", "-id"]
@@ -603,6 +656,10 @@ class ClasificacionEmpaque(TimeStampedModel):
             self.bodega_id = self.recepcion.bodega_id
             self.temporada_id = self.recepcion.temporada_id
             self.tipo_mango = self.recepcion.tipo_mango
+            # Heredar lote
+            if not self.lote_id and self.recepcion.lote_id:
+                self.lote_id = self.recepcion.lote_id
+
 
             if self.fecha and self.recepcion.fecha and self.fecha < self.recepcion.fecha:
                 errors["fecha"] = "La fecha de clasificación no puede ser anterior a la recepción."
@@ -935,6 +992,8 @@ class CamionSalida(TimeStampedModel):
     """
     bodega = models.ForeignKey(Bodega, on_delete=models.PROTECT, related_name="camiones")
     temporada = models.ForeignKey(TemporadaBodega, on_delete=models.CASCADE, related_name="camiones")
+    semana = models.ForeignKey("CierreSemanal", on_delete=models.PROTECT, null=True, blank=True, related_name="camiones")
+    
     numero = models.PositiveIntegerField(null=True, blank=True)  # correlativo al confirmar
     estado = models.CharField(max_length=12, choices=EstadoCamion.choices, default=EstadoCamion.BORRADOR)
     fecha_salida = models.DateField(default=timezone.now)
@@ -956,6 +1015,7 @@ class CamionSalida(TimeStampedModel):
         indexes = [
             Index(fields=["bodega", "temporada", "numero"], name="idx_cam_bod_temp_num"),
             Index(fields=["estado"], name="idx_cam_estado"),
+            Index(fields=["bodega", "temporada", "semana", "fecha_salida"], name="idx_cam_ctx_semana_fecha"),
         ]
 
     def __str__(self) -> str:
@@ -965,6 +1025,20 @@ class CamionSalida(TimeStampedModel):
     def clean(self):
         if self.temporada_id and (not self.temporada.is_active or self.temporada.finalizada):
             raise ValidationError({"temporada": "La temporada debe estar activa y no finalizada."})
+        
+        # Resolver semana
+        if not self.semana_id and self.bodega_id and self.temporada_id and self.fecha_salida:
+            self.semana = _resolver_semana_por_fecha(self.bodega_id, self.temporada_id, self.fecha_salida)
+        
+        if not self.semana_id:
+             # Opcional: raise validation error or just leave it null if consistent with requirements?
+             # Recepcion forces it. Camion should too?
+             # If "persistencia" is required for reporting, yes.
+             pass 
+             # Nota: No lanzamos error para permitir borradores temporales tal vez? 
+             # Pero para reportes es vital.
+             # Dejaremos que save() intente resolverlo y si no puede, bueno.
+
 
     @transaction.atomic
     def confirmar(self):
@@ -1015,6 +1089,44 @@ class CamionItem(TimeStampedModel):
     def clean(self):
         if self.cantidad_cajas <= 0:
             raise ValidationError({"cantidad_cajas": "Debe ser positiva."})
+
+    def save(self, *args, **kwargs):
+        update_fields = kwargs.get("update_fields")
+        if not _is_only_archival_fields(update_fields):
+            self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+
+class CamionConsumoEmpaque(TimeStampedModel):
+    """
+    Consumo REAL de stock empacado.
+    Resta disponibilidad: disponible = Clasificacion.cantidad - Surtidos - CargasCamion.
+    """
+    camion = models.ForeignKey(CamionSalida, on_delete=models.CASCADE, related_name="cargas")
+    clasificacion_empaque = models.ForeignKey(ClasificacionEmpaque, on_delete=models.PROTECT, related_name="consumos_camion")
+    cantidad = models.PositiveIntegerField()
+
+    class Meta:
+        ordering = ["id"]
+        indexes = [
+            Index(fields=["camion", "clasificacion_empaque"], name="idx_cce_camion_clasif"),
+        ]
+
+    def __str__(self) -> str:
+        return f"Carga #{self.id} -> Camion {self.camion_id}: {self.cantidad}"
+
+    def clean(self):
+        if self.cantidad <= 0:
+            raise ValidationError("La cantidad debe ser positiva.")
+        
+        # Validation real con bloqueo para evitar condiciones de carrera
+        from gestion_bodega.utils.inventario_empaque import validate_consumo_camion
+        try:
+            # lock=True asegura que nadie más consuma este stock simultáneamente hasta que termine la transacción
+            validate_consumo_camion(self.clasificacion_empaque_id, self.cantidad, exclude_id=self.pk, lock=True)
+        except ValueError as e:
+            raise ValidationError(str(e))
 
     def save(self, *args, **kwargs):
         update_fields = kwargs.get("update_fields")

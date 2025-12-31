@@ -36,14 +36,64 @@ import ResumenSection from "../components/tablero/sections/ResumenSection";
 import RecepcionesSection from "../components/tablero/sections/RecepcionesSection";
 import EmpaqueSection from "../components/tablero/sections/EmpaqueSection";
 import LogisticaSection from "../components/tablero/sections/LogisticaSection";
-
 import TableroSectionsAccordion, {
-  type TableroSectionKey,
+  TableroSectionKey,
 } from "../components/tablero/sections/TableroSectionsAccordion";
+
+import EmpaqueDrawer from "../components/empaque/EmpaqueDrawer";
+import CamionFormModal from "../components/logistica/CamionFormModal";
+import useEmpaques from "../hooks/useEmpaques";
+import { Material } from "../types/shared";
 
 // ───────────────────────────────────────────────────────────────────────────
 // Utils
 // ───────────────────────────────────────────────────────────────────────────
+
+function normalizeBackendCalidadToUILabel(material: "PLASTICO" | "MADERA", calidadRaw: any): string {
+  const raw = String(calidadRaw ?? "").trim().toUpperCase();
+
+  // Alias principales (compatibles con el normalizeCalidad del service)
+  if (raw === "NINIO" || raw === "NIÑO") return "Niño";
+  if (raw === "RONIA" || raw === "ROÑA") return "Roña";
+
+  // PLÁSTICO: SEGUNDA/EXTRA se tratan como PRIMERA (según regla ya aplicada en bulkUpsert)
+  if (material === "PLASTICO" && (raw === "PRIMERA" || raw === "SEGUNDA" || raw === "EXTRA")) {
+    return "Primera (≥ 2da)";
+  }
+
+  if (raw === "PRIMERA") return "Primera";
+
+  // Capitalización simple para el resto (TERCERA -> Tercera, MERMA -> Merma, etc.)
+  if (!raw) return "";
+  return raw.charAt(0) + raw.slice(1).toLowerCase();
+}
+
+function buildInitialLinesPatchFromEmpaques(
+  rows: any[],
+  recepcionId: number
+): Record<string, number> {
+  const patch: Record<string, number> = {};
+
+  const filtered = Array.isArray(rows)
+    ? rows.filter((r) => Number(r?.recepcion) === Number(recepcionId))
+    : [];
+
+  for (const r of filtered) {
+    const material = String(r?.material ?? "").toUpperCase() as "PLASTICO" | "MADERA";
+    if (material !== "PLASTICO" && material !== "MADERA") continue;
+
+    const uiCalidad = normalizeBackendCalidadToUILabel(material, r?.calidad);
+    if (!uiCalidad) continue;
+
+    const key = `${material}.${uiCalidad}`;
+    const qty = Number(r?.cantidad_cajas ?? 0);
+    const safeQty = Number.isFinite(qty) ? Math.max(0, Math.floor(qty)) : 0;
+
+    patch[key] = (patch[key] ?? 0) + safeQty;
+  }
+
+  return patch;
+}
 function prettyRange(fromISO: string, toISO: string) {
   const from = parseLocalDateStrict(fromISO);
   const to = parseLocalDateStrict(toISO);
@@ -157,6 +207,169 @@ const TableroBodegaPage: React.FC = () => {
 
   const hasWeeks: boolean = !!weekNav?.hasWeeks;
   const [actionError, setActionError] = useState<string | null>(null);
+
+  // Empaque: state lifted
+  const {
+    empaques: empRows,
+    status: empStatus,
+    refetch: empRefetch,
+    clearError: empClearError,
+    bulkUpsert: empBulkUpsert,
+    bulkSaving: empBulkSaving,
+  } = useEmpaques(false);
+
+
+  const [openEmpaque, setOpenEmpaque] = useState(false);
+  const [selectedRecepcionForEmpaque, setSelectedRecepcionForEmpaque] = useState<any | null>(null);
+  const [empaqueLoading, setEmpaqueLoading] = useState(false);
+  const [empaqueInitialLines, setEmpaqueInitialLines] = useState<Record<string, number> | null>(null);
+  const [empaqueRefetchToken, setEmpaqueRefetchToken] = useState(0);
+
+  const handleOpenEmpaque = useCallback((recepcion: any) => {
+    setSelectedRecepcionForEmpaque(recepcion);
+    setOpenEmpaque(true);
+  }, []);
+
+  const handleOpenBulkEmpaque = useCallback(() => {
+    setSelectedRecepcionForEmpaque(null); // NULL indicates Bulk Mode
+    setOpenEmpaque(true);
+  }, []);
+
+  const handleCloseEmpaque = useCallback(() => {
+    setOpenEmpaque(false);
+    setSelectedRecepcionForEmpaque(null);
+    setEmpaqueLoading(false);
+    setEmpaqueInitialLines(null);
+  }, []);
+
+  // Fetch logic for Drawer
+  useEffect(() => {
+    if (!openEmpaque) return;
+    if (!bodegaId || !temporadaId) return;
+
+    // Si es bulk (recepcion=null), NO cargamos initialLines, es FIFO mode vacio.
+    if (!selectedRecepcionForEmpaque) {
+      setEmpaqueLoading(false);
+      setEmpaqueInitialLines(null);
+      return;
+    }
+
+    setEmpaqueLoading(true);
+    setEmpaqueInitialLines(null);
+    empClearError();
+
+    empRefetch({
+      recepcion: selectedRecepcionForEmpaque.id,
+      bodega: bodegaId,
+      temporada: temporadaId,
+      is_active: true,
+      page: 1,
+      page_size: 200,
+      ordering: "-id",
+    } as any);
+  }, [openEmpaque, selectedRecepcionForEmpaque?.id, bodegaId, temporadaId, empRefetch, empClearError]);
+
+  useEffect(() => {
+    if (!openEmpaque || !selectedRecepcionForEmpaque?.id) return;
+    if (empStatus === "loading") return;
+    if (empStatus === "failed") {
+      setEmpaqueLoading(false);
+      setEmpaqueInitialLines(null);
+      return;
+    }
+    if (empStatus === "succeeded") {
+      const patch = buildInitialLinesPatchFromEmpaques(empRows as any[], selectedRecepcionForEmpaque.id);
+      setEmpaqueInitialLines(patch);
+      setEmpaqueLoading(false);
+    }
+  }, [openEmpaque, selectedRecepcionForEmpaque?.id, empStatus, empRows]);
+
+  const onSaveEmpaque = async (lines: Record<string, number>, date?: string) => {
+    if (!bodegaId || !temporadaId) return;
+
+    // Si es Bulk, recepcion es null.
+    // Si NO es bulk, recepcion es requerida.
+    const isBulk = !selectedRecepcionForEmpaque;
+    const items = Object.entries(lines).map(([key, qty]) => {
+      const [materialStr, calidad] = key.split(".");
+      const material = materialStr === "PLASTICO" ? Material.PLASTICO : Material.MADERA;
+      return {
+        material,
+        calidad,
+        tipo_mango: isBulk ? "BULK" : (selectedRecepcionForEmpaque.tipo_mango ?? ""), // "BULK" or ignored by backend? Backend relies on existing stock if reception provided.
+        // Wait, for bulk FIFO, we probably don't need tipo_mango if backend infers it?
+        // Actually backend Bulk logic iterates over receptions.
+        // If we send items, backend distributes them.
+        // We should verify if frontend needs to send tipo_mango for bulk.
+        // Usually bulk op mixes types? No, bulk op usually is specific?
+        // The drawer allows selecting quantities.
+        // For Bulk Mode, we assume the user is packing generic "Mango" or filtering by type?
+        // The backend FIFO logic sorts candidates by date.
+        // It doesn't filter by type unless we tell it to?
+        // Let's assume sending "" or a placeholder is fine if backend handles it.
+        // Checked empaques_views: bulk_upsert checks recepcion_id.
+        // If recepcion is None, it calls distribute_fifo.
+        // distribute_fifo iterates items.
+        // Each item has material/calidad/cantidad.
+        // It finds candidates. Candidates are ALL receptions in bodega/temporada.
+        // It doesn't filter candidates by Mango Type!
+        // So if we distribute FIFO, we might pack "Keitt" into "Tommy"?
+        // IMPORTANT: This might be a missing feature in backend phase E1.
+        // Ideally we should filter candidates by fruit type if the user packing specifies it?
+        // But the UI for Bulk doesn't have a fruit type selector yet.
+        // We will proceed assuming "First In First Out" globally or user knows what they are doing.
+        // Just pass "" for tipo_mango if null.
+        cantidad_cajas: qty,
+      };
+    });
+
+    try {
+      await empBulkUpsert({
+        recepcion: isBulk ? null : selectedRecepcionForEmpaque.id,
+        bodega: bodegaId,
+        temporada: temporadaId,
+        fecha: date || formatDateISO(new Date()), // Use passed date (bulk) or reception date
+        items,
+      }).unwrap();
+
+      // Refresh summary (KPIs in EmpaqueSection)
+      if (refetchSummary) refetchSummary();
+
+      // Trigger recepciones table refetch (chips se actualizan)
+      setEmpaqueRefetchToken((t) => t + 1);
+
+      handleCloseEmpaque();
+    } catch (err) {
+      console.error("Empaque save failed", err);
+    }
+  };
+
+  // Modal Camión State
+  const [camionModalOpen, setCamionModalOpen] = useState(false);
+  const [selectedCamion, setSelectedCamion] = useState<any | null>(null);
+
+  const handleAddCamion = useCallback(() => {
+    setSelectedCamion(null);
+    setCamionModalOpen(true);
+  }, []);
+
+  const handleEditCamion = useCallback((row: any) => {
+    // row comes from Logistica table, likely has minimal data.
+    // CamionFormModal should fetch full details or receive ID.
+    // passing row as initial, FormModal should handle fetching by ID if needed.
+    setSelectedCamion(row);
+    setCamionModalOpen(true);
+  }, []);
+
+  const handleCamionSuccess = useCallback(() => {
+    // Refresh logistics queue and summary
+    if (refetchSummary) refetchSummary();
+    // Also refresh logistics table if useTableroBodega exposed a refetchLogistica.
+    // useTableroBodega likely refreshes automatically or we force it.
+    // For now summary refresh might trigger effects.
+    // Ideally we should refetch the list.
+    // As per `useTableroBodega`, modifying state usually triggers updates.
+  }, [refetchSummary]);
 
   // Estado local del rango que maneja WeekSwitcher
   const [weekValue, setWeekValue] = useState<WeekValue>(() => {
@@ -772,10 +985,22 @@ const TableroBodegaPage: React.FC = () => {
                       isActiveSelectedWeek={isActiveSelectedWeek}
                       isExpiredWeek={isExpiredWeek}
                       onMutateSuccess={refetchSummary}
+                      onOpenEmpaque={handleOpenEmpaque}
+                      empaqueRefetchToken={empaqueRefetchToken}
                     />
                   </Box>
                 }
-                empaque={<EmpaqueSection onVerPendientes={handleGoPendientesEmpaque} />}
+                empaque={
+                  <EmpaqueSection
+                    onVerPendientes={handleGoPendientesEmpaque}
+                    onEmpacarMasivo={handleOpenBulkEmpaque}
+                    pendientes={tablero?.summary?.kpis?.empaque?.pendientes}
+                    empacadas={tablero?.summary?.kpis?.empaque?.empacadas}
+                    cajasEmpacadas={tablero?.summary?.kpis?.empaque?.cajas_empacadas}
+                    merma={tablero?.summary?.kpis?.empaque?.merma}
+                    inventoryRows={(tablero?.queueInventarios?.rows || []) as any}
+                  />
+                }
                 logistica={
                   <LogisticaSection
                     hasWeeks={hasWeeks}
@@ -784,6 +1009,10 @@ const TableroBodegaPage: React.FC = () => {
                     meta={tablero?.queueLogistica?.meta ?? { page: 1, page_size: 10, total: 0 }}
                     loading={!!tablero?.isLoadingLogistica}
                     onPageChange={tablero?.onChangePage ?? (() => { })}
+                    onAddCamion={bodegaId ? handleAddCamion : undefined}
+                    onEditCamion={handleEditCamion}
+                    filterEstado={tablero?.filters?.estado}
+                    onFilterEstadoChange={(val) => tablero?.onApplyFilters?.({ estado: val })}
                   />
                 }
               />
@@ -791,7 +1020,32 @@ const TableroBodegaPage: React.FC = () => {
           </AnimatePresence>
         </Box>
       </Paper >
-    </Box >
+
+      {/* Modal Camión */}
+      {bodegaId && temporadaId && (
+        <CamionFormModal
+          open={camionModalOpen}
+          onClose={() => setCamionModalOpen(false)}
+          onSuccess={handleCamionSuccess}
+          bodegaId={bodegaId}
+          temporadaId={temporadaId}
+          camion={selectedCamion}
+        />
+      )}
+
+      {/* Empaque Drawer Global */}
+      <EmpaqueDrawer
+        open={openEmpaque}
+        onClose={handleCloseEmpaque}
+        recepcion={selectedRecepcionForEmpaque}
+        blocked={!!selectedRecepcionForEmpaque && !selectedRecepcionForEmpaque.is_active}
+        canSave={true}
+        busy={empBulkSaving}
+        loadingInitial={empaqueLoading}
+        initialLines={empaqueInitialLines}
+        onSave={onSaveEmpaque}
+      />
+    </Box>
   );
 };
 

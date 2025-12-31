@@ -551,6 +551,7 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
   return {
     // UI Data
     kpiCards,
+    summary: summary as any,
     alerts: alertsUI,
     queue: queueUI,
     queueRecepciones: {

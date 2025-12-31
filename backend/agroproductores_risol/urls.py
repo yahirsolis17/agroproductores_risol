@@ -23,6 +23,7 @@ urlpatterns = [
     # Módulos
     path('huerta/', include(('gestion_huerta.urls', 'gestion_huerta'), namespace='huerta')),
     path('bodega/', include(('gestion_bodega.urls', 'gestion_bodega'), namespace='bodega')),
+    path('gestion-bodega/', include(('gestion_bodega.urls', 'gestion_bodega'), namespace='gestion_bodega')),
     path('usuarios/', include(('gestion_usuarios.urls', 'gestion_usuarios'), namespace='gestion_usuarios')),
 
     # Documentación DRF Spectacular

@@ -1,0 +1,92 @@
+Creating test database for alias 'default'...
+Found 4 test(s).
+System check identified some issues:
+
+WARNINGS:
+?: (mysql.W002) MariaDB Strict Mode is not set for database connection 'default'
+	HINT: MariaDB's Strict Mode fixes many data integrity problems in MariaDB, such as data truncation upon insertion, by escalating warnings into errors. It is strongly recommended you activate it. See: https://docs.djangoproject.com/en/5.0/ref/databases/#mysql-sql-mode
+?: (staticfiles.W004) The directory 'C:\Users\Yahir\agroproductores_risol\backend\static' in the STATICFILES_DIRS setting does not exist.
+gestion_bodega.CamionSalida: (models.W036) MariaDB does not support unique constraints with conditions.
+	HINT: A constraint won't be created. Silence this warning if you don't care about it.
+gestion_bodega.CierreSemanal: (models.W036) MariaDB does not support unique constraints with conditions.
+	HINT: A constraint won't be created. Silence this warning if you don't care about it.
+gestion_bodega.ClasificacionEmpaque: (models.W036) MariaDB does not support unique constraints with conditions.
+	HINT: A constraint won't be created. Silence this warning if you don't care about it.
+gestion_bodega.TemporadaBodega: (models.W036) MariaDB does not support unique constraints with conditions.
+	HINT: A constraint won't be created. Silence this warning if you don't care about it.
+
+System check identified 6 issues (0 silenced).
+EEEE
+======================================================================
+ERROR: test_aggregation_completo (gestion_bodega.tests.test_recepcion_aggregates.RecepcionAggregatesTest.test_aggregation_completo)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Yahir\agroproductores_risol\backend\gestion_bodega\tests\test_recepcion_aggregates.py", line 9, in setUp
+    self.temporada = TemporadaBodega.objects.create(bodega=self.bodega, descripcion="2025")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\db\models\manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\db\models\query.py", line 677, in create
+    obj = self.model(**kwargs)
+          ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\db\models\base.py", line 567, in __init__
+    raise TypeError(
+TypeError: TemporadaBodega() got unexpected keyword arguments: 'descripcion'
+
+======================================================================
+ERROR: test_aggregation_exceso (gestion_bodega.tests.test_recepcion_aggregates.RecepcionAggregatesTest.test_aggregation_exceso)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Yahir\agroproductores_risol\backend\gestion_bodega\tests\test_recepcion_aggregates.py", line 9, in setUp
+    self.temporada = TemporadaBodega.objects.create(bodega=self.bodega, descripcion="2025")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\db\models\manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\db\models\query.py", line 677, in create
+    obj = self.model(**kwargs)
+          ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\db\models\base.py", line 567, in __init__
+    raise TypeError(
+TypeError: TemporadaBodega() got unexpected keyword arguments: 'descripcion'
+
+======================================================================
+ERROR: test_aggregation_parcial (gestion_bodega.tests.test_recepcion_aggregates.RecepcionAggregatesTest.test_aggregation_parcial)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Yahir\agroproductores_risol\backend\gestion_bodega\tests\test_recepcion_aggregates.py", line 9, in setUp
+    self.temporada = TemporadaBodega.objects.create(bodega=self.bodega, descripcion="2025")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\db\models\manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\db\models\query.py", line 677, in create
+    obj = self.model(**kwargs)
+          ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\db\models\base.py", line 567, in __init__
+    raise TypeError(
+TypeError: TemporadaBodega() got unexpected keyword arguments: 'descripcion'
+
+======================================================================
+ERROR: test_aggregation_sin_empaque (gestion_bodega.tests.test_recepcion_aggregates.RecepcionAggregatesTest.test_aggregation_sin_empaque)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Yahir\agroproductores_risol\backend\gestion_bodega\tests\test_recepcion_aggregates.py", line 9, in setUp
+    self.temporada = TemporadaBodega.objects.create(bodega=self.bodega, descripcion="2025")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\db\models\manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\db\models\query.py", line 677, in create
+    obj = self.model(**kwargs)
+          ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\django\db\models\base.py", line 567, in __init__
+    raise TypeError(
+TypeError: TemporadaBodega() got unexpected keyword arguments: 'descripcion'
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.020s
+
+FAILED (errors=4)
+Destroying test database for alias 'default'...

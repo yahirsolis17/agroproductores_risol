@@ -30,6 +30,12 @@ export interface KpiSummary {
     hoy: number | null; // backend puede mandar null
     semana: number | null; // backend puede mandar null
   };
+  empaque?: {
+    pendientes: number;
+    empacadas: number;
+    cajas_empacadas: number; // total cajas
+    merma: number; // cajas con calidad MERMA
+  };
   stock?: {
     total_kg: number;
     por_madurez: Record<string, number>;

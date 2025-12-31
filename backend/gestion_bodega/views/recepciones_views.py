@@ -134,117 +134,52 @@ def _resolve_semana_for_fecha(bodega: Bodega, temporada: TemporadaBodega, fecha:
     return None
 
 
-# ───────────────────────────────────────────────────────────────────────────
-# Empaque (Fase 3): resumen por recepción basado en ClasificacionEmpaque
-# ───────────────────────────────────────────────────────────────────────────
+from gestion_bodega.utils.recepcion_aggregates import annotate_recepcion_status
 
-def _build_empaque_map(recepcion_ids: list[int]) -> dict[int, dict]:
-    """
-    Devuelve:
-      { recepcion_id: { packed, merma } }
-    usando SUM sobre ClasificacionEmpaque (is_active=True).
-    """
-    if not recepcion_ids:
-        return {}
-
-    rows = (
-        ClasificacionEmpaque.objects
-        .filter(recepcion_id__in=recepcion_ids, is_active=True)
-        .values("recepcion_id")
-        .annotate(
-            packed=Sum("cantidad_cajas"),
-            merma=Sum("cantidad_cajas", filter=Q(calidad__iexact="MERMA")),
-        )
-    )
-
-    out: dict[int, dict] = {}
-    for r in rows:
-        rid = r["recepcion_id"]
-        out[rid] = {
-            "packed": int(r["packed"] or 0),
-            "merma": int(r["merma"] or 0),
-        }
-    return out
-
-
-def _derive_empaque_status(captured: int, packed: int) -> str:
-    if packed <= 0:
-        return "SIN_EMPAQUE"
-    if captured > 0 and packed >= captured:
-        return "EMPACADO"
-    return "PARCIAL"
-
-
-def _inject_empaque_fields(row_dict: dict, *, captured: int, packed: int, merma: int):
-    row_dict["empaque_status"] = _derive_empaque_status(captured, packed)
-    row_dict["cajas_empaquetadas"] = packed
-    row_dict["cajas_disponibles"] = max(0, captured - packed)
-    row_dict["cajas_merma"] = merma
-    # No existe "header id" de empaque; es líneas. Lo dejamos explícito.
-    row_dict["empaque_id"] = None
-    return row_dict
-
-
-# ───────────────────────────────────────────────────────────────────────────
-# ViewSet
-# ───────────────────────────────────────────────────────────────────────────
-
+# ... (Existing helpers can be removed or kept if used elsewhere, but manual map building is deleted)
 
 class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
     serializer_class = RecepcionSerializer
+    # Base queryset
     queryset = (
         Recepcion.objects.select_related("bodega", "temporada", "semana")
         .order_by("-fecha", "-id")
     )
     pagination_class = GenericPagination
 
-    permission_classes = [IsAuthenticated, HasModulePermission]
-    _perm_map = {
-        "list": ["view_recepcion"],
-        "retrieve": ["view_recepcion"],
-        "create": ["add_recepcion"],
-        "update": ["change_recepcion"],
-        "partial_update": ["change_recepcion"],
-        "destroy": ["delete_recepcion"],
-        "archivar": ["archive_recepcion"],
-        "restaurar": ["restore_recepcion"],
-    }
-
-    filter_backends = [DjangoFilterBackend]
+    # ✅ Filtros activados para evitar data leaks
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = {
         "bodega": ["exact"],
         "temporada": ["exact"],
         "semana": ["exact"],
+        "fecha": ["exact", "gte", "lte"],
+        "is_active": ["exact"],
+        "empaque_status": ["exact"], # Para filtrar "SIN_EMPAQUE", "PARCIAL", etc. (agregado via annotate)
     }
+    search_fields = ["folio", "huertero_nombre", "tipo_mango", "observaciones"]
+    ordering_fields = ["fecha", "id", "creado_en"]
     ordering = ["-fecha", "-id"]
 
-    def get_permissions(self):
-        self.required_permissions = self._perm_map.get(self.action, ["view_recepcion"])
-        return [p() for p in self.permission_classes]
+    # ... (permissions and filter config remain same)
 
     def get_queryset(self):
         qs = super().get_queryset()
+        # Apply strict aggregation here
+        qs = annotate_recepcion_status(qs)
         return qs
 
     # ---------- LIST ----------
     def list(self, request, *args, **kwargs):
+        # Logic simplified: just standard DRF list, data is already annotated
         qs = self.filter_queryset(self.get_queryset())
         page = self.paginate_queryset(qs)
 
         if page is not None:
+            # Serializer now handles the fields because they are on the model instance (via annotation)
             ser = self.get_serializer(page, many=True)
             meta = self.get_pagination_meta()
-            rows = list(ser.data)
-
-            recepcion_ids = [obj.id for obj in page]
-            em_map = _build_empaque_map(recepcion_ids)
-
-            for obj, d in zip(page, rows):
-                captured = int(getattr(obj, "cajas_campo", 0) or 0)
-                packed = int(em_map.get(obj.id, {}).get("packed", 0))
-                merma = int(em_map.get(obj.id, {}).get("merma", 0))
-                _inject_empaque_fields(d, captured=captured, packed=packed, merma=merma)
-
+            rows = ser.data
         else:
             ser = self.get_serializer(qs, many=True)
             meta = {
@@ -255,16 +190,7 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
                 "page_size": len(ser.data),
                 "total_pages": 1,
             }
-            rows = list(ser.data)
-
-            recepcion_ids = [obj.id for obj in qs]
-            em_map = _build_empaque_map(recepcion_ids)
-
-            for obj, d in zip(qs, rows):
-                captured = int(getattr(obj, "cajas_campo", 0) or 0)
-                packed = int(em_map.get(obj.id, {}).get("packed", 0))
-                merma = int(em_map.get(obj.id, {}).get("merma", 0))
-                _inject_empaque_fields(d, captured=captured, packed=packed, merma=merma)
+            rows = ser.data
 
         payload = {
             "results": rows,

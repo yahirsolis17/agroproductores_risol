@@ -123,6 +123,67 @@ def kpi_lead_times(temporada_id: int) -> Dict[str, Any]:
     return {"recepcion_a_inventario_h": None, "inventario_a_despacho_h": None}
 
 
+from django.db.models import Sum, F, QuerySet, Q
+from django.db.models.functions import Coalesce
+
+# ... (rest of imports)
+
+# ...
+
+def kpi_empaque(
+    temporada_id: int,
+    fecha_desde: Optional[str],
+    fecha_hasta: Optional[str],
+    huerta_id: Optional[int],
+    semana_id: Optional[int] = None,
+) -> Dict[str, Any]:
+    """
+    KPIs de proceso de empaque para el periodo.
+    """
+    # 1) Métricas de Volumen (Cajas empacadas y Merma)
+    qs_emp = ClasificacionEmpaque.objects.filter(temporada_id=temporada_id, is_active=True)
+    if semana_id:
+        qs_emp = qs_emp.filter(semana_id=semana_id)
+    qs_emp = _apply_date_range(qs_emp, "fecha", fecha_desde, fecha_hasta)
+    
+    agg_emp = qs_emp.aggregate(
+        total=Sum("cantidad_cajas"),
+        merma=Sum("cantidad_cajas", filter=Q(calidad__iexact="MERMA"))
+    )
+    cajas_empacadas = int(agg_emp.get("total") or 0)
+    cajas_merma = int(agg_emp.get("merma") or 0)
+
+    # 2) Métricas de Estado (Recepciones pendientes vs terminadas)
+    # Consideramos recepciones que CAEN en el rango.
+    qs_rec = Recepcion.objects.filter(temporada_id=temporada_id, is_active=True)
+    if semana_id:
+        qs_rec = qs_rec.filter(semana_id=semana_id)
+    qs_rec = _apply_date_range(qs_rec, "fecha", fecha_desde, fecha_hasta)
+
+    # Anotamos lo empacado REAL históricamente (no solo en el rango, sino de esas recepciones)
+    # El status de la recepción depende de su empaque total, no solo del empaque en esta semana.
+    # Pero si filtro ClasificacionEmpaque sin restricción, es costoso?
+    # Mejor: Sum(clasificaciones__cantidad_cajas) filter(is_active=True)
+    qs_rec = qs_rec.annotate(
+        total_packed=Coalesce(
+            Sum("clasificaciones__cantidad_cajas", filter=Q(clasificaciones__is_active=True)), 
+            0
+        )
+    )
+    
+    # Pendientes: Empacado < Campo
+    pendientes_count = qs_rec.filter(total_packed__lt=F("cajas_campo")).count()
+    # Empacadas: Empacado >= Campo (y Campo > 0)
+    empacadas_count = qs_rec.filter(total_packed__gte=F("cajas_campo"), cajas_campo__gt=0).count()
+
+    return {
+        "pendientes": pendientes_count,
+        "empacadas": empacadas_count,
+        "cajas_empacadas": cajas_empacadas,
+        "merma": cajas_merma,
+    }
+
+
 def build_summary(
     temporada_id: int,
     fecha_desde: Optional[str],
@@ -136,6 +197,7 @@ def build_summary(
     return {
         "kpis": {
             "recepcion": kpi_recepcion(temporada_id, fecha_desde, fecha_hasta, huerta_id, semana_id=semana_id),
+            "empaque": kpi_empaque(temporada_id, fecha_desde, fecha_hasta, huerta_id, semana_id=semana_id),
             "stock": kpi_stock(temporada_id, huerta_id),
             "ocupacion": kpi_ocupacion(temporada_id),
             "rotacion": kpi_rotacion(temporada_id),
@@ -171,6 +233,16 @@ def queue_recepciones_qs(
         qs = qs.filter(semana_id=semana_id)
 
     qs = _apply_date_range(qs, "fecha", fecha_desde, fecha_hasta)
+
+    if solo_pendientes:
+        # Filtrar solo recepciones donde empacado < campo
+        qs = qs.annotate(
+            total_packed=Coalesce(
+                Sum("clasificaciones__cantidad_cajas", filter=Q(clasificaciones__is_active=True)), 
+                0
+            )
+        )
+        qs = qs.filter(total_packed__lt=F("cajas_campo"))
 
     return (
         qs.values("id", "fecha", "huertero_nombre", "cajas_campo", "tipo_mango", "semana_id")

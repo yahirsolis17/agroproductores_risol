@@ -23,6 +23,8 @@ from gestion_bodega.models import (
     Pedido,
     CompraMadera,
     Consumible,
+    CamionConsumoEmpaque,
+    SurtidoRenglon,
 )
 from .semana import iso_week_code, rango_por_semana_id
 
@@ -139,10 +141,82 @@ def aggregates_for_semana(
         {"id": "k_consumibles", "label": "Gasto en Consumibles", "value": _fmt_money(consumibles_monto)},
     ]
 
-    # Tabla de clasificación
+    # Salidas por Camiones (Consumo Real)
+    salidas_camion = (
+        CamionConsumoEmpaque.objects.filter(
+            camion__bodega_id=bodega_id,
+            camion__temporada_id=temporada_id,
+            camion__fecha_salida__range=(d1, d2),
+            is_active=True,
+        )
+        .values("clasificacion_empaque__material", "clasificacion_empaque__calidad")
+        .annotate(total=Sum("cantidad"))
+    )
+
+    # Salidas por Pedidos (Surtidos)
+    salidas_pedido = (
+        SurtidoRenglon.objects.filter(
+            renglon__pedido__bodega_id=bodega_id,
+            renglon__pedido__temporada_id=temporada_id,
+            renglon__pedido__fecha__range=(d1, d2),
+            is_active=True,
+        )
+        .values("origen_clasificacion__material", "origen_clasificacion__calidad")
+        .annotate(total=Sum("cantidad"))
+    )
+
+    # Merge data by (Material, Calidad)
+    # dict key: (material, calidad) -> { producido: 0, desp_pedidos: 0, desp_camiones: 0 }
+    report_map = {}
+
+    for c in clasif:
+        key = (c["material"], c["calidad"])
+        report_map[key] = {"prod": c["cajas"] or 0, "desp_ped": 0, "desp_cam": 0}
+
+    for s in salidas_camion:
+        mat = s["clasificacion_empaque__material"]
+        cal = s["clasificacion_empaque__calidad"]
+        key = (mat, cal)
+        if key not in report_map:
+            report_map[key] = {"prod": 0, "desp_ped": 0, "desp_cam": 0}
+        report_map[key]["desp_cam"] += (s["total"] or 0)
+
+    for s in salidas_pedido:
+        mat = s["origen_clasificacion__material"]
+        cal = s["origen_clasificacion__calidad"]
+        key = (mat, cal)
+        if key not in report_map:
+            report_map[key] = {"prod": 0, "desp_ped": 0, "desp_cam": 0}
+        report_map[key]["desp_ped"] += (s["total"] or 0)
+
+    # Convertir a lista sortable
+    final_rows = []
+    for (mat, cal), vals in report_map.items():
+        total_desp = vals["desp_ped"] + vals["desp_cam"]
+        final_rows.append({
+            "material": mat,
+            "calidad": cal,
+            "producido": vals["prod"],
+            "desp_ped": vals["desp_ped"],
+            "desp_cam": vals["desp_cam"],
+            "desp_total": total_desp,
+            "saldo": vals["prod"] - total_desp
+        })
+    
+    # Sort by Material, then Calidad
+    final_rows.sort(key=lambda x: (x["material"], x["calidad"]))
+
+    # Tabla de clasificación actualizada
     tabla_clasif = {
-        "columns": ["Material", "Calidad", "Cajas"],
-        "rows": [[c["material"], c["calidad"], _fmt_int(c["cajas"])] for c in clasif],
+        "columns": ["Material", "Calidad", "Producido", "Desp. Pedidos", "Desp. Camiones", "Desp. Total"],
+        "rows": [[
+            r["material"], 
+            r["calidad"], 
+            _fmt_int(r["producido"]), 
+            _fmt_int(r["desp_ped"]),
+            _fmt_int(r["desp_cam"]),
+            _fmt_int(r["desp_total"])
+        ] for r in final_rows],
     }
 
     return {

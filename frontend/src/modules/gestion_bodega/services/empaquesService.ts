@@ -137,10 +137,10 @@ function buildMetaFromDRF(payload: any, resultsLen: number) {
   // Si no vienen, inferimos mínimos seguros.
   const page = Number(payload?.page ?? 1);
   const page_size = Number(
-  payload?.page_size !== undefined && payload?.page_size !== null
-    ? payload.page_size
-    : resultsLen || 10
-    );
+    payload?.page_size !== undefined && payload?.page_size !== null
+      ? payload.page_size
+      : resultsLen || 10
+  );
   const total_pages =
     payload?.total_pages !== undefined
       ? Number(payload.total_pages)
@@ -196,6 +196,18 @@ export const empaquesService = {
 
     const row = payload?.clasificacion ?? payload?.empaque ?? payload;
     return normalizeEmpaqueRow(row);
+  },
+
+  async listDisponibles(params: { bodega: number; temporada: number }): Promise<EmpaqueRow[]> {
+    const res = await apiClient.get(`${BASE_URL}disponibles/`, { params });
+    const payload = unwrapData<any>(res.data);
+    const resultsRaw = payload?.results ?? [];
+
+    // Normalizamos y aseguramos que tenga el campo disponible
+    return (resultsRaw as any[]).map(r => ({
+      ...normalizeEmpaqueRow(r),
+      disponible: Number(r.disponible || 0)
+    }));
   },
 
   /**

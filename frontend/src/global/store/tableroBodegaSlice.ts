@@ -37,6 +37,7 @@ export interface TableroFilters {
   estado_lote: string | null;
   calidad: string | null;
   madurez: string | null;
+  estado: string | null;
   solo_pendientes: boolean | undefined;
   page: number;
   page_size: number;
@@ -56,6 +57,7 @@ const DEFAULT_FILTERS: TableroFilters = {
   estado_lote: null,
   calidad: null,
   madurez: null,
+  estado: null,
   solo_pendientes: true,
   page: 1,
   page_size: 10,

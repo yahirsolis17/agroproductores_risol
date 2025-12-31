@@ -10,6 +10,7 @@ from .views.pedidos_views import PedidoViewSet
 from .views.camiones_views import CamionSalidaViewSet
 from .views.consumibles_views import ConsumibleViewSet
 from .views.cierres_views import CierresViewSet
+from .views.lotes_views import LoteBodegaViewSet
 from .views.reportes.reporte_semanal_views import ReporteSemanalView
 from .views.reportes.reporte_temporada_views import ReporteTemporadaView
 from .views.bodegas_views import (
@@ -34,6 +35,7 @@ router = DefaultRouter()
 router.register(r"bodegas", BodegaViewSet, basename="bodegas")
 router.register(r"clientes", ClienteViewSet, basename="clientes")
 router.register(r"temporadas", TemporadaBodegaViewSet, basename="temporadas")
+router.register(r"lotes", LoteBodegaViewSet, basename="lotes") # Nuevo endpoint
 router.register(r"recepciones", RecepcionViewSet, basename="recepciones")
 router.register(r"empaques", ClasificacionEmpaqueViewSet, basename="empaques")
 router.register(r"inventario-plastico", InventarioPlasticoViewSet, basename="inventario-plastico")
