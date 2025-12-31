@@ -972,7 +972,14 @@ const TableroBodegaPage: React.FC = () => {
                 isActiveSelectedWeek={isActiveSelectedWeek}
                 isExpiredWeek={isExpiredWeek}
                 forcedOpen={forcedOpen}
-                onSectionOpen={(key) => setOpenSectionKey(key)}
+                onSectionOpen={(key) => {
+                  if (key === "empaque") {
+                    tablero?.refetchQueues?.("inventarios");
+                  }
+                  if (key === "logistica") {
+                    tablero?.refetchQueues?.("despachos");
+                  }
+                }}
                 resumen={
                   <ResumenSection
                     items={kpiCards}

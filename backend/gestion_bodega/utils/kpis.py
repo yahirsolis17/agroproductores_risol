@@ -14,7 +14,6 @@ from gestion_bodega.models import (
     ClasificacionEmpaque,
     CamionSalida,
     CamionItem,
-    CamionConsumoEmpaque,
 )
 
 logger = logging.getLogger(__name__)
@@ -374,17 +373,6 @@ def build_queue_items(tipo: str, raw_rows) -> List[Dict[str, Any]]:
                 tipos_por_camion.setdefault(row["camion_id"], [])
                 if row["tipo_mango"] not in tipos_por_camion[row["camion_id"]]:
                     tipos_por_camion[row["camion_id"]].append(row["tipo_mango"])
-            for row in (
-                CamionConsumoEmpaque.objects.filter(camion_id__in=camion_ids)
-                .select_related("clasificacion_empaque")
-                .values("camion_id", "clasificacion_empaque__tipo_mango")
-            ):
-                tipo = row["clasificacion_empaque__tipo_mango"]
-                if not tipo:
-                    continue
-                tipos_por_camion.setdefault(row["camion_id"], [])
-                if tipo not in tipos_por_camion[row["camion_id"]]:
-                    tipos_por_camion[row["camion_id"]].append(tipo)
         for r in raw_rows:
             items.append({
                 "id": r["id"],

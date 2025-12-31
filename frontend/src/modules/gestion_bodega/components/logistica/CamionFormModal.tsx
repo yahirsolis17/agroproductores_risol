@@ -76,12 +76,7 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
     const totalFromItems = items.reduce((acc: number, i: any) => acc + (Number(i?.cantidad_cajas) || 0), 0);
     const totalCajas = totalFromCargas || totalFromItems;
     const tipos = Array.from(
-      new Set(
-        [
-          ...items.map((i: any) => String(i?.tipo_mango || "").trim()),
-          ...cargas.map((c: any) => String(c?.tipo_mango || "").trim()),
-        ].filter((v: string) => v)
-      )
+      new Set(items.map((i: any) => String(i?.tipo_mango || "").trim()).filter((v: string) => v))
     );
     return { totalCajas, tipos };
   }, [currentCamion]);

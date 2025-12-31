@@ -150,6 +150,15 @@ class InventarioPlasticoViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.M
     @action(detail=False, methods=["get"])
     def movimientos(self, request):
         qs = MovimientoPlastico.objects.select_related("inventario").order_by("-fecha", "-id")
+        
+        # Filtros de integridad (via inventario)
+        bodega_id = request.query_params.get("bodega")
+        temporada_id = request.query_params.get("temporada")
+        if bodega_id:
+            qs = qs.filter(inventario__bodega_id=bodega_id)
+        if temporada_id:
+            qs = qs.filter(inventario__temporada_id=temporada_id)
+
         # Filtros básicos via query params
         inv_id = request.query_params.get("inventario")
         tipo = request.query_params.get("tipo")
