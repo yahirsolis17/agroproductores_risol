@@ -391,6 +391,12 @@ class TableroBodegaSummaryView(BaseDashboardAPIView):
             )
         try:
             bodega_id = _to_int(request.query_params.get("bodega"))
+            if not bodega_id:
+                return NotificationHandler.generate_response(
+                    "validation_error",
+                    data={"detail": "Parámetro requerido: bodega"},
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
             huerta_id = _to_int(request.query_params.get("huerta_id"))
 
             # P1 Robustez: Auto-cierre si corresponde antes de calcular KPIs
@@ -402,6 +408,7 @@ class TableroBodegaSummaryView(BaseDashboardAPIView):
 
             kpis_or_payload = build_summary(
                 temporada_id,
+                bodega_id,
                 fdesde,
                 fhasta,
                 huerta_id,
@@ -456,12 +463,19 @@ class TableroBodegaQueuesView(BaseDashboardAPIView):
 
         try:
             bodega_id = _to_int(request.query_params.get("bodega"))
+            if not bodega_id:
+                return NotificationHandler.generate_response(
+                    "validation_error",
+                    data={"detail": "Parámetro requerido: bodega"},
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
             fdesde, fhasta, _ = _resolve_range(request, temporada_id, bodega_id)
 
             huerta_id = _to_int(request.query_params.get("huerta_id"))
             estado_lote = request.query_params.get("estado_lote")
             calidad = request.query_params.get("calidad")
             madurez = request.query_params.get("madurez")
+            estado = request.query_params.get("estado")
             solo_pendientes = _parse_bool(request.query_params.get("solo_pendientes"))
 
             order_by_alias = request.query_params.get("order_by")
@@ -478,6 +492,7 @@ class TableroBodegaQueuesView(BaseDashboardAPIView):
             if tipo == "recepciones":
                 base_qs = queue_recepciones_qs(
                     temporada_id=temporada_id,
+                    bodega_id=bodega_id,
                     fecha_desde=fdesde,
                     fecha_hasta=fhasta,
                     huerta_id=huerta_id,
@@ -489,6 +504,7 @@ class TableroBodegaQueuesView(BaseDashboardAPIView):
             elif tipo == "inventarios":
                 base_qs = queue_inventarios_qs(
                     temporada_id=temporada_id,
+                    bodega_id=bodega_id,
                     fecha_desde=fdesde,
                     fecha_hasta=fhasta,
                     huerta_id=huerta_id,
@@ -498,8 +514,10 @@ class TableroBodegaQueuesView(BaseDashboardAPIView):
             else:  # despachos
                 base_qs = queue_despachos_qs(
                     temporada_id=temporada_id,
+                    bodega_id=bodega_id,
                     fecha_desde=fdesde,
                     fecha_hasta=fhasta,
+                    estado=estado,
                 )
 
             if ordering:
