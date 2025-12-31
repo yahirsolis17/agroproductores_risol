@@ -25,9 +25,6 @@ interface EmpaqueSectionProps {
   /** Acción opcional: aplica filtro visual en Recepciones (Fase 5). */
   onVerPendientes?: () => void;
 
-  /** Acción opcional: abre el drawer en modo masivo (Fase E). */
-  onEmpacarMasivo?: () => void;
-
   /** Texto opcional por si quieres personalizar guía. */
   helperText?: string;
 }
@@ -39,7 +36,6 @@ const EmpaqueSection: React.FC<EmpaqueSectionProps> = ({
   merma = 0,
   inventoryRows = [],
   onVerPendientes,
-  onEmpacarMasivo,
   helperText,
 }) => {
   const theme = useTheme();
@@ -80,7 +76,7 @@ const EmpaqueSection: React.FC<EmpaqueSectionProps> = ({
 
             <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500, lineHeight: 1.6 }}>
               {helperText ??
-                "En este tablero, Empaque no tendrá tabla principal. Se abre como Drawer desde la columna “Empaque” en Recepciones (chip/acción) o usa el modo masivo."}
+                "En este tablero, Empaque no tendrá tabla principal. Se abre como Drawer desde la columna “Empaque” en Recepciones (chip/acción)."}
             </Typography>
 
             <Box sx={{ mt: 1.5, display: "flex", gap: 1, flexWrap: "wrap" }}>
@@ -100,24 +96,6 @@ const EmpaqueSection: React.FC<EmpaqueSectionProps> = ({
                 Ver pendientes
               </Button>
 
-              <Button
-                size="small"
-                variant="contained"
-                onClick={onEmpacarMasivo}
-                disabled={!onEmpacarMasivo}
-                sx={{
-                  borderRadius: 3,
-                  textTransform: "none",
-                  fontWeight: 700,
-                  boxShadow: "none",
-                }}
-              >
-                Empacar Masivo
-              </Button>
-
-              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, alignSelf: "center" }}>
-                (Fase E: Bulk FIFO disponible)
-              </Typography>
             </Box>
           </Box>
 

@@ -172,6 +172,9 @@ function mapQueueToUI(rows: QueueItem[]): QueueRowUI[] {
     if (r.meta?.calidad) chips.push(`Calidad: ${r.meta.calidad}`);
     if (r.meta?.camara) chips.push(`Cámara: ${r.meta.camara}`);
     if (r.meta?.sla_h != null) chips.push(`SLA: ${r.meta.sla_h}h`);
+    if (Array.isArray(r.meta?.tipos_mango) && r.meta.tipos_mango.length > 0) {
+      chips.push(`Mango: ${r.meta.tipos_mango.join(", ")}`);
+    }
 
     const huertero = anyR.huertero ?? r.meta?.huertero ?? anyR["recepcion__huertero_nombre"] ?? anyR["huertero_nombre"];
 
