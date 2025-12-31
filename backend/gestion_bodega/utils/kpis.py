@@ -5,7 +5,8 @@ import logging
 from datetime import timedelta
 from typing import Any, Dict, List, Optional
 
-from django.db.models import Sum, F, QuerySet
+from django.db.models import Sum, F, QuerySet, Q
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from gestion_bodega.models import (
@@ -126,14 +127,6 @@ def kpi_lead_times(temporada_id: int) -> Dict[str, Any]:
     Placeholder: sin modelo de lotes/despachos detallados.
     """
     return {"recepcion_a_inventario_h": None, "inventario_a_despacho_h": None}
-
-
-from django.db.models import Sum, F, QuerySet, Q
-from django.db.models.functions import Coalesce
-
-# ... (rest of imports)
-
-# ...
 
 def kpi_empaque(
     temporada_id: int,
