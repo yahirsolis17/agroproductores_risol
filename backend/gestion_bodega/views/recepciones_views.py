@@ -117,6 +117,28 @@ def _map_recepcion_validation_errors(errors) -> tuple[str, dict, int]:
     return "validation_error", {"errors": errors}, status.HTTP_400_BAD_REQUEST
 
 
+def _inject_empaque_fields(row: dict, *, captured: int, packed: int, merma: int) -> dict:
+    """
+    Inyecta campos de empaque en la respuesta para mantener el contrato esperado.
+    - cajas_empaquetadas: total packed
+    - cajas_merma: total merma
+    - cajas_disponibles: captured - packed (no negativo)
+    - empaque_status: SIN_EMPAQUE | PARCIAL | EMPACADO
+    """
+    row["cajas_empaquetadas"] = int(packed or 0)
+    row["cajas_merma"] = int(merma or 0)
+    disp = max(0, int(captured or 0) - int(packed or 0))
+    row["cajas_disponibles"] = disp
+    if packed <= 0:
+        status_empaque = "SIN_EMPAQUE"
+    elif captured > 0 and packed >= captured:
+        status_empaque = "EMPACADO"
+    else:
+        status_empaque = "PARCIAL"
+    row["empaque_status"] = status_empaque
+    return row
+
+
 def _resolve_semana_for_fecha(bodega: Bodega, temporada: TemporadaBodega, fecha: date):
     qs = (
         CierreSemanal.objects.filter(
