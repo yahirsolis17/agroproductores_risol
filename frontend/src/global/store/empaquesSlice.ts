@@ -235,7 +235,8 @@ const empaquesSlice = createSlice({
       })
       .addCase(fetchEmpaques.rejected, (state, action) => {
         state.status = "failed";
-        state.error = toErrorMessage(action.payload ?? null);
+        const msg = action.payload ?? null;
+        state.error = typeof msg === "object" ? JSON.stringify(msg) : toErrorMessage(msg);
       })
 
       // BY ID

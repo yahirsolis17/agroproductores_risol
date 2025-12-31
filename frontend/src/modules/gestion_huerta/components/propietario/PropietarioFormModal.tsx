@@ -1,5 +1,4 @@
 // src/modules/gestion_huerta/components/propietario/PropietarioFormModal.tsx
-import React, { useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -14,7 +13,7 @@ import { PropietarioCreateData } from '../../types/propietarioTypes';
 import { PermissionButton } from '../../../../components/common/PermissionButton'; // ← Import
 import { applyBackendErrorsToFormik } from '../../../../global/validation/backendFieldErrors';
 import { focusFirstError } from '../../../../global/validation/focusFirstError';
-import FormAlertBanner from '../../../../components/common/form/FormAlertBanner';
+
 import FormikTextField from '../../../../components/common/form/FormikTextField';
 
 interface Props {
@@ -55,7 +54,6 @@ export default function PropietarioFormModal({
     telefono: '',
     direccion: '',
   };
-  const [formErrors, setFormErrors] = useState<string[]>([]);
 
   return (
     <Dialog
@@ -78,13 +76,11 @@ export default function PropietarioFormModal({
         validateOnMount={false}
         onSubmit={async (vals, helpers) => {
           try {
-            const nuevo = await onSubmit(vals); // ← el thunk ya mostró el toast
-            setFormErrors([]);
+            const nuevo = await onSubmit(vals);
             onSuccess?.(nuevo);
             onClose();
-          } catch (error: any) {
-            const normalized = applyBackendErrorsToFormik(error, helpers);
-            setFormErrors(normalized.formErrors);
+          } catch (error: unknown) {
+            applyBackendErrorsToFormik(error, helpers);
           } finally {
             helpers.setSubmitting(false);
           }
@@ -117,12 +113,7 @@ export default function PropietarioFormModal({
             }}
           >
             <DialogContent dividers className="space-y-4">
-              <FormAlertBanner
-                open={formErrors.length > 0}
-                severity="error"
-                title="Revisa la información"
-                messages={formErrors}
-              />
+              {/* No banner - errores van inline en cada campo */}
               {['nombre', 'apellidos', 'telefono', 'direccion'].map((field) => {
                 return (
                   <FormikTextField
@@ -139,7 +130,7 @@ export default function PropietarioFormModal({
             </DialogContent>
 
             <DialogActions className="px-6 py-4">
-            <Button
+              <Button
                 variant="outlined"
                 color="primary"
                 onClick={onClose}

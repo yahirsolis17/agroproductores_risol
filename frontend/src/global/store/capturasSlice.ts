@@ -90,7 +90,7 @@ export const fetchCapturas = createAsyncThunk<
     const resp = await listCapturas(filters as unknown as Record<string, unknown>, { signal });
     return resp;
   } catch (err: unknown) {
-      return rejectWithValue(mapError(err, 'Error listando capturas'));
+    return rejectWithValue(mapError(err, 'Error listando capturas'));
   }
 });
 
@@ -208,7 +208,8 @@ const capturasSlice = createSlice({
     });
     builder.addCase(fetchCapturas.rejected, (state, action: PayloadAction<CapturaError | undefined>) => {
       state.status = 'failed';
-      state.error = action.payload?.message ?? 'Error al cargar capturas';
+      const msg = action.payload;
+      state.error = typeof msg === 'string' ? msg : JSON.stringify(msg ?? 'Error al cargar capturas');
     });
 
     // create
@@ -229,7 +230,8 @@ const capturasSlice = createSlice({
     });
     builder.addCase(createCapturaThunk.rejected, (state, action: PayloadAction<CapturaError | undefined>) => {
       state.saving = false;
-      state.error = action.payload?.message ?? 'Error al crear captura';
+      const msg = action.payload;
+      state.error = typeof msg === 'string' ? msg : JSON.stringify(msg ?? 'Error al crear captura');
     });
 
     // update
@@ -245,7 +247,8 @@ const capturasSlice = createSlice({
     });
     builder.addCase(updateCapturaThunk.rejected, (state, action: PayloadAction<CapturaError | undefined>) => {
       state.saving = false;
-      state.error = action.payload?.message ?? 'Error al actualizar captura';
+      const msg = action.payload;
+      state.error = typeof msg === 'string' ? msg : JSON.stringify(msg ?? 'Error al actualizar captura');
     });
 
     // archivar

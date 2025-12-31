@@ -48,7 +48,7 @@ type FetchParams = { page: number; estado: Estado } & Record<string, string | nu
 export const fetchPropietarios = createAsyncThunk<
   { propietarios: Propietario[]; meta: PaginationMeta },
   FetchParams,
-  { rejectValue: string }
+  { rejectValue: unknown }
 >(
   'propietarios/fetch',
   async (params, thunkAPI) => {
@@ -58,9 +58,8 @@ export const fetchPropietarios = createAsyncThunk<
       const res = await propietarioService.list(page, estado, filters, { signal });
       return { propietarios: res.data.results, meta: res.data.meta };
     } catch (err: unknown) {
-      const errorData = (err as { response?: { data?: unknown } })?.response?.data;
-      handleBackendNotification(errorData);
-      return thunkAPI.rejectWithValue('Error al cargar propietarios');
+      const errorData = (err as any)?.response?.data ?? err;
+      return thunkAPI.rejectWithValue(errorData);
     }
   }
 );
@@ -68,7 +67,7 @@ export const fetchPropietarios = createAsyncThunk<
 export const createPropietario = createAsyncThunk<
   Propietario,
   PropietarioCreateData,
-  { rejectValue: string }
+  { rejectValue: unknown }
 >(
   'propietarios/create',
   async (payload, { rejectWithValue }) => {
@@ -77,9 +76,9 @@ export const createPropietario = createAsyncThunk<
       handleBackendNotification(res);
       return res.data.propietario as Propietario;
     } catch (err: unknown) {
-      const errorData = (err as { response?: { data?: unknown } })?.response?.data;
-      handleBackendNotification(errorData);
-      return rejectWithValue('Error al crear propietario');
+      const errorData = (err as any)?.response?.data ?? err;
+      // No toast here - let the form handle inline errors
+      return rejectWithValue(errorData);
     }
   }
 );
@@ -87,7 +86,7 @@ export const createPropietario = createAsyncThunk<
 export const updatePropietario = createAsyncThunk<
   Propietario,
   { id: number; payload: PropietarioUpdateData },
-  { rejectValue: string }
+  { rejectValue: unknown }
 >(
   'propietarios/update',
   async ({ id, payload }, { rejectWithValue }) => {
@@ -96,9 +95,9 @@ export const updatePropietario = createAsyncThunk<
       handleBackendNotification(res);
       return res.data.propietario as Propietario;
     } catch (err: unknown) {
-      const errorData = (err as { response?: { data?: unknown } })?.response?.data;
-      handleBackendNotification(errorData);
-      return rejectWithValue('Error al actualizar propietario');
+      const errorData = (err as any)?.response?.data ?? err;
+      // No toast here - let the form handle inline errors
+      return rejectWithValue(errorData);
     }
   }
 );
@@ -106,7 +105,7 @@ export const updatePropietario = createAsyncThunk<
 export const archivePropietario = createAsyncThunk<
   Propietario,
   number,
-  { rejectValue: string }
+  { rejectValue: unknown }
 >(
   'propietarios/archive',
   async (id, { rejectWithValue }) => {
@@ -115,9 +114,9 @@ export const archivePropietario = createAsyncThunk<
       handleBackendNotification(res);
       return res.data.propietario as Propietario; // Objeto ya archivado
     } catch (err: unknown) {
-      const errorData = (err as { response?: { data?: unknown } })?.response?.data;
-      handleBackendNotification(errorData);
-      return rejectWithValue('Error al archivar propietario');
+      const errorData = (err as any)?.response?.data ?? err;
+      handleBackendNotification(errorData); // Non-form action, toast OK
+      return rejectWithValue(errorData);
     }
   }
 );
@@ -125,7 +124,7 @@ export const archivePropietario = createAsyncThunk<
 export const restorePropietario = createAsyncThunk<
   Propietario,
   number,
-  { rejectValue: string }
+  { rejectValue: unknown }
 >(
   'propietarios/restore',
   async (id, { rejectWithValue }) => {
@@ -134,9 +133,9 @@ export const restorePropietario = createAsyncThunk<
       handleBackendNotification(res);
       return res.data.propietario as Propietario; // Objeto restaurado
     } catch (err: unknown) {
-      const errorData = (err as { response?: { data?: unknown } })?.response?.data;
-      handleBackendNotification(errorData);
-      return rejectWithValue('Error al restaurar propietario');
+      const errorData = (err as any)?.response?.data ?? err;
+      handleBackendNotification(errorData); // Non-form action, toast OK
+      return rejectWithValue(errorData);
     }
   }
 );
@@ -144,7 +143,7 @@ export const restorePropietario = createAsyncThunk<
 export const deletePropietario = createAsyncThunk<
   number,
   number,
-  { rejectValue: string }
+  { rejectValue: unknown }
 >(
   'propietarios/delete',
   async (id, { rejectWithValue }) => {
@@ -153,9 +152,9 @@ export const deletePropietario = createAsyncThunk<
       handleBackendNotification(res);
       return id;
     } catch (err: unknown) {
-      const errorData = (err as { response?: { data?: unknown } })?.response?.data;
-      handleBackendNotification(errorData);
-      return rejectWithValue('Error al eliminar propietario');
+      const errorData = (err as any)?.response?.data ?? err;
+      handleBackendNotification(errorData); // Non-form action, toast OK
+      return rejectWithValue(errorData);
     }
   }
 );
@@ -163,7 +162,7 @@ export const deletePropietario = createAsyncThunk<
 export const fetchPropietarioOptions = createAsyncThunk<
   { label: string; value: number }[],
   { query: string },
-  { rejectValue: string }
+  { rejectValue: unknown }
 >(
   'propietarios/fetchOptions',
   async ({ query }, thunkAPI) => {
@@ -172,9 +171,8 @@ export const fetchPropietarioOptions = createAsyncThunk<
       const res = await propietarioService.getConHuertas(query, { signal });
       return res.data.results.map((p) => ({ label: `${p.nombre} ${p.apellidos}`, value: p.id }));
     } catch (err: unknown) {
-      const errorData = (err as { response?: { data?: unknown } })?.response?.data;
-      handleBackendNotification(errorData);
-      return thunkAPI.rejectWithValue('Error al cargar propietarios');
+      const errorData = (err as any)?.response?.data ?? err;
+      return thunkAPI.rejectWithValue(errorData);
     }
   }
 );
@@ -205,7 +203,8 @@ const propietariosSlice = createSlice({
     b.addCase(fetchPropietarios.rejected, (s, { payload, error }) => {
       s.loading = false;
       s.loaded = true;
-      s.error = (payload as string) ?? error.message ?? 'Error';
+      const msg = (payload as any)?.message ?? (payload as any)?.detail ?? error.message ?? 'Error';
+      s.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
     });
 
     /* -------- create / update -------- */

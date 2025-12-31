@@ -184,7 +184,7 @@ class TimeStampedModel(models.Model):
 # ───────────────────────────────────────────────────────────────────────────
 
 class Bodega(TimeStampedModel):
-    nombre = models.CharField(max_length=120, unique=True)
+    nombre = models.CharField(max_length=120)
     ubicacion = models.CharField(max_length=255, blank=True, default="")
 
     class Meta:

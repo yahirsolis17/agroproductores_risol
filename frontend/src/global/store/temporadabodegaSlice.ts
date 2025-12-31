@@ -68,28 +68,9 @@ const emptyMeta: PaginationMeta = {
   previous: null,
 };
 
-function getErrorMessage(err: unknown): string {
-  const data = (err as { response?: { data?: unknown } })?.response?.data;
-  if (typeof data === 'string') return data;
-  if (data && typeof data === 'object') {
-    const d = data as Record<string, unknown>;
-    if (d.detail) return String(d.detail);
-    if (d.message) return String(d.message);
-  }
-  return err instanceof Error ? err.message : 'Ocurrió un error';
-}
 
-function extractErrorMessage(payload: unknown, fallback: string): string {
-  if (!payload) return fallback;
-  if (typeof payload === "string") return payload || fallback;
-  if (typeof payload === "object") {
-    const candidate =
-      (payload as { message?: string; key?: string }).message ||
-      (payload as { message?: string; key?: string }).key;
-    return candidate || fallback;
-  }
-  return fallback;
-}
+
+
 
 // -------------------------
 // Initial state
@@ -140,7 +121,7 @@ export const fetchTemporadasBodega = createAsyncThunk(
     } catch (err: unknown) {
       const resp = (err as { response?: { data?: unknown } })?.response?.data;
       if (resp) handleBackendNotification(resp);
-      return rejectWithValue(getErrorMessage(err));
+      return rejectWithValue(resp || { message: 'Error desconocido' });
     }
   }
 );
@@ -158,12 +139,9 @@ export const addTemporadaBodega = createAsyncThunk(
       }
       return res.data as TemporadaBodega;
     } catch (err: unknown) {
-      const resp = (err as { response?: { data?: { notification?: { key?: string; message?: string } } } })?.response?.data;
-      if (resp) handleBackendNotification(resp);
-      const notification = resp?.notification;
-      const key = notification?.key;
-      const message = notification?.message ?? getErrorMessage(err);
-      return rejectWithValue({ key, message });
+      const resp = (err as any)?.response?.data ?? { md_error: true, message: (err as Error)?.message ?? 'Error desconocido' };
+      if ((err as any)?.response?.data) handleBackendNotification(resp);
+      return rejectWithValue(resp);
     }
   }
 );
@@ -181,12 +159,9 @@ export const editTemporadaBodega = createAsyncThunk(
       }
       return resp.data as TemporadaBodega;
     } catch (err: unknown) {
-      const resp = (err as { response?: { data?: { notification?: { key?: string; message?: string } } } })?.response?.data;
-      if (resp) handleBackendNotification(resp);
-      const notification = resp?.notification;
-      const key = notification?.key;
-      const message = notification?.message ?? getErrorMessage(err);
-      return rejectWithValue({ key, message });
+      const resp = (err as any)?.response?.data ?? { md_error: true, message: (err as Error)?.message ?? 'Error desconocido' };
+      if ((err as any)?.response?.data) handleBackendNotification(resp);
+      return rejectWithValue(resp);
     }
   }
 );
@@ -204,12 +179,9 @@ export const archiveTemporada = createAsyncThunk(
       }
       return res.data as TemporadaBodega | null;
     } catch (err: unknown) {
-      const resp = (err as { response?: { data?: { notification?: { key?: string; message?: string } } } })?.response?.data;
-      if (resp) handleBackendNotification(resp);
-      const notification = resp?.notification;
-      const key = notification?.key;
-      const message = notification?.message ?? getErrorMessage(err);
-      return rejectWithValue({ key, message });
+      const resp = (err as any)?.response?.data ?? { md_error: true, message: (err as Error)?.message ?? 'Error desconocido' };
+      if ((err as any)?.response?.data) handleBackendNotification(resp);
+      return rejectWithValue(resp);
     }
   }
 );
@@ -227,12 +199,9 @@ export const restoreTemporada = createAsyncThunk(
       }
       return res.data as TemporadaBodega | null;
     } catch (err: unknown) {
-      const resp = (err as { response?: { data?: { notification?: { key?: string; message?: string } } } })?.response?.data;
-      if (resp) handleBackendNotification(resp);
-      const notification = resp?.notification;
-      const key = notification?.key;
-      const message = notification?.message ?? getErrorMessage(err);
-      return rejectWithValue({ key, message });
+      const resp = (err as any)?.response?.data ?? { md_error: true, message: (err as Error)?.message ?? 'Error desconocido' };
+      if ((err as any)?.response?.data) handleBackendNotification(resp);
+      return rejectWithValue(resp);
     }
   }
 );
@@ -250,12 +219,9 @@ export const finalizeTemporada = createAsyncThunk(
       }
       return res.data as TemporadaBodega | null;
     } catch (err: unknown) {
-      const resp = (err as { response?: { data?: { notification?: { key?: string; message?: string } } } })?.response?.data;
-      if (resp) handleBackendNotification(resp);
-      const notification = resp?.notification;
-      const key = notification?.key;
-      const message = notification?.message ?? getErrorMessage(err);
-      return rejectWithValue({ key, message });
+      const resp = (err as any)?.response?.data ?? { md_error: true, message: (err as Error)?.message ?? 'Error desconocido' };
+      if ((err as any)?.response?.data) handleBackendNotification(resp);
+      return rejectWithValue(resp);
     }
   }
 );
@@ -275,12 +241,9 @@ export const deleteTemporada = createAsyncThunk(
       const deletedId = payload?.deleted_id ?? payload?.temporada_id ?? id;
       return deletedId;
     } catch (err: unknown) {
-      const resp = (err as { response?: { data?: { notification?: { key?: string; message?: string } } } })?.response?.data;
-      if (resp) handleBackendNotification(resp);
-      const notification = resp?.notification;
-      const key = notification?.key;
-      const message = notification?.message ?? getErrorMessage(err);
-      return rejectWithValue({ key, message });
+      const resp = (err as any)?.response?.data ?? { md_error: true, message: (err as Error)?.message ?? 'Error desconocido' };
+      if ((err as any)?.response?.data) handleBackendNotification(resp);
+      return rejectWithValue(resp);
     }
   }
 );
@@ -341,7 +304,8 @@ const slice = createSlice({
     });
     builder.addCase(fetchTemporadasBodega.rejected, (state, action) => {
       state.ops.listing = false;
-      state.error = (action.payload as string) ?? "Error al cargar temporadas";
+      const msg = (action.payload as any)?.message ?? (action.payload as any)?.detail ?? action.error.message ?? 'Error';
+      state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
     });
 
     // CREATE
@@ -355,7 +319,8 @@ const slice = createSlice({
     });
     builder.addCase(addTemporadaBodega.rejected, (state, action) => {
       state.ops.creating = false;
-      state.error = extractErrorMessage(action.payload, "Error al crear temporada");
+      const msg = (action.payload as any)?.message ?? action.error.message ?? 'Error';
+      state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
     });
 
     // UPDATE
@@ -372,7 +337,8 @@ const slice = createSlice({
     });
     builder.addCase(editTemporadaBodega.rejected, (state, action) => {
       state.ops.updating = false;
-      state.error = extractErrorMessage(action.payload, "Error al actualizar temporada");
+      const msg = (action.payload as any)?.message ?? action.error.message ?? 'Error';
+      state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
     });
 
     // ARCHIVE
@@ -401,7 +367,8 @@ const slice = createSlice({
     });
     builder.addCase(archiveTemporada.rejected, (state, action) => {
       state.ops.archiving = false;
-      state.error = extractErrorMessage(action.payload, "Error al archivar temporada");
+      const msg = (action.payload as any)?.message ?? action.error.message ?? 'Error';
+      state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
     });
 
     // RESTORE
@@ -430,7 +397,8 @@ const slice = createSlice({
     });
     builder.addCase(restoreTemporada.rejected, (state, action) => {
       state.ops.restoring = false;
-      state.error = extractErrorMessage(action.payload, "Error al restaurar temporada");
+      const msg = (action.payload as any)?.message ?? action.error.message ?? 'Error';
+      state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
     });
 
     // FINALIZE (toggle)
@@ -451,7 +419,8 @@ const slice = createSlice({
     });
     builder.addCase(finalizeTemporada.rejected, (state, action) => {
       state.ops.finalizing = false;
-      state.error = extractErrorMessage(action.payload, "Error al finalizar/reactivar temporada");
+      const msg = (action.payload as any)?.message ?? action.error.message ?? 'Error';
+      state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
     });
 
     // DELETE
@@ -475,7 +444,8 @@ const slice = createSlice({
     });
     builder.addCase(deleteTemporada.rejected, (state, action) => {
       state.ops.deleting = false;
-      state.error = extractErrorMessage(action.payload, "Error al eliminar temporada");
+      const msg = (action.payload as any)?.message ?? action.error.message ?? 'Error';
+      state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
     });
   },
 });

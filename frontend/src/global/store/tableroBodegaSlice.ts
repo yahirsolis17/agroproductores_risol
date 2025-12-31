@@ -139,75 +139,100 @@ interface FetchParams {
 export const fetchTableroSummary = createAsyncThunk<
   DashboardSummaryResponse,
   FetchParams,
-  { rejectValue: string }
->("tableroBodega/fetchSummary", async ({ temporadaId, bodegaId, semanaId, filters }, { rejectWithValue }) => {
-  try {
-    return await getDashboardSummary(temporadaId, { ...filters, bodegaId, semanaId });
-  } catch (err: unknown) {
-    return rejectWithValue(err instanceof Error ? err.message : 'Error al cargar resumen');
+  { rejectValue: unknown }
+>(
+  "tableroBodega/fetchSummary",
+  async ({ temporadaId, bodegaId, semanaId, filters }, { rejectWithValue }) => {
+    try {
+      return await getDashboardSummary(temporadaId, { ...filters, bodegaId, semanaId });
+    } catch (err: unknown) {
+      // Devolver objeto si es posible
+      const data = (err as any)?.response?.data ?? (err as any)?.message;
+      return rejectWithValue(data);
+    }
   }
-});
+);
 
 export const fetchTableroAlerts = createAsyncThunk<
   DashboardAlertResponse,
   { temporadaId: number; bodegaId: number },
-  { rejectValue: string }
->("tableroBodega/fetchAlerts", async ({ temporadaId, bodegaId }, { rejectWithValue }) => {
-  try {
-    return await getDashboardAlerts(temporadaId, { bodegaId });
-  } catch (err: unknown) {
-    return rejectWithValue(err instanceof Error ? err.message : 'Error al cargar alertas');
+  { rejectValue: unknown }
+>(
+  "tableroBodega/fetchAlerts",
+  async ({ temporadaId, bodegaId }, { rejectWithValue }) => {
+    try {
+      return await getDashboardAlerts(temporadaId, { bodegaId });
+    } catch (err: unknown) {
+      const data = (err as any)?.response?.data ?? (err as any)?.message;
+      return rejectWithValue(data);
+    }
   }
-});
+);
 
 export const fetchTableroQueues = createAsyncThunk<
   { type: QueueType; data: DashboardQueueResponse },
   FetchParams & { queueType: QueueType },
-  { rejectValue: string }
->("tableroBodega/fetchQueues", async ({ temporadaId, bodegaId, semanaId, filters, queueType }, { rejectWithValue }) => {
-  try {
-    const data = await getDashboardQueues(temporadaId, queueType, { ...filters, bodegaId, semanaId });
-    return { type: queueType, data };
-  } catch (err: unknown) {
-    return rejectWithValue(err instanceof Error ? err.message : 'Error al cargar cola');
+  { rejectValue: unknown }
+>(
+  "tableroBodega/fetchQueues",
+  async ({ temporadaId, bodegaId, semanaId, filters, queueType }, { rejectWithValue }) => {
+    try {
+      const data = await getDashboardQueues(temporadaId, queueType, { ...filters, bodegaId, semanaId });
+      return { type: queueType, data };
+    } catch (err: unknown) {
+      const data = (err as any)?.response?.data ?? (err as any)?.message;
+      return rejectWithValue(data);
+    }
   }
-});
+);
 
 export const fetchTableroWeeksNav = createAsyncThunk<
   WeeksNavResponse,
   { temporadaId: number; bodegaId: number },
-  { rejectValue: string }
->("tableroBodega/fetchWeeksNav", async ({ temporadaId, bodegaId }, { rejectWithValue }) => {
-  try {
-    return await getWeeksNav(temporadaId, bodegaId);
-  } catch (err: unknown) {
-    return rejectWithValue(err instanceof Error ? err.message : 'Error al cargar navegación de semanas');
+  { rejectValue: unknown }
+>(
+  "tableroBodega/fetchWeeksNav",
+  async ({ temporadaId, bodegaId }, { rejectWithValue }) => {
+    try {
+      return await getWeeksNav(temporadaId, bodegaId);
+    } catch (err: unknown) {
+      const data = (err as any)?.response?.data ?? (err as any)?.message;
+      return rejectWithValue(data);
+    }
   }
-});
+);
 
 export const tableroStartWeek = createAsyncThunk<
   WeekCurrentResponse,
   WeekStartRequest,
-  { rejectValue: string }
->("tableroBodega/startWeek", async (body, { rejectWithValue }) => {
-  try {
-    return await apiStartWeek(body);
-  } catch (err: unknown) {
-    return rejectWithValue(err instanceof Error ? err.message : 'Error al iniciar semana');
+  { rejectValue: unknown }
+>(
+  "tableroBodega/startWeek",
+  async (body, { rejectWithValue }) => {
+    try {
+      return await apiStartWeek(body);
+    } catch (err: unknown) {
+      const data = (err as any)?.response?.data ?? (err as any)?.message;
+      return rejectWithValue(data);
+    }
   }
-});
+);
 
 export const tableroFinishWeek = createAsyncThunk<
   WeekCurrentResponse,
   WeekFinishRequest,
-  { rejectValue: string }
->("tableroBodega/finishWeek", async (body, { rejectWithValue }) => {
-  try {
-    return await apiFinishWeek(body);
-  } catch (err: unknown) {
-    return rejectWithValue(err instanceof Error ? err.message : 'Error al finalizar semana');
+  { rejectValue: unknown }
+>(
+  "tableroBodega/finishWeek",
+  async (body, { rejectWithValue }) => {
+    try {
+      return await apiFinishWeek(body);
+    } catch (err: unknown) {
+      const data = (err as any)?.response?.data ?? (err as any)?.message;
+      return rejectWithValue(data);
+    }
   }
-});
+);
 
 // --------------------------
 // Slice
@@ -262,7 +287,8 @@ const tableroBodegaSlice = createSlice({
     });
     builder.addCase(fetchTableroSummary.rejected, (state, action) => {
       state.loadingSummary = false;
-      state.errorSummary = action.payload ?? "Error";
+      const msg = (action.payload as any)?.message ?? (action.payload as any)?.detail ?? action.error.message ?? "Error";
+      state.errorSummary = typeof msg === "string" ? msg : JSON.stringify(msg);
     });
 
     // Alerts
@@ -276,7 +302,8 @@ const tableroBodegaSlice = createSlice({
     });
     builder.addCase(fetchTableroAlerts.rejected, (state, action) => {
       state.loadingAlerts = false;
-      state.errorAlerts = action.payload ?? "Error";
+      const msg = (action.payload as any)?.message ?? (action.payload as any)?.detail ?? action.error.message ?? "Error";
+      state.errorAlerts = typeof msg === "string" ? msg : JSON.stringify(msg);
     });
 
     // Queues
@@ -293,7 +320,8 @@ const tableroBodegaSlice = createSlice({
     builder.addCase(fetchTableroQueues.rejected, (state, action) => {
       const queueType = action.meta.arg.queueType;
       state.loadingQueues[queueType] = false;
-      state.errorQueues[queueType] = action.payload ?? "Error";
+      const msg = (action.payload as any)?.message ?? (action.payload as any)?.detail ?? action.error.message ?? "Error";
+      state.errorQueues[queueType] = typeof msg === "string" ? msg : JSON.stringify(msg);
     });
 
     // WeeksNav
@@ -307,7 +335,8 @@ const tableroBodegaSlice = createSlice({
     });
     builder.addCase(fetchTableroWeeksNav.rejected, (state, action) => {
       state.loadingWeeksNav = false;
-      state.errorWeeksNav = action.payload ?? "Error";
+      const msg = (action.payload as any)?.message ?? (action.payload as any)?.detail ?? action.error.message ?? "Error";
+      state.errorWeeksNav = typeof msg === "string" ? msg : JSON.stringify(msg);
     });
 
     // StartWeek

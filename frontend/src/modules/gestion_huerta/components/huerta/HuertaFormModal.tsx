@@ -7,12 +7,11 @@ import * as Yup from 'yup';
 
 import { HuertaCreateData } from '../../types/huertaTypes';
 import { Propietario } from '../../types/propietarioTypes';
-import { handleBackendNotification } from '../../../../global/utils/NotificationEngine';
 import { PermissionButton } from '../../../../components/common/PermissionButton';
 import { propietarioService } from '../../services/propietarioService';
 import { applyBackendErrorsToFormik } from '../../../../global/validation/backendFieldErrors';
 import { focusFirstError } from '../../../../global/validation/focusFirstError';
-import FormAlertBanner from '../../../../components/common/form/FormAlertBanner';
+
 import FormikAutocomplete from '../../../../components/common/form/FormikAutocomplete';
 import FormikNumberField from '../../../../components/common/form/FormikNumberField';
 import FormikTextField from '../../../../components/common/form/FormikTextField';
@@ -25,7 +24,7 @@ const yupSchema = Yup.object({
   propietario: Yup.number().min(1, 'Selecciona un propietario').required('Requerido'),
 });
 
-type NewOption  = { id: 'new'; label: string; value: 'new' };
+type NewOption = { id: 'new'; label: string; value: 'new' };
 type PropOption = { id: number; label: string; value: number };
 type OptionType = NewOption | PropOption;
 
@@ -46,7 +45,6 @@ const HuertaFormModal: React.FC<Props> = ({
   isEdit = false, initialValues, defaultPropietarioId,
 }) => {
   const formikRef = useRef<FormikProps<HuertaCreateData>>(null);
-  const [formErrors, setFormErrors] = useState<string[]>([]);
 
   const defaults: HuertaCreateData = {
     nombre: '', ubicacion: '', variedades: '',
@@ -66,16 +64,10 @@ const HuertaFormModal: React.FC<Props> = ({
   const submit = async (vals: HuertaCreateData, actions: FormikHelpers<HuertaCreateData>) => {
     try {
       await onSubmit(vals);
-      setFormErrors([]);
       onClose();
     } catch (err: unknown) {
-      const normalized = applyBackendErrorsToFormik(err, actions);
-      setFormErrors(normalized.formErrors);
-      if (!Object.keys(normalized.fieldErrors).length && !normalized.formErrors.length) {
-        const error = err as { response?: { data: any }; data?: any };
-        const backend = error?.response?.data || error?.data || {};
-        handleBackendNotification(backend);
-      }
+      // Solo inline errors - sin toast, sin banner
+      applyBackendErrorsToFormik(err, actions);
     } finally {
       actions.setSubmitting(false);
     }
@@ -84,7 +76,7 @@ const HuertaFormModal: React.FC<Props> = ({
   // Autocomplete asíncrono robusto
   const [asyncOptions, setAsyncOptions] = useState<PropOption[]>([]);
   const [asyncLoading, setAsyncLoading] = useState(false);
-  const [asyncInput, setAsyncInput]     = useState('');
+  const [asyncInput, setAsyncInput] = useState('');
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => () => { abortRef.current?.abort(); }, []);
@@ -195,12 +187,7 @@ const HuertaFormModal: React.FC<Props> = ({
           }}
         >
           <DialogContent dividers className="space-y-4">
-            <FormAlertBanner
-              open={formErrors.length > 0}
-              severity="error"
-              title="Revisa la información"
-              messages={formErrors}
-            />
+            {/* No banner - errores van inline en cada campo */}
             <FormikTextField
               fullWidth
               label="Nombre"
@@ -262,8 +249,8 @@ const HuertaFormModal: React.FC<Props> = ({
                 asyncLoading
                   ? 'Buscando…'
                   : asyncInput.length < 2
-                  ? 'Empieza a escribir para buscar...'
-                  : 'No se encontraron propietarios'
+                    ? 'Empieza a escribir para buscar...'
+                    : 'No se encontraron propietarios'
               }
               loadingText="Buscando propietarios…"
               label="Propietario"

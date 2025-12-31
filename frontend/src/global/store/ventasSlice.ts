@@ -81,7 +81,7 @@ async function fetchSameOrPrevPageSilently(s: VentasState): Promise<PagePayload>
 export const fetchVentas = createAsyncThunk<
   PagePayload,
   void,
-  { state: RootState; rejectValue: string }
+  { state: RootState; rejectValue: unknown }
 >(
   'ventas/fetch',
   async (_, { getState, rejectWithValue }) => {
@@ -96,7 +96,7 @@ export const fetchVentas = createAsyncThunk<
       return { ventas: res.data.results, meta: res.data.meta, page: s.page };
     } catch (err: unknown) {
       handleBackendNotification(extractApiError(err));
-      return rejectWithValue('Error al cargar ventas');
+      return rejectWithValue(extractApiError(err) as any);
     }
   }
 );
@@ -259,7 +259,8 @@ const ventasSlice = createSlice({
       })
       .addCase(fetchVentas.rejected, (s, { payload, error }) => {
         s.loading = false;
-        s.error = (payload as string) ?? error.message ?? 'Error';
+        const msg = (payload as any)?.message ?? (payload as any)?.detail ?? error.message ?? 'Error';
+        s.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
         s.loaded = true;
       })
 

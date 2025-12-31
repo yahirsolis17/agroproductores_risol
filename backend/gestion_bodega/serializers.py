@@ -171,12 +171,48 @@ class BodegaSerializer(serializers.ModelSerializer):
         model = Bodega
         fields = ["id", "nombre", "ubicacion", "is_active", "archivado_en", "creado_en", "actualizado_en", "activa"]
         read_only_fields = ["is_active", "archivado_en", "creado_en", "actualizado_en", "activa"]
+        validators = []
 
     def validate_nombre(self, val):
         v = (val or "").strip()
         if len(v) < 3:
             raise serializers.ValidationError("El nombre debe tener al menos 3 caracteres.")
         return v
+
+    def validate_ubicacion(self, val):
+        if isinstance(val, str):
+            v = (val or "").strip()
+            if len(v) < 3:
+                raise serializers.ValidationError("La ubicación debe tener al menos 3 caracteres.")
+            return v
+        return val
+
+    def validate(self, attrs):
+        """
+        No puede existir otra bodega con el mismo NOMBRE y la misma UBICACIÓN (case-insensitive).
+        Se permite repetir nombre en distinta ubicación.
+        """
+        nombre = (attrs.get("nombre") or getattr(self.instance, "nombre", "") or "").strip()
+        ubicacion = attrs.get("ubicacion") if "ubicacion" in attrs else getattr(self.instance, "ubicacion", "")
+        ubicacion_str = (ubicacion or "").strip() if isinstance(ubicacion, str) else ubicacion
+
+        qs = Bodega.objects.all()
+        if isinstance(ubicacion_str, str):
+            qs = qs.filter(nombre__iexact=nombre, ubicacion__iexact=ubicacion_str)
+        else:
+            qs = qs.filter(nombre__iexact=nombre, ubicacion=ubicacion_str)
+
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+
+        if qs.exists():
+            msg = "Ya existe una bodega registrada con este nombre en esta ubicación."
+            raise serializers.ValidationError({
+                "nombre": [msg],
+                "ubicacion": [msg],
+            })
+
+        return attrs
 
     def get_activa(self, obj) -> bool:
         # Alias legible para consistencia con FE: activa == is_active

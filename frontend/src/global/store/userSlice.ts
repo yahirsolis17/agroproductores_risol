@@ -29,13 +29,21 @@ const initialState: UserState = {
   meta: { count: 0, next: null, previous: null, page: 1, page_size: 10, total_pages: 1 },
 };
 
-export const fetchUsers = createAsyncThunk(
+export const fetchUsers = createAsyncThunk<
+  { users: User[]; meta: PaginationMeta; page: number; estado: 'activos' | 'archivados' | 'todos'; filters: { excludeRole?: string } | undefined },
+  { page: number; estado: 'activos' | 'archivados' | 'todos'; filters?: { excludeRole?: string } },
+  { rejectValue: unknown }
+>(
   'user/fetchAll',
-  async ({ page, estado, filters }: { page: number; estado: 'activos' | 'archivados' | 'todos'; filters?: { excludeRole?: string } }) => {
-    const env = await userService.list(page, estado, filters);
-    const users = env.data.results;
-    const meta = env.data.meta;
-    return { users, meta, page, estado, filters };
+  async ({ page, estado, filters }, { rejectWithValue }) => {
+    try {
+      const env = await userService.list(page, estado, filters);
+      const users = env.data.results;
+      const meta = env.data.meta;
+      return { users, meta, page, estado, filters };
+    } catch (err: unknown) {
+      return rejectWithValue(extractApiError(err));
+    }
   }
 );
 
@@ -120,7 +128,8 @@ const userSlice = createSlice({
       })
       .addCase(fetchUsers.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'Error al cargar usuarios';
+        const msg = action.payload ?? action.error.message ?? 'Error al cargar usuarios';
+        state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
         state.loaded = true;
       })
       // Archive

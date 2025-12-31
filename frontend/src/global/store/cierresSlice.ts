@@ -84,21 +84,21 @@ const initialState: CierresState = {
 export const fetchCierresIndex = createAsyncThunk<
   CierresIndexResponse,
   number, // temporadaId
-  { rejectValue: string }
+  { rejectValue: unknown }
 >("cierres/fetchIndex", async (temporadaId, { rejectWithValue }) => {
   try {
     return await cierresService.index(temporadaId);
   } catch (err: unknown) {
-    const errData = (err as { payload?: unknown; response?: { data?: unknown }; message?: string });
-    handleBackendNotification(errData.payload || errData.response?.data);
-    return rejectWithValue(errData.message || 'Error al cargar índice');
+    const errData = (err as any)?.response?.data ?? (err as any)?.payload;
+    handleBackendNotification(errData);
+    return rejectWithValue(errData || { message: 'Error al cargar índice' });
   }
 });
 
 export const fetchCierresList = createAsyncThunk<
   CierreSemanalListResponse,
   { temporada: number; bodega: number; iso_semana?: string | null; page?: number; page_size?: number },
-  { rejectValue: string }
+  { rejectValue: unknown }
 >("cierres/fetchList", async (params, { rejectWithValue }) => {
   try {
     return await cierresService.list({
@@ -109,37 +109,37 @@ export const fetchCierresList = createAsyncThunk<
       page_size: params.page_size || 10,
     });
   } catch (err: unknown) {
-    const errData = (err as { payload?: unknown; response?: { data?: unknown }; message?: string });
-    handleBackendNotification(errData.payload || errData.response?.data);
-    return rejectWithValue(errData.message || 'Error al cargar lista');
+    const errData = (err as any)?.response?.data ?? (err as any)?.payload;
+    handleBackendNotification(errData);
+    return rejectWithValue(errData || { message: 'Error al cargar lista' });
   }
 });
 
 export const createCierreSemanal = createAsyncThunk<
   CierreSemanalCreateResponse,
   CierreSemanalCreatePayload,
-  { rejectValue: string }
+  { rejectValue: unknown }
 >("cierres/createSemanal", async (payload, { rejectWithValue }) => {
   try {
     return await cierresService.semanal(payload);
   } catch (err: unknown) {
-    const errData = (err as { payload?: unknown; response?: { data?: unknown }; message?: string });
-    handleBackendNotification(errData.payload || errData.response?.data);
-    return rejectWithValue(errData.message || 'Error al crear semana');
+    const errData = (err as any)?.response?.data ?? (err as any)?.payload;
+    handleBackendNotification(errData);
+    return rejectWithValue(errData || { message: 'Error al crear semana' });
   }
 });
 
 export const closeCierreTemporada = createAsyncThunk<
   CierreTemporadaResponse,
   { temporada: number },
-  { rejectValue: string }
+  { rejectValue: unknown }
 >("cierres/closeTemporada", async (payload, { rejectWithValue }) => {
   try {
     return await cierresService.temporada(payload);
   } catch (err: unknown) {
-    const errData = (err as { payload?: unknown; response?: { data?: unknown }; message?: string });
-    handleBackendNotification(errData.payload || errData.response?.data);
-    return rejectWithValue(errData.message || 'Error al cerrar temporada');
+    const errData = (err as any)?.response?.data ?? (err as any)?.payload;
+    handleBackendNotification(errData);
+    return rejectWithValue(errData || { message: 'Error al cerrar temporada' });
   }
 });
 
@@ -197,7 +197,8 @@ const cierresSlice = createSlice({
     });
     builder.addCase(fetchCierresIndex.rejected, (state, action) => {
       state.loadingIndex = false;
-      state.errorIndex = action.payload ?? "Error";
+      const msg = (action.payload as any)?.message ?? (action.payload as any)?.detail ?? action.error.message ?? "Error";
+      state.errorIndex = typeof msg === "string" ? msg : JSON.stringify(msg);
     });
 
     // fetchList
@@ -211,7 +212,8 @@ const cierresSlice = createSlice({
     });
     builder.addCase(fetchCierresList.rejected, (state, action) => {
       state.loadingList = false;
-      state.errorList = action.payload ?? "Error";
+      const msg = (action.payload as any)?.message ?? (action.payload as any)?.detail ?? action.error.message ?? "Error";
+      state.errorList = typeof msg === "string" ? msg : JSON.stringify(msg);
     });
 
     // createSemanal

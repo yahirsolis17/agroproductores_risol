@@ -73,7 +73,7 @@ class PropietarioSerializer(serializers.ModelSerializer):
         value = value.strip()
         if self.instance is None:
             if Propietario.objects.filter(telefono=value).exists():
-                raise serializers.ValidationError("Este teléfono ya está registrado.", code="telefono_duplicado")
+                raise serializers.ValidationError("Este teléfono ya está registrado con otro propietario.", code="telefono_duplicado")
         else:
             if Propietario.objects.exclude(pk=self.instance.pk).filter(telefono=value).exists():
                 raise serializers.ValidationError("Este teléfono ya está registrado con otro propietario.", code="telefono_duplicado")
@@ -97,6 +97,8 @@ class HuertaSerializer(serializers.ModelSerializer):
             'hectareas', 'propietario', 'propietario_detalle',
             'propietario_archivado', 'is_active', 'archivado_en'
         ]
+        # Desactivar UniqueTogetherValidator auto-generado para que validate() maneje duplicados
+        validators = []
 
     def get_propietario_archivado(self, obj):
         return not getattr(obj.propietario, 'is_active', True)
@@ -136,7 +138,29 @@ class HuertaSerializer(serializers.ModelSerializer):
         if 'propietario' in data:
             propietario = data['propietario']
             if propietario and not getattr(propietario, 'is_active', True):
-                raise serializers.ValidationError("No puedes asignar huertas a un propietario archivado.", code="propietario_archivado")
+                raise serializers.ValidationError({"propietario": "No puedes asignar huertas a un propietario archivado."}, code="propietario_archivado")
+        
+        # Detectar duplicado (nombre + ubicación + propietario) y mapear a campos específicos
+        nombre = data.get('nombre') or (getattr(self.instance, 'nombre', None) if self.instance else None)
+        ubicacion = data.get('ubicacion') or (getattr(self.instance, 'ubicacion', None) if self.instance else None)
+        propietario = data.get('propietario') or (getattr(self.instance, 'propietario', None) if self.instance else None)
+        
+        if nombre and ubicacion and propietario:
+            qs = Huerta.objects.filter(
+                nombre__iexact=nombre,
+                ubicacion__iexact=ubicacion,
+                propietario=propietario
+            )
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                msg = "Ya existe una huerta con esta combinación de Nombre, Ubicación y Propietario."
+                raise serializers.ValidationError({
+                    "nombre": msg,
+                    "ubicacion": msg,
+                    "propietario": msg,
+                }, code="huerta_duplicada")
+        
         return data
 
 
@@ -156,6 +180,8 @@ class HuertaRentadaSerializer(serializers.ModelSerializer):
             'monto_renta', 'monto_renta_palabras',
             'is_active', 'archivado_en'
         ]
+        # Desactivar UniqueTogetherValidator auto-generado para que validate() maneje duplicados
+        validators = []
 
     def get_propietario_archivado(self, obj):
         return not getattr(obj.propietario, 'is_active', True)
@@ -202,7 +228,29 @@ class HuertaRentadaSerializer(serializers.ModelSerializer):
         if 'propietario' in data:
             propietario = data['propietario']
             if propietario and not getattr(propietario, 'is_active', True):
-                raise serializers.ValidationError("No puedes asignar huertas rentadas a un propietario archivado.", code="propietario_archivado")
+                raise serializers.ValidationError({"propietario": "No puedes asignar huertas rentadas a un propietario archivado."}, code="propietario_archivado")
+        
+        # Detectar duplicado (nombre + ubicación + propietario) y mapear a campos específicos
+        nombre = data.get('nombre') or (getattr(self.instance, 'nombre', None) if self.instance else None)
+        ubicacion = data.get('ubicacion') or (getattr(self.instance, 'ubicacion', None) if self.instance else None)
+        propietario = data.get('propietario') or (getattr(self.instance, 'propietario', None) if self.instance else None)
+        
+        if nombre and ubicacion and propietario:
+            qs = HuertaRentada.objects.filter(
+                nombre__iexact=nombre,
+                ubicacion__iexact=ubicacion,
+                propietario=propietario
+            )
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                msg = "Ya existe una huerta rentada con esta combinación de Nombre, Ubicación y Propietario."
+                raise serializers.ValidationError({
+                    "nombre": msg,
+                    "ubicacion": msg,
+                    "propietario": msg,
+                }, code="huerta_rentada_duplicada")
+        
         return data
 
 class TemporadaSerializer(serializers.ModelSerializer):

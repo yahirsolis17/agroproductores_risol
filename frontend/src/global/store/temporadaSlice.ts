@@ -9,7 +9,7 @@ import { ApiError, extractApiError } from '../types/apiTypes';
 interface TemporadaState {
   items: Temporada[];
   loading: boolean;
-  error: ApiError | null;
+  error: string | null;
   loaded: boolean;
   page: number;
   meta: PaginationMeta;
@@ -212,43 +212,49 @@ const temporadaSlice = createSlice({
         state.meta = payload.meta;
         state.page = payload.page;
       })
-      .addCase(fetchTemporadas.rejected, (state, { payload }) => {
+      .addCase(fetchTemporadas.rejected, (state, { payload, error }) => {
         state.loading = false;
         state.loaded = true;
-        state.error = payload || null;
+        const msg = (payload as any)?.message ?? (payload as any)?.detail ?? error.message ?? 'Error';
+        state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
       })
       .addCase(createTemporada.fulfilled, (state, { payload }) => {
         state.items.unshift(payload);
       })
-      .addCase(createTemporada.rejected, (state, { payload }) => {
-        state.error = payload || null;
+      .addCase(createTemporada.rejected, (state, { payload, error }) => {
+        const msg = (payload as any)?.message ?? (payload as any)?.detail ?? error.message ?? 'Error';
+        state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
       })
       .addCase(deleteTemporada.fulfilled, (state, { payload }) => {
         state.items = state.items.filter((t) => t.id !== payload);
       })
-      .addCase(deleteTemporada.rejected, (state, { payload }) => {
-        state.error = payload || null;
+      .addCase(deleteTemporada.rejected, (state, { payload, error }) => {
+        const msg = (payload as any)?.message ?? (payload as any)?.detail ?? error.message ?? 'Error';
+        state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
       })
       .addCase(finalizarTemporada.fulfilled, (state, { payload }) => {
         const idx = state.items.findIndex((t) => t.id === payload.id);
         if (idx !== -1) state.items[idx] = payload;
       })
-      .addCase(finalizarTemporada.rejected, (state, { payload }) => {
-        state.error = payload || null;
+      .addCase(finalizarTemporada.rejected, (state, { payload, error }) => {
+        const msg = (payload as any)?.message ?? (payload as any)?.detail ?? error.message ?? 'Error';
+        state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
       })
       .addCase(archivarTemporada.fulfilled, (state, { payload }) => {
         const idx = state.items.findIndex((t) => t.id === payload.id);
         if (idx !== -1) state.items[idx] = payload;
       })
-      .addCase(archivarTemporada.rejected, (state, { payload }) => {
-        state.error = payload || null;
+      .addCase(archivarTemporada.rejected, (state, { payload, error }) => {
+        const msg = (payload as any)?.message ?? (payload as any)?.detail ?? error.message ?? 'Error';
+        state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
       })
       .addCase(restaurarTemporada.fulfilled, (state, { payload }) => {
         const idx = state.items.findIndex((t) => t.id === payload.id);
         if (idx !== -1) state.items[idx] = payload;
       })
-      .addCase(restaurarTemporada.rejected, (state, { payload }) => {
-        state.error = payload || null;
+      .addCase(restaurarTemporada.rejected, (state, { payload, error }) => {
+        const msg = (payload as any)?.message ?? (payload as any)?.detail ?? error.message ?? 'Error';
+        state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
       });
   },
 });

@@ -96,7 +96,7 @@ export const fetchInversiones = createAsyncThunk<
     } catch (err: unknown) {
       if (signal.aborted) return rejectWithValue('Abortado');
       handleBackendNotification(extractApiError(err));
-      return rejectWithValue('Error al cargar inversiones');
+      return rejectWithValue(extractApiError(err) as any);
     }
   }
 );
@@ -253,7 +253,8 @@ const inversionesSlice = createSlice({
       })
       .addCase(fetchInversiones.rejected, (s, { payload, error }) => {
         s.loading = false;
-        s.error = (payload as string) ?? error.message ?? 'Error';
+        const msg = (payload as any)?.message ?? (payload as any)?.detail ?? error.message ?? 'Error';
+        s.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
         s.loaded = true;
       })
       .addCase(createInversion.fulfilled, (s, { payload }) => {

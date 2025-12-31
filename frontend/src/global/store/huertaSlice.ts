@@ -36,7 +36,7 @@ const initialState: HuertaState = {
 export const fetchHuertas = createAsyncThunk<
   { huertas: Huerta[]; meta: PaginationMeta; page: number },
   { page: number; estado: Estado; filters: HuertaFilters },
-  { rejectValue: string }
+  { rejectValue: unknown }
 >(
   'huerta/fetchAll',
   async ({ page, estado, filters }, thunkAPI) => {
@@ -45,13 +45,14 @@ export const fetchHuertas = createAsyncThunk<
       const res = await huertaService.list(page, estado, filters, { signal });
       return { huertas: res.data.results, meta: res.data.meta, page };
     } catch (err: unknown) {
-      handleBackendNotification(extractApiError(err));
-      return thunkAPI.rejectWithValue('Error al cargar huertas');
+      const e = extractApiError(err);
+      handleBackendNotification(e);
+      return thunkAPI.rejectWithValue(e);
     }
   },
 );
 
-export const createHuerta = createAsyncThunk<Huerta, HuertaCreateData, { rejectValue: string }>(
+export const createHuerta = createAsyncThunk<Huerta, HuertaCreateData, { rejectValue: unknown }>(
   'huerta/create',
   async (payload, { rejectWithValue }) => {
     try {
@@ -59,8 +60,9 @@ export const createHuerta = createAsyncThunk<Huerta, HuertaCreateData, { rejectV
       handleBackendNotification(res);
       return res.data.huerta as Huerta;
     } catch (err: unknown) {
-      handleBackendNotification(extractApiError(err));
-      return rejectWithValue('Error al crear huerta');
+      const e = extractApiError(err);
+      // No toast - let form handle inline errors
+      return rejectWithValue(e);
     }
   },
 );
@@ -68,7 +70,7 @@ export const createHuerta = createAsyncThunk<Huerta, HuertaCreateData, { rejectV
 export const updateHuerta = createAsyncThunk<
   Huerta,
   { id: number; payload: HuertaUpdateData },
-  { rejectValue: string }
+  { rejectValue: unknown }
 >(
   'huerta/update',
   async ({ id, payload }, { rejectWithValue }) => {
@@ -77,13 +79,14 @@ export const updateHuerta = createAsyncThunk<
       handleBackendNotification(res);
       return res.data.huerta as Huerta;
     } catch (err: unknown) {
-      handleBackendNotification(extractApiError(err));
-      return rejectWithValue('Error al actualizar huerta');
+      const e = extractApiError(err);
+      // No toast - let form handle inline errors
+      return rejectWithValue(e);
     }
   },
 );
 
-export const deleteHuerta = createAsyncThunk<number, number, { rejectValue: string }>(
+export const deleteHuerta = createAsyncThunk<number, number, { rejectValue: unknown }>(
   'huerta/delete',
   async (id, { rejectWithValue }) => {
     try {
@@ -91,8 +94,9 @@ export const deleteHuerta = createAsyncThunk<number, number, { rejectValue: stri
       handleBackendNotification(res);
       return id;
     } catch (err: unknown) {
-      handleBackendNotification(extractApiError(err));
-      return rejectWithValue('Error al eliminar huerta');
+      const e = extractApiError(err);
+      handleBackendNotification(e);
+      return rejectWithValue(e);
     }
   },
 );
@@ -100,7 +104,7 @@ export const deleteHuerta = createAsyncThunk<number, number, { rejectValue: stri
 export const archiveHuerta = createAsyncThunk<
   { id: number; archivado_en: string },
   number,
-  { rejectValue: string }
+  { rejectValue: unknown }
 >(
   'huerta/archive',
   async (id, { rejectWithValue }) => {
@@ -110,8 +114,9 @@ export const archiveHuerta = createAsyncThunk<
       // Si quisieras usar res.data.affected para un toast detallado, ya viene listo.
       return { id, archivado_en: new Date().toISOString() };
     } catch (err: unknown) {
-      handleBackendNotification(extractApiError(err));
-      return rejectWithValue('Error al archivar huerta');
+      const e = extractApiError(err);
+      handleBackendNotification(e);
+      return rejectWithValue(e);
     }
   },
 );
@@ -119,7 +124,7 @@ export const archiveHuerta = createAsyncThunk<
 export const restoreHuerta = createAsyncThunk<
   { id: number; archivado_en: null },
   number,
-  { rejectValue: string }
+  { rejectValue: unknown }
 >(
   'huerta/restore',
   async (id, { rejectWithValue }) => {
@@ -128,8 +133,9 @@ export const restoreHuerta = createAsyncThunk<
       handleBackendNotification(res);
       return { id, archivado_en: null };
     } catch (err: unknown) {
-      handleBackendNotification(extractApiError(err));
-      return rejectWithValue('Error al restaurar huerta');
+      const e = extractApiError(err);
+      handleBackendNotification(e);
+      return rejectWithValue(e);
     }
   },
 );
@@ -149,7 +155,9 @@ const huertaSlice = createSlice({
       s.loading = false; s.loaded = true;
     });
     b.addCase(fetchHuertas.rejected, (s, { payload, error }) => {
-      s.loading = false; s.loaded = true; s.error = payload ?? error.message ?? 'Error';
+      s.loading = false; s.loaded = true;
+      const msg = (payload as any)?.message ?? (payload as any)?.detail ?? error.message ?? 'Error';
+      s.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
     });
 
     b.addCase(createHuerta.fulfilled, (s, { payload }) => {

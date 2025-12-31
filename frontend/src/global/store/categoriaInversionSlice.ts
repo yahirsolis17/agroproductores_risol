@@ -163,7 +163,8 @@ const categoriaSlice = createSlice({
     b.addCase(fetchCategorias.rejected, (s, { payload, error }) => {
       s.loading = false;
       s.loaded = true;
-      s.error = payload?.message ?? error.message ?? 'Error';
+      const msg = payload?.message ?? error.message ?? 'Error';
+      s.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
     });
 
     /* create */

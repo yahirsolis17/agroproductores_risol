@@ -45,20 +45,21 @@ const initialState: BodegasState = {
 export const fetchBodegas = createAsyncThunk<
   { bodegas: Bodega[]; meta: PaginationMeta; page: number },
   { page: number; estado: EstadoBodega; filters: BodegaFilters },
-  { rejectValue: string }
+  { rejectValue: unknown }
 >('bodegas/fetchAll', async ({ page, estado, filters }, thunkAPI) => {
   try {
     const { signal } = thunkAPI;
     const { bodegas, meta } = await bodegaService.list(page, estado, filters, { signal });
     return { bodegas, meta, page };
   } catch (err: unknown) {
-    handleBackendNotification(extractApiError(err));
-    return thunkAPI.rejectWithValue('Error al cargar bodegas');
+    const e = extractApiError(err);
+    handleBackendNotification(e);
+    return thunkAPI.rejectWithValue(e);
   }
 });
 
 /** Crear. */
-export const createBodega = createAsyncThunk<Bodega, BodegaCreateData, { rejectValue: string }>(
+export const createBodega = createAsyncThunk<Bodega, BodegaCreateData, { rejectValue: unknown }>(
   'bodegas/create',
   async (payload, { rejectWithValue }) => {
     try {
@@ -66,8 +67,9 @@ export const createBodega = createAsyncThunk<Bodega, BodegaCreateData, { rejectV
       handleBackendNotification(res);
       return res?.data?.bodega as Bodega;
     } catch (err: unknown) {
-      handleBackendNotification(extractApiError(err));
-      return rejectWithValue('Error al crear bodega');
+      const e = extractApiError(err);
+      handleBackendNotification(e);
+      return rejectWithValue(e);
     }
   }
 );
@@ -76,20 +78,21 @@ export const createBodega = createAsyncThunk<Bodega, BodegaCreateData, { rejectV
 export const updateBodega = createAsyncThunk<
   Bodega,
   { id: number; payload: BodegaUpdateData },
-  { rejectValue: string }
+  { rejectValue: unknown }
 >('bodegas/update', async ({ id, payload }, { rejectWithValue }) => {
   try {
     const res = await bodegaService.update(id, payload);
     handleBackendNotification(res);
     return res?.data?.bodega as Bodega;
   } catch (err: unknown) {
-    handleBackendNotification(extractApiError(err));
-    return rejectWithValue('Error al actualizar bodega');
+    const e = extractApiError(err);
+    handleBackendNotification(e);
+    return rejectWithValue(e);
   }
 });
 
 /** Delete (hard en vista). */
-export const deleteBodega = createAsyncThunk<number, number, { rejectValue: string }>(
+export const deleteBodega = createAsyncThunk<number, number, { rejectValue: unknown }>(
   'bodegas/delete',
   async (id, { rejectWithValue }) => {
     try {
@@ -97,14 +100,15 @@ export const deleteBodega = createAsyncThunk<number, number, { rejectValue: stri
       handleBackendNotification(res);
       return id;
     } catch (err: unknown) {
-      handleBackendNotification(extractApiError(err));
-      return rejectWithValue('Error al eliminar bodega');
+      const e = extractApiError(err);
+      handleBackendNotification(e);
+      return rejectWithValue(e);
     }
   }
 );
 
 /** Archivar (soft). */
-export const archiveBodega = createAsyncThunk<{ id: number }, number, { rejectValue: string }>(
+export const archiveBodega = createAsyncThunk<{ id: number }, number, { rejectValue: unknown }>(
   'bodegas/archive',
   async (id, { rejectWithValue }) => {
     try {
@@ -112,14 +116,15 @@ export const archiveBodega = createAsyncThunk<{ id: number }, number, { rejectVa
       handleBackendNotification(res);
       return { id };
     } catch (err: unknown) {
-      handleBackendNotification(extractApiError(err));
-      return rejectWithValue('Error al archivar bodega');
+      const e = extractApiError(err);
+      handleBackendNotification(e);
+      return rejectWithValue(e);
     }
   }
 );
 
 /** Restaurar. */
-export const restoreBodega = createAsyncThunk<{ id: number }, number, { rejectValue: string }>(
+export const restoreBodega = createAsyncThunk<{ id: number }, number, { rejectValue: unknown }>(
   'bodegas/restore',
   async (id, { rejectWithValue }) => {
     try {
@@ -127,8 +132,9 @@ export const restoreBodega = createAsyncThunk<{ id: number }, number, { rejectVa
       handleBackendNotification(res);
       return { id };
     } catch (err: unknown) {
-      handleBackendNotification(extractApiError(err));
-      return rejectWithValue('Error al restaurar bodega');
+      const e = extractApiError(err);
+      handleBackendNotification(e);
+      return rejectWithValue(e);
     }
   }
 );
@@ -171,7 +177,8 @@ const bodegasSlice = createSlice({
     b.addCase(fetchBodegas.rejected, (s, { payload, error }) => {
       s.loading = false;
       s.loaded = true;
-      s.error = (payload as string) ?? error.message ?? 'Error';
+      const msg = (payload as any)?.message ?? (payload as any)?.detail ?? error.message ?? 'Error';
+      s.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
     });
 
     // create
