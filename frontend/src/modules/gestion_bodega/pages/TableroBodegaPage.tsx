@@ -207,6 +207,7 @@ const TableroBodegaPage: React.FC = () => {
 
   const hasWeeks: boolean = !!weekNav?.hasWeeks;
   const [actionError, setActionError] = useState<string | null>(null);
+  const [openSectionKey, setOpenSectionKey] = useState<"resumen" | "recepciones" | "empaque" | "logistica">("recepciones");
 
   // Empaque: state lifted
   const {
@@ -236,6 +237,16 @@ const TableroBodegaPage: React.FC = () => {
     setEmpaqueLoading(false);
     setEmpaqueInitialLines(null);
   }, []);
+
+  useEffect(() => {
+    if (!tablero?.refetchQueues) return;
+    if (openSectionKey === "empaque") {
+      tablero.refetchQueues("inventarios");
+    }
+    if (openSectionKey === "logistica") {
+      tablero.refetchQueues("despachos");
+    }
+  }, [openSectionKey, tablero?.filters, tablero?.refetchQueues]);
 
   // Fetch logic for Drawer
   useEffect(() => {
