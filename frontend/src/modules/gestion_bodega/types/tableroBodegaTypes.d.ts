@@ -127,6 +127,7 @@ export interface TableroFiltersDTO {
   fecha_desde: string | null; // yyyy-mm-dd
   fecha_hasta: string | null; // yyyy-mm-dd
   estado_lote: string | null;
+  estado: string | null;
   calidad: string | null;
   madurez: string | null;
   solo_pendientes: boolean;

@@ -145,7 +145,7 @@ export async function getDashboardQueues(
     semanaId?: number | null;
   }
 ): Promise<DashboardQueueResponse> {
-  const params = { ...toQueryParams(temporadaId, filters), type };
+  const params = { ...toQueryParams(temporadaId, filters), queue: type };
   const resp = await apiClient.get(`${BASE}/queues/`, { params });
   return unwrapEnvelope<DashboardQueueResponse>(resp.data);
 }

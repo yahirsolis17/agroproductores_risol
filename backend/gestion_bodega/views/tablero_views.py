@@ -453,7 +453,7 @@ class TableroBodegaQueuesView(BaseDashboardAPIView):
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        tipo = request.query_params.get("type")
+        tipo = request.query_params.get("queue") or request.query_params.get("type")
         if tipo not in {"recepciones", "inventarios", "despachos"}:
             return NotificationHandler.generate_response(
                 "validation_error",

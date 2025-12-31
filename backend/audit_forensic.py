@@ -60,7 +60,7 @@ url_summary = f"/bodega/tablero/summary/?bodega={BODEGA_ID}&temporada={TEMPORADA
 print_section("1. SUMMARY RESPONSE", fetch_json(url_summary))
 
 # 2. Queues (Checking if it accepts semana_id and type, and checking aliases)
-url_queues = f"/bodega/tablero/queues/?bodega={BODEGA_ID}&temporada={TEMPORADA_ID}&semana_id={SEMANA_ID}&type=inventarios"
+url_queues = f"/bodega/tablero/queues/?bodega={BODEGA_ID}&temporada={TEMPORADA_ID}&semana_id={SEMANA_ID}&queue=inventarios"
 # print_section("2. QUEUES RESPONSE", fetch_json(url_queues)) # Commented out full dump
 print("\n--- 2. QUEUES ALIAS CHECK START ---")
 try:

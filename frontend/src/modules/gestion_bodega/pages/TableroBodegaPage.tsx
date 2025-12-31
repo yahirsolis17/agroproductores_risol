@@ -44,6 +44,7 @@ import EmpaqueDrawer from "../components/empaque/EmpaqueDrawer";
 import CamionFormModal from "../components/logistica/CamionFormModal";
 import useEmpaques from "../hooks/useEmpaques";
 import { Material } from "../types/shared";
+import { normalizeCalidadToUI } from "../services/empaquesService";
 
 // ───────────────────────────────────────────────────────────────────────────
 // Utils
