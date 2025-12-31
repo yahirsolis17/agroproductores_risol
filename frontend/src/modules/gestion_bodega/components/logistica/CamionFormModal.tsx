@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -69,6 +69,22 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
 
   const isEdit = Boolean(currentCamion?.id);
   const isConfirmado = currentCamion?.estado === 'CONFIRMADO';
+  const summary = useMemo(() => {
+    const cargas = Array.isArray(currentCamion?.cargas) ? currentCamion.cargas : [];
+    const items = Array.isArray(currentCamion?.items) ? currentCamion.items : [];
+    const totalFromCargas = cargas.reduce((acc: number, c: any) => acc + (Number(c?.cantidad) || 0), 0);
+    const totalFromItems = items.reduce((acc: number, i: any) => acc + (Number(i?.cantidad_cajas) || 0), 0);
+    const totalCajas = totalFromCargas || totalFromItems;
+    const tipos = Array.from(
+      new Set(
+        [
+          ...items.map((i: any) => String(i?.tipo_mango || "").trim()),
+          ...cargas.map((c: any) => String(c?.tipo_mango || "").trim()),
+        ].filter((v: string) => v)
+      )
+    );
+    return { totalCajas, tipos };
+  }, [currentCamion]);
 
   const formik = useFormik({
     initialValues: {
@@ -131,6 +147,7 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
     setLoading(true);
     try {
       await camionesService.confirmar(currentCamion.id);
+      setConfirmDialogOpen(false);
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -306,6 +323,10 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
             <Typography variant="body2"><strong>Destino:</strong> {currentCamion?.destino}</Typography>
             <Typography variant="body2"><strong>Chofer:</strong> {currentCamion?.chofer}</Typography>
             <Typography variant="body2"><strong>Total Cargas:</strong> {currentCamion?.cargas?.length || 0} registros</Typography>
+            <Typography variant="body2"><strong>Total cajas:</strong> {summary.totalCajas || 0}</Typography>
+            <Typography variant="body2">
+              <strong>Tipos de mango:</strong> {summary.tipos.length ? summary.tipos.join(", ") : "—"}
+            </Typography>
           </Box>
         </DialogContent>
         <DialogActions>

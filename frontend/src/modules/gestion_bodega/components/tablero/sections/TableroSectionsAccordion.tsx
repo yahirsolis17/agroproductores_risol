@@ -32,6 +32,8 @@ interface TableroSectionsAccordionProps {
 
   /** Forzar apertura puntual (one-shot) */
   forcedOpen?: { key: TableroSectionKey; token: number } | null;
+
+  onSectionOpen?: (key: TableroSectionKey) => void;
 }
 
 const titleByKey: Record<TableroSectionKey, string> = {
@@ -57,6 +59,7 @@ const TableroSectionsAccordion: React.FC<TableroSectionsAccordionProps> = ({
   logistica,
   badges,
   forcedOpen,
+  onSectionOpen,
 }) => {
   const theme = useTheme();
 
@@ -78,7 +81,10 @@ const TableroSectionsAccordion: React.FC<TableroSectionsAccordionProps> = ({
     setOpenKey(forcedOpen.key);
   }, [forcedOpen?.token]);
 
-  const handleToggle = (key: TableroSectionKey) => setOpenKey(key);
+  const handleToggle = (key: TableroSectionKey) => {
+    setOpenKey(key);
+    onSectionOpen?.(key);
+  };
 
   const renderHeader = (key: TableroSectionKey) => {
     let chips = badges?.[key] ?? [];

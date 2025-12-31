@@ -207,6 +207,7 @@ const TableroBodegaPage: React.FC = () => {
 
   const hasWeeks: boolean = !!weekNav?.hasWeeks;
   const [actionError, setActionError] = useState<string | null>(null);
+  const [openSectionKey, setOpenSectionKey] = useState<"resumen" | "recepciones" | "empaque" | "logistica">("recepciones");
 
   // Empaque: state lifted
   const {
@@ -230,17 +231,22 @@ const TableroBodegaPage: React.FC = () => {
     setOpenEmpaque(true);
   }, []);
 
-  const handleOpenBulkEmpaque = useCallback(() => {
-    setSelectedRecepcionForEmpaque(null); // NULL indicates Bulk Mode
-    setOpenEmpaque(true);
-  }, []);
-
   const handleCloseEmpaque = useCallback(() => {
     setOpenEmpaque(false);
     setSelectedRecepcionForEmpaque(null);
     setEmpaqueLoading(false);
     setEmpaqueInitialLines(null);
   }, []);
+
+  useEffect(() => {
+    if (!tablero?.refetchQueues) return;
+    if (openSectionKey === "empaque") {
+      tablero.refetchQueues("inventarios");
+    }
+    if (openSectionKey === "logistica") {
+      tablero.refetchQueues("despachos");
+    }
+  }, [openSectionKey, tablero?.filters, tablero?.refetchQueues]);
 
   // Fetch logic for Drawer
   useEffect(() => {
@@ -966,6 +972,7 @@ const TableroBodegaPage: React.FC = () => {
                 isActiveSelectedWeek={isActiveSelectedWeek}
                 isExpiredWeek={isExpiredWeek}
                 forcedOpen={forcedOpen}
+                onSectionOpen={(key) => setOpenSectionKey(key)}
                 resumen={
                   <ResumenSection
                     items={kpiCards}
@@ -993,7 +1000,6 @@ const TableroBodegaPage: React.FC = () => {
                 empaque={
                   <EmpaqueSection
                     onVerPendientes={handleGoPendientesEmpaque}
-                    onEmpacarMasivo={handleOpenBulkEmpaque}
                     pendientes={tablero?.summary?.kpis?.empaque?.pendientes}
                     empacadas={tablero?.summary?.kpis?.empaque?.empacadas}
                     cajasEmpacadas={tablero?.summary?.kpis?.empaque?.cajas_empacadas}

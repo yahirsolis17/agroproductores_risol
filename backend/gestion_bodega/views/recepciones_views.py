@@ -4,6 +4,7 @@ from datetime import date, timedelta
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import Sum, Q
+import django_filters
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
@@ -116,6 +117,24 @@ def _map_recepcion_validation_errors(errors) -> tuple[str, dict, int]:
     return "validation_error", {"errors": errors}, status.HTTP_400_BAD_REQUEST
 
 
+def _inject_empaque_fields(row: dict, *, captured: int, packed: int, merma: int) -> None:
+    if not isinstance(row, dict):
+        return
+    captured_val = int(captured or 0)
+    packed_val = int(packed or 0)
+    merma_val = int(merma or 0)
+    if packed_val <= 0:
+        status_val = "SIN_EMPAQUE"
+    elif captured_val > 0 and packed_val >= captured_val:
+        status_val = "EMPACADO"
+    else:
+        status_val = "PARCIAL"
+    row["cajas_empaquetadas"] = packed_val
+    row["cajas_disponibles"] = max(0, captured_val - packed_val)
+    row["cajas_merma"] = merma_val
+    row["empaque_status"] = status_val
+
+
 def _resolve_semana_for_fecha(bodega: Bodega, temporada: TemporadaBodega, fecha: date):
     qs = (
         CierreSemanal.objects.filter(
@@ -136,6 +155,20 @@ def _resolve_semana_for_fecha(bodega: Bodega, temporada: TemporadaBodega, fecha:
 
 from gestion_bodega.utils.recepcion_aggregates import annotate_recepcion_status
 
+
+class RecepcionFilter(django_filters.FilterSet):
+    empaque_status = django_filters.CharFilter(field_name="empaque_status", lookup_expr="exact")
+
+    class Meta:
+        model = Recepcion
+        fields = {
+            "bodega": ["exact"],
+            "temporada": ["exact"],
+            "semana": ["exact"],
+            "fecha": ["exact", "gte", "lte"],
+            "is_active": ["exact"],
+        }
+
 # ... (Existing helpers can be removed or kept if used elsewhere, but manual map building is deleted)
 
 class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
@@ -149,14 +182,7 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
 
     # ✅ Filtros activados para evitar data leaks
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = {
-        "bodega": ["exact"],
-        "temporada": ["exact"],
-        "semana": ["exact"],
-        "fecha": ["exact", "gte", "lte"],
-        "is_active": ["exact"],
-        "empaque_status": ["exact"], # Para filtrar "SIN_EMPAQUE", "PARCIAL", etc. (agregado via annotate)
-    }
+    filterset_class = RecepcionFilter
     search_fields = ["folio", "huertero_nombre", "tipo_mango", "observaciones"]
     ordering_fields = ["fecha", "id", "creado_en"]
     ordering = ["-fecha", "-id"]
