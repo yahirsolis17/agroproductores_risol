@@ -17,21 +17,16 @@ import {
 import { useDispatch } from "react-redux";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import StopIcon from "@mui/icons-material/Stop";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
-
 import { useTableroBodega } from "../hooks/useTableroBodega";
 import WeekSwitcher from "../components/tablero/WeekSwitcher";
-
 import { setBreadcrumbs } from "../../../global/store/breadcrumbsSlice";
 import { formatDateISO, parseLocalDateStrict } from "../../../global/utils/date";
-
 // Fase 1: getWeekCurrent eliminado - hook maneja estado de semana
-
 import ResumenSection from "../components/tablero/sections/ResumenSection";
 import RecepcionesSection from "../components/tablero/sections/RecepcionesSection";
 import EmpaqueSection from "../components/tablero/sections/EmpaqueSection";
@@ -39,46 +34,36 @@ import LogisticaSection from "../components/tablero/sections/LogisticaSection";
 import TableroSectionsAccordion, {
   TableroSectionKey,
 } from "../components/tablero/sections/TableroSectionsAccordion";
-
 import EmpaqueDrawer from "../components/empaque/EmpaqueDrawer";
 import CamionFormModal from "../components/logistica/CamionFormModal";
 import useEmpaques from "../hooks/useEmpaques";
 import { Material } from "../types/shared";
 import { normalizeCalidadToUI } from "../services/empaquesService";
-
 // ---------------------------------------------------------------------------
 // Utils
 // ---------------------------------------------------------------------------
-
 function normalizeBackendCalidadToUILabel(material: "PLASTICO" | "MADERA", calidadRaw: any): string {
   // Reutiliza el normalizador canonico para que las claves coincidan con EmpaqueDrawer.
   return normalizeCalidadToUI(material, calidadRaw);
 }
-
 function buildInitialLinesPatchFromEmpaques(
   rows: any[],
   recepcionId: number
 ): Record<string, number> {
   const patch: Record<string, number> = {};
-
   const filtered = Array.isArray(rows)
     ? rows.filter((r) => Number(r?.recepcion) === Number(recepcionId))
     : [];
-
   for (const r of filtered) {
     const material = String(r?.material ?? "").toUpperCase() as "PLASTICO" | "MADERA";
     if (material !== "PLASTICO" && material !== "MADERA") continue;
-
     const uiCalidad = normalizeBackendCalidadToUILabel(material, r?.calidad);
     if (!uiCalidad) continue;
-
     const key = `${material}.${uiCalidad}`;
     const qty = Number(r?.cantidad_cajas ?? 0);
     const safeQty = Number.isFinite(qty) ? Math.max(0, Math.floor(qty)) : 0;
-
     patch[key] = (patch[key] ?? 0) + safeQty;
   }
-
   return patch;
 }
 function prettyRange(fromISO: string, toISO: string) {
@@ -90,9 +75,8 @@ function prettyRange(fromISO: string, toISO: string) {
       month: "short",
       year: d.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined,
     });
-  return `${fmt(from)} – ${fmt(to)}`;
+  return `${fmt(from)} - ${fmt(to)}`;
 }
-
 // Animaciones (framer-motion)
 const pageTransition = {
   initial: { opacity: 0, y: 8, scale: 0.99 },
@@ -109,7 +93,6 @@ const pageTransition = {
     transition: { duration: 0.25, ease: "easeIn" },
   },
 };
-
 const sectionTransition = {
   initial: { opacity: 0, x: 14 },
   animate: {
@@ -118,13 +101,10 @@ const sectionTransition = {
     transition: { duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] },
   },
 };
-
 const staggerChildren = {
   animate: { transition: { staggerChildren: 0.08 } },
 };
-
 type WeekValue = { from: string; to: string; isoSemana: string | null };
-
 // ---------------------------------------------------------------------------
 // Componente principal
 // ---------------------------------------------------------------------------
@@ -133,45 +113,35 @@ const TableroBodegaPage: React.FC = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [sp] = useSearchParams();
-
   // Media queries para responsive
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-
   const temporadaParam = sp.get("temporada");
   const temporadaId = Number(temporadaParam);
   const bodegaParam = sp.get("bodega");
   const bodegaId = bodegaParam ? Number(bodegaParam) : undefined;
-
-  // Refs para navegación interna (Empaque ? Recepciones)
+  // Refs para navegacion interna (Empaque ? Recepciones)
   const recepcionesRef = useRef<HTMLDivElement | null>(null);
-
-  // Acordeón: override puntual (Empaque -> Recepciones) con token para ser idempotente
+  // Acordeon: override puntual (Empaque -> Recepciones) con token para ser idempotente
   const [forcedOpen, setForcedOpen] = useState<{ key: TableroSectionKey; token: number } | null>(null);
-
-  // Si cambia la semana, devolvemos el acordeón al default inteligente
+  // Si cambia la semana, devolvemos el acordeon al default inteligente
   const weekIdParam = sp.get("week_id");
   const urlWeekId = weekIdParam ? Number(weekIdParam) : null;
-
   useEffect(() => {
     setForcedOpen(null);
   }, [urlWeekId]);
-
   // Guards
   useEffect(() => {
     if (!temporadaParam || Number.isNaN(temporadaId) || temporadaId <= 0) {
       navigate("/bodega", { replace: true });
     }
   }, [temporadaParam, temporadaId, navigate]);
-
   useEffect(() => {
     if (!bodegaParam || Number.isNaN(bodegaId as number) || (bodegaId ?? 0) <= 0) {
       navigate("/bodega", { replace: true });
     }
   }, [bodegaParam, bodegaId, navigate]);
-
-  // Hook maestro de Tablero (FUENTE ÚNICA DE VERDAD para semana)
+  // Hook maestro de Tablero (FUENTE UNICA DE VERDAD para semana)
   const tablero = useTableroBodega({ bodegaId: bodegaId!, temporadaId });
-
   const {
     kpiCards,
     isLoadingSummary,
@@ -181,7 +151,7 @@ const TableroBodegaPage: React.FC = () => {
     weekNav,
     apiStartWeek,
     apiFinishWeek,
-    // Fase 1: valores consolidados del hook (elimina duplicación)
+    // Fase 1: valores consolidados del hook (elimina duplicacion)
     hasActiveWeek,
     isActiveSelectedWeek,
     selectedWeek,
@@ -191,11 +161,9 @@ const TableroBodegaPage: React.FC = () => {
     finishingWeek,
     isExpiredWeek,
   } = tablero;
-
   const hasWeeks: boolean = !!weekNav?.hasWeeks;
   const [actionError, setActionError] = useState<string | null>(null);
   const [openSectionKey, setOpenSectionKey] = useState<"resumen" | "recepciones" | "empaque" | "logistica">("recepciones");
-
   // Empaque: state lifted
   const {
     empaques: empRows,
@@ -205,26 +173,21 @@ const TableroBodegaPage: React.FC = () => {
     bulkUpsert: empBulkUpsert,
     bulkSaving: empBulkSaving,
   } = useEmpaques(false);
-
-
   const [openEmpaque, setOpenEmpaque] = useState(false);
   const [selectedRecepcionForEmpaque, setSelectedRecepcionForEmpaque] = useState<any | null>(null);
   const [empaqueLoading, setEmpaqueLoading] = useState(false);
   const [empaqueInitialLines, setEmpaqueInitialLines] = useState<Record<string, number> | null>(null);
   const [empaqueRefetchToken, setEmpaqueRefetchToken] = useState(0);
-
   const handleOpenEmpaque = useCallback((recepcion: any) => {
     setSelectedRecepcionForEmpaque(recepcion);
     setOpenEmpaque(true);
   }, []);
-
   const handleCloseEmpaque = useCallback(() => {
     setOpenEmpaque(false);
     setSelectedRecepcionForEmpaque(null);
     setEmpaqueLoading(false);
     setEmpaqueInitialLines(null);
   }, []);
-
   useEffect(() => {
     if (!tablero?.refetchQueues) return;
     if (openSectionKey === "empaque") {
@@ -234,23 +197,19 @@ const TableroBodegaPage: React.FC = () => {
       tablero.refetchQueues("despachos");
     }
   }, [openSectionKey, tablero?.filters, tablero?.refetchQueues]);
-
   // Fetch logic for Drawer
   useEffect(() => {
     if (!openEmpaque) return;
     if (!bodegaId || !temporadaId) return;
-
     // Si es bulk (recepcion=null), NO cargamos initialLines, es FIFO mode vacio.
     if (!selectedRecepcionForEmpaque) {
       setEmpaqueLoading(false);
       setEmpaqueInitialLines(null);
       return;
     }
-
     setEmpaqueLoading(true);
     setEmpaqueInitialLines(null);
     empClearError();
-
     empRefetch({
       recepcion: selectedRecepcionForEmpaque.id,
       bodega: bodegaId,
@@ -261,7 +220,6 @@ const TableroBodegaPage: React.FC = () => {
       ordering: "-id",
     } as any);
   }, [openEmpaque, selectedRecepcionForEmpaque?.id, bodegaId, temporadaId, empRefetch, empClearError]);
-
   useEffect(() => {
     if (!openEmpaque || !selectedRecepcionForEmpaque?.id) return;
     if (empStatus === "loading") return;
@@ -276,10 +234,8 @@ const TableroBodegaPage: React.FC = () => {
       setEmpaqueLoading(false);
     }
   }, [openEmpaque, selectedRecepcionForEmpaque?.id, empStatus, empRows]);
-
   const onSaveEmpaque = async (lines: Record<string, number>, date?: string) => {
     if (!bodegaId || !temporadaId) return;
-
     // Si es Bulk, recepcion es null.
     // Si NO es bulk, recepcion es requerida.
     const isBulk = !selectedRecepcionForEmpaque;
@@ -315,7 +271,6 @@ const TableroBodegaPage: React.FC = () => {
         cantidad_cajas: qty,
       };
     });
-
     try {
       await empBulkUpsert({
         recepcion: isBulk ? null : selectedRecepcionForEmpaque.id,
@@ -324,28 +279,22 @@ const TableroBodegaPage: React.FC = () => {
         fecha: date || formatDateISO(new Date()), // Use passed date (bulk) or reception date
         items,
       }).unwrap();
-
       // Refresh summary (KPIs in EmpaqueSection)
       if (refetchSummary) refetchSummary();
-
       // Trigger recepciones table refetch (chips se actualizan)
       setEmpaqueRefetchToken((t) => t + 1);
-
       handleCloseEmpaque();
     } catch (err) {
       console.error("Empaque save failed", err);
     }
   };
-
-  // Modal Camión State
+  // Modal Camion State
   const [camionModalOpen, setCamionModalOpen] = useState(false);
   const [selectedCamion, setSelectedCamion] = useState<any | null>(null);
-
   const handleAddCamion = useCallback(() => {
     setSelectedCamion(null);
     setCamionModalOpen(true);
   }, []);
-
   const handleEditCamion = useCallback((row: any) => {
     // row comes from Logistica table, likely has minimal data.
     // CamionFormModal should fetch full details or receive ID.
@@ -353,7 +302,6 @@ const TableroBodegaPage: React.FC = () => {
     setSelectedCamion(row);
     setCamionModalOpen(true);
   }, []);
-
   const handleCamionSuccess = useCallback(() => {
     // Refresh logistics queue and summary
     if (refetchSummary) refetchSummary();
@@ -363,7 +311,6 @@ const TableroBodegaPage: React.FC = () => {
     // Ideally we should refetch the list.
     // As per `useTableroBodega`, modifying state usually triggers updates.
   }, [refetchSummary]);
-
   // Estado local del rango que maneja WeekSwitcher
   const [weekValue, setWeekValue] = useState<WeekValue>(() => {
     const sw: any = selectedWeek;
@@ -376,7 +323,6 @@ const TableroBodegaPage: React.FC = () => {
       isoSemana: sw?.iso_semana ?? null,
     };
   });
-
   // Sincronizar weekValue cuando cambia la semana seleccionada (del hook)
   useEffect(() => {
     const sw: any = selectedWeek;
@@ -386,7 +332,6 @@ const TableroBodegaPage: React.FC = () => {
       setWeekValue((prev) => (prev.from === from && prev.to === to ? prev : { from, to, isoSemana: "MANUAL" }));
     }
   }, [selectedWeek]);
-
   // Pretty range
   const rangoPretty = useMemo(() => {
     const from = (selectedWeek as any)?.fecha_desde || (selectedWeek as any)?.inicio;
@@ -394,21 +339,17 @@ const TableroBodegaPage: React.FC = () => {
     if (!from || !to) return "";
     return prettyRange(from, to);
   }, [selectedWeek]);
-
   const semanaIndex = weekNav?.indice ?? null;
-
   const temporadaChipLabel = useMemo(
     () => `Temporada ${weekNav?.context?.temporada_label ?? temporadaId}`,
     [weekNav?.context?.temporada_label, temporadaId]
   );
-
   // Breadcrumbs
   useEffect(() => {
     const bLabel = weekNav?.context?.bodega_label || "Bodega";
     const tLabel = weekNav?.context?.temporada_label || "";
-
     const crumbs = [
-      { label: `Bodegas – ${bLabel}`, path: "/bodega" },
+      { label: `Bodegas - ${bLabel}`, path: "/bodega" },
       {
         label: `Temporada ${tLabel}`,
         path:
@@ -417,12 +358,9 @@ const TableroBodegaPage: React.FC = () => {
             : "/bodega",
       },
     ] as { label: string; path: string }[];
-
     if (hasWeeks) crumbs.push({ label: `Semana ${semanaIndex ?? ""}`, path: "" });
-
     dispatch(setBreadcrumbs(crumbs));
   }, [dispatch, bodegaId, temporadaId, weekNav?.context?.bodega_label, weekNav?.context?.temporada_label, hasWeeks, semanaIndex]);
-
   // WeekSwitcher ? aplica rango al tablero
   const handleWeekChange = useCallback(
     (range: { from?: string; to?: string; isoSemana?: string | null }) => {
@@ -432,8 +370,7 @@ const TableroBodegaPage: React.FC = () => {
     },
     [onApplyFilters]
   );
-
-  // Índices prev/next (para WeekSwitcher) - usa hook para navegación
+  // Indices prev/next (para WeekSwitcher) - usa hook para navegacion
   const currentIndex = useMemo(() => {
     const items = (weekNav?.items || []) as any[];
     if (!items.length) return -1;
@@ -444,17 +381,13 @@ const TableroBodegaPage: React.FC = () => {
     const idxFromNav = ((weekNav?.indice ?? 1) as number) - 1;
     return Math.max(0, Math.min(items.length - 1, idxFromNav));
   }, [weekNav?.items, weekNav?.indice, urlWeekId]);
-
-  // Fase 1: sin Virtual Mode (eliminado según contrato)
+  // Fase 1: sin Virtual Mode (eliminado segun contrato)
   const disablePrev = !hasWeeks || currentIndex <= 0;
   const disableNext = !hasWeeks || currentIndex >= (weekNav?.items?.length ?? 0) - 1;
-
-  // Fase 1: Navegación de semanas delegada al hook
+  // Fase 1: Navegacion de semanas delegada al hook
   const goPrevWeek = hookGoPrevWeek;
   const goNextWeek = hookGoNextWeek;
-
   const canFinish = isActiveSelectedWeek;
-
   // ---------------------------------------------------------------------------
   // Acciones semana (Fase 1: usa Redux busy states y refetch del hook)
   // ---------------------------------------------------------------------------
@@ -469,14 +402,13 @@ const TableroBodegaPage: React.FC = () => {
       setActionError(e?.message || "No se pudo iniciar la semana.");
     }
   }, [apiStartWeek, bodegaId, temporadaId, weekValue.from]);
-
   const handleFinish = useCallback(async () => {
     setActionError(null);
     if (!bodegaId || !temporadaId) return;
     try {
       let to = weekValue.to;
       // FIX: No permitir cerrar con fecha futura (backend lanza 400/500).
-      // Si la fecha planeada es futura, cerramos con el día de HOY.
+      // Si la fecha planeada es futura, cerramos con el dia de HOY.
       const today = formatDateISO(new Date());
       if (to && to > today) {
         to = today;
@@ -487,9 +419,8 @@ const TableroBodegaPage: React.FC = () => {
       setActionError(e?.message || "No se pudo finalizar la semana.");
     }
   }, [apiFinishWeek, bodegaId, temporadaId, weekValue.to]);
-
   // ---------------------------------------------------------------------------
-  // Lógica de botón Iniciar (UX final)
+  // Logica de boton Iniciar (UX final)
   // ---------------------------------------------------------------------------
   const isSameRangeAsSelectedWeek = useMemo(() => {
     const sw: any = selectedWeek;
@@ -498,18 +429,15 @@ const TableroBodegaPage: React.FC = () => {
     const toSel = sw.fecha_hasta || sw.fin;
     return fromSel === weekValue.from && toSel === weekValue.to;
   }, [selectedWeek, weekValue.from, weekValue.to]);
-
   const disableStartButton = !bodegaId || startingWeek || hasActiveWeek || isSameRangeAsSelectedWeek;
-
   const startTooltip = !bodegaId
-    ? "Selecciona una bodega válida."
+    ? "Selecciona una bodega valida."
     : hasActiveWeek
       ? "Ya existe una semana abierta para esta bodega y temporada."
       : isSameRangeAsSelectedWeek
-        ? "Esta semana ya está registrada. Ajusta el rango para iniciar una nueva."
+        ? "Esta semana ya esta registrada. Ajusta el rango para iniciar una nueva."
         : "Iniciar semana";
-
-  // Empaque ? manda al bloque de Recepciones (sin duplicar lógica)
+  // Empaque ? manda al bloque de Recepciones (sin duplicar logica)
   const renderWeekActions = () => (
     <Box
       display="flex"
@@ -564,7 +492,6 @@ const TableroBodegaPage: React.FC = () => {
           )}
         </span>
       </Tooltip>
-
       {isActiveSelectedWeek && (
         <Tooltip title="Finalizar semana">
           <span>
@@ -618,8 +545,7 @@ const TableroBodegaPage: React.FC = () => {
           </span>
         </Tooltip>
       )}
-
-      <Tooltip title="Reporte (pendiente de implementación)">
+      <Tooltip title="Reporte (pendiente de implementacion)">
         <span>
           <Button
             size="medium"
@@ -644,14 +570,12 @@ const TableroBodegaPage: React.FC = () => {
       </Tooltip>
     </Box>
   );
-
   const handleGoPendientesEmpaque = useCallback(() => {
     setForcedOpen({ key: "recepciones", token: Date.now() });
     window.setTimeout(() => {
       recepcionesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 60);
   }, []);
-
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
@@ -765,7 +689,6 @@ const TableroBodegaPage: React.FC = () => {
                 </Box>
               </Box>
             </Box>
-
             {bodegaId && bodegaId > 0 && (
               <Box display="flex" justifyContent={{ xs: "flex-start", md: "flex-end" }}>
                 {renderWeekActions()}
@@ -773,7 +696,6 @@ const TableroBodegaPage: React.FC = () => {
             )}
           </Box>
         </Box>
-
         {/* Subheader sticky */}
         <Box
           sx={{
@@ -811,7 +733,6 @@ const TableroBodegaPage: React.FC = () => {
                 disableNext={disableNext}
               />
             </Box>
-
             <Box
               display="flex"
               alignItems="center"
@@ -836,10 +757,9 @@ const TableroBodegaPage: React.FC = () => {
                   }}
                 >
                   <CalendarTodayIcon sx={{ fontSize: { xs: 14, sm: 16 } }} />
-                  {rangoPretty || "—"}
+                  {rangoPretty || "-"}
                 </Typography>
               )}
-
               {hasWeeks &&
                 (isActiveSelectedWeek ? (
                   <Chip
@@ -874,7 +794,6 @@ const TableroBodegaPage: React.FC = () => {
                 ))}
             </Box>
           </Box>
-
           {/* Alerta de Semana Caducada */}
           <AnimatePresence>
             {isExpiredWeek && (
@@ -912,7 +831,7 @@ const TableroBodegaPage: React.FC = () => {
                     Semana Caducada
                   </Typography>
                   <Typography variant="body2">
-                    Esta semana ha excedido su duración máxima de 7 días. El sistema ha bloqueado nuevas operaciones.
+                    Esta semana ha excedido su duracion maxima de 7 dias. El sistema ha bloqueado nuevas operaciones.
                     Debes <strong>finalizarla ahora</strong> para continuar operando.
                   </Typography>
                   {isMobile && (
@@ -932,7 +851,6 @@ const TableroBodegaPage: React.FC = () => {
               </Box>
             )}
           </AnimatePresence>
-
           {!!actionError && (
             <Box mt={1.5}>
               <Alert
@@ -950,8 +868,7 @@ const TableroBodegaPage: React.FC = () => {
             </Box>
           )}
         </Box>
-
-        {/* Cuerpo semanal (Acordeón: 1 abierto por defecto) */}
+        {/* Cuerpo semanal (Acordeon: 1 abierto por defecto) */}
         <Box sx={{ px: { xs: 1.5, sm: 2, md: 3 }, py: 1 }}>
           <AnimatePresence initial={false} mode="wait">
             <Box component={motion.div} key={weekValue.from} {...pageTransition}>
@@ -1020,8 +937,7 @@ const TableroBodegaPage: React.FC = () => {
           </AnimatePresence>
         </Box>
       </Paper >
-
-      {/* Modal Camión */}
+      {/* Modal Camion */}
       {bodegaId && temporadaId && (
         <CamionFormModal
           open={camionModalOpen}
@@ -1032,7 +948,6 @@ const TableroBodegaPage: React.FC = () => {
           camion={selectedCamion}
         />
       )}
-
       {/* Empaque Drawer Global */}
       <EmpaqueDrawer
         open={openEmpaque}
@@ -1048,7 +963,4 @@ const TableroBodegaPage: React.FC = () => {
     </Box>
   );
 };
-
 export default TableroBodegaPage;
-
-
