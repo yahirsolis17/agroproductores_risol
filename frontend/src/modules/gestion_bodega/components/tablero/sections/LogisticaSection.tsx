@@ -127,8 +127,29 @@ const LogisticaSection: React.FC<Props> = ({
         key: "chips",
         render: (r) => renderChips(r.chips),
       },
+      {
+        label: "Acciones",
+        key: "acciones",
+        render: (r) => {
+          if (!onEditCamion) return "—";
+          const estado = (r.estado ?? "").toString().trim().toUpperCase();
+          if (estado !== "BORRADOR") return "—";
+          return (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={(event) => {
+                event.stopPropagation();
+                onEditCamion(r);
+              }}
+            >
+              Completar
+            </Button>
+          );
+        },
+      },
     ],
-    []
+    [onEditCamion]
   );
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: string) => {

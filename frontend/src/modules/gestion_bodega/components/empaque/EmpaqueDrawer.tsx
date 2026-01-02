@@ -50,6 +50,7 @@ import {
 import { formatDateDisplay, formatDateISO } from "../../../../global/utils/date";
 import AppDrawer from "../../../../components/common/AppDrawer";
 import { motion } from "framer-motion";
+import { capturasService } from "../../services/capturasService";
 
 type RecepcionLike = {
   id: number;
@@ -171,6 +172,8 @@ export default function EmpaqueDrawer({
 
   const isBulk = !recepcion;
   const [bulkDate, setBulkDate] = useState<string>(formatDateISO(new Date()));
+  const [recepcionDetail, setRecepcionDetail] = useState<RecepcionLike | null>(null);
+  const [recepcionLoading, setRecepcionLoading] = useState(false);
 
   // Reset bulk date on open
   useEffect(() => {
@@ -179,15 +182,45 @@ export default function EmpaqueDrawer({
     }
   }, [open, isBulk]);
 
+  useEffect(() => {
+    let isActive = true;
+    if (!open || !recepcion?.id) {
+      setRecepcionDetail(null);
+      setRecepcionLoading(false);
+      return () => {
+        isActive = false;
+      };
+    }
+    setRecepcionLoading(true);
+    capturasService
+      .retrieve(recepcion.id)
+      .then((res) => {
+        if (!isActive) return;
+        setRecepcionDetail(res.captura);
+      })
+      .catch(() => {
+        if (!isActive) return;
+        setRecepcionDetail(null);
+      })
+      .finally(() => {
+        if (!isActive) return;
+        setRecepcionLoading(false);
+      });
+    return () => {
+      isActive = false;
+    };
+  }, [open, recepcion?.id]);
+
+  const effectiveRecepcion = recepcionDetail ?? recepcion;
   // Fallback: cantidad_cajas (alias) o cajas_campo (campo real)
-  const captured = clampInt(recepcion?.cantidad_cajas ?? recepcion?.cajas_campo ?? 0);
-  const isArchived = recepcion ? recepcion.is_active === false : false;
+  const captured = clampInt(effectiveRecepcion?.cantidad_cajas ?? effectiveRecepcion?.cajas_campo ?? 0);
+  const isArchived = effectiveRecepcion ? effectiveRecepcion.is_active === false : false;
 
   // Solo lectura real (reglas de negocio)
   const readOnly = blocked || isArchived;
 
   // Inputs deshabilitados también durante hidratar (sin marcar como solo lectura)
-  const inputsDisabled = readOnly || !!loadingInitial;
+  const inputsDisabled = readOnly || !!loadingInitial || recepcionLoading;
 
   // Estados
   const [activeTab, setActiveTab] = useState<Material>("PLASTICO");
