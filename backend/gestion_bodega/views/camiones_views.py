@@ -4,6 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
+from datetime import timedelta
 
 from gestion_bodega.models import CamionSalida, CamionItem, CierreSemanal, CamionConsumoEmpaque
 from gestion_bodega.serializers import CamionSalidaSerializer, CamionItemSerializer, CamionConsumoEmpaqueSerializer
@@ -47,6 +48,23 @@ def _semana_cerrada(bodega_id: int, temporada_id: int, fecha):
         bodega_id=bodega_id, temporada_id=temporada_id,
         fecha_desde__lte=fecha, fecha_hasta__gte=fecha, is_active=True
     ).exists()
+
+def _resolve_semana_for_fecha(bodega, temporada, fecha):
+    qs = (
+        CierreSemanal.objects.filter(
+            bodega=bodega,
+            temporada=temporada,
+            is_active=True,
+        )
+        .order_by("-fecha_desde")
+    )
+
+    for cierre in qs:
+        start = cierre.fecha_desde
+        end = cierre.fecha_hasta or (cierre.fecha_desde + timedelta(days=6))
+        if start <= fecha <= end:
+            return cierre
+    return None
 
 
 class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
@@ -100,8 +118,18 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
         if _semana_cerrada(data["bodega"].id, data["temporada"].id, data["fecha_salida"]):
             return self.notify(key="camion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
 
+        semana = data.get("semana")
+        if not semana:
+            semana = _resolve_semana_for_fecha(data["bodega"], data["temporada"], data["fecha_salida"])
+            if not semana:
+                return self.notify(
+                    key="validation_error",
+                    data={"errors": {"semana": ["No hay semana activa para la fecha."]}},
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+
         with transaction.atomic():
-            obj = ser.save()
+            obj = ser.save(semana=semana)
 
         return self.notify(key="camion_creado", data={"camion": self.get_serializer(obj).data}, status_code=status.HTTP_201_CREATED)
 
@@ -266,5 +294,4 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
                 carga.delete()
 
         return self.notify(key="recurso_eliminado", status_code=status.HTTP_200_OK)
-
 
