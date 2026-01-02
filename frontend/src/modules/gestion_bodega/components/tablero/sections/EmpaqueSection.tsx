@@ -22,6 +22,8 @@ interface EmpaqueSectionProps {
   merma?: number;
   inventoryRows?: QueueItem[];
 
+  page?: number;
+  pageSize?: number;
   /** Acción opcional: aplica filtro visual en Recepciones (Fase 5). */
   onVerPendientes?: () => void;
 
@@ -35,6 +37,8 @@ const EmpaqueSection: React.FC<EmpaqueSectionProps> = ({
   cajasEmpacadas = 0,
   merma = 0,
   inventoryRows = [],
+  page = 1,
+  pageSize = 100,
   onVerPendientes,
   helperText,
 }) => {
@@ -148,30 +152,89 @@ const EmpaqueSection: React.FC<EmpaqueSectionProps> = ({
           <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>
             Stock Disponible (Inventario Real)
           </Typography>
+
           <TableLayout<QueueItem>
             data={inventoryRows}
             columns={[
-              { label: "Ref", key: "ref" },
-              { label: "Fecha", key: "fecha" },
+              {
+                label: "Referencia",
+                key: "ref",
+                render: (_, i) => (
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    {`Empaque #${(page - 1) * pageSize + i + 1}`}
+                  </Typography>
+                )
+              },
+              {
+                label: "Fecha",
+                key: "fecha",
+                render: (r) => {
+                  if (!r.fecha) return "—";
+                  // Mostrar fecha y hora local
+                  try {
+                    const d = new Date(r.fecha);
+                    return d.toLocaleString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+                  } catch {
+                    return r.fecha;
+                  }
+                }
+              },
               {
                 label: "Clasificación",
                 key: "meta",
                 render: (r) => {
-                  const m = r.meta || {};
-                  return `${m.material || "?"} ${m.calidad || ""} ${m.tipo || ""}`;
+                  const m = (r.meta || {}) as any;
+                  // Prioridad 1: Desglose ya formateado desde backend
+                  const items = m.desglose;
+                  if (Array.isArray(items) && items.length > 0) {
+                    return (
+                      <Box>
+                        {items.map((line: string, idx: number) => (
+                          <Typography key={idx} variant="caption" display="block" sx={{ lineHeight: 1.2 }}>
+                            {line}
+                          </Typography>
+                        ))}
+                      </Box>
+                    );
+                  }
+                  // Prioridad 2: Construcción manual si el backend manda campos planos en meta (fallback robusto)
+                  // Nota: QueueInventarios agrupa por lote, por lo que 'm' debería tener datos agregados o ser representative.
+                  // Si no hay desglose, intentamos mostrar datos basicos si existen.
+                  if (m.material || m.calidad || m.tipo) {
+                    return `${m.material || "?"} ${m.calidad || "?"} ${m.tipo || "?"}`;
+                  }
+                  return "—";
                 }
               },
-              { label: "Origen", key: "huerta", render: (r) => r.huerta || "—" },
-              { label: "Cajas", key: "kg", align: "right", render: (r) => r.kg },
+              { label: "Huertero", key: "huerta", render: (r) => <Typography variant="body2">{r.huerta || "—"}</Typography> },
+              { label: "Cajas", key: "kg", align: "right", render: (r) => <Typography variant="body2" fontWeight={700}>{r.kg}</Typography> },
+              {
+                label: "Despachado",
+                key: "despachado",
+                render: (r) => {
+                  const isDespachado = (r.meta as any)?.despachado === true;
+                  return (
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        fontWeight: 700,
+                        color: isDespachado ? "success.main" : "text.secondary",
+                      }}
+                    >
+                      {isDespachado ? "SÍ" : "No"}
+                    </Typography>
+                  );
+                }
+              },
             ]}
             rowKey={(r) => r.id}
-            page={1}
-            pageSize={100} // Show all first page or handle pagination if passed
+            page={page}
+            pageSize={pageSize}
             count={inventoryRows.length}
             onPageChange={() => { }}
             loading={false}
             dense
-            striped={false}
+            striped={true}
             emptyMessage="No hay stock disponible registrado."
           />
         </Box>

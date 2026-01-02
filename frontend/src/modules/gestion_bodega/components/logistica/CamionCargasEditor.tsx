@@ -32,6 +32,7 @@ interface CamionCargasEditorProps {
     camionId: number;
     bodegaId: number;
     temporadaId: number;
+    semanaId?: number | null;
     initialCargas?: any[]; // Array de CamionConsumoEmpaque
     onCargasChange?: () => void; // Callback para refrescar camión padre
     readOnly?: boolean;
@@ -41,6 +42,7 @@ const CamionCargasEditor: React.FC<CamionCargasEditorProps> = ({
     camionId,
     bodegaId,
     temporadaId,
+    semanaId,
     initialCargas = [],
     onCargasChange,
     readOnly = false,
@@ -63,7 +65,11 @@ const CamionCargasEditor: React.FC<CamionCargasEditorProps> = ({
     const fetchStock = async () => {
         setLoadingStock(true);
         try {
-            const rows = await empaquesService.listDisponibles({ bodega: bodegaId, temporada: temporadaId });
+            const rows = await empaquesService.listDisponibles({
+                bodega: bodegaId,
+                temporada: temporadaId,
+                semana: semanaId
+            });
             setAvailableStock(rows);
         } catch (err) {
             console.error("Error fetching stock", err);
@@ -202,19 +208,27 @@ const CamionCargasEditor: React.FC<CamionCargasEditorProps> = ({
                         <Autocomplete
                             options={availableStock}
                             loading={loadingStock}
-                            getOptionLabel={(option) =>
-                                `${option.material} - ${option.calidad} | Disp: ${(option as any).disponible}`
-                            }
+                            getOptionLabel={(option) => {
+                                const loteInfo = (option as any).lote_codigo ? ` | Lote: ${(option as any).lote_codigo}` : '';
+                                return `${option.material} - ${option.calidad} (${(option as any).fecha}) | Disp: ${(option as any).disponible}${loteInfo}`;
+                            }}
                             renderOption={(props, option) => (
                                 <li {...props}>
-                                    <Box display="flex" justifyContent="space-between" width="100%">
-                                        <span>{option.material} - {option.calidad}</span>
-                                        <Typography
-                                            variant="body2"
-                                            color={(option as any).disponible < 50 ? 'error' : 'success.main'}
-                                            fontWeight="bold"
-                                        >
-                                            {(option as any).disponible} unid.
+                                    <Box display="flex" flexDirection="column" width="100%">
+                                        <Box display="flex" justifyContent="space-between" width="100%">
+                                            <Typography variant="body2" fontWeight="bold">
+                                                {option.material} - {option.calidad}
+                                            </Typography>
+                                            <Typography
+                                                variant="body2"
+                                                color={(option as any).disponible < 50 ? 'error' : 'success.main'}
+                                                fontWeight="bold"
+                                            >
+                                                {(option as any).disponible} unid.
+                                            </Typography>
+                                        </Box>
+                                        <Typography variant="caption" color="textSecondary">
+                                            Fecha: {(option as any).fecha} {(option as any).lote_codigo ? `| Lote: ${(option as any).lote_codigo}` : ''}
                                         </Typography>
                                     </Box>
                                 </li>
@@ -225,7 +239,7 @@ const CamionCargasEditor: React.FC<CamionCargasEditorProps> = ({
                                 <TextField
                                     {...params}
                                     label="Seleccionar Stock Disponible"
-                                    placeholder="Buscar por calidad..."
+                                    placeholder="Buscar por lote, fecha o calidad..."
                                     InputProps={{
                                         ...params.InputProps,
                                         endAdornment: (
@@ -240,9 +254,22 @@ const CamionCargasEditor: React.FC<CamionCargasEditorProps> = ({
                         />
 
                         {selectedEmpaque && (
-                            <Typography variant="body2" color="primary">
-                                Disponible: <strong>{(selectedEmpaque as any).disponible}</strong> cajas
-                            </Typography>
+                            <Box mt={1} p={1} bgcolor="background.paper" borderRadius={1} border={1} borderColor="divider">
+                                <Typography variant="subtitle2" color="primary">
+                                    Seleccionado: {selectedEmpaque.material} - {selectedEmpaque.calidad}
+                                </Typography>
+                                <Typography variant="body2">
+                                    Fecha Prod: <strong>{(selectedEmpaque as any).fecha}</strong>
+                                </Typography>
+                                {(selectedEmpaque as any).lote_codigo && (
+                                    <Typography variant="body2">
+                                        Lote: <strong>{(selectedEmpaque as any).lote_codigo}</strong>
+                                    </Typography>
+                                )}
+                                <Typography variant="body2" color="success.main" mt={0.5}>
+                                    Disponible Real: <strong>{(selectedEmpaque as any).disponible}</strong> cajas
+                                </Typography>
+                            </Box>
                         )}
 
                         <TextField

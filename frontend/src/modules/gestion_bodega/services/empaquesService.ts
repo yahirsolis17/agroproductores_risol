@@ -198,7 +198,7 @@ export const empaquesService = {
     return normalizeEmpaqueRow(row);
   },
 
-  async listDisponibles(params: { bodega: number; temporada: number }): Promise<EmpaqueRow[]> {
+  async listDisponibles(params: { bodega: number; temporada: number; semana?: number | null }): Promise<EmpaqueRow[]> {
     const res = await apiClient.get(`${BASE_URL}disponibles/`, { params });
     const payload = unwrapData<any>(res.data);
     const resultsRaw = payload?.results ?? [];

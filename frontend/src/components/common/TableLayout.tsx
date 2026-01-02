@@ -14,7 +14,7 @@ import {
 export interface Column<T> {
   label: string;
   key: keyof T;
-  render?: (item: T) => React.ReactNode;
+  render?: (item: T, index: number) => React.ReactNode;
   align?: 'left' | 'center' | 'right';
 }
 
@@ -123,8 +123,8 @@ const TableSkeleton = ({
                     col.align === 'right'
                       ? 60
                       : col.align === 'center'
-                      ? 80
-                      : '100%'
+                        ? 80
+                        : '100%'
                   }
                 />
               </td>
@@ -205,8 +205,8 @@ export function TableLayout<T>({
     serverSidePagination
       ? Math.ceil(count / effectivePageSize)
       : Math.ceil(
-          (applyFiltersInternally ? data.length : count) / effectivePageSize,
-        ),
+        (applyFiltersInternally ? data.length : count) / effectivePageSize,
+      ),
   );
 
   const handleFilterUpdate = (k: string, v: any) => {
@@ -332,8 +332,8 @@ export function TableLayout<T>({
                       asyncLoading
                         ? 'Buscando…'
                         : asyncInput.length < 2
-                        ? 'Empieza a escribir...'
-                        : 'No se encontraron coincidencias'
+                          ? 'Empieza a escribir...'
+                          : 'No se encontraron coincidencias'
                     }
                     renderInput={(params) => (
                       <TextField
@@ -397,17 +397,15 @@ export function TableLayout<T>({
                 return (
                   <tr
                     key={key}
-                    className={`text-sm transition-colors ${
-                      striped
-                        ? i % 2
-                          ? 'bg-neutral-50'
-                          : 'bg-white'
-                        : ''
-                    } ${
-                      onRowClick
+                    className={`text-sm transition-colors ${striped
+                      ? i % 2
+                        ? 'bg-neutral-50'
+                        : 'bg-white'
+                      : ''
+                      } ${onRowClick
                         ? 'cursor-pointer hover:bg-neutral-100'
                         : 'hover:bg-neutral-50'
-                    }`}
+                      }`}
                     onClick={() => onRowClick?.(item)}
                   >
                     <td className="px-4 border">
@@ -419,7 +417,7 @@ export function TableLayout<T>({
                         className={`px-4 ${dense ? 'py-1' : 'py-2'} border`}
                         style={{ textAlign: col.align || 'left' }}
                       >
-                        {col.render ? col.render(item) : String(item[col.key])}
+                        {col.render ? col.render(item, i) : String(item[col.key])}
                       </td>
                     ))}
                     {renderActions && (

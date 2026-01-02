@@ -21,6 +21,7 @@ from gestion_bodega.utils.audit import ViewSetAuditMixin
 from agroproductores_risol.utils.notification_handler import NotificationHandler
 from gestion_bodega.utils.semana import semana_cerrada_ids
 from gestion_bodega.utils.inventario_empaque import get_disponible_for_clasificacion
+from gestion_bodega.services.inventory_service import InventoryService
 
 
 class NotificationMixin:
@@ -181,21 +182,20 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
         Retorna listado de clasificaciones con stock disponible > 0.
         Usado para selectores de carga de camión / surtido.
         """
-        qs = self.filter_queryset(self.get_queryset())
-        qs = qs.filter(is_active=True, cantidad_cajas__gt=0)
-        
-        results = []
-        # Optimización básica: iterar y calcular. 
-        # Si escala mucho, pasar a Annotate con Subquery/Coalesce.
-        for obj in qs:
-            dispo = get_disponible_for_clasificacion(obj.id)
-            if dispo > 0:
-                data = self.get_serializer(obj).data
-                data["disponible"] = dispo
-                results.append(data)
+        try:
+            bodega_id = int(request.query_params.get("bodega"))
+            temporada_id = int(request.query_params.get("temporada"))
+            semana_raw = request.query_params.get("semana") or request.query_params.get("semana_id")
+            semana_id = int(semana_raw) if semana_raw else None
+        except (TypeError, ValueError):
+             return self.notify(
+                key="validation_error",
+                data={"detail": "bodega y temporada requeridos"},
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
 
-        # Ordenar por FIFO (fecha asc) sugerido? O LIFO? 
-        # FE puede ordenar. Aquí mandamos por defecto del modelo (-fecha).
+        from gestion_bodega.services.inventory_service import InventoryService
+        results = InventoryService.get_available_stock_for_truck(temporada_id, bodega_id, semana_id=semana_id)
         
         return self.notify(
             key="stock_disponible_fetched", 
@@ -247,7 +247,7 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
 
     def update(self, request, *args, **kwargs):
         obj = self.get_object()
-        if obj.surtidos.exists():
+        if InventoryService.has_active_consumption(obj):
             return self.notify(key="clasificacion_con_consumos_inmutable", status_code=status.HTTP_409_CONFLICT)
 
         ser = self.get_serializer(obj, data=request.data)
@@ -282,7 +282,7 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
 
     def partial_update(self, request, *args, **kwargs):
         obj = self.get_object()
-        if obj.surtidos.exists():
+        if InventoryService.has_active_consumption(obj):
             return self.notify(key="clasificacion_con_consumos_inmutable", status_code=status.HTTP_409_CONFLICT)
 
         ser = self.get_serializer(obj, data=request.data, partial=True)
@@ -322,7 +322,7 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
     def destroy(self, request, *args, **kwargs):
         obj = self.get_object()
 
-        if obj.surtidos.exists():
+        if InventoryService.has_active_consumption(obj):
             return self.notify(key="clasificacion_con_consumos_inmutable", status_code=status.HTTP_409_CONFLICT)
 
         if semana_cerrada_ids(obj.bodega_id, obj.temporada_id, obj.fecha):
@@ -406,7 +406,8 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
             for k in keys_to_archive:
                 obj = existing.get(k)
                 if not obj: continue
-                if obj.surtidos.exists():
+                # NEW LOCK CHECK
+                if InventoryService.has_active_consumption(obj):
                     bloqueadas.append(obj)
             
             for (material, calidad), qty in payload_map.items():
@@ -419,7 +420,7 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
                     or obj.semana_id != (semana.id if semana else None)
                     or (str(getattr(obj, "tipo_mango", "") or "").strip() != recepcion_tipo_mango)
                 )
-                if cambio and obj.surtidos.exists():
+                if cambio and InventoryService.has_active_consumption(obj):
                     bloqueadas.append(obj)
 
             if bloqueadas:
@@ -471,7 +472,7 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
                     )
                     created_ids.append(obj.id)
 
-            # 3) Validación final
+            # 3) Validación final (Balance Rule P1.2)
             total_final = (
                 ClasificacionEmpaque.objects.filter(recepcion=recepcion_locked, is_active=True)
                 .aggregate(total=Sum("cantidad_cajas"))
@@ -480,8 +481,12 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
             if total_final > max_cajas:
                 transaction.set_rollback(True)
                 return False, self.notify(
-                    key="validation_error",
-                    data={"errors": {"items": "Excede cajas disponibles."}},
+                    key="clasificacion_balance_invalido",
+                    data={
+                        "errors": {"items": f"Balance inválido: Total empacado ({total_final}) excede recepción ({max_cajas})."},
+                        "max_allowed": max_cajas,
+                        "current_total": total_final
+                    },
                     status_code=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -541,6 +546,13 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
 
         # MODO 1: EXPLÍCITO
         if recepcion:
+            # P0.1 Integrity: Block creation if reception is locked by downstream consumption
+            if InventoryService.recepcion_is_locked(recepcion):
+                return self.notify(
+                    key="recepcion_inmutable_por_consumo",
+                    data={"error": "La recepción tiene consumos confirmados. No se pueden agregar ni modificar cajas."},
+                    status_code=status.HTTP_409_CONFLICT
+                )
             success, result = self._process_upsert_snapshot(recepcion, bodega, temporada, f, items)
             if not success:
                 return result # Es un Response de error

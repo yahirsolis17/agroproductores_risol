@@ -5,7 +5,7 @@ import logging
 from datetime import timedelta
 from typing import Any, Dict, List, Optional
 
-from django.db.models import Sum, F, QuerySet, Q
+from django.db.models import Sum, F, QuerySet, Q, Max
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
@@ -14,6 +14,7 @@ from gestion_bodega.models import (
     ClasificacionEmpaque,
     CamionSalida,
     CamionItem,
+    CamionConsumoEmpaque,
 )
 
 logger = logging.getLogger(__name__)
@@ -127,6 +128,8 @@ def kpi_lead_times(temporada_id: int) -> Dict[str, Any]:
     """
     return {"recepcion_a_inventario_h": None, "inventario_a_despacho_h": None}
 
+from gestion_bodega.services.inventory_service import InventoryService
+
 def kpi_empaque(
     temporada_id: int,
     bodega_id: Optional[int],
@@ -137,52 +140,34 @@ def kpi_empaque(
 ) -> Dict[str, Any]:
     """
     KPIs de proceso de empaque para el periodo.
+    Delegado a InventoryService para consistencia estricta.
     """
-    # 1) Métricas de Volumen (Cajas empacadas y Merma)
-    qs_emp = ClasificacionEmpaque.objects.filter(temporada_id=temporada_id, is_active=True)
-    if bodega_id:
-        qs_emp = qs_emp.filter(bodega_id=bodega_id)
-    if semana_id:
-        qs_emp = qs_emp.filter(semana_id=semana_id)
-    qs_emp = _apply_date_range(qs_emp, "fecha", fecha_desde, fecha_hasta)
-    
-    agg_emp = qs_emp.aggregate(
-        total=Sum("cantidad_cajas"),
-        merma=Sum("cantidad_cajas", filter=Q(calidad__iexact="MERMA"))
+    # 1. Métricas de produccion (Volumen Cajas)
+    snapshot = InventoryService.get_stock_snapshot(
+        temporada_id=temporada_id,
+        bodega_id=bodega_id,
+        semana_id=semana_id,
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta
     )
-    cajas_empacadas = int(agg_emp.get("total") or 0)
-    cajas_merma = int(agg_emp.get("merma") or 0)
+    kpis = snapshot["kpis"]
 
-    # 2) Métricas de Estado (Recepciones pendientes vs terminadas)
-    # Consideramos recepciones que CAEN en el rango.
-    qs_rec = Recepcion.objects.filter(temporada_id=temporada_id, is_active=True)
-    if bodega_id:
-        qs_rec = qs_rec.filter(bodega_id=bodega_id)
-    if semana_id:
-        qs_rec = qs_rec.filter(semana_id=semana_id)
-    qs_rec = _apply_date_range(qs_rec, "fecha", fecha_desde, fecha_hasta)
-
-    # Anotamos lo empacado REAL históricamente (no solo en el rango, sino de esas recepciones)
-    # El status de la recepción depende de su empaque total, no solo del empaque en esta semana.
-    # Pero si filtro ClasificacionEmpaque sin restricción, es costoso?
-    # Mejor: Sum(clasificaciones__cantidad_cajas) filter(is_active=True)
-    qs_rec = qs_rec.annotate(
-        total_packed=Coalesce(
-            Sum("clasificaciones__cantidad_cajas", filter=Q(clasificaciones__is_active=True)), 
-            0
-        )
+    # 2. Métricas de estado (Recepciones)
+    # Nota: filter por recepciones aplica fecha_desde a la RECEPCIÓN, no al empaque.
+    # InventoryService.get_recepciones_kpi maneja esto.
+    rec_metrics = InventoryService.get_recepciones_kpi(
+        temporada_id=temporada_id,
+        bodega_id=bodega_id,
+        semana_id=semana_id,
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta
     )
-    
-    # Pendientes: Empacado < Campo
-    pendientes_count = qs_rec.filter(total_packed__lt=F("cajas_campo")).count()
-    # Empacadas: Empacado >= Campo (y Campo > 0)
-    empacadas_count = qs_rec.filter(total_packed__gte=F("cajas_campo"), cajas_campo__gt=0).count()
 
     return {
-        "pendientes": pendientes_count,
-        "empacadas": empacadas_count,
-        "cajas_empacadas": cajas_empacadas,
-        "merma": cajas_merma,
+        "pendientes": rec_metrics["pendientes"],
+        "empacadas": rec_metrics["finalizadas"],
+        "cajas_empacadas": int(kpis["produced_period"]),
+        "merma": int(kpis["merma_period"]),
     }
 
 
@@ -197,6 +182,7 @@ def build_summary(
     """
     Ensambla el objeto de KPIs esperado por el serializer del tablero usando SOLO el rango resuelto.
     """
+    # Notar que kpi_empaque ahora usa InventoryService internamente
     return {
         "kpis": {
             "recepcion": kpi_recepcion(temporada_id, bodega_id, fecha_desde, fecha_hasta, huerta_id, semana_id=semana_id),
@@ -267,28 +253,40 @@ def queue_inventarios_qs(
     semana_id: Optional[int] = None,
 ) -> QuerySet:
     """
-    Usamos ClasificacionEmpaque como “inventarios” (cajas empacadas).
-    Filtros soportados: rango y calidad/madurez (ambos caen en 'calidad').
+    Agrupa ClasificacionEmpaque por lote para mostrar 'Empaque N' consolidado.
+    Usa la MISMA base que el KPI de stock para garantizar consistencia.
     """
-    qs = ClasificacionEmpaque.objects.filter(temporada_id=temporada_id, is_active=True)
-    if bodega_id:
-        qs = qs.filter(bodega_id=bodega_id)
-
-    if semana_id:
-        qs = qs.filter(semana_id=semana_id)
-
-    qs = _apply_date_range(qs, "fecha", fecha_desde, fecha_hasta)
+    snapshot = InventoryService.get_stock_snapshot(
+        temporada_id=temporada_id,
+        bodega_id=bodega_id,
+        semana_id=semana_id,
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta
+    )
+    
+    # Obtenemos el QS ya filtrado igual que el KPI
+    qs = snapshot["qs_periodo"].exclude(calidad__iexact="MERMA")
 
     if madurez:
         qs = qs.filter(calidad=madurez)
     if calidad:
         qs = qs.filter(calidad=calidad)
 
+    # Identificar campos válidos para agrupar (Lote o Recepcion)
+    # Si usamos Lote FK:
     return (
         qs.values(
-            "id", "fecha", "material", "calidad", "tipo_mango", "cantidad_cajas",
-            "recepcion__huertero_nombre", "semana_id",
-        ).order_by("-fecha", "-id")
+            "lote__id",
+            "lote__codigo_lote",
+            "recepcion__huertero_nombre",
+            "semana_id",
+        )
+        .annotate(
+            total_cajas=Sum("cantidad_cajas"),
+            fecha=Max("actualizado_en"),
+            id=Max("id"),
+        )
+        .order_by("-fecha", "-id")
     )
 
 
@@ -307,13 +305,14 @@ def queue_despachos_qs(
     if bodega_id:
         qs = qs.filter(bodega_id=bodega_id)
     qs = _apply_date_range(qs, "fecha_salida", fecha_desde, fecha_hasta)
+    
     if estado:
         qs = qs.filter(estado=estado)
 
     return (
-        qs.values("id", "fecha_salida", "estado")
+        qs.values("id", "numero", "fecha_salida", "estado")
           .annotate(cajas_total=Sum("items__cantidad_cajas"))
-          .order_by("fecha_salida", "id")
+          .order_by("estado", "-fecha_salida", "-id")
     )
 
 
@@ -342,22 +341,53 @@ def build_queue_items(tipo: str, raw_rows) -> List[Dict[str, Any]]:
             })
 
     elif tipo == "inventarios":
+        # Grouping strategy: raw_rows son Headers de Lote.
         for r in raw_rows:
-            h = r.get("recepcion__huertero_nombre") or None
+            lote_id = r.get("lote__id")
+            lote_cod = r.get("lote__codigo_lote") or f"??-{lote_id or 'X'}"
+            
+            # Subquery para breakdown (solo para los visualizados)
+            desglose = []
+            details_raw = []
+            if lote_id:
+                details = (
+                    ClasificacionEmpaque.objects
+                    .filter(lote_id=lote_id, is_active=True)
+                    .values('calidad', 'material', 'cantidad_cajas')
+                )
+                details_raw = list(details)
+                for d in details_raw:
+                    mat = (d['material'] or "?")[:1]
+                    desglose.append(f"{d['calidad']} ({mat}): {d['cantidad_cajas']}")
+            
+            # Timestamp: preferencia actualizado_en > fecha
+            ts = r.get("fecha")
+
+            # Check si alguna clasificación del lote ya fue despachada en un camión confirmado
+            despachado = False
+            if lote_id:
+                # Importación local para evitar ciclos si fuera necesario, 
+                # pero idealmente arriba. Como es utils, mejor usar lo que hay.
+                # Aseguramos que CamionConsumoEmpaque esté importado.
+                despachado = CamionConsumoEmpaque.objects.filter(
+                    clasificacion_empaque__lote_id=lote_id,
+                    camion__estado="CONFIRMADO",
+                    is_active=True
+                ).exists()
+
             items.append({
-                "id": r["id"],
-                "ref": f"EMP-{r['id']}",
-                "fecha": r["fecha"],
-                "huertero": h,
-                "huerta": h,  # alias compat
-                "kg": float(r.get("cantidad_cajas") or 0.0),
+                "id": lote_id or 0, 
+                "ref": f"Empaque {lote_cod}",
+                "fecha": ts, 
+                "huertero": r.get("recepcion__huertero_nombre"),
+                "huerta": r.get("recepcion__huertero_nombre"),
+                "kg": float(r.get("total_cajas") or 0.0),
                 "estado": "CLASIFICADO",
                 "meta": {
-                    "calidad": r.get("calidad"),
-                    "madurez": r.get("calidad"),
-                    "tipo": r.get("tipo_mango"),
-                    "material": r.get("material"),
                     "semana_id": r.get("semana_id"),
+                    "desglose": desglose,
+                    "desglose_raw": details_raw,
+                    "despachado": despachado,
                 },
             })
 
@@ -374,9 +404,10 @@ def build_queue_items(tipo: str, raw_rows) -> List[Dict[str, Any]]:
                 if row["tipo_mango"] not in tipos_por_camion[row["camion_id"]]:
                     tipos_por_camion[row["camion_id"]].append(row["tipo_mango"])
         for r in raw_rows:
+            ref_str = f"Camión {r.get('numero')}" if r.get('numero') else f"Camión {r['id']}"
             items.append({
                 "id": r["id"],
-                "ref": f"CAM-{r['id']}",
+                "ref": ref_str,
                 "fecha": r["fecha_salida"],
                 "huertero": None,
                 "huerta": None,  # alias compat

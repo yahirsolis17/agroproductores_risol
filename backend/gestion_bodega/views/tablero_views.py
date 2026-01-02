@@ -328,6 +328,7 @@ def _ordering_from_alias(tipo: str, order_by: Optional[str]) -> List[str]:
             "id": "id",
         },
         "despachos": {
+            "fecha": "fecha_salida",
             "fecha_programada": "fecha_salida",
             "id": "id",
         },

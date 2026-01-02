@@ -145,13 +145,11 @@ const TableroBodegaPage: React.FC = () => {
   const {
     kpiCards,
     isLoadingSummary,
-    // errorSummary no existe en hook - usar null por ahora
     refetchSummary,
     onApplyFilters,
     weekNav,
     apiStartWeek,
     apiFinishWeek,
-    // Fase 1: valores consolidados del hook (elimina duplicacion)
     hasActiveWeek,
     isActiveSelectedWeek,
     selectedWeek,
@@ -160,10 +158,12 @@ const TableroBodegaPage: React.FC = () => {
     startingWeek,
     finishingWeek,
     isExpiredWeek,
+    onChangeQueue, // Exposed for logic filtering
+    refetchQueues, // Exposed for truck confirmation
   } = tablero;
   const hasWeeks: boolean = !!weekNav?.hasWeeks;
   const [actionError, setActionError] = useState<string | null>(null);
-  const [openSectionKey, setOpenSectionKey] = useState<"resumen" | "recepciones" | "empaque" | "logistica">("recepciones");
+  const [openSectionKey] = useState<"resumen" | "recepciones" | "empaque" | "logistica">("recepciones");
   // Empaque: state lifted
   const {
     empaques: empRows,
@@ -305,12 +305,11 @@ const TableroBodegaPage: React.FC = () => {
   const handleCamionSuccess = useCallback(() => {
     // Refresh logistics queue and summary
     if (refetchSummary) refetchSummary();
-    // Also refresh logistics table if useTableroBodega exposed a refetchLogistica.
-    // useTableroBodega likely refreshes automatically or we force it.
-    // For now summary refresh might trigger effects.
-    // Ideally we should refetch the list.
-    // As per `useTableroBodega`, modifying state usually triggers updates.
-  }, [refetchSummary]);
+    if (refetchQueues) {
+      refetchQueues("despachos");
+      refetchQueues("inventarios"); // Actualiza estado "Despachado" en tabla empaque
+    }
+  }, [refetchSummary, refetchQueues]);
   // Estado local del rango que maneja WeekSwitcher
   const [weekValue, setWeekValue] = useState<WeekValue>(() => {
     const sw: any = selectedWeek;
@@ -429,7 +428,41 @@ const TableroBodegaPage: React.FC = () => {
     const toSel = sw.fecha_hasta || sw.fin;
     return fromSel === weekValue.from && toSel === weekValue.to;
   }, [selectedWeek, weekValue.from, weekValue.to]);
+
+  // Report logic
+  const [downloadingReport, setDownloadingReport] = useState(false);
+  const handleReport = useCallback(async () => {
+    if (!bodegaId || !temporadaId) return;
+    const sId = (selectedWeek as any)?.id;
+    if (!sId) return;
+
+    try {
+      setDownloadingReport(true);
+      // Dynamic import to avoid circular dep issues or just direct use if available
+      const { getDashboardReport } = await import("../services/tableroBodegaService");
+      const blob = await getDashboardReport(temporadaId, bodegaId, sId);
+
+      // Download trigger
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `reporte_semana_${(selectedWeek as any)?.iso_semana ?? "X"}_${formatDateISO(new Date())}.xlsx`; // Asumimos xlsx por defecto
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+
+    } catch (e: any) {
+      console.error("Report download failed", e);
+      // NotificationEngine handles most errors, but if blob fails generic catch:
+      setActionError("Error al descargar el reporte.");
+    } finally {
+      setDownloadingReport(false);
+    }
+  }, [bodegaId, temporadaId, selectedWeek]);
+
   const disableStartButton = !bodegaId || startingWeek || hasActiveWeek || isSameRangeAsSelectedWeek;
+
   const startTooltip = !bodegaId
     ? "Selecciona una bodega valida."
     : hasActiveWeek
@@ -545,13 +578,14 @@ const TableroBodegaPage: React.FC = () => {
           </span>
         </Tooltip>
       )}
-      <Tooltip title="Reporte (pendiente de implementacion)">
+      <Tooltip title="Descargar Reporte Semanal">
         <span>
           <Button
             size="medium"
             variant="text"
-            startIcon={<AssessmentIcon />}
-            disabled
+            startIcon={downloadingReport ? <CircularProgress size={16} /> : <AssessmentIcon />}
+            disabled={!selectedWeek || downloadingReport}
+            onClick={handleReport}
             sx={{
               borderRadius: 999,
               textTransform: "none",
@@ -878,10 +912,11 @@ const TableroBodegaPage: React.FC = () => {
                 forcedOpen={forcedOpen}
                 onSectionOpen={(key) => {
                   if (key === "empaque") {
-                    tablero?.refetchQueues?.("inventarios");
-                  }
-                  if (key === "logistica") {
-                    tablero?.refetchQueues?.("despachos");
+                    onChangeQueue?.("inventarios");
+                  } else if (key === "logistica") {
+                    onChangeQueue?.("despachos");
+                  } else if (key === "recepciones") {
+                    onChangeQueue?.("recepciones");
                   }
                 }}
                 resumen={
@@ -916,6 +951,8 @@ const TableroBodegaPage: React.FC = () => {
                     cajasEmpacadas={tablero?.summary?.kpis?.empaque?.cajas_empacadas}
                     merma={tablero?.summary?.kpis?.empaque?.merma}
                     inventoryRows={(tablero?.queueInventarios?.rows || []) as any}
+                    page={tablero?.queueInventarios?.meta?.page}
+                    pageSize={tablero?.queueInventarios?.meta?.page_size}
                   />
                 }
                 logistica={
@@ -945,6 +982,7 @@ const TableroBodegaPage: React.FC = () => {
           onSuccess={handleCamionSuccess}
           bodegaId={bodegaId}
           temporadaId={temporadaId}
+          semanaId={tablero.selectedSemanaId}
           camion={selectedCamion}
         />
       )}

@@ -24,6 +24,7 @@ from gestion_bodega.utils.activity import registrar_actividad
 from gestion_bodega.utils.audit import ViewSetAuditMixin
 from agroproductores_risol.utils.notification_handler import NotificationHandler
 from gestion_bodega.utils.semana import semana_cerrada_ids as _semana_cerrada
+from gestion_bodega.services.inventory_service import InventoryService
 
 
 # ───────────────────────────────────────────────────────────────────────────
@@ -301,6 +302,13 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
+        if InventoryService.recepcion_is_locked(instance):
+            return self.notify(
+                key="recepcion_inmutable_por_consumo",
+                data={"error": "Esta recepción tiene producto consumido/despachado. No se puede editar."},
+                status_code=status.HTTP_409_CONFLICT,
+            )
+
         data = request.data.copy()
         if "bodega_id" in data and "bodega" not in data:
             data["bodega"] = data.get("bodega_id")
@@ -377,6 +385,13 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
                 key="recepcion_debe_estar_archivada",
                 data={"error": "Debes archivar la recepción antes de eliminarla."},
                 status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if InventoryService.recepcion_is_locked(instance):
+             return self.notify(
+                key="recepcion_inmutable_por_consumo",
+                data={"error": "Esta recepción tiene producto consumido/despachado. No se puede eliminar."},
+                status_code=status.HTTP_409_CONFLICT,
             )
 
         if hasattr(instance, "clasificaciones") and instance.clasificaciones.exists():

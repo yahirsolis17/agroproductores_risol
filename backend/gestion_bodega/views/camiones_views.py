@@ -213,6 +213,10 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
 
         if _semana_cerrada(obj.bodega_id, obj.temporada_id, obj.fecha_salida):
             return self.notify(key="camion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
+        
+        # P0.3 Integrity: Seal manifest if confirmed
+        if obj.estado == "CONFIRMADO":
+            return self.notify(key="camion_inmutable", status_code=status.HTTP_409_CONFLICT)
 
         with transaction.atomic():
             item = ser.save()
@@ -233,6 +237,10 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
 
         if _semana_cerrada(obj.bodega_id, obj.temporada_id, obj.fecha_salida):
             return self.notify(key="camion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
+
+        # P0.3 Integrity: Seal manifest if confirmed
+        if obj.estado == "CONFIRMADO":
+            return self.notify(key="camion_inmutable", status_code=status.HTTP_409_CONFLICT)
 
         with transaction.atomic():
             item.archivar()

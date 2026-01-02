@@ -1292,7 +1292,7 @@ class QueueItemSerializer(serializers.Serializer):
     """
     id = serializers.IntegerField()
     ref = serializers.CharField()
-    fecha = serializers.DateField()  # DRF formatea YYYY-MM-DD por defecto
+    fecha = DateOrDateTimeField()  # Soporta date y datetime (ISO)
     huerta = serializers.CharField(allow_null=True, required=False)
     kg = serializers.FloatField()
     # Aliases para compatibilidad con EmpaqueDrawer y otros componentes

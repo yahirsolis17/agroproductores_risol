@@ -243,3 +243,22 @@ export async function getWeeksNav(
   const resp = await apiClient.get(`${BASE}/semanas/`, { params });
   return unwrapEnvelope<WeeksNavResponse>(resp.data);
 }
+
+/** REPORTE SEMANAL (Blob) */
+export async function getDashboardReport(
+  temporadaId: number,
+  bodegaId: number,
+  semanaId?: number
+): Promise<Blob> {
+  // Ajuste: endpoint en raíz /bodega/reportes/semanal/
+  const url = "/bodega/reportes/semanal/";
+  const params: any = { temporada: temporadaId, bodega: bodegaId };
+  if (semanaId) params.semana_id = semanaId;
+
+  const resp = await apiClient.get(url, {
+    params,
+    responseType: "blob",
+  });
+  // No hay unwrapEnvelope para blob directos
+  return resp.data;
+}

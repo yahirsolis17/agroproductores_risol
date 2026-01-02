@@ -23,6 +23,7 @@ interface CamionFormModalProps {
   onSuccess: () => void;
   bodegaId: number;
   temporadaId: number;
+  semanaId?: number | null;
   camion?: any; // Si es edición
 }
 
@@ -40,6 +41,7 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
   onSuccess,
   bodegaId,
   temporadaId,
+  semanaId,
   camion,
 }) => {
   const [loading, setLoading] = useState(false);
@@ -72,12 +74,28 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
   const summary = useMemo(() => {
     const cargas = Array.isArray(currentCamion?.cargas) ? currentCamion.cargas : [];
     const items = Array.isArray(currentCamion?.items) ? currentCamion.items : [];
+
     const totalFromCargas = cargas.reduce((acc: number, c: any) => acc + (Number(c?.cantidad) || 0), 0);
     const totalFromItems = items.reduce((acc: number, i: any) => acc + (Number(i?.cantidad_cajas) || 0), 0);
+
     const totalCajas = totalFromCargas || totalFromItems;
-    const tipos = Array.from(
-      new Set(items.map((i: any) => String(i?.tipo_mango || "").trim()).filter((v: string) => v))
-    );
+
+    // Tipos de mango: PRIORIDAD = cargas (porque consumen stock real)
+    // Soporta dos shapes:
+    // - carga.clasificacion.tipo_mango (si backend expande)
+    // - carga.tipo_mango (si lo mandas plano)
+    // Fallback: items.tipo_mango
+    const tiposFromCargas = cargas
+      .map((c: any) => String(c?.clasificacion?.tipo_mango ?? c?.tipo_mango ?? "").trim())
+      .filter((v: string) => v);
+
+    const tiposFromItems = items
+      .map((i: any) => String(i?.tipo_mango ?? "").trim())
+      .filter((v: string) => v);
+
+    const tipos = Array.from(new Set([...(tiposFromCargas.length ? tiposFromCargas : []), ...tiposFromItems]))
+      .sort((a, b) => a.localeCompare(b));
+
     return { totalCajas, tipos };
   }, [currentCamion]);
 
@@ -140,8 +158,26 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
   const executeConfirmar = async () => {
     if (!currentCamion?.id) return;
     setLoading(true);
+
     try {
-      await camionesService.confirmar(currentCamion.id);
+      const res = await camionesService.confirmar(currentCamion.id);
+
+      // Si backend retorna el camión confirmado en res.data.camion, úsalo.
+      const maybeCamion = res?.data?.camion ?? res?.data ?? null;
+      if (maybeCamion?.id) {
+        setCurrentCamion(maybeCamion);
+      } else {
+        // Si no retorna, refetch para traer numero (folio) y cargas finales
+        await camionesService.list({ id: currentCamion.id })
+          .then((r: any) => {
+            const found =
+              Array.isArray(r.data)
+                ? r.data.find((c: any) => c.id === currentCamion.id)
+                : (r.data?.results?.find((c: any) => c.id === currentCamion.id) || currentCamion);
+
+            setCurrentCamion(found);
+          });
+      }
       setConfirmDialogOpen(false);
       onSuccess();
       onClose();
@@ -258,6 +294,7 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
                 camionId={currentCamion.id}
                 bodegaId={bodegaId}
                 temporadaId={temporadaId}
+                semanaId={semanaId}
                 initialCargas={currentCamion.cargas || []}
                 onCargasChange={() => {
                   onSuccess(); // Refresh parent table
@@ -315,6 +352,9 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
           </ul>
           <Box mt={2} p={2} bgcolor="grey.100" borderRadius={1}>
             <Typography variant="subtitle2">Resumen:</Typography>
+            <Typography variant="body2">
+              <strong>Folio:</strong> {currentCamion?.numero ? `#${String(currentCamion.numero).padStart(5, "0")}` : "— (se asignará al confirmar)"}
+            </Typography>
             <Typography variant="body2"><strong>Destino:</strong> {currentCamion?.destino}</Typography>
             <Typography variant="body2"><strong>Chofer:</strong> {currentCamion?.chofer}</Typography>
             <Typography variant="body2"><strong>Total Cargas:</strong> {currentCamion?.cargas?.length || 0} registros</Typography>

@@ -4,7 +4,7 @@ from typing import Dict, Optional
 from django.conf import settings
 from django.apps import apps
 from django.core.exceptions import ValidationError
-from django.db import models, transaction
+from django.db import connection, models, transaction
 from django.db.models import Sum, Q, UniqueConstraint, Index, Max
 from django.utils import timezone
 from datetime import timedelta
@@ -28,7 +28,7 @@ def _is_only_archival_fields(update_fields):
     """
     if not update_fields:
         return False
-    allowed = {"is_active", "archivado_en", "archivado_por_cascada"}
+    allowed = {"is_active", "archivado_en", "archivado_por_cascada", "actualizado_en"}
     return set(update_fields).issubset(allowed)
 
 # Resolver semanas sin depender de serializers (alineado a la lógíca de negocio)
@@ -165,7 +165,7 @@ class TimeStampedModel(models.Model):
         self.is_active = False
         self.archivado_en = timezone.now()
         self.archivado_por_cascada = via_cascada
-        self.save(update_fields=["is_active", "archivado_en", "archivado_por_cascada"])
+        self.save(update_fields=["is_active", "archivado_en", "archivado_por_cascada", "actualizado_en"])
 
     def desarchivar(self, via_cascada: bool = False):
         # Igual que en huerta: si via_cascada=True, solo si se archivó por cascada.
@@ -176,7 +176,7 @@ class TimeStampedModel(models.Model):
         self.is_active = True
         self.archivado_en = None
         self.archivado_por_cascada = False
-        self.save(update_fields=["is_active", "archivado_en", "archivado_por_cascada"])
+        self.save(update_fields=["is_active", "archivado_en", "archivado_por_cascada", "actualizado_en"])
 
 
 # ───────────────────────────────────────────────────────────────────────────
@@ -581,9 +581,6 @@ class ClasificacionEmpaque(TimeStampedModel):
     material = models.CharField(max_length=10, choices=Material.choices)
     calidad = models.CharField(max_length=12)  # madera/plástico (texto)
     tipo_mango = models.CharField(max_length=80)
-    material = models.CharField(max_length=10, choices=Material.choices)
-    calidad = models.CharField(max_length=12)  # madera/plástico (texto)
-    tipo_mango = models.CharField(max_length=80)
     cantidad_cajas = models.PositiveIntegerField()
     # Derivado de Recepción
     lote = models.ForeignKey(LoteBodega, on_delete=models.SET_NULL, null=True, blank=True, related_name="clasificaciones")
@@ -625,7 +622,7 @@ class ClasificacionEmpaque(TimeStampedModel):
         # Material/Calidad
         if self.material == Material.PLASTICO:
             if self.calidad in {"SEGUNDA", "EXTRA"}:
-                self.calidad = CalidadPlastico.PRIMERA
+                self.calidad = CalidadPlastico.PRIMERA.value
             if self.calidad not in set(CalidadPlastico.values):
                 errors["calidad"] = "Calidad inválida para material PLÁSTICO."
         else:
@@ -1023,21 +1020,19 @@ class CamionSalida(TimeStampedModel):
         return f"Camión {nro} ({self.estado})"
 
     def clean(self):
+        errors = {}
         if self.temporada_id and (not self.temporada.is_active or self.temporada.finalizada):
-            raise ValidationError({"temporada": "La temporada debe estar activa y no finalizada."})
+            errors["temporada"] = "La temporada debe estar activa y no finalizada."
         
         # Resolver semana
         if not self.semana_id and self.bodega_id and self.temporada_id and self.fecha_salida:
             self.semana = _resolver_semana_por_fecha(self.bodega_id, self.temporada_id, self.fecha_salida)
         
-        if not self.semana_id:
-             # Opcional: raise validation error or just leave it null if consistent with requirements?
-             # Recepcion forces it. Camion should too?
-             # If "persistencia" is required for reporting, yes.
-             pass 
-             # Nota: No lanzamos error para permitir borradores temporales tal vez? 
-             # Pero para reportes es vital.
-             # Dejaremos que save() intente resolverlo y si no puede, bueno.
+        if self.estado == EstadoCamion.CONFIRMADO and not self.semana_id:
+            errors["semana"] = "Un camion confirmado debe pertenecer a una semana activa."
+
+        if errors:
+            raise ValidationError(errors)
 
 
     @transaction.atomic
@@ -1047,17 +1042,22 @@ class CamionSalida(TimeStampedModel):
         if self.numero is not None and self.estado == EstadoCamion.CONFIRMADO:
             return  # idempotente
 
-        # Evitar condiciones de carrera al asignar número correlativo
-        with transaction.atomic():
-            last = (CamionSalida.objects
-                    .select_for_update()
-                    .filter(bodega=self.bodega, temporada=self.temporada, numero__isnull=False)
-                    .order_by("-numero")
-                    .first())
-            siguiente = (last.numero if last else 0) + 1
-            self.numero = siguiente
-            self.estado = EstadoCamion.CONFIRMADO
-            self.save(update_fields=["numero", "estado", "actualizado_en"])
+        # Validación fuerte: para confirmar, semana debe existir
+        self.full_clean()
+
+        # Lock “padre” estable para evitar carreras
+        TemporadaBodega = apps.get_model("gestion_bodega", "TemporadaBodega")
+        TemporadaBodega.objects.select_for_update().get(pk=self.temporada_id)
+
+        ultimo = (
+            CamionSalida.objects
+            .filter(bodega_id=self.bodega_id, temporada_id=self.temporada_id, numero__isnull=False)
+            .aggregate(m=Max("numero"))["m"]
+        ) or 0
+
+        self.numero = ultimo + 1
+        self.estado = EstadoCamion.CONFIRMADO
+        self.save(update_fields=["numero", "estado", "actualizado_en"])
 
     def save(self, *args, **kwargs):
         update_fields = kwargs.get("update_fields")
@@ -1120,11 +1120,11 @@ class CamionConsumoEmpaque(TimeStampedModel):
         if self.cantidad <= 0:
             raise ValidationError("La cantidad debe ser positiva.")
         
-        # Validation real con bloqueo para evitar condiciones de carrera
+        # Validation real con bloqueo solo si hay transacción activa (safe)
         from gestion_bodega.utils.inventario_empaque import validate_consumo_camion
         try:
-            # lock=True asegura que nadie más consuma este stock simultáneamente hasta que termine la transacción
-            validate_consumo_camion(self.clasificacion_empaque_id, self.cantidad, exclude_id=self.pk, lock=True)
+            lock = connection.in_atomic_block
+            validate_consumo_camion(self.clasificacion_empaque_id, self.cantidad, exclude_id=self.pk, lock=lock)
         except ValueError as e:
             raise ValidationError(str(e))
 

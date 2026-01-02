@@ -80,6 +80,7 @@ export interface QueueItem {
   kg: number; // el backend manda "kg"; en UI lo mostramos como "cajas" si aplica
   estado: string;
   meta?: Record<string, any>;
+  despachado?: boolean;
 }
 
 export interface DashboardQueueResponse {

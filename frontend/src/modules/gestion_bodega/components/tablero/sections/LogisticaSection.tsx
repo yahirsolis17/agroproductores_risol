@@ -1,11 +1,7 @@
 
 import React, { useMemo } from "react";
-import { Box, Chip, Stack, Typography, Button, Tabs, Tab } from "@mui/material";
+import { Box, Typography, Button, Tabs, Tab } from "@mui/material";
 import { TableLayout, type Column } from "../../../../../components/common/TableLayout";
-
-type ChipLike =
-  | string
-  | { label: string; color?: "default" | "primary" | "secondary" | "success" | "warning" | "error" | "info" };
 
 export type LogisticaRowUI = {
   id: string | number;
@@ -13,7 +9,7 @@ export type LogisticaRowUI = {
   fecha?: string | null;
   kg?: number | string | null; // en tu mapper hoy viene como `kg` (aunque lo rotules "Cajas")
   estado?: string | null;
-  chips?: ChipLike[] | null;
+  acciones?: any;
 };
 
 type MetaLike = {
@@ -59,18 +55,7 @@ const formatEstado = (estado?: string | null) => {
   return raw;
 };
 
-const renderChips = (chips?: ChipLike[] | null) => {
-  if (!chips || chips.length === 0) return "—";
-  return (
-    <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-      {chips.map((c, idx) => {
-        const label = typeof c === "string" ? c : c.label;
-        const color = typeof c === "string" ? "default" : (c.color ?? "default");
-        return <Chip key={`${label}-${idx}`} label={label} size="small" color={color} variant="outlined" />;
-      })}
-    </Stack>
-  );
-};
+
 
 const LogisticaSection: React.FC<Props> = ({
   hasWeeks,
@@ -102,17 +87,17 @@ const LogisticaSection: React.FC<Props> = ({
   const columns: Column<LogisticaRowUI>[] = useMemo(
     () => [
       {
-        label: "Folio",
+        label: "Referencia",
         key: "ref",
         render: (r) => <Typography variant="body2" sx={{ fontWeight: 600 }}>{r.ref}</Typography>,
       },
       {
-        label: "Fecha programada",
+        label: "Fecha de salida",
         key: "fecha",
         render: (r) => formatFecha(r.fecha),
       },
       {
-        label: "Kg",
+        label: "Cajas",
         key: "kg",
         align: "right",
         render: (r) => formatCajas(r.kg),
@@ -123,9 +108,21 @@ const LogisticaSection: React.FC<Props> = ({
         render: (r) => formatEstado(r.estado),
       },
       {
-        label: "Tags",
-        key: "chips",
-        render: (r) => renderChips(r.chips),
+        label: "Folio",
+        key: "ref",
+        render: (r) => {
+          const raw = (r.estado || "").toString().trim().toUpperCase();
+          if (raw === "CONFIRMADO") {
+            let s = String(r.ref || "");
+            // kpis.py sets ref to "Camión {numero}"
+            if (s.includes("Camión")) {
+              s = s.replace("Camión", "").trim();
+              const n = parseInt(s, 10);
+              if (!isNaN(n)) return `#${String(n).padStart(5, "0")}`;
+            }
+          }
+          return "—";
+        },
       },
       {
         label: "Acciones",
