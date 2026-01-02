@@ -209,6 +209,32 @@ export type AlertCardUI = {
 // --------------------------
 type UseTableroArgs = { temporadaId: number; bodegaId: number };
 
+const DEFAULT_ORDER_BY_BY_QUEUE: Record<QueueType, string> = {
+  recepciones: "fecha_recepcion:desc,id:desc",
+  inventarios: "fecha:desc,id:desc",
+  despachos: "fecha_programada:desc,id:desc",
+};
+const FALLBACK_ORDER_BY = "id:desc";
+
+function isInvalidOrderBy(payload: unknown) {
+  const detail =
+    (payload as any)?.data?.detail ??
+    (payload as any)?.detail ??
+    (typeof payload === "string" ? payload : "");
+  return typeof detail === "string" && detail.startsWith("invalid_order_by:");
+}
+
+function getOrderByForQueue(
+  queueType: QueueType,
+  activeQueue: QueueType,
+  currentOrderBy?: string | null
+) {
+  if (queueType === activeQueue) {
+    return currentOrderBy || DEFAULT_ORDER_BY_BY_QUEUE[queueType];
+  }
+  return DEFAULT_ORDER_BY_BY_QUEUE[queueType];
+}
+
 export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
   const dispatch = useAppDispatch();
   const state = useAppSelector((s) => s.tableroBodega);
@@ -511,7 +537,20 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
   const refetchQueuesFn = useCallback((type?: QueueType) => {
     if (!temporadaId || !bodegaId) return;
     const t = type ?? activeQueue;
-    dispatch(fetchTableroQueues({ temporadaId, bodegaId, semanaId: selectedSemanaId, filters, queueType: t }));
+    const effectiveOrderBy = getOrderByForQueue(t, activeQueue, filters.order_by);
+    const doFetch = (orderBy: string, allowFallback: boolean) => {
+      const nextFilters = { ...filters, order_by: orderBy };
+      return dispatch(
+        fetchTableroQueues({ temporadaId, bodegaId, semanaId: selectedSemanaId, filters: nextFilters, queueType: t })
+      ).then((action) => {
+        if (!allowFallback) return;
+        if (!fetchTableroQueues.rejected.match(action)) return;
+        if (!isInvalidOrderBy(action.payload)) return;
+        if (orderBy === FALLBACK_ORDER_BY) return;
+        return doFetch(FALLBACK_ORDER_BY, false);
+      });
+    };
+    void doFetch(effectiveOrderBy, true);
   }, [dispatch, temporadaId, bodegaId, selectedSemanaId, filters, activeQueue]);
 
   const refetchWeeksNavFn = useCallback(() => {

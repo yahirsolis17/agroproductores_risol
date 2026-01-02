@@ -1,5 +1,5 @@
 // frontend/src/modules/gestion_bodega/components/empaque/EmpaqueDrawer.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   alpha,
   Box,
@@ -168,6 +168,8 @@ export default function EmpaqueDrawer({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const isTablet = useMediaQuery(theme.breakpoints.down("lg"));
+  // Marca si ya hidratamos esta recepción (evita rehidrataciones tardías).
+  const hydratedRef = useRef<number | null>(null);
 
   const isBulk = !recepcion;
   const [bulkDate, setBulkDate] = useState<string>(formatDateISO(new Date()));
@@ -211,21 +213,28 @@ export default function EmpaqueDrawer({
     setLines(buildInitialLines()); // base en 0
     setQuickActions([]);
     setInitialSnapshot(buildInitialLines());
+    hydratedRef.current = null;
   }, [recepcion?.id, open]);
 
   // Hidrata líneas existentes cuando llegan
   useEffect(() => {
-    if (isBulk) return; // Bulk mode starts empty always (or could load daily summary? No, simple input)
+    if (!open) return;
     if (!recepcion) return;
     if (!initialLines) return;
+    if (hydratedRef.current === recepcion.id) return;
 
     const base = mergeWithBase(initialLines);
-    if (JSON.stringify(lines) === JSON.stringify(initialSnapshot)) {
-      setLines(base);
+    setLines((prev) => {
+      const userAlreadyEdited =
+        JSON.stringify(prev) !== JSON.stringify(initialSnapshot);
+
+      if (userAlreadyEdited) return prev;
+
+      hydratedRef.current = recepcion.id;
       setInitialSnapshot(base);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recepcion?.id, initialKey]);
+      return base;
+    });
+  }, [open, recepcion?.id, initialKey]);
 
   // Dirty Check Calculado
   const isDirty = useMemo(() => {

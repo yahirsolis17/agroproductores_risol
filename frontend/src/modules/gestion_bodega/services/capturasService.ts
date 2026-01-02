@@ -41,6 +41,7 @@ function normalizeEmpaqueStatusRaw(raw: any): EmpaqueStatus | undefined {
 
 function normalizeCapturaRow(raw: any): Captura {
   const empaque_status = normalizeEmpaqueStatusRaw(raw);
+  const cajasCampo = clampInt(raw?.cantidad_cajas ?? raw?.cajas_campo);
 
   return {
     ...raw,
@@ -50,7 +51,8 @@ function normalizeCapturaRow(raw: any): Captura {
     fecha: String(raw?.fecha ?? ""),
     huertero_nombre: String(raw?.huertero_nombre ?? ""),
     tipo_mango: String(raw?.tipo_mango ?? ""),
-    cantidad_cajas: clampInt(raw?.cantidad_cajas),
+    cajas_campo: clampInt(raw?.cajas_campo ?? raw?.cantidad_cajas),
+    cantidad_cajas: cajasCampo,
     observaciones: raw?.observaciones ?? null,
     is_active: Boolean(raw?.is_active),
 

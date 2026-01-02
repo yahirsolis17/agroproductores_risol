@@ -182,7 +182,7 @@ export const fetchTableroQueues = createAsyncThunk<
       const data = await getDashboardQueues(temporadaId, queueType, { ...filters, bodegaId, semanaId });
       return { type: queueType, data };
     } catch (err: unknown) {
-      const data = (err as any)?.response?.data ?? (err as any)?.message;
+      const data = (err as any)?.payload ?? (err as any)?.response?.data ?? (err as any)?.message;
       return rejectWithValue(data);
     }
   }
