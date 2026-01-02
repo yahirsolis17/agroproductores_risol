@@ -46,8 +46,8 @@ def test_all_endpoints():
     
     # 2. Test Queues - Recepciones
     print("\n2️⃣ GET /bodega/tablero/queues/?queue=recepciones")
-    params = {**base, "queue": "recepciones", "order_by": "fecha:desc,id:desc"}
-    resp = client.get("/bodega/tablero/queues", params)
+    params = {**base, "queue": "recepciones"}  # Fixed: removed invalid order_by
+    resp = client.get("/bodega/tablero/queues/", params)  # Fixed: added trailing slash
     print(f"   Status: {resp.status_code}")
     if resp.status_code == 200:
         data = resp.json()
@@ -55,6 +55,7 @@ def test_all_endpoints():
         print(f"   ✅ Items: {len(results)}")
         if results:
             print(f"   Sample: {results[0].get('ref')} - {results[0].get('kg')} cajas")
+            print(f"   🔎 FULL DATA P3: {results[0]}")  # Print full object to see IDs
     else:
         print(f"   ❌ Error: {resp.content[:200]}")
     
@@ -72,6 +73,7 @@ def test_all_endpoints():
             print(f"   Sample ref: {item.get('ref')}")
             print(f"   Sample desglose: {item.get('meta', {}).get('desglose', [])}")
             print(f"   Sample total cajas: {item.get('kg')}")
+            print(f"   🔎 FULL DATA P3: {item}")  # IDs Verification
     else:
         print(f"   ❌ Error: {resp.content[:200]}")
     

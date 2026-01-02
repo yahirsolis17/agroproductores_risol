@@ -2,6 +2,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { temporadaService } from '../../modules/gestion_huerta/services/temporadaService';
 import { handleBackendNotification } from '../utils/NotificationEngine';
+import { extractApiMessage } from '../api/errorUtils';
 import { Temporada, TemporadaCreateData, EstadoTemporada } from '../../modules/gestion_huerta/types/temporadaTypes';
 import { PaginationMeta } from '../../modules/gestion_huerta/types/shared';
 import { ApiError, extractApiError } from '../types/apiTypes';
@@ -215,21 +216,21 @@ const temporadaSlice = createSlice({
       .addCase(fetchTemporadas.rejected, (state, { payload, error }) => {
         state.loading = false;
         state.loaded = true;
-        const msg = (payload as any)?.message ?? (payload as any)?.detail ?? error.message ?? 'Error';
+        const msg = extractApiMessage(payload ?? error, 'Error');
         state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
       })
       .addCase(createTemporada.fulfilled, (state, { payload }) => {
         state.items.unshift(payload);
       })
       .addCase(createTemporada.rejected, (state, { payload, error }) => {
-        const msg = (payload as any)?.message ?? (payload as any)?.detail ?? error.message ?? 'Error';
+        const msg = extractApiMessage(payload ?? error, 'Error');
         state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
       })
       .addCase(deleteTemporada.fulfilled, (state, { payload }) => {
         state.items = state.items.filter((t) => t.id !== payload);
       })
       .addCase(deleteTemporada.rejected, (state, { payload, error }) => {
-        const msg = (payload as any)?.message ?? (payload as any)?.detail ?? error.message ?? 'Error';
+        const msg = extractApiMessage(payload ?? error, 'Error');
         state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
       })
       .addCase(finalizarTemporada.fulfilled, (state, { payload }) => {
@@ -237,7 +238,7 @@ const temporadaSlice = createSlice({
         if (idx !== -1) state.items[idx] = payload;
       })
       .addCase(finalizarTemporada.rejected, (state, { payload, error }) => {
-        const msg = (payload as any)?.message ?? (payload as any)?.detail ?? error.message ?? 'Error';
+        const msg = extractApiMessage(payload ?? error, 'Error');
         state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
       })
       .addCase(archivarTemporada.fulfilled, (state, { payload }) => {
@@ -245,7 +246,7 @@ const temporadaSlice = createSlice({
         if (idx !== -1) state.items[idx] = payload;
       })
       .addCase(archivarTemporada.rejected, (state, { payload, error }) => {
-        const msg = (payload as any)?.message ?? (payload as any)?.detail ?? error.message ?? 'Error';
+        const msg = extractApiMessage(payload ?? error, 'Error');
         state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
       })
       .addCase(restaurarTemporada.fulfilled, (state, { payload }) => {
@@ -253,7 +254,7 @@ const temporadaSlice = createSlice({
         if (idx !== -1) state.items[idx] = payload;
       })
       .addCase(restaurarTemporada.rejected, (state, { payload, error }) => {
-        const msg = (payload as any)?.message ?? (payload as any)?.detail ?? error.message ?? 'Error';
+        const msg = extractApiMessage(payload ?? error, 'Error');
         state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
       });
   },

@@ -71,7 +71,7 @@ class LoteBodegaViewSet(ViewSetAuditMixin, viewsets.ReadOnlyModelViewSet):
             "empaques_count": empaques.count(),
         }
         return NotificationHandler.generate_response(
-            message_key="fetched", # clave genérica
+            message_key="data_processed_success", 
             data=data,
             status_code=status.HTTP_200_OK
         )

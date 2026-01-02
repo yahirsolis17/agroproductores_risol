@@ -211,6 +211,60 @@ export const empaquesService = {
   },
 
   /**
+   * Lista stock disponible AGRUPADO por (calidad, material, tipo_mango).
+   * Para usar en Autocomplete de logística (camiones).
+   * Retorna combinaciones únicas con disponible total.
+   */
+  async listDisponiblesAgrupados(params: { bodega: number; temporada: number; semana?: number | null }): Promise<Array<{
+    calidad: string;
+    material: string;
+    tipo_mango: string;
+    disponible: number;
+    fecha_min: string; // Primera fecha (FEFO reference)
+  }>> {
+    const res = await apiClient.get(`${BASE_URL}disponibles/`, { params });
+    const payload = unwrapData<any>(res.data);
+    const resultsRaw = payload?.results ?? [];
+
+    // Agrupar por combinación
+    const grouped = (resultsRaw as any[]).reduce((acc, item) => {
+      // Normalizar calidad para UI
+      const material = String(item.material ?? "").toUpperCase();
+      const calidadBackend = String(item.calidad ?? "").toUpperCase();
+      const tipo_mango = String(item.tipo_mango ?? "");
+
+      const key = `${calidadBackend}-${material}-${tipo_mango}`;
+
+      if (!acc[key]) {
+        acc[key] = {
+          calidad: calidadBackend, // Mantener código backend para payload
+          material: material,
+          tipo_mango: tipo_mango,
+          disponible: 0,
+          fecha_min: item.fecha || "", // FEFO reference
+        };
+      }
+
+      acc[key].disponible += Number(item.disponible || 0);
+
+      // Actualizar fecha_min si encontramos una más antigua (FEFO)
+      if (item.fecha && (!acc[key].fecha_min || item.fecha < acc[key].fecha_min)) {
+        acc[key].fecha_min = item.fecha;
+      }
+
+      return acc;
+    }, {} as Record<string, any>);
+
+    return Object.values(grouped) as Array<{
+      calidad: string;
+      material: string;
+      tipo_mango: string;
+      disponible: number;
+      fecha_min: string;
+    }>;
+  },
+
+  /**
    * En tu backend, destroy() = archivar() (soft delete).
    */
   async archivar(id: number): Promise<{ id: number }> {

@@ -5,6 +5,7 @@ import { handleBackendNotification } from '../utils/NotificationEngine';
 import { HuertaRentada, HuertaRentadaCreateData, HuertaRentadaUpdateData } from '../../modules/gestion_huerta/types/huertaRentadaTypes';
 import { Estado, PaginationMeta } from '../../modules/gestion_huerta/types/shared';
 import { extractApiError } from '../types/apiTypes';
+import { extractApiMessage } from '../api/errorUtils';
 
 export interface HRFilters {
   search?: string;
@@ -156,7 +157,7 @@ const hrSlice = createSlice({
     });
     b.addCase(fetchHuertasRentadas.rejected, (s, { payload, error }) => {
       s.loading = false; s.loaded = true;
-      const msg = (payload as any)?.message ?? (payload as any)?.detail ?? error.message ?? 'Error';
+      const msg = extractApiMessage(payload ?? error, 'Error');
       s.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
     });
 

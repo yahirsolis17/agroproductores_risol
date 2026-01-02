@@ -536,13 +536,20 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
 
   const refetchQueuesFn = useCallback((type?: QueueType) => {
     if (!temporadaId || !bodegaId) return;
-    const t = type ?? activeQueue;
-    const effectiveOrderBy = getOrderByForQueue(t, activeQueue, filters.order_by);
-    const doFetch = (orderBy: string, allowFallback: boolean) => {
+
+    // P1 FIX: Use explicit type if provided, DO NOT fallback to activeQueue
+    // This ensures refetch works regardless of which accordion is open
+    if (!type) {
+      console.warn('refetchQueues called without type, skipping');
+      return;
+    }
+
+    const effectiveOrderBy = getOrderByForQueue(type, type, filters.order_by);
+    const doFetch = (orderBy: string, allowFallback: boolean): Promise<any> | undefined => {
       const nextFilters = { ...filters, order_by: orderBy };
       return dispatch(
-        fetchTableroQueues({ temporadaId, bodegaId, semanaId: selectedSemanaId, filters: nextFilters, queueType: t })
-      ).then((action) => {
+        fetchTableroQueues({ temporadaId, bodegaId, semanaId: selectedSemanaId, filters: nextFilters, queueType: type })
+      ).then((action: any) => {
         if (!allowFallback) return;
         if (!fetchTableroQueues.rejected.match(action)) return;
         if (!isInvalidOrderBy(action.payload)) return;
@@ -551,7 +558,7 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
       });
     };
     void doFetch(effectiveOrderBy, true);
-  }, [dispatch, temporadaId, bodegaId, selectedSemanaId, filters, activeQueue]);
+  }, [dispatch, temporadaId, bodegaId, selectedSemanaId, filters]); // Removed activeQueue dependency
 
   const refetchWeeksNavFn = useCallback(() => {
     if (!temporadaId || !bodegaId) return;
@@ -602,7 +609,8 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
     },
     queueInventarios: {
       meta: queues.inventarios?.meta ?? fallbackMeta,
-      rows: mapQueueToUI((queues.inventarios as any)?.results ?? []),
+      // Usar filas crudas para conservar clasificacion_label/meta (despachado, desglose).
+      rows: ((queues.inventarios as any)?.results ?? []) as any[],
     },
     queueLogistica: {
       meta: queues.despachos?.meta ?? fallbackMeta,

@@ -105,21 +105,21 @@ const ActivityLog: React.FC = () => {
           </Typography>
         )}
 
-<TableLayout<Activity>
-  data={items}
-  columns={columns}
-  page={page}
-  pageSize={meta.page_size ?? pageSize}
-  metaPageSize={meta.page_size}
-  count={meta.count ?? 0}
-  serverSidePagination
-  rowKey={(a) => a.id}
-  onPageChange={(nextPage) => dispatch(setPage(nextPage))}
-  emptyMessage="No hay actividades registradas."
-  loading={loading}
-  striped
-  dense
-/>
+        <TableLayout<ActivityLogEntry>
+          data={items}
+          columns={columns}
+          page={page}
+          pageSize={meta.page_size ?? pageSize}
+          metaPageSize={meta.page_size}
+          count={meta.count ?? 0}
+          serverSidePagination
+          rowKey={(a) => a.id}
+          onPageChange={(nextPage) => dispatch(setPage(nextPage))}
+          emptyMessage="No hay actividades registradas."
+          loading={loading}
+          striped
+          dense
+        />
 
       </Paper>
     </motion.div>

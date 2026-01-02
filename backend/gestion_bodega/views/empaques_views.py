@@ -553,6 +553,38 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
                     data={"error": "La recepción tiene consumos confirmados. No se pueden agregar ni modificar cajas."},
                     status_code=status.HTTP_409_CONFLICT
                 )
+            
+            # -------- P0 FIX (R4): BALANCE DE MASA GLOBAL (NO NEGOCIABLE) --------
+            try:
+                cajas_campo = int(recepcion.cajas_campo or 0)
+            except (TypeError, ValueError):
+                cajas_campo = 0
+            
+            total_clasificado = 0
+            for it in items:
+                try:
+                    total_clasificado += int(it.get("cantidad_cajas") or 0)
+                except (TypeError, ValueError):
+                    return self.notify(
+                        key="clasificacion_balance_invalido",
+                        data={"errors": {"items": ["cantidad_cajas inválida (debe ser entero)."]}},
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                    )
+            
+            if total_clasificado > cajas_campo:
+                return self.notify(
+                    key="clasificacion_balance_invalido",
+                    data={
+                        "errors": {
+                            "items": [
+                                f"Balance inválido: total clasificado ({total_clasificado}) excede cajas de campo ({cajas_campo})."
+                            ]
+                        }
+                    },
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+            # -------------------------------------------------------------------
+            
             success, result = self._process_upsert_snapshot(recepcion, bodega, temporada, f, items)
             if not success:
                 return result # Es un Response de error

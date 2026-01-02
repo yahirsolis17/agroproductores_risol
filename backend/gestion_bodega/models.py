@@ -992,6 +992,12 @@ class CamionSalida(TimeStampedModel):
     semana = models.ForeignKey("CierreSemanal", on_delete=models.PROTECT, null=True, blank=True, related_name="camiones")
     
     numero = models.PositiveIntegerField(null=True, blank=True)  # correlativo al confirmar
+    folio = models.CharField(
+        max_length=50,
+        blank=True,
+        default="",
+        help_text="Folio único generado al confirmar (formato: BOD-X-TX-WX-CXXXXX)"
+    )
     estado = models.CharField(max_length=12, choices=EstadoCamion.choices, default=EstadoCamion.BORRADOR)
     fecha_salida = models.DateField(default=timezone.now)
     placas = models.CharField(max_length=20, blank=True, default="")

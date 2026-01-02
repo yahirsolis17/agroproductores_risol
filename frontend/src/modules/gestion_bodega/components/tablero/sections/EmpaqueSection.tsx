@@ -51,6 +51,14 @@ const EmpaqueSection: React.FC<EmpaqueSectionProps> = ({
     { label: "Merma", value: merma, icon: <ReportProblemIcon fontSize="small" /> },
   ];
 
+  const formatCajas = (value?: number | string | null) => {
+    if (value == null) return "—";
+    if (typeof value === "string") return value;
+    const n = Number(value);
+    if (!Number.isFinite(n)) return "—";
+    return `${new Intl.NumberFormat("es-MX", { maximumFractionDigits: 0 }).format(n)} cajas`;
+  };
+
   return (
     <Box sx={{ py: 1 }}>
       <Paper
@@ -183,8 +191,11 @@ const EmpaqueSection: React.FC<EmpaqueSectionProps> = ({
                 label: "Clasificación",
                 key: "meta",
                 render: (r) => {
+                  if ((r as any).clasificacion_label) {
+                    return (r as any).clasificacion_label;
+                  }
                   const m = (r.meta || {}) as any;
-                  // Prioridad 1: Desglose ya formateado desde backend
+                  // Prioridad 2: Desglose ya formateado desde backend (Legacy P4)
                   const items = m.desglose;
                   if (Array.isArray(items) && items.length > 0) {
                     return (
@@ -197,9 +208,7 @@ const EmpaqueSection: React.FC<EmpaqueSectionProps> = ({
                       </Box>
                     );
                   }
-                  // Prioridad 2: Construcción manual si el backend manda campos planos en meta (fallback robusto)
-                  // Nota: QueueInventarios agrupa por lote, por lo que 'm' debería tener datos agregados o ser representative.
-                  // Si no hay desglose, intentamos mostrar datos basicos si existen.
+                  // Prioridad 3: Construcción manual si el backend manda campos planos en meta (fallback robusto)
                   if (m.material || m.calidad || m.tipo) {
                     return `${m.material || "?"} ${m.calidad || "?"} ${m.tipo || "?"}`;
                   }
@@ -207,12 +216,22 @@ const EmpaqueSection: React.FC<EmpaqueSectionProps> = ({
                 }
               },
               { label: "Huertero", key: "huerta", render: (r) => <Typography variant="body2">{r.huerta || "—"}</Typography> },
-              { label: "Cajas", key: "kg", align: "right", render: (r) => <Typography variant="body2" fontWeight={700}>{r.kg}</Typography> },
+              {
+                label: "Cajas",
+                key: "kg",
+                align: "right",
+                render: (r) => (
+                  <Typography variant="body2" fontWeight={700}>
+                    {formatCajas(r.kg)}
+                  </Typography>
+                ),
+              },
               {
                 label: "Despachado",
                 key: "despachado",
                 render: (r) => {
-                  const isDespachado = (r.meta as any)?.despachado === true;
+                  const meta = (r.meta || {}) as any;
+                  const isDespachado = meta?.despachado === true || (r as any).despachado === true;
                   return (
                     <Typography
                       variant="caption"

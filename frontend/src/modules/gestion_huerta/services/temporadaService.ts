@@ -83,7 +83,7 @@ export const temporadaService = {
         ...data,
         data: {
           ...data.data,
-          results: data.data.results.map(mapTemporadaFromApi),
+          results: data.data.results.map((raw: any) => mapTemporadaFromApi(raw)),
         },
       };
     }

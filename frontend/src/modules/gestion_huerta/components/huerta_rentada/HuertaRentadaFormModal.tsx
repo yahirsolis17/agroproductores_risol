@@ -17,15 +17,15 @@ import FormikNumberField from '../../../../components/common/form/FormikNumberFi
 import FormikTextField from '../../../../components/common/form/FormikTextField';
 
 const yupSchema = Yup.object({
-  nombre:      Yup.string().required('Nombre requerido'),
-  ubicacion:   Yup.string().required('Ubicación requerida'),
-  variedades:  Yup.string().required('Variedades requeridas'),
-  hectareas:   Yup.number().positive('Debe ser mayor que 0').required('Requerido'),
+  nombre: Yup.string().required('Nombre requerido'),
+  ubicacion: Yup.string().required('Ubicación requerida'),
+  variedades: Yup.string().required('Variedades requeridas'),
+  hectareas: Yup.number().positive('Debe ser mayor que 0').required('Requerido'),
   monto_renta: Yup.number().positive('Debe ser mayor que 0').required('Requerido'),
   propietario: Yup.number().min(1, 'Selecciona un propietario').required('Requerido'),
 });
 
-type NewOption  = { id: 'new'; label: string; value: 'new' };
+type NewOption = { id: 'new'; label: string; value: 'new' };
 type PropOption = { id: number; label: string; value: number };
 type OptionType = NewOption | PropOption;
 
@@ -81,7 +81,7 @@ const HuertaRentadaFormModal: React.FC<Props> = ({
   // Autocomplete asíncrono robusto
   const [asyncOptions, setAsyncOptions] = useState<PropOption[]>([]);
   const [asyncLoading, setAsyncLoading] = useState(false);
-  const [asyncInput, setAsyncInput]     = useState('');
+  const [asyncInput, setAsyncInput] = useState('');
   const abortRef = useRef<AbortController | null>(null);
   useEffect(() => () => { abortRef.current?.abort(); }, []);
 
@@ -237,7 +237,7 @@ const HuertaRentadaFormModal: React.FC<Props> = ({
               name="propietario"
               options={opcionesCombinadas}
               loading={asyncLoading}
-              getOptionLabel={(option: OptionType) => option.label}
+              getOptionLabel={(option) => typeof option === 'string' ? option : option.label}
               isOptionEqualToValue={(option: OptionType, value: OptionType) => option.value === value.value}
               filterOptions={(options, state) => state.inputValue.trim() === '' ? [registroNuevo] : options}
               openOnFocus
@@ -246,10 +246,12 @@ const HuertaRentadaFormModal: React.FC<Props> = ({
                 : null}
               onInputChange={(_, value, reason) => { if (reason === 'input') handleAsyncInput(value); }}
               onChange={(_, selected) => {
-                if (selected?.value === 'new') {
+                if (!selected || typeof selected === 'string') {
+                  setFieldValue('propietario', 0);
+                } else if ('value' in selected && selected.value === 'new') {
                   onRegisterNewPropietario();
                   setFieldValue('propietario', 0);
-                } else if (selected && typeof selected.value === 'number') {
+                } else if ('value' in selected && typeof selected.value === 'number') {
                   setFieldValue('propietario', selected.value);
                 } else {
                   setFieldValue('propietario', 0);
@@ -260,8 +262,8 @@ const HuertaRentadaFormModal: React.FC<Props> = ({
                 asyncLoading
                   ? 'Buscando…'
                   : asyncInput.length < 2
-                  ? 'Empieza a escribir para buscar...'
-                  : 'No se encontraron propietarios'
+                    ? 'Empieza a escribir para buscar...'
+                    : 'No se encontraron propietarios'
               }
               loadingText="Buscando propietarios…"
               label="Propietario"

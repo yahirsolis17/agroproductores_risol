@@ -215,7 +215,7 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
           validateOnMount={false}
           onSubmit={handleSubmit}
         >
-          {({ values, errors, isSubmitting, handleChange, handleBlur, setFieldValue, setTouched, validateForm }) => (
+          {({ values, isSubmitting, handleChange, handleBlur, setFieldValue, setTouched, validateForm }) => (
             <Form
               onSubmit={async (event) => {
                 event.preventDefault();

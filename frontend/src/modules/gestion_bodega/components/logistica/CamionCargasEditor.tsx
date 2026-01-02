@@ -25,8 +25,15 @@ import AddCircleIcon from '@mui/icons-material/AddCircle';
 // Services
 import { empaquesService } from '../../services/empaquesService';
 import camionesService from '../../services/camionesService';
-// Types
-import type { EmpaqueRow } from '../../types/empaquesTypes';
+
+// Types para stock agrupado
+interface StockAgrupado {
+    calidad: string;
+    material: string;
+    tipo_mango: string;
+    disponible: number;
+    fecha_min: string;
+}
 
 interface CamionCargasEditorProps {
     camionId: number;
@@ -50,10 +57,10 @@ const CamionCargasEditor: React.FC<CamionCargasEditorProps> = ({
     const [cargas, setCargas] = useState<any[]>(initialCargas);
     const [openAdd, setOpenAdd] = useState(false);
 
-    // Estado para el formulario de agregar
-    const [availableStock, setAvailableStock] = useState<EmpaqueRow[]>([]);
+    // Estado para el formulario de agregar - USANDO STOCK AGRUPADO
+    const [availableStock, setAvailableStock] = useState<StockAgrupado[]>([]);
     const [loadingStock, setLoadingStock] = useState(false);
-    const [selectedEmpaque, setSelectedEmpaque] = useState<EmpaqueRow | null>(null);
+    const [selectedStock, setSelectedStock] = useState<StockAgrupado | null>(null);
     const [cantidadToAdd, setCantidadToAdd] = useState<number | ''>('');
     const [submitting, setSubmitting] = useState(false);
     const [errorInfo, setErrorInfo] = useState<string | null>(null);
@@ -65,7 +72,8 @@ const CamionCargasEditor: React.FC<CamionCargasEditorProps> = ({
     const fetchStock = async () => {
         setLoadingStock(true);
         try {
-            const rows = await empaquesService.listDisponibles({
+            // NUEVO: Usar stock agrupado por combinación
+            const rows = await empaquesService.listDisponiblesAgrupados({
                 bodega: bodegaId,
                 temporada: temporadaId,
                 semana: semanaId
@@ -81,7 +89,7 @@ const CamionCargasEditor: React.FC<CamionCargasEditorProps> = ({
     const handleOpenAdd = () => {
         setOpenAdd(true);
         fetchStock();
-        setSelectedEmpaque(null);
+        setSelectedStock(null);
         setCantidadToAdd('');
         setErrorInfo(null);
     };
@@ -91,13 +99,16 @@ const CamionCargasEditor: React.FC<CamionCargasEditorProps> = ({
     };
 
     const handleAddCarga = async () => {
-        if (!selectedEmpaque || !cantidadToAdd || Number(cantidadToAdd) <= 0) return;
+        if (!selectedStock || !cantidadToAdd || Number(cantidadToAdd) <= 0) return;
 
         setSubmitting(true);
         setErrorInfo(null);
         try {
+            // NUEVO: Enviar combinación en lugar de clasificacion_id
             await camionesService.addCarga(camionId, {
-                clasificacion_id: selectedEmpaque.id,
+                calidad: selectedStock.calidad,
+                material: selectedStock.material,
+                tipo_mango: selectedStock.tipo_mango,
                 cantidad: Number(cantidadToAdd)
             });
             // Success
@@ -105,7 +116,7 @@ const CamionCargasEditor: React.FC<CamionCargasEditorProps> = ({
             handleCloseAdd();
         } catch (err: any) {
             console.error(err);
-            const msg = err.response?.data?.errors?.cantidad || err.response?.data?.message || "Error al agregar carga";
+            const msg = err.response?.data?.errors?.detail || err.response?.data?.message || "Error al agregar carga";
             setErrorInfo(Array.isArray(msg) ? msg[0] : msg);
         } finally {
             setSubmitting(false);
@@ -209,37 +220,36 @@ const CamionCargasEditor: React.FC<CamionCargasEditorProps> = ({
                             options={availableStock}
                             loading={loadingStock}
                             getOptionLabel={(option) => {
-                                const loteInfo = (option as any).lote_codigo ? ` | Lote: ${(option as any).lote_codigo}` : '';
-                                return `${option.material} - ${option.calidad} (${(option as any).fecha}) | Disp: ${(option as any).disponible}${loteInfo}`;
+                                return `${option.material} - ${option.calidad} - ${option.tipo_mango} | Disp: ${option.disponible}`;
                             }}
                             renderOption={(props, option) => (
                                 <li {...props}>
                                     <Box display="flex" flexDirection="column" width="100%">
                                         <Box display="flex" justifyContent="space-between" width="100%">
                                             <Typography variant="body2" fontWeight="bold">
-                                                {option.material} - {option.calidad}
+                                                {option.material} - {option.calidad} - {option.tipo_mango}
                                             </Typography>
                                             <Typography
                                                 variant="body2"
-                                                color={(option as any).disponible < 50 ? 'error' : 'success.main'}
+                                                color={option.disponible < 50 ? 'error' : 'success.main'}
                                                 fontWeight="bold"
                                             >
-                                                {(option as any).disponible} unid.
+                                                {option.disponible} cajas
                                             </Typography>
                                         </Box>
                                         <Typography variant="caption" color="textSecondary">
-                                            Fecha: {(option as any).fecha} {(option as any).lote_codigo ? `| Lote: ${(option as any).lote_codigo}` : ''}
+                                            Fecha FEFO: {option.fecha_min}
                                         </Typography>
                                     </Box>
                                 </li>
                             )}
-                            value={selectedEmpaque}
-                            onChange={(_, val) => setSelectedEmpaque(val)}
+                            value={selectedStock}
+                            onChange={(_, val) => setSelectedStock(val)}
                             renderInput={(params) => (
                                 <TextField
                                     {...params}
                                     label="Seleccionar Stock Disponible"
-                                    placeholder="Buscar por lote, fecha o calidad..."
+                                    placeholder="Buscar por calidad, material o tipo..."
                                     InputProps={{
                                         ...params.InputProps,
                                         endAdornment: (
@@ -253,21 +263,19 @@ const CamionCargasEditor: React.FC<CamionCargasEditorProps> = ({
                             )}
                         />
 
-                        {selectedEmpaque && (
+                        {selectedStock && (
                             <Box mt={1} p={1} bgcolor="background.paper" borderRadius={1} border={1} borderColor="divider">
                                 <Typography variant="subtitle2" color="primary">
-                                    Seleccionado: {selectedEmpaque.material} - {selectedEmpaque.calidad}
+                                    Seleccionado: {selectedStock.material} - {selectedStock.calidad} - {selectedStock.tipo_mango}
                                 </Typography>
                                 <Typography variant="body2">
-                                    Fecha Prod: <strong>{(selectedEmpaque as any).fecha}</strong>
+                                    Fecha FEFO: <strong>{selectedStock.fecha_min}</strong>
                                 </Typography>
-                                {(selectedEmpaque as any).lote_codigo && (
-                                    <Typography variant="body2">
-                                        Lote: <strong>{(selectedEmpaque as any).lote_codigo}</strong>
-                                    </Typography>
-                                )}
                                 <Typography variant="body2" color="success.main" mt={0.5}>
-                                    Disponible Real: <strong>{(selectedEmpaque as any).disponible}</strong> cajas
+                                    Disponible Total: <strong>{selectedStock.disponible}</strong> cajas
+                                </Typography>
+                                <Typography variant="caption" color="textSecondary" display="block" mt={0.5}>
+                                    El sistema asignará automáticamente por FEFO (más antiguo primero)
                                 </Typography>
                             </Box>
                         )}
@@ -277,8 +285,8 @@ const CamionCargasEditor: React.FC<CamionCargasEditorProps> = ({
                             type="number"
                             value={cantidadToAdd}
                             onChange={(e) => setCantidadToAdd(Number(e.target.value))}
-                            error={Boolean(errorInfo) || (selectedEmpaque ? Number(cantidadToAdd) > ((selectedEmpaque as any).disponible || 0) : false)}
-                            helperText={errorInfo || (selectedEmpaque && Number(cantidadToAdd) > ((selectedEmpaque as any).disponible || 0) ? "Excede disponible" : "")}
+                            error={Boolean(errorInfo) || (selectedStock ? Number(cantidadToAdd) > selectedStock.disponible : false)}
+                            helperText={errorInfo || (selectedStock && Number(cantidadToAdd) > selectedStock.disponible ? "Excede disponible" : "")}
                             fullWidth
                         />
                     </Box>
@@ -288,7 +296,7 @@ const CamionCargasEditor: React.FC<CamionCargasEditorProps> = ({
                     <Button
                         onClick={handleAddCarga}
                         variant="contained"
-                        disabled={!selectedEmpaque || !cantidadToAdd || submitting || (selectedEmpaque && Number(cantidadToAdd) > ((selectedEmpaque as any).disponible || 0))}
+                        disabled={!selectedStock || !cantidadToAdd || submitting || (selectedStock && Number(cantidadToAdd) > selectedStock.disponible)}
                     >
                         {submitting ? "Guardando..." : "Agregar Carga"}
                     </Button>

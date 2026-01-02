@@ -10,6 +10,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 
 import cierresService from "../../modules/gestion_bodega/services/cierresService";
 import { handleBackendNotification } from "../utils/NotificationEngine";
+import { extractApiMessage } from "../api/errorUtils";
 import type {
   CierresIndexResponse,
   CierreSemanalListResponse,
@@ -197,7 +198,7 @@ const cierresSlice = createSlice({
     });
     builder.addCase(fetchCierresIndex.rejected, (state, action) => {
       state.loadingIndex = false;
-      const msg = (action.payload as any)?.message ?? (action.payload as any)?.detail ?? action.error.message ?? "Error";
+      const msg = extractApiMessage(action.payload ?? action.error, "Error");
       state.errorIndex = typeof msg === "string" ? msg : JSON.stringify(msg);
     });
 
@@ -212,7 +213,7 @@ const cierresSlice = createSlice({
     });
     builder.addCase(fetchCierresList.rejected, (state, action) => {
       state.loadingList = false;
-      const msg = (action.payload as any)?.message ?? (action.payload as any)?.detail ?? action.error.message ?? "Error";
+      const msg = extractApiMessage(action.payload ?? action.error, "Error");
       state.errorList = typeof msg === "string" ? msg : JSON.stringify(msg);
     });
 

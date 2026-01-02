@@ -24,6 +24,7 @@ from gestion_bodega.serializers import (
     DashboardSummaryResponseSerializer,
     QueueItemSerializer,
 )
+from gestion_bodega.services.week_service import WeekService
 from gestion_bodega.utils.constants import NOTIFICATION_MESSAGES
 from gestion_bodega.utils.kpis import (
     build_alerts,
@@ -319,6 +320,7 @@ def _ordering_from_alias(tipo: str, order_by: Optional[str]) -> List[str]:
 
     alias_maps: Dict[str, Dict[str, str]] = {
         "recepciones": {
+            "fecha": "fecha",
             "fecha_recepcion": "fecha",
             "id": "id",
             "huertero": "huertero_nombre",
@@ -734,16 +736,17 @@ class TableroBodegaWeekStartView(BaseWeekAPIView):
             )
 
         try:
-            TemporadaBodega.objects.get(
+            bodega = Bodega.objects.get(id=bodega_id)
+            temporada = TemporadaBodega.objects.get(
                 id=temporada_id,
                 bodega_id=bodega_id,
                 is_active=True,
                 finalizada=False,
             )
-        except TemporadaBodega.DoesNotExist:
+        except (Bodega.DoesNotExist, TemporadaBodega.DoesNotExist):
             return NotificationHandler.generate_response(
                 "validation_error",
-                data={"detail": "Temporada inválida o no activa."},
+                data={"detail": "Temporada o bodega inválida o no activa."},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -755,39 +758,14 @@ class TableroBodegaWeekStartView(BaseWeekAPIView):
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Etiqueta opcional ISO de referencia (no afecta la lógica manual)
         try:
-            iso_tag = f"{f.isocalendar().year}-W{str(f.isocalendar().week).zfill(2)}"
-        except Exception:
-            iso_tag = None
-
-        try:
-            with transaction.atomic():
-                # Validación explícita: solo una semana ABIERTA por contexto
-                if (
-                    CierreSemanal.objects.select_for_update()
-                    .filter(
-                        bodega_id=bodega_id,
-                        temporada_id=temporada_id,
-                        fecha_hasta__isnull=True,
-                        is_active=True,
-                    )
-                    .exists()
-                ):
-                    return NotificationHandler.generate_response(
-                        "validation_error",
-                        data={"detail": "Ya existe una semana abierta para esta bodega y temporada."},
-                        status_code=status.HTTP_409_CONFLICT,
-                    )
-
-                cw = CierreSemanal.objects.create(
-                    bodega_id=bodega_id,
-                    temporada_id=temporada_id,
-                    fecha_desde=f,
-                    fecha_hasta=None,  # Semana ABIERTA
-                    iso_semana=iso_tag,
-                    locked_by=request.user,
-                )
+            # Usar WeekService para crear la semana con lógica unificada
+            cw = WeekService.start_week(
+                bodega=bodega,
+                temporada=temporada,
+                fecha_desde=f,
+                user=request.user,
+            )
 
             aw = _current_or_last_week_ctx(bodega_id, temporada_id)
             week_payload = _week_simple_payload(cw)
@@ -807,10 +785,10 @@ class TableroBodegaWeekStartView(BaseWeekAPIView):
                 status_code=status.HTTP_201_CREATED,
             )
         except DjangoValidationError as e:
-            # Validaciones de modelo (p.ej., solapes) -> 400 controlado con detalle
+            # Validaciones de WeekService (unicidad, etc.)
             return NotificationHandler.generate_response(
                 "validation_error",
-                data={"errors": getattr(e, "message_dict", None) or {"detail": str(e)}},
+                data={"errors": {"detail": str(e)}},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
         except IntegrityError:
@@ -868,50 +846,22 @@ class TableroBodegaWeekFinishView(BaseWeekAPIView):
             )
 
         try:
-            with transaction.atomic():
-                # Lock de la semana a cerrar
-                cw = (
-                    CierreSemanal.objects.select_for_update()
-                    .get(
-                        id=semana_id,
-                        bodega_id=bodega_id,
-                        temporada_id=temporada_id,
-                        is_active=True,
-                    )
-                )
+            cw = CierreSemanal.objects.get(
+                id=semana_id,
+                bodega_id=bodega_id,
+                temporada_id=temporada_id,
+                is_active=True,
+            )
+        except CierreSemanal.DoesNotExist:
+            return NotificationHandler.generate_response(
+                "validation_error",
+                data={"detail": "No existe la semana indicada para cerrar."},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
 
-                # Solo se puede cerrar si sigue ABIERTA
-                if cw.fecha_hasta is not None:
-                    return NotificationHandler.generate_response(
-                        "validation_error",
-                        data={"detail": "La semana ya está cerrada."},
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                # Validaciones de rango
-                if h < cw.fecha_desde:
-                    return NotificationHandler.generate_response(
-                        "validation_error",
-                        data={"detail": "La fecha de cierre no puede ser anterior al inicio de la semana."},
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                if (h - cw.fecha_desde).days > 6:
-                    return NotificationHandler.generate_response(
-                        "validation_error",
-                        data={"detail": "La semana no puede exceder 7 días."},
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                cw.fecha_hasta = h
-                try:
-                    cw.save(update_fields=["fecha_hasta", "actualizado_en"])
-                except DjangoValidationError as e:
-                    return NotificationHandler.generate_response(
-                        "validation_error",
-                        data={"errors": getattr(e, "message_dict", None) or {"detail": str(e)}},
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                    )
+        try:
+            # Usar WeekService para cerrar con lógica unificada (clamp de 7 días)
+            cw = WeekService.close_week(cw, h, user=request.user)
 
             aw = _current_or_last_week_ctx(bodega_id, temporada_id)
             week_payload = _week_simple_payload(cw)
@@ -930,10 +880,10 @@ class TableroBodegaWeekFinishView(BaseWeekAPIView):
                 },
                 status_code=status.HTTP_200_OK,
             )
-        except CierreSemanal.DoesNotExist:
+        except DjangoValidationError as e:
             return NotificationHandler.generate_response(
                 "validation_error",
-                data={"detail": "No existe la semana indicada para cerrar."},
+                data={"detail": str(e)},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:

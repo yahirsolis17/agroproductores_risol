@@ -10,13 +10,14 @@ export interface User {
   apellido: string;
   telefono: string;
   role: 'admin' | 'usuario';
-  must_change_password?: boolean; // ← 💥 agrega esto
+  is_active: boolean;
+  must_change_password?: boolean;
 }
 
 export interface LoginResult {
   user: User;
   must_change_password: boolean;
-  tokens: { access: string; refresh: string };   // <── añade esto
+  tokens: { access: string; refresh: string };
 
 }
 
@@ -26,11 +27,11 @@ interface LoginData {
 }
 
 export interface RegisterData {
-  nombre:   string;
+  nombre: string;
   apellido: string;
   telefono: string;
-  role:     string;
-  password?: string;           // opcional
+  role: string;
+  password?: string;
 }
 
 /* ---------- Servicio ---------- */
@@ -38,34 +39,35 @@ const authService = {
   /* ---- LOGIN ---- */
   login: async (data: LoginData): Promise<LoginResult & { notification: any }> => {
     const response = await apiClient.post('/usuarios/login/', data);
-  
+
     const rawUser = response.data?.data?.user ?? {};
     const isAdmin = rawUser.is_admin ?? response.data?.data?.is_admin ?? false;
-  
+
     const user: User = {
       ...rawUser,
       role: isAdmin ? 'admin' : 'usuario',
+      is_active: rawUser.is_active ?? true,
     };
-  
+
     const tokens = response.data?.data?.tokens;
     if (!tokens?.access || !tokens?.refresh) {
       throw new Error('Tokens faltantes en la respuesta');
     }
-  
+
     /* Guardar sesión */
-    localStorage.setItem('accessToken',  tokens.access);
+    localStorage.setItem('accessToken', tokens.access);
     localStorage.setItem('refreshToken', tokens.refresh);
-    localStorage.setItem('user',         JSON.stringify(user));
-  
+    localStorage.setItem('user', JSON.stringify(user));
+
     return {
       user,
       must_change_password: response.data?.data?.must_change_password === true,
       notification: response.data.notification,
-      tokens,   // <── ahora el campo existe
+      tokens,
     };
-    
+
   },
-  
+
 
   /* ---- REGISTER ---- */
   register: async (data: RegisterData) => {

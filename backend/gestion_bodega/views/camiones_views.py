@@ -4,6 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
+from django.core.exceptions import ValidationError as DjangoValidationError
 from datetime import timedelta
 
 from gestion_bodega.models import CamionSalida, CamionItem, CierreSemanal, CamionConsumoEmpaque
@@ -193,13 +194,80 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
         if _semana_cerrada(obj.bodega_id, obj.temporada_id, obj.fecha_salida):
             return self.notify(key="camion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
 
+        # P1 FIX: Collect reconciliation data BEFORE confirmation
+        lotes_affected = []
+        total_cajas = 0
+        
+        if hasattr(obj, 'cargas') and obj.cargas.exists():
+            from django.db.models import Sum
+            cargas_data = (
+                obj.cargas
+                .filter(is_active=True)
+                .select_related('clasificacion_empaque__lote')
+                .values('clasificacion_empaque__lote_id')
+                .annotate(total=Sum('cantidad'))
+            )
+            lotes_affected = [c['clasificacion_empaque__lote_id'] for c in cargas_data if c['clasificacion_empaque__lote_id']]
+            total_cajas = sum(c['total'] or 0 for c in cargas_data)
+
         with transaction.atomic():
             try:
+                # P2 FIX: Generate folio AFTER confirmation (assigns numero)
                 obj.confirmar()
+                
+                # P2 FINAL (R1): Derive semana from actual consumptions
+                semanas_consumidas = set()
+                if hasattr(obj, 'cargas') and obj.cargas.exists():
+                    semanas_consumidas = set(
+                        obj.cargas
+                        .filter(is_active=True)
+                        .select_related('clasificacion_empaque')
+                        .values_list('clasificacion_empaque__semana_id', flat=True)
+                        .distinct()
+                    )
+                    # Remove None if exists
+                    semanas_consumidas.discard(None)
+                
+                # Validación de consistencia de semana
+                if len(semanas_consumidas) > 1:
+                    return self.notify(
+                        key="camion_semana_inconsistente",
+                        data={
+                            "reason": "El camión tiene consumos de múltiples semanas",
+                            "semanas": list(semanas_consumidas),
+                        },
+                        status_code=status.HTTP_409_CONFLICT
+                    )
+                
+                # Usar semana derivada o fallback
+                semana_id = (
+                    list(semanas_consumidas)[0] if len(semanas_consumidas) == 1
+                    else obj.semana_id if obj.semana_id
+                    else 0  # Solo si está vacío o sin consumos
+                )
+                
+                folio = f"BOD-{obj.bodega_id}-T{obj.temporada_id}-W{semana_id}-C{obj.numero:05d}"
+                obj.folio = folio
+                obj.save(update_fields=['folio', 'actualizado_en'])
+                
             except serializers.ValidationError as e:
-                return self.notify(key="camion_no_confirmable", data={"errors": e.detail if hasattr(e, "detail") else str(e)}, status_code=status.HTTP_400_BAD_REQUEST)
+                return self.notify(
+                    key="camion_no_confirmable", 
+                    data={"errors": e.detail if hasattr(e, "detail") else str(e)}, 
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
 
-        return self.notify(key="camion_confirmado", data={"camion": self.get_serializer(obj).data}, status_code=status.HTTP_200_OK)
+        return self.notify(
+            key="camion_confirmado", 
+            data={
+                "camion": self.get_serializer(obj).data,
+                "affected": {
+                    "lotes_despachados": lotes_affected,
+                    "total_cajas": total_cajas,
+                }
+            }, 
+            status_code=status.HTTP_200_OK
+        )
 
     # ----- Items del camión (manifiesto) -----
     @action(detail=True, methods=["post"], url_path="items/add")
@@ -250,19 +318,100 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
     # ----- Cargas reales (consumo de stock) -----
     @action(detail=True, methods=["post"], url_path="cargas/add")
     def add_carga(self, request, pk=None):
+        """
+        Agrega carga (consumo de stock) a un camión.
+        
+        Soporta DOS contratos:
+        1. LEGACY: {"clasificacion_id": <int>, "cantidad": <int>} - asigna a empaque específico
+        2. NUEVO (Enterprise FEFO): {"calidad": <str>, "material": <str>, "tipo_mango": <str>, "cantidad": <int>}
+           - Asigna automáticamente por FEFO (First Expired, First Out)
+           - Puede crear múltiples consumos si la cantidad requiere varios empaques
+        """
+        from gestion_bodega.services.inventory_service import InventoryService
+        
         obj = self.get_object()
+        
         # Phase 3: Immutability - cannot add cargas to CONFIRMADO truck
         if obj.estado == "CONFIRMADO":
             return self.notify(key="camion_inmutable", status_code=status.HTTP_409_CONFLICT)
         
-        # Inyectamos camion_id (el serializer espera la FK por id, no instancia ni campo 'camion')
-        data = {**request.data, "camion_id": obj.id}
+        data = request.data
+        clasificacion_id = data.get("clasificacion_id")
+        
+        # ============================================================
+        # NUEVO PATH: Asignación por combinación (FEFO)
+        # ============================================================
+        if not clasificacion_id:
+            calidad = data.get("calidad")
+            material = data.get("material")
+            tipo_mango = data.get("tipo_mango")
+            cantidad = data.get("cantidad")
+            
+            # Validar que vengan todos los campos requeridos
+            if not all([calidad, material, tipo_mango, cantidad]):
+                return self.notify(
+                    key="validation_error",
+                    data={
+                        "errors": {
+                            "detail": "Debe enviar clasificacion_id O (calidad + material + tipo_mango + cantidad)"
+                        }
+                    },
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+            
+            try:
+                cantidad_int = int(cantidad)
+                if cantidad_int <= 0:
+                    raise ValueError("Cantidad debe ser mayor a 0")
+            except (ValueError, TypeError):
+                return self.notify(
+                    key="validation_error",
+                    data={"errors": {"cantidad": ["Cantidad inválida"]}},
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+            
+            # Validar semana cerrada
+            if _semana_cerrada(obj.bodega_id, obj.temporada_id, obj.fecha_salida):
+                return self.notify(key="camion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
+            
+            # Delegar a InventoryService para asignar por FEFO
+            try:
+                consumos_creados = InventoryService.allocate_stock_fefo(
+                    camion=obj,
+                    calidad=calidad,
+                    material=material,
+                    tipo_mango=tipo_mango,
+                    cantidad=cantidad_int,
+                    user=request.user
+                )
+            except DjangoValidationError as e:
+                return self.notify(
+                    key="validation_error",
+                    data={"errors": {"detail": str(e)}},
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+            
+            # Retornar MÚLTIPLES consumos creados (puede ser 1 o N)
+            return self.notify(
+                key="camion_cargas_creadas",
+                data={
+                    "cargas": CamionConsumoEmpaqueSerializer(consumos_creados, many=True).data,
+                    "count": len(consumos_creados),
+                    "total_cantidad": sum(c.cantidad for c in consumos_creados)
+                },
+                status_code=status.HTTP_201_CREATED,
+            )
+        
+        # ============================================================
+        # LEGACY PATH: clasificacion_id directo (mantener para compatibilidad)
+        # ============================================================
+        data_with_camion = {**data, "camion_id": obj.id}
         
         # Compatibilidad: mapear clasificacion_empaque_id -> clasificacion_id
-        if "clasificacion_empaque_id" in data and "clasificacion_id" not in data:
-            data["clasificacion_id"] = data["clasificacion_empaque_id"]
+        if "clasificacion_empaque_id" in data_with_camion and "clasificacion_id" not in data_with_camion:
+            data_with_camion["clasificacion_id"] = data_with_camion["clasificacion_empaque_id"]
 
-        ser = CamionConsumoEmpaqueSerializer(data=data)
+        ser = CamionConsumoEmpaqueSerializer(data=data_with_camion)
         try:
             ser.is_valid(raise_exception=True)
         except serializers.ValidationError:
@@ -274,7 +423,11 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
         with transaction.atomic():
             carga = ser.save()
 
-        return self.notify(key="camion_carga_creada", data={"carga": CamionConsumoEmpaqueSerializer(carga).data}, status_code=status.HTTP_201_CREATED)
+        return self.notify(
+            key="camion_carga_creada", 
+            data={"carga": CamionConsumoEmpaqueSerializer(carga).data}, 
+            status_code=status.HTTP_201_CREATED
+        )
 
     @action(detail=True, methods=["post"], url_path="cargas/remove")
     def remove_carga(self, request, pk=None):

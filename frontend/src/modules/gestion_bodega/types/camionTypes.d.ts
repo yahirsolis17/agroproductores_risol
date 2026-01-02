@@ -12,6 +12,7 @@ export interface CamionSalida {
   bodega: number;
   temporada: number;
   numero?: number;
+  folio?: string;
   estado: string;
   fecha_salida: string;
   placas?: string;

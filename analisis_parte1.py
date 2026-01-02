@@ -43,7 +43,7 @@ for temp in TemporadaBodega.objects.filter(is_active=True)[:3]:
 print("\n### JERARQUÍA NIVEL 3: Semana → Recepciones ###\n")
 for semana in CierreSemanal.objects.filter(is_active=True)[:3]:
     recs = Recepcion.objects.filter(semana=semana, is_active=True)
-    total_cajas = recs.aggregate(t=Sum('cantidad_cajas'))['t'] or 0
+    total_cajas = recs.aggregate(t=Sum('cajas_campo'))['t'] or 0
     print(f"Semana[{semana.id}] Bodega:{semana.bodega_id}, Temp:{semana.temporada_id}")
     print(f"  ├─ Fecha desde: {semana.fecha_desde}")
     print(f"  ├─ Recepciones: {recs.count()}")

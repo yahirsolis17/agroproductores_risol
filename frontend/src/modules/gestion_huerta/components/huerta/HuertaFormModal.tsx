@@ -1,7 +1,6 @@
 // src/modules/gestion_huerta/components/huerta/HuertaFormModal.tsx
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { DialogContent, DialogActions, Button, CircularProgress } from '@mui/material';
-import Autocomplete from '@mui/material/Autocomplete';
 import { Formik, Form, FormikProps, FormikHelpers } from 'formik';
 import * as Yup from 'yup';
 
@@ -226,7 +225,7 @@ const HuertaFormModal: React.FC<Props> = ({
               name="propietario"
               options={opcionesCombinadas}
               loading={asyncLoading}
-              getOptionLabel={(option: OptionType) => option.label}
+              getOptionLabel={(option) => typeof option === 'string' ? option : option.label}
               isOptionEqualToValue={(option: OptionType, value: OptionType) => option.value === value.value}
               filterOptions={(options, state) => state.inputValue.trim() === '' ? [registroNuevo] : options}
               openOnFocus
@@ -235,10 +234,12 @@ const HuertaFormModal: React.FC<Props> = ({
                 : null}
               onInputChange={(_, value, reason) => { if (reason === 'input') handleAsyncInput(value); }}
               onChange={(_, selected) => {
-                if (selected?.value === 'new') {
+                if (!selected || typeof selected === 'string') {
+                  setFieldValue('propietario', 0);
+                } else if ('value' in selected && selected.value === 'new') {
                   onRegisterNewPropietario();
                   setFieldValue('propietario', 0);
-                } else if (selected && typeof selected.value === 'number') {
+                } else if ('value' in selected && typeof selected.value === 'number') {
                   setFieldValue('propietario', selected.value);
                 } else {
                   setFieldValue('propietario', 0);

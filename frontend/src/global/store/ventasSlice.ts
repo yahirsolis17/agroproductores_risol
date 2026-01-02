@@ -9,6 +9,7 @@ import {
 import type { RootState } from './store';
 import { PaginationMeta } from '../../modules/gestion_huerta/types/shared';
 import { ApiError, extractApiError } from '../types/apiTypes';
+import { extractApiMessage } from '../api/errorUtils';
 
 export type EstadoFiltro = 'activas' | 'archivadas' | 'todas';
 export interface VentaFilters extends SvcFilters { }
@@ -259,7 +260,7 @@ const ventasSlice = createSlice({
       })
       .addCase(fetchVentas.rejected, (s, { payload, error }) => {
         s.loading = false;
-        const msg = (payload as any)?.message ?? (payload as any)?.detail ?? error.message ?? 'Error';
+        const msg = extractApiMessage(payload ?? error, 'Error');
         s.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
         s.loaded = true;
       })

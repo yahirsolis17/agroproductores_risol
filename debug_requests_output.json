@@ -1,0 +1,510 @@
+{
+  "summary_s9": {
+    "url": "/bodega/tablero/summary/",
+    "params": {
+      "bodega": 16,
+      "temporada": 8,
+      "semana_id": 9
+    },
+    "keys": [
+      "success",
+      "message_key",
+      "message",
+      "data",
+      "notification"
+    ],
+    "data_sample": {
+      "kpis": {
+        "recepcion": {
+          "kg_total": 350.0,
+          "kg_apto": 0.0,
+          "kg_merma": 0.0,
+          "apto_pct": null,
+          "merma_pct": null,
+          "hoy": null,
+          "semana": null
+        },
+        "empaque": {
+          "pendientes": 2,
+          "empacadas": 0,
+          "cajas_empacadas": 0,
+          "merma": 0
+        },
+        "stock": {
+          "total_kg": 0.0,
+          "por_madurez": {},
+          "por_calidad": {}
+        },
+        "ocupacion": {
+          "total_pct": 0.0,
+          "por_camara": []
+        },
+        "rotacion": {
+          "dias_promedio_bodega": 0.0
+        },
+        "fefo": {
+          "compliance_pct": null
+        },
+        "rechazos_qc": {
+          "tasa_pct": 0.0,
+          "top_causas": []
+        },
+        "lead_times": {
+          "recepcion_a_inventario_h": null,
+          "inventario_a_despacho_h": null
+        }
+      },
+      "context": {
+        "temporada_id": 8,
+        "temporada_label": "2026",
+        "bodega_label": "prueba 4",
+        "active_week": {
+          "id": 9,
+          "fecha_inicio": "2025-12-29",
+          "fecha_fin": null,
+          "rango_inferido": {
+            "from": "2025-12-29",
+            "to": "2026-01-04"
+          },
+          "estado": "ABIERTA",
+          "iso_semana": "2026-W01",
+          "activa": true
+        }
+      }
+    }
+  },
+  "recepciones_s9": {
+    "url": "/bodega/tablero/queues/",
+    "params": {
+      "queue": "recepciones",
+      "bodega": 16,
+      "temporada": 8,
+      "semana_id": 9
+    },
+    "keys": [
+      "success",
+      "message_key",
+      "message",
+      "data",
+      "notification"
+    ],
+    "data_sample": {
+      "meta": {
+        "count": 2,
+        "next": null,
+        "previous": null,
+        "page": 1,
+        "page_size": 10,
+        "total_pages": 1
+      },
+      "context": {
+        "temporada_id": 8,
+        "temporada_label": "2026",
+        "bodega_label": "prueba 4",
+        "active_week": {
+          "id": 9,
+          "fecha_inicio": "2025-12-29",
+          "fecha_fin": null,
+          "rango_inferido": {
+            "from": "2025-12-29",
+            "to": "2026-01-04"
+          },
+          "estado": "ABIERTA",
+          "iso_semana": "2026-W01",
+          "activa": true
+        }
+      }
+    },
+    "results_sample": [
+      {
+        "id": 79,
+        "ref": "REC-79",
+        "fecha": "2026-01-02",
+        "huerta": "TEST-María",
+        "kg": 200.0,
+        "cajas_campo": 200.0,
+        "cantidad_cajas": 200.0,
+        "estado": "REGISTRADA",
+        "chips": [],
+        "meta": {
+          "tipo": "TOMMY",
+          "semana_id": 9
+        }
+      },
+      {
+        "id": 78,
+        "ref": "REC-78",
+        "fecha": "2026-01-01",
+        "huerta": "TEST-Juan",
+        "kg": 150.0,
+        "cajas_campo": 150.0,
+        "cantidad_cajas": 150.0,
+        "estado": "REGISTRADA",
+        "chips": [],
+        "meta": {
+          "tipo": "KENT",
+          "semana_id": 9
+        }
+      }
+    ]
+  },
+  "summary_s8": {
+    "url": "/bodega/tablero/summary/",
+    "params": {
+      "bodega": 16,
+      "temporada": 8,
+      "semana_id": 8
+    },
+    "keys": [
+      "success",
+      "message_key",
+      "message",
+      "data",
+      "notification"
+    ],
+    "data_sample": {
+      "kpis": {
+        "recepcion": {
+          "kg_total": 350.0,
+          "kg_apto": 0.0,
+          "kg_merma": 0.0,
+          "apto_pct": null,
+          "merma_pct": null,
+          "hoy": null,
+          "semana": null
+        },
+        "empaque": {
+          "pendientes": 2,
+          "empacadas": 0,
+          "cajas_empacadas": 0,
+          "merma": 0
+        },
+        "stock": {
+          "total_kg": 0.0,
+          "por_madurez": {},
+          "por_calidad": {}
+        },
+        "ocupacion": {
+          "total_pct": 0.0,
+          "por_camara": []
+        },
+        "rotacion": {
+          "dias_promedio_bodega": 0.0
+        },
+        "fefo": {
+          "compliance_pct": null
+        },
+        "rechazos_qc": {
+          "tasa_pct": 0.0,
+          "top_causas": []
+        },
+        "lead_times": {
+          "recepcion_a_inventario_h": null,
+          "inventario_a_despacho_h": null
+        }
+      },
+      "context": {
+        "temporada_id": 8,
+        "temporada_label": "2026",
+        "bodega_label": "prueba 4",
+        "active_week": {
+          "id": 9,
+          "fecha_inicio": "2025-12-29",
+          "fecha_fin": null,
+          "rango_inferido": {
+            "from": "2025-12-29",
+            "to": "2026-01-04"
+          },
+          "estado": "ABIERTA",
+          "iso_semana": "2026-W01",
+          "activa": true
+        }
+      }
+    }
+  },
+  "autocomplete_stock": {
+    "url": "/bodega/empaques/disponibles/",
+    "params": {
+      "bodega": 16,
+      "temporada": 8
+    },
+    "keys": [
+      "success",
+      "message_key",
+      "message",
+      "data",
+      "notification"
+    ],
+    "data_sample": {},
+    "results_sample": []
+  },
+  "queue_recepciones": {
+    "url": "/bodega/tablero/queues/",
+    "params": {
+      "queue": "recepciones",
+      "bodega": 16,
+      "temporada": 8,
+      "semana_id": 8
+    },
+    "keys": [
+      "success",
+      "message_key",
+      "message",
+      "data",
+      "notification"
+    ],
+    "data_sample": {
+      "meta": {
+        "count": 2,
+        "next": null,
+        "previous": null,
+        "page": 1,
+        "page_size": 10,
+        "total_pages": 1
+      },
+      "context": {
+        "temporada_id": 8,
+        "temporada_label": "2026",
+        "bodega_label": "prueba 4",
+        "active_week": {
+          "id": 9,
+          "fecha_inicio": "2025-12-29",
+          "fecha_fin": null,
+          "rango_inferido": {
+            "from": "2025-12-29",
+            "to": "2026-01-04"
+          },
+          "estado": "ABIERTA",
+          "iso_semana": "2026-W01",
+          "activa": true
+        }
+      }
+    },
+    "results_sample": [
+      {
+        "id": 79,
+        "ref": "REC-79",
+        "fecha": "2026-01-02",
+        "huerta": "TEST-María",
+        "kg": 200.0,
+        "cajas_campo": 200.0,
+        "cantidad_cajas": 200.0,
+        "estado": "REGISTRADA",
+        "chips": [],
+        "meta": {
+          "tipo": "TOMMY",
+          "semana_id": 9
+        }
+      },
+      {
+        "id": 78,
+        "ref": "REC-78",
+        "fecha": "2026-01-01",
+        "huerta": "TEST-Juan",
+        "kg": 150.0,
+        "cajas_campo": 150.0,
+        "cantidad_cajas": 150.0,
+        "estado": "REGISTRADA",
+        "chips": [],
+        "meta": {
+          "tipo": "KENT",
+          "semana_id": 9
+        }
+      }
+    ]
+  },
+  "queue_inventarios_pendientes": {
+    "url": "/bodega/tablero/queues/",
+    "params": {
+      "queue": "inventarios",
+      "bodega": 16,
+      "temporada": 8,
+      "semana_id": 8,
+      "solo_pendientes": "true"
+    },
+    "keys": [
+      "success",
+      "message_key",
+      "message",
+      "data",
+      "notification"
+    ],
+    "data_sample": {
+      "meta": {
+        "count": 0,
+        "next": null,
+        "previous": null,
+        "page": 1,
+        "page_size": 10,
+        "total_pages": 1
+      },
+      "context": {
+        "temporada_id": 8,
+        "temporada_label": "2026",
+        "bodega_label": "prueba 4",
+        "active_week": {
+          "id": 9,
+          "fecha_inicio": "2025-12-29",
+          "fecha_fin": null,
+          "rango_inferido": {
+            "from": "2025-12-29",
+            "to": "2026-01-04"
+          },
+          "estado": "ABIERTA",
+          "iso_semana": "2026-W01",
+          "activa": true
+        }
+      }
+    },
+    "results_sample": []
+  },
+  "queue_inventarios_all": {
+    "url": "/bodega/tablero/queues/",
+    "params": {
+      "queue": "inventarios",
+      "bodega": 16,
+      "temporada": 8,
+      "semana_id": 8
+    },
+    "keys": [
+      "success",
+      "message_key",
+      "message",
+      "data",
+      "notification"
+    ],
+    "data_sample": {
+      "meta": {
+        "count": 0,
+        "next": null,
+        "previous": null,
+        "page": 1,
+        "page_size": 10,
+        "total_pages": 1
+      },
+      "context": {
+        "temporada_id": 8,
+        "temporada_label": "2026",
+        "bodega_label": "prueba 4",
+        "active_week": {
+          "id": 9,
+          "fecha_inicio": "2025-12-29",
+          "fecha_fin": null,
+          "rango_inferido": {
+            "from": "2025-12-29",
+            "to": "2026-01-04"
+          },
+          "estado": "ABIERTA",
+          "iso_semana": "2026-W01",
+          "activa": true
+        }
+      }
+    },
+    "results_sample": []
+  },
+  "queue_despachos_borrador": {
+    "url": "/bodega/tablero/queues/",
+    "params": {
+      "queue": "despachos",
+      "bodega": 16,
+      "temporada": 8,
+      "estado": "BORRADOR"
+    },
+    "keys": [
+      "success",
+      "message_key",
+      "message",
+      "data",
+      "notification"
+    ],
+    "data_sample": {
+      "meta": {
+        "count": 0,
+        "next": null,
+        "previous": null,
+        "page": 1,
+        "page_size": 10,
+        "total_pages": 1
+      },
+      "context": {
+        "temporada_id": 8,
+        "temporada_label": "2026",
+        "bodega_label": "prueba 4",
+        "active_week": {
+          "id": 9,
+          "fecha_inicio": "2025-12-29",
+          "fecha_fin": null,
+          "rango_inferido": {
+            "from": "2025-12-29",
+            "to": "2026-01-04"
+          },
+          "estado": "ABIERTA",
+          "iso_semana": "2026-W01",
+          "activa": true
+        }
+      }
+    },
+    "results_sample": []
+  },
+  "queue_despachos_confirmado": {
+    "url": "/bodega/tablero/queues/",
+    "params": {
+      "queue": "despachos",
+      "bodega": 16,
+      "temporada": 8,
+      "estado": "CONFIRMADO"
+    },
+    "keys": [
+      "success",
+      "message_key",
+      "message",
+      "data",
+      "notification"
+    ],
+    "data_sample": {
+      "meta": {
+        "count": 0,
+        "next": null,
+        "previous": null,
+        "page": 1,
+        "page_size": 10,
+        "total_pages": 1
+      },
+      "context": {
+        "temporada_id": 8,
+        "temporada_label": "2026",
+        "bodega_label": "prueba 4",
+        "active_week": {
+          "id": 9,
+          "fecha_inicio": "2025-12-29",
+          "fecha_fin": null,
+          "rango_inferido": {
+            "from": "2025-12-29",
+            "to": "2026-01-04"
+          },
+          "estado": "ABIERTA",
+          "iso_semana": "2026-W01",
+          "activa": true
+        }
+      }
+    },
+    "results_sample": []
+  },
+  "autocomplete_week_9": {
+    "url": "/bodega/empaques/disponibles/",
+    "params": {
+      "bodega": 16,
+      "temporada": 8,
+      "semana": 9
+    },
+    "keys": [
+      "success",
+      "message_key",
+      "message",
+      "data",
+      "notification"
+    ],
+    "data_sample": {},
+    "results_sample": []
+  }
+}

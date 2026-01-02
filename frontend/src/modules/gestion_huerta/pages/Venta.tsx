@@ -8,7 +8,7 @@ import { useVentas } from '../hooks/useVentas';
 import { VentaHuerta, VentaHuertaCreateData, VentaHuertaUpdateData } from '../types/ventaTypes';
 
 import VentaToolbar from '../components/finanzas/VentaToolbar';
-import VentaTable   from '../components/finanzas/VentaTable';
+import VentaTable from '../components/finanzas/VentaTable';
 import VentaFormModal from '../components/finanzas/VentaFormModal';
 const PAGE_SIZE = 10;
 
@@ -35,8 +35,8 @@ const Venta: React.FC<VentaProps> = ({ temporadaState, cosechaState, hasContext 
     archive,
     restore,
     removeVenta,
-    temporadaId,
-    cosechaId,
+    temporadaId: _temporadaId,
+    cosechaId: _cosechaId,
   } = useVentas();
 
   // Conteo de filtros activos
@@ -83,7 +83,7 @@ const Venta: React.FC<VentaProps> = ({ temporadaState, cosechaState, hasContext 
     setEditTarget(null);
     setModalOpen(true);
   };
-  const openEdit   = (v: VentaHuerta) => { setEditTarget(v); setModalOpen(true); };
+  const openEdit = (v: VentaHuerta) => { setEditTarget(v); setModalOpen(true); };
 
   // onSubmit
   const handleSubmit = async (vals: VentaHuertaCreateData | VentaHuertaUpdateData) => {

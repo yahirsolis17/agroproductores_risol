@@ -3,6 +3,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { propietarioService } from '../../modules/gestion_huerta/services/propietarioService';
 import { PaginationMeta } from '../../modules/gestion_huerta/types/shared';
 import { handleBackendNotification } from '../utils/NotificationEngine';
+import { extractApiMessage } from '../api/errorUtils';
 import {
   Propietario,
   PropietarioCreateData,
@@ -203,7 +204,7 @@ const propietariosSlice = createSlice({
     b.addCase(fetchPropietarios.rejected, (s, { payload, error }) => {
       s.loading = false;
       s.loaded = true;
-      const msg = (payload as any)?.message ?? (payload as any)?.detail ?? error.message ?? 'Error';
+      const msg = extractApiMessage(payload ?? error, 'Error');
       s.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
     });
 

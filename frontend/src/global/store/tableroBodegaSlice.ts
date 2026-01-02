@@ -16,6 +16,8 @@ import {
   finishWeek as apiFinishWeek,
 } from "../../modules/gestion_bodega/services/tableroBodegaService";
 
+import { extractApiMessage } from "../api/errorUtils";
+
 import type {
   QueueType,
   DashboardSummaryResponse,
@@ -45,9 +47,9 @@ export interface TableroFilters {
 }
 
 const DEFAULT_ORDER_BY: Record<QueueType, string> = {
-  recepciones: "fecha_recepcion:desc,id:desc",
+  recepciones: "fecha:desc,id:desc",
   inventarios: "fecha:desc,id:desc",
-  despachos: "fecha_programada:desc,id:desc",
+  despachos: "fecha:desc,id:desc",
 };
 
 const DEFAULT_FILTERS: TableroFilters = {
@@ -289,7 +291,7 @@ const tableroBodegaSlice = createSlice({
     });
     builder.addCase(fetchTableroSummary.rejected, (state, action) => {
       state.loadingSummary = false;
-      const msg = (action.payload as any)?.message ?? (action.payload as any)?.detail ?? action.error.message ?? "Error";
+      const msg = extractApiMessage(action.payload ?? action.error, "Error");
       state.errorSummary = typeof msg === "string" ? msg : JSON.stringify(msg);
     });
 

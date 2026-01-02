@@ -1069,12 +1069,12 @@ class CamionSalidaSerializer(serializers.ModelSerializer):
         model = CamionSalida
         fields = [
             "id", "bodega", "temporada", "bodega_id", "temporada_id",
-            "numero", "estado", "fecha_salida", "placas", "chofer",
+            "numero", "folio", "estado", "fecha_salida", "placas", "chofer",
             "destino", "receptor", "observaciones",
             "items", "cargas",
             "is_active", "archivado_en", "creado_en", "actualizado_en",
         ]
-        read_only_fields = ["bodega", "temporada", "numero", "estado", "is_active", "archivado_en", "creado_en", "actualizado_en"]
+        read_only_fields = ["bodega", "temporada", "numero", "folio", "estado", "is_active", "archivado_en", "creado_en", "actualizado_en"]
 
     def validate(self, data):
         temporada = data.get("temporada")    or getattr(self.instance, "temporada", None)
@@ -1298,6 +1298,14 @@ class QueueItemSerializer(serializers.Serializer):
     # Aliases para compatibilidad con EmpaqueDrawer y otros componentes
     cajas_campo = serializers.FloatField(source="kg", read_only=True)
     cantidad_cajas = serializers.FloatField(source="kg", read_only=True)
+
+    # P5 Integrity Fields explicitly exposed
+    clasificacion_label = serializers.CharField(required=False, allow_null=True)
+    lote_id = serializers.IntegerField(required=False, allow_null=True)
+    recepcion_id = serializers.IntegerField(required=False, allow_null=True)
+    semana_id = serializers.IntegerField(required=False, allow_null=True)
+    bodega_id = serializers.IntegerField(required=False, allow_null=True)
+    temporada_id = serializers.IntegerField(required=False, allow_null=True)
 
     estado = serializers.CharField()
 

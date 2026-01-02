@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Dict, List
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
@@ -12,9 +13,10 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 
 from agroproductores_risol.utils.pagination import GenericPagination
-from gestion_bodega.models import CierreSemanal, TemporadaBodega
+from gestion_bodega.models import CierreSemanal, TemporadaBodega, Bodega
 from gestion_bodega.permissions import HasModulePermission
 from gestion_bodega.serializers import CierreSemanalSerializer, CierreTemporadaSerializer
+from gestion_bodega.services.week_service import WeekService
 from gestion_bodega.utils.activity import registrar_actividad
 from gestion_bodega.utils.audit import ViewSetAuditMixin
 from agroproductores_risol.utils.notification_handler import NotificationHandler
@@ -227,14 +229,9 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
         """
         Finaliza una semana abierta (CierreSemanal) asignandole fecha_hasta.
         Si no se envia fecha_hasta, se usa la fecha local de hoy.
+        Usa WeekService para aplicar lógica unificada (clamp de 7 días).
         """
         cierre: CierreSemanal = self.get_object()
-        if cierre.fecha_hasta is not None:
-            return self.notify(
-                key="cierre_semanal_ya_cerrado",
-                data={"errors": {"fecha_hasta": ["La semana ya esta cerrada."]}},
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
 
         raw_fh = request.data.get("fecha_hasta")
         try:
@@ -246,22 +243,18 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        limit_date = cierre.fecha_desde + timedelta(days=6)
-        if fhasta > limit_date:
-            fhasta = limit_date
-
-        ser = CierreSemanalSerializer(instance=cierre, data={"fecha_hasta": fhasta}, partial=True)
         try:
-            ser.is_valid(raise_exception=True)
-        except serializers.ValidationError:
-            return self.notify(key="validation_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
-
-        with transaction.atomic():
-            cierre = ser.save()
+            cierre = WeekService.close_week(cierre, fhasta, user=request.user)
+        except DjangoValidationError as e:
+            return self.notify(
+                key="validation_error",
+                data={"errors": {"detail": str(e)}},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
 
         registrar_actividad(
             request.user,
-            f"Cerro semana de bodega {cierre.bodega_id} temporada {cierre.temporada_id} (semana {cierre.id} truncada a {fhasta})",
+            f"Cerro semana de bodega {cierre.bodega_id} temporada {cierre.temporada_id} (semana {cierre.id} truncada a {cierre.fecha_hasta})",
         )
         return self.notify(
             key="cierre_semanal_cerrado",

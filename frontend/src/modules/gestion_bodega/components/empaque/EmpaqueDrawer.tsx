@@ -58,9 +58,13 @@ type RecepcionLike = {
   huertero_nombre?: string;
   tipo_mango?: string;
   cantidad_cajas?: number;
-  cajas_campo?: number; // Campo real del backend (fallback)
+  cajas_campo?: number;
   observaciones?: string | null;
   is_active?: boolean;
+  meta?: {
+    despachado?: boolean;
+    semana_cerrada?: boolean;
+  };
 };
 
 type Material = "PLASTICO" | "MADERA";
@@ -213,13 +217,23 @@ export default function EmpaqueDrawer({
     };
   }, [open, recepcion?.id]);
 
-  const effectiveRecepcion = recepcionDetail ?? recepcion;
+  // P2 FINAL (R2): Merge seguro preservando meta de la lista
+  const effectiveRecepcion = recepcionDetail
+    ? {
+      ...recepcionDetail,
+      // Preservar meta de la lista si detail no lo trae
+      meta: recepcionDetail.meta ?? recepcion?.meta
+    }
+    : recepcion;
+
   // Fallback: cantidad_cajas (alias) o cajas_campo (campo real)
   const captured = clampInt(effectiveRecepcion?.cantidad_cajas ?? effectiveRecepcion?.cajas_campo ?? 0);
   const isArchived = effectiveRecepcion ? effectiveRecepcion.is_active === false : false;
 
-  // Solo lectura real (reglas de negocio)
-  const readOnly = blocked || isArchived;
+  // P2 FIX: Triple puerta para read-only (ahora siempre tiene meta)
+  const isDespachado = Boolean(effectiveRecepcion?.meta?.despachado);
+  const isSemanaCerrada = Boolean(effectiveRecepcion?.meta?.semana_cerrada);
+  const readOnly = blocked || isArchived || isDespachado || isSemanaCerrada;
 
   // Inputs deshabilitados también durante hidratar (sin marcar como solo lectura)
   const inputsDisabled = readOnly || !!loadingInitial || recepcionLoading;
@@ -493,8 +507,20 @@ export default function EmpaqueDrawer({
     </Box>
   );
 
-  // Mode label and color based on state
-  const modeLabel = loadingInitial ? "CARGANDO" : readOnly ? "SOLO LECTURA" : "EDITANDO";
+  // Mode label and color based on state (P2: enhanced with despachado/semana states)
+  const modeLabel = loadingInitial
+    ? "CARGANDO"
+    : isDespachado
+      ? "DESPACHADO"
+      : isSemanaCerrada
+        ? "SEMANA CERRADA"
+        : isArchived
+          ? "ARCHIVADO"
+          : blocked
+            ? "BLOQUEADO"
+            : readOnly
+              ? "SOLO LECTURA"
+              : "EDITANDO";
   const modeColor = loadingInitial ? "info" : readOnly ? "warning" : "success";
 
   // Header improved

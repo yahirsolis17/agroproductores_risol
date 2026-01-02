@@ -259,3 +259,88 @@ class InventoryService:
             return True
             
         return False
+
+    @staticmethod
+    def allocate_stock_fefo(
+        camion,
+        calidad: str,
+        material: str,
+        tipo_mango: str,
+        cantidad: int,
+        user=None
+    ):
+        """
+        Asigna cantidad de cajas a un camión usando FEFO (First Expired, First Out).
+        Crea múltiples CamionConsumoEmpaque si es necesario para completar la cantidad.
+        
+        Args:
+            camion: Instancia de CamionSalida
+            calidad: Calidad del empaque (PRIMERA, SEGUNDA, etc.)
+            material: Material del empaque (MADERA, PLASTICO)
+            tipo_mango: Tipo de mango (Ataulfo, Kent, etc.)
+            cantidad: Cantidad total de cajas a asignar
+            user: Usuario que realiza la operación
+            
+        Returns:
+            List[CamionConsumoEmpaque]: Lista de consumos creados
+            
+        Raises:
+            DjangoValidationError: Si no hay stock suficiente disponible
+        """
+        from django.db import transaction
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        
+        # 1. Obtener empaques disponibles ordenados por FEFO (fecha ASC para First-In-First-Out)
+        qs = ClasificacionEmpaque.objects.filter(
+            temporada_id=camion.temporada_id,
+            bodega_id=camion.bodega_id,
+            calidad=calidad,
+            material=material,
+            tipo_mango=tipo_mango,
+            is_active=True
+        ).exclude(calidad__iexact="MERMA").order_by("fecha", "id")
+        
+        # 2. Anotar consumo actual para cada empaque
+        qs = qs.annotate(
+            consumed_trucks=Coalesce(
+                Sum("consumos_camion__cantidad", filter=Q(consumos_camion__is_active=True, consumos_camion__camion__is_active=True)), 
+                0
+            ),
+            consumed_orders=Coalesce(
+                Sum("surtidos__cantidad", filter=Q(surtidos__is_active=True)),
+                0
+            )
+        )
+        
+        remaining = cantidad
+        consumos = []
+        
+        with transaction.atomic():
+            for emp in qs:
+                disponible = (emp.cantidad_cajas or 0) - (emp.consumed_trucks + emp.consumed_orders)
+                if disponible <= 0:
+                    continue
+                
+                # Tomar lo que se pueda de este empaque
+                tomar = min(disponible, remaining)
+                
+                # Crear consumo
+                consumo = CamionConsumoEmpaque.objects.create(
+                    camion=camion,
+                    clasificacion_empaque=emp,
+                    cantidad=tomar,
+                )
+                consumos.append(consumo)
+                
+                remaining -= tomar
+                if remaining <= 0:
+                    break
+            
+            # Validar que se pudo asignar todo
+            if remaining > 0:
+                raise DjangoValidationError(
+                    f"Stock insuficiente para {calidad}-{material}-{tipo_mango}. "
+                    f"Solicitado: {cantidad}, Disponible: {cantidad - remaining}"
+                )
+        
+        return consumos

@@ -58,7 +58,7 @@ for semana in CierreSemanal.objects.filter(is_active=True)[:5]:
     recs = Recepcion.objects.filter(semana=semana, is_active=True)
     print(f"  Semana[{semana.id}] Bodega:{semana.bodega_id}, Temp:{semana.temporada_id}")
     print(f"    ├─ Recepciones: {recs.count()}")
-    total_cajas = recs.aggregate(t=Sum('cantidad_cajas'))['t'] or 0
+    total_cajas = recs.aggregate(t=Sum('cajas_campo'))['t'] or 0
     print(f"    ├─ Total cajas recibidas: {total_cajas}")
 
 # Recepción → Clasificaciones

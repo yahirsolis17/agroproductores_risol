@@ -302,13 +302,24 @@ const TableroBodegaPage: React.FC = () => {
     setSelectedCamion(row);
     setCamionModalOpen(true);
   }, []);
-  const handleCamionSuccess = useCallback(() => {
-    // Refresh logistics queue and summary
-    if (refetchSummary) refetchSummary();
-    if (refetchQueues) {
-      refetchQueues("despachos");
-      refetchQueues("inventarios"); // Actualiza estado "Despachado" en tabla empaque
-    }
+
+  // P1 FIX (R1): Refetch serializado para evitar race conditions
+  const refetchChainRef = useRef<Promise<void>>(Promise.resolve());
+
+  const handleCamionSuccess = useCallback(async () => {
+    // Serializar refetch para evitar que se pisen entre sí
+    refetchChainRef.current = refetchChainRef.current.then(async () => {
+      // Orden: primero colas (inventarios primero para despachado), luego despachos, luego resumen
+      if (refetchQueues) {
+        await Promise.resolve(refetchQueues("inventarios"));
+        await Promise.resolve(refetchQueues("despachos"));
+      }
+      if (refetchSummary) {
+        await Promise.resolve(refetchSummary());
+      }
+    });
+
+    await refetchChainRef.current;
   }, [refetchSummary, refetchQueues]);
   // Estado local del rango que maneja WeekSwitcher
   const [weekValue, setWeekValue] = useState<WeekValue>(() => {

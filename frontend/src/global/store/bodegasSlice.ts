@@ -13,6 +13,7 @@ import type {
   PaginationMeta,
 } from '../../modules/gestion_bodega/types/bodegaTypes';
 import { extractApiError } from '../types/apiTypes';
+import { extractApiMessage } from '../api/errorUtils';
 
 /** Estado del slice (homólogo a huerta). */
 interface BodegasState {
@@ -177,7 +178,7 @@ const bodegasSlice = createSlice({
     b.addCase(fetchBodegas.rejected, (s, { payload, error }) => {
       s.loading = false;
       s.loaded = true;
-      const msg = (payload as any)?.message ?? (payload as any)?.detail ?? error.message ?? 'Error';
+      const msg = extractApiMessage(payload ?? error, 'Error');
       s.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
     });
 

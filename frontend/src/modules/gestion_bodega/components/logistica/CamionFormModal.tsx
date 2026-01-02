@@ -80,21 +80,25 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
 
     const totalCajas = totalFromCargas || totalFromItems;
 
-    // Tipos de mango: PRIORIDAD = cargas (porque consumen stock real)
-    // Soporta dos shapes:
-    // - carga.clasificacion.tipo_mango (si backend expande)
-    // - carga.tipo_mango (si lo mandas plano)
-    // Fallback: items.tipo_mango
-    const tiposFromCargas = cargas
-      .map((c: any) => String(c?.clasificacion?.tipo_mango ?? c?.tipo_mango ?? "").trim())
-      .filter((v: string) => v);
+    // P2 FIX (R3): Tipos desde cargas (FEFO consume clasificaciones reales con tipo_mango)
+    const tiposFromCargas = (Array.from(
+      new Set(
+        cargas
+          .map((c: any) => String(c?.tipo_mango || "").trim())
+          .filter((v: string) => v)
+      )
+    ) as string[]).sort((a, b) => a.localeCompare(b));
 
-    const tiposFromItems = items
-      .map((i: any) => String(i?.tipo_mango ?? "").trim())
-      .filter((v: string) => v);
+    // Fallback a items solo si cargas no tiene tipos
+    const tiposFromItems = (Array.from(
+      new Set(
+        items
+          .map((i: any) => String(i?.tipo_mango || "").trim())
+          .filter((v: string) => v)
+      )
+    ) as string[]).sort((a, b) => a.localeCompare(b));
 
-    const tipos = Array.from(new Set([...(tiposFromCargas.length ? tiposFromCargas : []), ...tiposFromItems]))
-      .sort((a, b) => a.localeCompare(b));
+    const tipos = tiposFromCargas.length ? tiposFromCargas : tiposFromItems;
 
     return { totalCajas, tipos };
   }, [currentCamion]);
@@ -207,6 +211,15 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
         <DialogTitle>{isEdit ? (isConfirmado ? `Camión Confirmado #${currentCamion.numero || ''}` : 'Editar Camión') : 'Nuevo Camión'}</DialogTitle>
         <DialogContent dividers>
           {errorVal && <Alert severity="error" sx={{ mb: 2 }}>{errorVal}</Alert>}
+
+          {/* P2: Folio Display */}
+          {isEdit && currentCamion?.folio && (
+            <Box mb={2}>
+              <Typography variant="body2" color="text.secondary">
+                Folio: <strong>{currentCamion.folio}</strong>
+              </Typography>
+            </Box>
+          )}
 
           <form onSubmit={formik.handleSubmit} id="camion-form">
             <Box display="grid" gridTemplateColumns={{ xs: '1fr', sm: '1fr 1fr' }} gap={2}>

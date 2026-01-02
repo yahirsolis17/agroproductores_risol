@@ -236,9 +236,12 @@ def queue_recepciones_qs(
         )
         qs = qs.filter(total_packed__lt=F("cajas_campo"))
 
+    
     return (
-        qs.values("id", "fecha", "huertero_nombre", "cajas_campo", "tipo_mango", "semana_id")
-          .order_by("-fecha", "-id")
+        qs.values(
+            "id", "fecha", "huertero_nombre", "cajas_campo", "tipo_mango",
+            "semana_id", "bodega_id", "temporada_id"  # P3: IDs para trazabilidad
+        ).order_by("-fecha", "-id")
     )
 
 
@@ -274,6 +277,7 @@ def queue_inventarios_qs(
 
     # Identificar campos válidos para agrupar (Lote o Recepcion)
     # Si usamos Lote FK:
+    # P3 FIX: IDs extra como Max() para evitar duplicados en GROUP BY
     return (
         qs.values(
             "lote__id",
@@ -285,6 +289,10 @@ def queue_inventarios_qs(
             total_cajas=Sum("cantidad_cajas"),
             fecha=Max("actualizado_en"),
             id=Max("id"),
+            # P3: IDs canónicos como Max() (1 fila por lote)
+            recepcion_id=Max("recepcion_id"),
+            bodega_id=Max("bodega_id"),
+            temporada_id=Max("temporada_id"),
         )
         .order_by("-fecha", "-id")
     )
@@ -310,9 +318,15 @@ def queue_despachos_qs(
         qs = qs.filter(estado=estado)
 
     return (
-        qs.values("id", "numero", "fecha_salida", "estado")
-          .annotate(cajas_total=Sum("items__cantidad_cajas"))
-          .order_by("estado", "-fecha_salida", "-id")
+        qs.values(
+            "id", "numero", "fecha_salida", "estado",
+            "folio", "semana_id", "bodega_id", "temporada_id"  # P3: IDs para trazabilidad
+        )
+        .annotate(cajas_total=Sum(
+            "cargas__cantidad",
+            filter=Q(cargas__is_active=True)
+        ))
+        .order_by("estado", "-fecha_salida", "-id")
     )
 
 
@@ -334,6 +348,11 @@ def build_queue_items(tipo: str, raw_rows) -> List[Dict[str, Any]]:
                 "huerta": h,  # alias compat
                 "kg": float(r.get("cajas_campo") or 0.0),  # realmente 'cajas'
                 "estado": "REGISTRADA",
+                # P3: IDs canónicos para trazabilidad
+                "recepcion_id": r["id"],
+                "semana_id": r.get("semana_id"),
+                "bodega_id": r.get("bodega_id"),
+                "temporada_id": r.get("temporada_id"),
                 "meta": {
                     "tipo": r.get("tipo_mango"),
                     "semana_id": r.get("semana_id"),
@@ -342,38 +361,82 @@ def build_queue_items(tipo: str, raw_rows) -> List[Dict[str, Any]]:
 
     elif tipo == "inventarios":
         # Grouping strategy: raw_rows son Headers de Lote.
+        # FIX: despachado por lote_id (canónico y estable)
+        lotes_ids = [r.get("lote__id") for r in raw_rows] 
+
+        # 1. Lotes específicos despachados
+        lotes_despachados = set(
+            CamionConsumoEmpaque.objects.filter(
+                is_active=True,
+                clasificacion_empaque__is_active=True,
+                clasificacion_empaque__lote_id__in=lotes_ids,
+                camion__is_active=True,
+                camion__estado__in=["BORRADOR", "CONFIRMADO", "DESPACHADO"],
+            )
+            .values_list("clasificacion_empaque__lote_id", flat=True)
+            .distinct()
+        )
+        
+        # 2. Recepciones con items "Null Lote" despachados (Fallback)
+        # Identifica recepciones que tienen empaques SIN lote consumidos en un camión confirmado.
+        recepciones_ids = [r.get("recepcion_id") for r in raw_rows if not r.get("lote__id")]
+        recepciones_null_despachadas = set()
+        if recepciones_ids:
+            recepciones_null_despachadas = set(
+                CamionConsumoEmpaque.objects.filter(
+                    is_active=True,
+                    clasificacion_empaque__is_active=True,
+                    clasificacion_empaque__lote__isnull=True,
+                    clasificacion_empaque__recepcion_id__in=recepciones_ids,
+                    camion__is_active=True,
+                    camion__estado__in=["BORRADOR", "CONFIRMADO", "DESPACHADO"],
+                )
+                .values_list("clasificacion_empaque__recepcion_id", flat=True)
+                .distinct()
+            )
+
         for r in raw_rows:
             lote_id = r.get("lote__id")
             lote_cod = r.get("lote__codigo_lote") or f"??-{lote_id or 'X'}"
+            recepcion_id = r.get("recepcion_id")
             
             # Subquery para breakdown (solo para los visualizados)
             desglose = []
             details_raw = []
+            
+            # P5 Fix: Robustez para Null Lotes via ID de Recepción (Unique)
+            qs_det = ClasificacionEmpaque.objects.filter(is_active=True)
             if lote_id:
-                details = (
-                    ClasificacionEmpaque.objects
-                    .filter(lote_id=lote_id, is_active=True)
-                    .values('calidad', 'material', 'cantidad_cajas')
-                )
-                details_raw = list(details)
-                for d in details_raw:
-                    mat = (d['material'] or "?")[:1]
-                    desglose.append(f"{d['calidad']} ({mat}): {d['cantidad_cajas']}")
+                qs_det = qs_det.filter(lote_id=lote_id)
+            elif recepcion_id:
+                 # Fallback preciso: Empaques de ESTA recepción que no tienen lote
+                 qs_det = qs_det.filter(lote__isnull=True, recepcion_id=recepcion_id)
+            else:
+                 # Fallback desesperado (si no hay ni lote ni recepción)
+                 qs_det = qs_det.none()
+
+            # Check de Despachado Combinado
+            is_despachado = False
+            if lote_id:
+                is_despachado = lote_id in lotes_despachados
+            elif recepcion_id:
+                is_despachado = recepcion_id in recepciones_null_despachadas
+
+            details = qs_det.values('calidad', 'material', 'cantidad_cajas')
+            details_raw = list(details)
+            for d in details_raw:
+                mat = (d['material'] or "?")[:1]
+                desglose.append(f"{d['calidad']} ({mat}): {d['cantidad_cajas']}")
             
             # Timestamp: preferencia actualizado_en > fecha
             ts = r.get("fecha")
 
-            # Check si alguna clasificación del lote ya fue despachada en un camión confirmado
-            despachado = False
-            if lote_id:
-                # Importación local para evitar ciclos si fuera necesario, 
-                # pero idealmente arriba. Como es utils, mejor usar lo que hay.
-                # Aseguramos que CamionConsumoEmpaque esté importado.
-                despachado = CamionConsumoEmpaque.objects.filter(
-                    clasificacion_empaque__lote_id=lote_id,
-                    camion__estado="CONFIRMADO",
-                    is_active=True
-                ).exists()
+            # Deriva un label corto desde desglose
+            clasificacion_label = "—"
+            if desglose:
+                # ejemplo: "PRIMERA: 120, EXTRA: 30"
+                # Limitar a los primeros 2 elementos si son muchos, o mostrar todos
+                clasificacion_label = ", ".join(desglose)
 
             items.append({
                 "id": lote_id or 0, 
@@ -383,11 +446,18 @@ def build_queue_items(tipo: str, raw_rows) -> List[Dict[str, Any]]:
                 "huerta": r.get("recepcion__huertero_nombre"),
                 "kg": float(r.get("total_cajas") or 0.0),
                 "estado": "CLASIFICADO",
+                # P3: IDs canónicos para trazabilidad
+                "lote_id": lote_id,
+                "recepcion_id": r.get("recepcion_id"),
+                "semana_id": r.get("semana_id"),
+                "bodega_id": r.get("bodega_id"),
+                "temporada_id": r.get("temporada_id"),
+                "clasificacion_label": clasificacion_label, # UI-Fix: Label explícito
                 "meta": {
                     "semana_id": r.get("semana_id"),
                     "desglose": desglose,
                     "desglose_raw": details_raw,
-                    "despachado": despachado,
+                    "despachado": is_despachado,
                 },
             })
 
@@ -413,6 +483,13 @@ def build_queue_items(tipo: str, raw_rows) -> List[Dict[str, Any]]:
                 "huerta": None,  # alias compat
                 "kg": float(r.get("cajas_total") or 0.0),
                 "estado": r.get("estado") or "BORRADOR",
+                # P3: IDs canónicos para trazabilidad
+                "camion_id": r["id"],
+                "folio": r.get("folio", ""),
+                "numero": r.get("numero"),
+                "semana_id": r.get("semana_id"),
+                "bodega_id": r.get("bodega_id"),
+                "temporada_id": r.get("temporada_id"),
                 "meta": {
                     "tipos_mango": tipos_por_camion.get(r["id"], []),
                 },

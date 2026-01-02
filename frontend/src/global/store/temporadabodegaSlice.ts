@@ -3,6 +3,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import type { RootState } from "./store";
 import { handleBackendNotification } from "../utils/NotificationEngine";
+import { extractApiMessage } from "../api/errorUtils";
 
 import type {
   TemporadaBodega,
@@ -304,7 +305,7 @@ const slice = createSlice({
     });
     builder.addCase(fetchTemporadasBodega.rejected, (state, action) => {
       state.ops.listing = false;
-      const msg = (action.payload as any)?.message ?? (action.payload as any)?.detail ?? action.error.message ?? 'Error';
+      const msg = extractApiMessage(action.payload ?? action.error, "Error");
       state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
     });
 
@@ -319,7 +320,7 @@ const slice = createSlice({
     });
     builder.addCase(addTemporadaBodega.rejected, (state, action) => {
       state.ops.creating = false;
-      const msg = (action.payload as any)?.message ?? action.error.message ?? 'Error';
+      const msg = extractApiMessage(action.payload ?? action.error, "Error");
       state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
     });
 
@@ -337,7 +338,7 @@ const slice = createSlice({
     });
     builder.addCase(editTemporadaBodega.rejected, (state, action) => {
       state.ops.updating = false;
-      const msg = (action.payload as any)?.message ?? action.error.message ?? 'Error';
+      const msg = extractApiMessage(action.payload ?? action.error, "Error");
       state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
     });
 
@@ -367,7 +368,7 @@ const slice = createSlice({
     });
     builder.addCase(archiveTemporada.rejected, (state, action) => {
       state.ops.archiving = false;
-      const msg = (action.payload as any)?.message ?? action.error.message ?? 'Error';
+      const msg = extractApiMessage(action.payload ?? action.error, "Error");
       state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
     });
 
@@ -397,7 +398,7 @@ const slice = createSlice({
     });
     builder.addCase(restoreTemporada.rejected, (state, action) => {
       state.ops.restoring = false;
-      const msg = (action.payload as any)?.message ?? action.error.message ?? 'Error';
+      const msg = extractApiMessage(action.payload ?? action.error, "Error");
       state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
     });
 
@@ -419,7 +420,7 @@ const slice = createSlice({
     });
     builder.addCase(finalizeTemporada.rejected, (state, action) => {
       state.ops.finalizing = false;
-      const msg = (action.payload as any)?.message ?? action.error.message ?? 'Error';
+      const msg = extractApiMessage(action.payload ?? action.error, "Error");
       state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
     });
 
@@ -444,7 +445,7 @@ const slice = createSlice({
     });
     builder.addCase(deleteTemporada.rejected, (state, action) => {
       state.ops.deleting = false;
-      const msg = (action.payload as any)?.message ?? action.error.message ?? 'Error';
+      const msg = extractApiMessage(action.payload ?? action.error, "Error");
       state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
     });
   },
