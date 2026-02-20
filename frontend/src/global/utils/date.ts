@@ -38,6 +38,45 @@ export function formatDateDisplay(date?: string | Date): string {
   return new Intl.DateTimeFormat('es-MX', { day: '2-digit', month: 'short', year: '2-digit' }).format(d);
 }
 
+/** 
+ * Format SMART: 
+ * Si la fecha original tiene hora (incluye 'T'), la muestra como 'DD/MM/YYYY, HH:MM a.m.'.
+ * Si es sólo fecha ('YYYY-MM-DD'), muestra sólo 'DD/MM/YYYY' sin inventar horas fantasmas.
+ */
+export function formatSmartDateTime(input?: string | Date | null): string {
+  if (!input) return "—";
+  try {
+    const isString = typeof input === "string";
+    const hasTime = isString ? input.includes("T") || input.includes(" ") : false;
+
+    if (!hasTime) {
+      // Date only: parse locally without timezone shift, show date only
+      const d = parseLocalDateStrict(input);
+      if (isNaN(d.getTime())) return String(input);
+      return d.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" });
+    } else {
+      // Date + Time: parse as normal UTC date, show with time
+      const d = new Date(input);
+      if (isNaN(d.getTime())) return String(input);
+      return d.toLocaleString("es-MX", {
+        day: "2-digit", month: "2-digit", year: "numeric",
+        hour: "2-digit", minute: "2-digit", second: "2-digit"
+      });
+    }
+  } catch {
+    return String(input);
+  }
+}
+
+/** Devuelve la fecha de hoy en formato local YYYY-MM-DD */
+export function getTodayLocalISO(): string {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 /** Devuelve fecha larga en español: '1 de enero del 2025' */
 export function formatDateLongEs(date?: string | Date): string {
   const d = parseLocalDateStrict(date as any);

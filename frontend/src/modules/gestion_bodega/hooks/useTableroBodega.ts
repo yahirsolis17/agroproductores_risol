@@ -5,7 +5,7 @@
 import { useMemo, useCallback, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../../global/store/store";
-import { takeTopN, sortForDisplay } from "../../../global/utils/uiTransforms";
+import { sortForDisplay } from "../../../global/utils/uiTransforms";
 
 import {
   setTemporadaId,
@@ -84,67 +84,13 @@ function mapSummaryToKpiCards(kpis: KpiSummary): KpiCard[] {
     cards.push({
       id: "recepcion",
       title: "Recepción",
-      primary: fmtCajas(kpis.recepcion.kg_total),
+      // F-07 FIX: Usar cajas_total (nombre semántico correcto)
+      primary: fmtCajas((kpis.recepcion as any).cajas_total ?? (kpis.recepcion as any).kg_total),
       secondary: `Apto ${fmtPct01(kpis.recepcion.apto_pct)} · Merma ${fmtPct01(kpis.recepcion.merma_pct)}`,
     });
   }
-  if (kpis.stock) {
-    cards.push({
-      id: "stock",
-      title: "Stock actual",
-      primary: fmtCajas(kpis.stock.total_kg),
-      secondary: takeTopN(Object.entries(kpis.stock.por_madurez || {}), 3)
-        .map(([k, v]) => `${k}: ${fmtCajas(v as number)}`)
-        .join(" · ") || "—",
-    });
-  }
-  if (kpis.ocupacion) {
-    cards.push({
-      id: "ocupacion",
-      title: "Ocupación",
-      primary: fmtPct01(kpis.ocupacion.total_pct),
-      secondary: takeTopN(kpis.ocupacion.por_camara || [], 2)
-        .map((c) => `${c.camara} ${fmtPct01(c.pct)}`)
-        .join(" · ") || "—",
-    });
-  }
-  if (kpis.rotacion) {
-    cards.push({
-      id: "rotacion",
-      title: "Rotación",
-      primary: `${kpis.rotacion.dias_promedio_bodega?.toFixed(1) ?? "0.0"} días`,
-      secondary: "Promedio ponderado por cajas",
-    });
-  }
-  if (kpis.fefo) {
-    cards.push({
-      id: "fefo",
-      title: "FEFO",
-      primary: fmtPct01(kpis.fefo.compliance_pct),
-      secondary: "Despachos cumpliendo ventana",
-    });
-  }
-  if (kpis.rechazos_qc) {
-    cards.push({
-      id: "rechazos",
-      title: "Rechazos QC",
-      primary: fmtPct01(kpis.rechazos_qc.tasa_pct),
-      secondary: takeTopN(kpis.rechazos_qc.top_causas || [], 2)
-        .map((x) => `${x.causa} ${fmtPct01(x.pct)}`)
-        .join(" · ") || "—",
-    });
-  }
-  if (kpis.lead_times) {
-    const a = kpis.lead_times.recepcion_a_inventario_h;
-    const b = kpis.lead_times.inventario_a_despacho_h;
-    cards.push({
-      id: "lead_times",
-      title: "Lead Times",
-      primary: `${a ?? "N/A"}h -> ${b ?? "N/A"}h`,
-      secondary: "Recepción → Inventario → Despacho",
-    });
-  }
-
+  // F-12 FIX: Placeholders KPIs eliminados del backend, ya no mapeamos tarjetas vacías
+  // F-12 FIX: End of real KPI cards
   return cards;
 }
 
@@ -159,9 +105,11 @@ export type QueueRowUI = {
   huertero?: string;
   tipo?: string;
   notas?: string;
-  kg: string;
+  cajas: string;
   estado: string;
   chips: string[];
+  folio?: string;
+  numero?: number;
 };
 
 function mapQueueToUI(rows: QueueItem[]): QueueRowUI[] {
@@ -186,9 +134,11 @@ function mapQueueToUI(rows: QueueItem[]): QueueRowUI[] {
       huertero,
       tipo: anyR.tipo ?? r.meta?.tipo ?? anyR["tipo_mango"],
       notas: anyR.notas ?? r.meta?.notas,
-      kg: fmtCajas(r.kg),
+      cajas: fmtCajas((r as any).cajas ?? (r as any).kg),
       estado: r.estado,
       chips,
+      folio: r.folio,
+      numero: r.numero,
     };
   });
 }
@@ -209,10 +159,11 @@ export type AlertCardUI = {
 // --------------------------
 type UseTableroArgs = { temporadaId: number; bodegaId: number };
 
-const DEFAULT_ORDER_BY_BY_QUEUE: Record<QueueType, string> = {
-  recepciones: "fecha_recepcion:desc,id:desc",
+// F-05 FIX: Fuente única de verdad, alineada con la constante del slice
+const DEFAULT_ORDER_BY_FOR_QUEUE: Record<QueueType, string> = {
+  recepciones: "fecha:desc,id:desc",
   inventarios: "fecha:desc,id:desc",
-  despachos: "fecha_programada:desc,id:desc",
+  despachos: "fecha:desc,id:desc",
 };
 const FALLBACK_ORDER_BY = "id:desc";
 
@@ -230,9 +181,9 @@ function getOrderByForQueue(
   currentOrderBy?: string | null
 ) {
   if (queueType === activeQueue) {
-    return currentOrderBy || DEFAULT_ORDER_BY_BY_QUEUE[queueType];
+    return currentOrderBy || DEFAULT_ORDER_BY_FOR_QUEUE[queueType];
   }
-  return DEFAULT_ORDER_BY_BY_QUEUE[queueType];
+  return DEFAULT_ORDER_BY_FOR_QUEUE[queueType];
 }
 
 export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
@@ -335,12 +286,19 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
     }
   }, [dispatch, hasWeeks, selectedWeek?.fecha_desde, selectedWeek?.fecha_hasta]);
 
-  // Auto-fetch summary
+  // F-10 FIX: Solo re-fetch summary cuando cambian filtros relevantes (no page/order_by)
+  const summaryFilterKey = useMemo(
+    () => `${filters.fecha_desde}|${filters.fecha_hasta}|${filters.huerta_id}|${filters.calidad}|${filters.madurez}|${filters.estado}|${filters.solo_pendientes}`,
+    [filters.fecha_desde, filters.fecha_hasta, filters.huerta_id, filters.calidad, filters.madurez, filters.estado, filters.solo_pendientes]
+  );
+
+  // Auto-fetch summary (decoupled from page/order_by)
   useEffect(() => {
     if (temporadaId && bodegaId) {
       dispatch(fetchTableroSummary({ temporadaId, bodegaId, semanaId: selectedSemanaId, filters }));
     }
-  }, [dispatch, temporadaId, bodegaId, selectedSemanaId, filters]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, temporadaId, bodegaId, selectedSemanaId, summaryFilterKey]);
 
   // Auto-fetch alerts
   useEffect(() => {
@@ -603,10 +561,7 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
     summary: summary as any,
     alerts: alertsUI,
     queue: queueUI,
-    queueRecepciones: {
-      meta: queues.recepciones?.meta ?? fallbackMeta,
-      rows: mapQueueToUI((queues.recepciones as any)?.results ?? []),
-    },
+    // F-06 FIX: No computar queueRecepciones (RecepcionesSection usa useCapturas, no este dato)
     queueInventarios: {
       meta: queues.inventarios?.meta ?? fallbackMeta,
       // Usar filas crudas para conservar clasificacion_label/meta (despachado, desglose).
@@ -660,8 +615,9 @@ export function useTableroBodega({ temporadaId, bodegaId }: UseTableroArgs) {
     refetchAlerts: refetchAlertsFn,
     refetchAll,
     // Mantener aliases para compatibilidad temporal (deprecar después)
-    markForRefetch: refetchAll,
-    applyMarkedRefetch: refetchAll,
+    // F-13 FIX: Remove dead aliases
+    // markForRefetch: refetchAll,
+    // applyMarkedRefetch: refetchAll,
 
     dashboardHref,
   };

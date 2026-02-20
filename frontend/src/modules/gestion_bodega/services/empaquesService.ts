@@ -221,13 +221,18 @@ export const empaquesService = {
     tipo_mango: string;
     disponible: number;
     fecha_min: string; // Primera fecha (FEFO reference)
+    huerteros: string; // Comma-separated unique huertero names
   }>> {
     const res = await apiClient.get(`${BASE_URL}disponibles/`, { params });
     const payload = unwrapData<any>(res.data);
     const resultsRaw = payload?.results ?? [];
 
-    // Agrupar por combinación
-    const grouped = (resultsRaw as any[]).reduce((acc, item) => {
+    // Agrupar por combinación — exclude MERMA (safety filter)
+    const filtered = (resultsRaw as any[]).filter((item) => {
+      const cal = String(item.calidad ?? "").toUpperCase().trim();
+      return cal !== "MERMA";
+    });
+    const grouped = filtered.reduce((acc, item) => {
       // Normalizar calidad para UI
       const material = String(item.material ?? "").toUpperCase();
       const calidadBackend = String(item.calidad ?? "").toUpperCase();
@@ -242,10 +247,15 @@ export const empaquesService = {
           tipo_mango: tipo_mango,
           disponible: 0,
           fecha_min: item.fecha || "", // FEFO reference
+          huerteros_set: new Set<string>(),
         };
       }
 
       acc[key].disponible += Number(item.disponible || 0);
+
+      // Collect unique huerteros
+      const huertero = String(item.huertero ?? "").trim();
+      if (huertero) acc[key].huerteros_set.add(huertero);
 
       // Actualizar fecha_min si encontramos una más antigua (FEFO)
       if (item.fecha && (!acc[key].fecha_min || item.fecha < acc[key].fecha_min)) {
@@ -255,13 +265,14 @@ export const empaquesService = {
       return acc;
     }, {} as Record<string, any>);
 
-    return Object.values(grouped) as Array<{
-      calidad: string;
-      material: string;
-      tipo_mango: string;
-      disponible: number;
-      fecha_min: string;
-    }>;
+    return Object.values(grouped).map((g: any) => ({
+      calidad: g.calidad,
+      material: g.material,
+      tipo_mango: g.tipo_mango,
+      disponible: g.disponible,
+      fecha_min: g.fecha_min,
+      huerteros: Array.from(g.huerteros_set as Set<string>).join(", ") || "—",
+    }));
   },
 
   /**

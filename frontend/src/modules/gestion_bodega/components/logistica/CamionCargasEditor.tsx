@@ -16,9 +16,11 @@ import {
     DialogTitle,
     DialogContent,
     DialogActions,
-    TextField,
     Autocomplete,
+    Chip,
+    TextField,
     CircularProgress,
+    Alert,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
@@ -33,6 +35,7 @@ interface StockAgrupado {
     tipo_mango: string;
     disponible: number;
     fecha_min: string;
+    huerteros: string;
 }
 
 interface CamionCargasEditorProps {
@@ -57,11 +60,10 @@ const CamionCargasEditor: React.FC<CamionCargasEditorProps> = ({
     const [cargas, setCargas] = useState<any[]>(initialCargas);
     const [openAdd, setOpenAdd] = useState(false);
 
-    // Estado para el formulario de agregar - USANDO STOCK AGRUPADO
+    // Estado para el formulario de agregar - MULTI-SELECT
     const [availableStock, setAvailableStock] = useState<StockAgrupado[]>([]);
     const [loadingStock, setLoadingStock] = useState(false);
-    const [selectedStock, setSelectedStock] = useState<StockAgrupado | null>(null);
-    const [cantidadToAdd, setCantidadToAdd] = useState<number | ''>('');
+    const [selectedStocks, setSelectedStocks] = useState<StockAgrupado[]>([]);
     const [submitting, setSubmitting] = useState(false);
     const [errorInfo, setErrorInfo] = useState<string | null>(null);
 
@@ -72,7 +74,6 @@ const CamionCargasEditor: React.FC<CamionCargasEditorProps> = ({
     const fetchStock = async () => {
         setLoadingStock(true);
         try {
-            // NUEVO: Usar stock agrupado por combinación
             const rows = await empaquesService.listDisponiblesAgrupados({
                 bodega: bodegaId,
                 temporada: temporadaId,
@@ -89,8 +90,7 @@ const CamionCargasEditor: React.FC<CamionCargasEditorProps> = ({
     const handleOpenAdd = () => {
         setOpenAdd(true);
         fetchStock();
-        setSelectedStock(null);
-        setCantidadToAdd('');
+        setSelectedStocks([]);
         setErrorInfo(null);
     };
 
@@ -99,19 +99,20 @@ const CamionCargasEditor: React.FC<CamionCargasEditorProps> = ({
     };
 
     const handleAddCarga = async () => {
-        if (!selectedStock || !cantidadToAdd || Number(cantidadToAdd) <= 0) return;
+        if (selectedStocks.length === 0) return;
 
         setSubmitting(true);
         setErrorInfo(null);
         try {
-            // NUEVO: Enviar combinación en lugar de clasificacion_id
-            await camionesService.addCarga(camionId, {
-                calidad: selectedStock.calidad,
-                material: selectedStock.material,
-                tipo_mango: selectedStock.tipo_mango,
-                cantidad: Number(cantidadToAdd)
-            });
-            // Success
+            // Send one addCarga per selected stock sequentially
+            for (const stock of selectedStocks) {
+                await camionesService.addCarga(camionId, {
+                    calidad: stock.calidad,
+                    material: stock.material,
+                    tipo_mango: stock.tipo_mango,
+                    cantidad: stock.disponible
+                });
+            }
             if (onCargasChange) onCargasChange();
             handleCloseAdd();
         } catch (err: any) {
@@ -136,6 +137,7 @@ const CamionCargasEditor: React.FC<CamionCargasEditorProps> = ({
     };
 
     const totalCajas = cargas.reduce((acc, c) => acc + (c.cantidad || 0), 0);
+    const totalSelected = selectedStocks.reduce((acc, s) => acc + s.disponible, 0);
 
     return (
         <Box sx={{ mt: 2 }}>
@@ -174,14 +176,19 @@ const CamionCargasEditor: React.FC<CamionCargasEditorProps> = ({
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            cargas.map((carga) => (
+                            cargas.map((carga, idx) => (
                                 <TableRow key={carga.id}>
-                                    <TableCell>{carga.clasificacion_desc?.split('-')?.[0] || '?'}</TableCell>
-                                    <TableCell>{carga.clasificacion_desc?.split('-')?.[1] || '?'}</TableCell>
+                                    <TableCell>{carga.material || carga.clasificacion_desc?.split('-')?.[0] || '?'}</TableCell>
+                                    <TableCell>{carga.calidad || carga.clasificacion_desc?.split('-')?.[1] || '?'}</TableCell>
                                     <TableCell>
-                                        <Typography variant="caption" display="block">
-                                            {carga.clasificacion_desc || `ID: ${carga.clasificacion_empaque}`}
+                                        <Typography variant="caption" display="block" fontWeight={600}>
+                                            Empaque #{carga.recepcion_folio || idx + 1} — {carga.tipo_mango || '?'}
                                         </Typography>
+                                        {carga.huertero_nombre && (
+                                            <Typography variant="caption" display="block" color="text.secondary">
+                                                Huertero: {carga.huertero_nombre}
+                                            </Typography>
+                                        )}
                                     </TableCell>
                                     <TableCell align="right">
                                         <strong>{carga.cantidad}</strong>
@@ -211,23 +218,28 @@ const CamionCargasEditor: React.FC<CamionCargasEditorProps> = ({
                 </Table>
             </TableContainer>
 
-            {/* Dialog Add Carga */}
+            {/* Dialog Add Carga — MULTI-SELECT */}
             <Dialog open={openAdd} onClose={handleCloseAdd} maxWidth="sm" fullWidth>
                 <DialogTitle>Agregar Carga al Camión</DialogTitle>
                 <DialogContent dividers>
                     <Box display="flex" flexDirection="column" gap={2} pt={1}>
                         <Autocomplete
+                            multiple
                             options={availableStock}
                             loading={loadingStock}
-                            getOptionLabel={(option) => {
-                                return `${option.material} - ${option.calidad} - ${option.tipo_mango} | Disp: ${option.disponible}`;
-                            }}
+                            disableCloseOnSelect
+                            getOptionLabel={(option) =>
+                                `${option.material} - ${option.calidad} - ${option.tipo_mango} (${option.disponible} cajas) — ${option.huerteros}`
+                            }
+                            isOptionEqualToValue={(a, b) =>
+                                a.calidad === b.calidad && a.material === b.material && a.tipo_mango === b.tipo_mango
+                            }
                             renderOption={(props, option) => (
                                 <li {...props}>
-                                    <Box display="flex" flexDirection="column" width="100%">
+                                    <Box display="flex" flexDirection="column" width="100%" gap={0.3}>
                                         <Box display="flex" justifyContent="space-between" width="100%">
                                             <Typography variant="body2" fontWeight="bold">
-                                                {option.material} - {option.calidad} - {option.tipo_mango}
+                                                {option.material === "MADERA" ? "📦" : "🔲"} {option.calidad} — {option.tipo_mango}
                                             </Typography>
                                             <Typography
                                                 variant="body2"
@@ -238,18 +250,30 @@ const CamionCargasEditor: React.FC<CamionCargasEditorProps> = ({
                                             </Typography>
                                         </Box>
                                         <Typography variant="caption" color="textSecondary">
-                                            Fecha FEFO: {option.fecha_min}
+                                            Huertero: {option.huerteros} · FEFO: {option.fecha_min}
                                         </Typography>
                                     </Box>
                                 </li>
                             )}
-                            value={selectedStock}
-                            onChange={(_, val) => setSelectedStock(val)}
+                            renderTags={(value, getTagProps) =>
+                                value.map((option, index) => (
+                                    <Chip
+                                        {...getTagProps({ index })}
+                                        key={`${option.calidad}-${option.material}-${option.tipo_mango}`}
+                                        label={`${option.material === "MADERA" ? "📦" : "🔲"} ${option.calidad} · ${option.disponible}`}
+                                        size="small"
+                                        color="primary"
+                                        variant="outlined"
+                                    />
+                                ))
+                            }
+                            value={selectedStocks}
+                            onChange={(_, val) => setSelectedStocks(val)}
                             renderInput={(params) => (
                                 <TextField
                                     {...params}
                                     label="Seleccionar Stock Disponible"
-                                    placeholder="Buscar por calidad, material o tipo..."
+                                    placeholder={selectedStocks.length > 0 ? "" : "Buscar por calidad, material, huertero..."}
                                     InputProps={{
                                         ...params.InputProps,
                                         endAdornment: (
@@ -263,16 +287,18 @@ const CamionCargasEditor: React.FC<CamionCargasEditorProps> = ({
                             )}
                         />
 
-                        {selectedStock && (
-                            <Box mt={1} p={1} bgcolor="background.paper" borderRadius={1} border={1} borderColor="divider">
-                                <Typography variant="subtitle2" color="primary">
-                                    Seleccionado: {selectedStock.material} - {selectedStock.calidad} - {selectedStock.tipo_mango}
+                        {selectedStocks.length > 0 && (
+                            <Box p={1.5} bgcolor="background.paper" borderRadius={1} border={1} borderColor="divider">
+                                <Typography variant="subtitle2" color="primary" mb={0.5}>
+                                    {selectedStocks.length} item{selectedStocks.length > 1 ? "s" : ""} seleccionado{selectedStocks.length > 1 ? "s" : ""}
                                 </Typography>
-                                <Typography variant="body2">
-                                    Fecha FEFO: <strong>{selectedStock.fecha_min}</strong>
-                                </Typography>
-                                <Typography variant="body2" color="success.main" mt={0.5}>
-                                    Disponible Total: <strong>{selectedStock.disponible}</strong> cajas
+                                {selectedStocks.map((s) => (
+                                    <Typography key={`${s.calidad}-${s.material}-${s.tipo_mango}`} variant="body2" sx={{ lineHeight: 1.6 }}>
+                                        {s.material === "MADERA" ? "📦" : "🔲"} {s.calidad} — {s.tipo_mango}: <strong>{s.disponible} cajas</strong>
+                                    </Typography>
+                                ))}
+                                <Typography variant="subtitle2" mt={1} color="success.main">
+                                    Total a cargar: <strong>{totalSelected} cajas</strong>
                                 </Typography>
                                 <Typography variant="caption" color="textSecondary" display="block" mt={0.5}>
                                     El sistema asignará automáticamente por FEFO (más antiguo primero)
@@ -280,15 +306,11 @@ const CamionCargasEditor: React.FC<CamionCargasEditorProps> = ({
                             </Box>
                         )}
 
-                        <TextField
-                            label="Cantidad a Cargar"
-                            type="number"
-                            value={cantidadToAdd}
-                            onChange={(e) => setCantidadToAdd(Number(e.target.value))}
-                            error={Boolean(errorInfo) || (selectedStock ? Number(cantidadToAdd) > selectedStock.disponible : false)}
-                            helperText={errorInfo || (selectedStock && Number(cantidadToAdd) > selectedStock.disponible ? "Excede disponible" : "")}
-                            fullWidth
-                        />
+                        {errorInfo && (
+                            <Alert severity="error" onClose={() => setErrorInfo(null)}>
+                                {errorInfo}
+                            </Alert>
+                        )}
                     </Box>
                 </DialogContent>
                 <DialogActions>
@@ -296,9 +318,9 @@ const CamionCargasEditor: React.FC<CamionCargasEditorProps> = ({
                     <Button
                         onClick={handleAddCarga}
                         variant="contained"
-                        disabled={!selectedStock || !cantidadToAdd || submitting || (selectedStock && Number(cantidadToAdd) > selectedStock.disponible)}
+                        disabled={selectedStocks.length === 0 || submitting}
                     >
-                        {submitting ? "Guardando..." : "Agregar Carga"}
+                        {submitting ? "Guardando..." : `Agregar ${selectedStocks.length > 1 ? `${selectedStocks.length} Cargas` : "Carga"}`}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -307,3 +329,4 @@ const CamionCargasEditor: React.FC<CamionCargasEditorProps> = ({
 };
 
 export default CamionCargasEditor;
+

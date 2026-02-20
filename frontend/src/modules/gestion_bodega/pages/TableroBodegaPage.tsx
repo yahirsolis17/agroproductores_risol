@@ -163,7 +163,7 @@ const TableroBodegaPage: React.FC = () => {
   } = tablero;
   const hasWeeks: boolean = !!weekNav?.hasWeeks;
   const [actionError, setActionError] = useState<string | null>(null);
-  const [openSectionKey] = useState<"resumen" | "recepciones" | "empaque" | "logistica">("recepciones");
+  // F-15 FIX: openSectionKey eliminado (era dead state, nunca se actualizaba)
   // Empaque: state lifted
   const {
     empaques: empRows,
@@ -188,15 +188,7 @@ const TableroBodegaPage: React.FC = () => {
     setEmpaqueLoading(false);
     setEmpaqueInitialLines(null);
   }, []);
-  useEffect(() => {
-    if (!tablero?.refetchQueues) return;
-    if (openSectionKey === "empaque") {
-      tablero.refetchQueues("inventarios");
-    }
-    if (openSectionKey === "logistica") {
-      tablero.refetchQueues("despachos");
-    }
-  }, [openSectionKey, tablero?.filters, tablero?.refetchQueues]);
+  // F-15 FIX: Efecto innecesario eliminado (dependía de openSectionKey que nunca cambiaba)
   // Fetch logic for Drawer
   useEffect(() => {
     if (!openEmpaque) return;
@@ -245,29 +237,9 @@ const TableroBodegaPage: React.FC = () => {
       return {
         material,
         calidad,
-        tipo_mango: isBulk ? "BULK" : (selectedRecepcionForEmpaque.tipo_mango ?? ""), // "BULK" or ignored by backend? Backend relies on existing stock if reception provided.
-        // Wait, for bulk FIFO, we probably don't need tipo_mango if backend infers it?
-        // Actually backend Bulk logic iterates over receptions.
-        // If we send items, backend distributes them.
-        // We should verify if frontend needs to send tipo_mango for bulk.
-        // Usually bulk op mixes types? No, bulk op usually is specific?
-        // The drawer allows selecting quantities.
-        // For Bulk Mode, we assume the user is packing generic "Mango" or filtering by type?
-        // The backend FIFO logic sorts candidates by date.
-        // It doesn't filter by type unless we tell it to?
-        // Let's assume sending "" or a placeholder is fine if backend handles it.
-        // Checked empaques_views: bulk_upsert checks recepcion_id.
-        // If recepcion is None, it calls distribute_fifo.
-        // distribute_fifo iterates items.
-        // Each item has material/calidad/cantidad.
-        // It finds candidates. Candidates are ALL receptions in bodega/temporada.
-        // It doesn't filter candidates by Mango Type!
-        // So if we distribute FIFO, we might pack "Keitt" into "Tommy"?
-        // IMPORTANT: This might be a missing feature in backend phase E1.
-        // Ideally we should filter candidates by fruit type if the user packing specifies it?
-        // But the UI for Bulk doesn't have a fruit type selector yet.
-        // We will proceed assuming "First In First Out" globally or user knows what they are doing.
-        // Just pass "" for tipo_mango if null.
+        // F-01 FIX: No enviar tipo_mango falso. El backend hereda tipo_mango de la Recepción.
+        // En bulk, el backend usa la recepción candidata. En explícito, usa selectedRecepcionForEmpaque.
+        tipo_mango: isBulk ? undefined : (selectedRecepcionForEmpaque.tipo_mango ?? undefined),
         cantidad_cajas: qty,
       };
     });
@@ -326,10 +298,19 @@ const TableroBodegaPage: React.FC = () => {
     const sw: any = selectedWeek;
     const from = sw?.fecha_desde || sw?.inicio;
     const to = sw?.fecha_hasta || sw?.fin;
-    const today = formatDateISO(new Date());
+    // FIX: Default to Monday of the current week (not just "today")
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+    const offsetToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + offsetToMonday);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    const mondayISO = formatDateISO(monday);
+    const sundayISO = formatDateISO(sunday);
     return {
-      from: from || today,
-      to: to || today,
+      from: from || mondayISO,
+      to: to || sundayISO,
       isoSemana: sw?.iso_semana ?? null,
     };
   });
@@ -338,10 +319,27 @@ const TableroBodegaPage: React.FC = () => {
     const sw: any = selectedWeek;
     const from = sw?.fecha_desde || sw?.inicio;
     const to = sw?.fecha_hasta || sw?.fin;
+
+    // FIX: If the active week is expired, show the CURRENT week range
+    // so the user sees what range the new week will cover
+    if (isExpiredWeek && from && !to) {
+      const now = new Date();
+      const dayOfWeek = now.getDay();
+      const offsetToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const monday = new Date(now);
+      monday.setDate(now.getDate() + offsetToMonday);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      const mondayISO = formatDateISO(monday);
+      const sundayISO = formatDateISO(sunday);
+      setWeekValue((prev) => (prev.from === mondayISO && prev.to === sundayISO ? prev : { from: mondayISO, to: sundayISO, isoSemana: "MANUAL" }));
+      return;
+    }
+
     if (from && to) {
       setWeekValue((prev) => (prev.from === from && prev.to === to ? prev : { from, to, isoSemana: "MANUAL" }));
     }
-  }, [selectedWeek]);
+  }, [selectedWeek, isExpiredWeek]);
   // Pretty range
   const rangoPretty = useMemo(() => {
     const from = (selectedWeek as any)?.fecha_desde || (selectedWeek as any)?.inicio;
@@ -405,13 +403,23 @@ const TableroBodegaPage: React.FC = () => {
     setActionError(null);
     if (!bodegaId || !temporadaId) return;
     try {
-      const from = weekValue.from;
+      // FIX: When expired week exists, always use Monday of current week
+      let from = weekValue.from;
+      if (isExpiredWeek) {
+        const now = new Date();
+        const dayOfWeek = now.getDay();
+        const offsetToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        const monday = new Date(now);
+        monday.setDate(now.getDate() + offsetToMonday);
+        from = formatDateISO(monday);
+      }
       await apiStartWeek?.(from);
-      // apiStartWeek ya hace refetch de weeksNav y summary internamente
+      // apiStartWeek dispatches tableroStartWeek which sends to backend.
+      // Backend auto-closes expired week before creating new one.
     } catch (e: any) {
       setActionError(e?.message || "No se pudo iniciar la semana.");
     }
-  }, [apiStartWeek, bodegaId, temporadaId, weekValue.from]);
+  }, [apiStartWeek, bodegaId, temporadaId, weekValue.from, isExpiredWeek]);
   const handleFinish = useCallback(async () => {
     setActionError(null);
     if (!bodegaId || !temporadaId) return;
@@ -472,15 +480,18 @@ const TableroBodegaPage: React.FC = () => {
     }
   }, [bodegaId, temporadaId, selectedWeek]);
 
-  const disableStartButton = !bodegaId || startingWeek || hasActiveWeek || isSameRangeAsSelectedWeek;
+  // FIX: Allow start when active week is expired (backend will auto-close it)
+  const disableStartButton = !bodegaId || startingWeek || (hasActiveWeek && !isExpiredWeek) || isSameRangeAsSelectedWeek;
 
   const startTooltip = !bodegaId
     ? "Selecciona una bodega valida."
-    : hasActiveWeek
+    : hasActiveWeek && !isExpiredWeek
       ? "Ya existe una semana abierta para esta bodega y temporada."
-      : isSameRangeAsSelectedWeek
-        ? "Esta semana ya esta registrada. Ajusta el rango para iniciar una nueva."
-        : "Iniciar semana";
+      : isExpiredWeek
+        ? "La semana anterior expiró. Al iniciar, se cerrará automáticamente."
+        : isSameRangeAsSelectedWeek
+          ? "Esta semana ya esta registrada. Ajusta el rango para iniciar una nueva."
+          : "Iniciar semana";
   // Empaque ? manda al bloque de Recepciones (sin duplicar logica)
   const renderWeekActions = () => (
     <Box
@@ -964,6 +975,9 @@ const TableroBodegaPage: React.FC = () => {
                     inventoryRows={(tablero?.queueInventarios?.rows || []) as any}
                     page={tablero?.queueInventarios?.meta?.page}
                     pageSize={tablero?.queueInventarios?.meta?.page_size}
+                    // F-03 FIX: Paginación del lado del servidor
+                    totalCount={(tablero?.queueInventarios?.meta as any)?.total ?? (tablero?.queueInventarios?.meta as any)?.count ?? 0}
+                    onPageChange={tablero?.onChangePage}
                   />
                 }
                 logistica={

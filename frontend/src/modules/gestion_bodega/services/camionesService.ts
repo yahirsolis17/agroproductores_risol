@@ -3,6 +3,10 @@ import { ensureSuccess } from '../../../global/utils/backendEnvelope';
 import type { BackendResponse } from '../../../global/types/apiTypes';
 
 export const camionesService = {
+  get: async (id: number): Promise<BackendResponse<any>> => {
+    const res = await apiClient.get(`/bodega/camiones/${id}/`);
+    return ensureSuccess(res.data) as BackendResponse<any>;
+  },
   list: async (params?: any): Promise<BackendResponse<any>> => {
     const res = await apiClient.get('/bodega/camiones/', { params });
     return ensureSuccess(res.data) as BackendResponse<any>;

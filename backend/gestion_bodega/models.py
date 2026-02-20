@@ -431,10 +431,6 @@ class LoteBodega(TimeStampedModel):
     def __str__(self) -> str:
         return f"Lote {self.codigo_lote}"
 
-    def clean(self):
-        if self.temporada_id and (not self.temporada.is_active):
-            raise ValidationError({"temporada": "La temporada debe estar activa."})
-
 
 class Recepcion(TimeStampedModel):
     """
@@ -465,69 +461,9 @@ class Recepcion(TimeStampedModel):
     def __str__(self) -> str:
         return f"Recepción #{self.id} ({self.fecha})"
 
-    def clean(self):
-        errors = {}
-
-        # Bodega activa
-        if self.bodega_id and not self.bodega.is_active:
-            errors["bodega"] = "La bodega debe estar activa."
-
-        # Temporada activa y no finalizada + coherencia con bodega
-        if self.temporada_id:
-            if (not self.temporada.is_active) or self.temporada.finalizada:
-                errors["temporada"] = "La temporada debe estar activa y no finalizada."
-            if self.bodega_id and self.temporada.bodega_id != self.bodega_id:
-                errors["temporada"] = "La temporada no corresponde a la bodega indicada."
-
-        # Cantidad de cajas defensiva (evita TypeError cuando viene None)
-        if not self.cajas_campo or self.cajas_campo <= 0:
-            errors["cajas_campo"] = "La cantidad de cajas debe ser positiva."
-
-        # Fecha no futura + regla hoy/ayer
-        if self.fecha:
-            if self.fecha > timezone.localdate():
-                errors["fecha"] = "La fecha no puede ser futura."
-            if not _is_today_or_yesterday_date(self.fecha):
-                errors["fecha"] = "La fecha de recepción solo puede ser HOY o AYER (máx. 24 h)."
-
-        # Resolver semana si no viene (alineado a lo que ya haces en serializer)
-        if not self.semana_id and self.bodega_id and self.temporada_id and self.fecha:
-            self.semana = _resolver_semana_por_fecha(self.bodega_id, self.temporada_id, self.fecha)
-
-        if not self.semana_id:
-            errors["semana"] = "Debe existir una semana que cubra la fecha (inicia una semana desde el tablero)."
-        else:
-            # Misma bodega/temporada + semana activa
-            if not self.semana.is_active:
-                errors["semana"] = "La semana está archivada; no es válida para operar."
-            if self.semana.bodega_id != self.bodega_id or self.semana.temporada_id != self.temporada_id:
-                errors["semana"] = "La semana no pertenece a esta bodega y temporada."
-
-            # Semana cerrada
-            if self.semana.fecha_hasta is not None:
-                errors["semana"] = "No se pueden registrar recepciones en una semana cerrada."
-
-            # Fecha dentro del rango de la semana
-            if self.fecha:
-                semana_fin = self.semana.fecha_hasta or (self.semana.fecha_desde + timedelta(days=6))
-                if not (self.semana.fecha_desde <= self.fecha <= semana_fin):
-                    errors["fecha"] = "La fecha de la recepción debe estar dentro del rango de la semana."
-
-        # Validar Lote si existe
-        if self.lote_id:
-            if self.lote.bodega_id != self.bodega_id:
-                 errors["lote"] = "El lote no pertenece a esta bodega."
-            if self.lote.temporada_id != self.temporada_id:
-                 errors["lote"] = "El lote no pertenece a esta temporada."
-
-
-        if errors:
-            raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
         update_fields = kwargs.get("update_fields")
-        if not _is_only_archival_fields(update_fields):
-            self.full_clean()
         return super().save(*args, **kwargs)
 
     @transaction.atomic
@@ -605,95 +541,9 @@ class ClasificacionEmpaque(TimeStampedModel):
     def __str__(self) -> str:
         return f"Empaque #{self.id} {self.material}-{self.calidad} ({self.cantidad_cajas})"
 
-    def clean(self):
-        errors = {}
-
-        # Bodega activa
-        if self.bodega_id and not self.bodega.is_active:
-            errors["bodega"] = "La bodega debe estar activa."
-
-        # Temporada activa + coherencia bodega
-        if self.temporada_id:
-            if (not self.temporada.is_active) or self.temporada.finalizada:
-                errors["temporada"] = "La temporada debe estar activa y no finalizada."
-            if self.bodega_id and self.temporada.bodega_id != self.bodega_id:
-                errors["temporada"] = "La temporada no corresponde a la bodega indicada."
-
-        # Material/Calidad
-        if self.material == Material.PLASTICO:
-            if self.calidad in {"SEGUNDA", "EXTRA"}:
-                self.calidad = CalidadPlastico.PRIMERA.value
-            if self.calidad not in set(CalidadPlastico.values):
-                errors["calidad"] = "Calidad inválida para material PLÁSTICO."
-        else:
-            if self.calidad not in set(CalidadMadera.values):
-                errors["calidad"] = "Calidad inválida para material MADERA."
-
-        if self.cantidad_cajas <= 0:
-            errors["cantidad_cajas"] = "La cantidad de cajas debe ser positiva."
-
-        # Fecha no futura + regla hoy/ayer
-        if self.fecha:
-            if self.fecha > timezone.localdate():
-                errors["fecha"] = "La fecha no puede ser futura."
-            if not _is_today_or_yesterday_date(self.fecha):
-                errors["fecha"] = "La fecha solo puede ser HOY o AYER (máx. 24 h)."
-
-        # Coherencia con recepción
-        if self.recepcion_id:
-            if not self.recepcion.is_active:
-                errors["recepcion"] = "No se pueden registrar clasificaciones en una recepción archivada."
-
-            # La identidad (bodega/temporada/tipo_mango) la hereda del padre (server-truth)
-            if self.bodega_id and self.bodega_id != self.recepcion.bodega_id:
-                errors["bodega"] = "La clasificación debe usar la misma bodega que la recepción."
-            if self.temporada_id and self.temporada_id != self.recepcion.temporada_id:
-                errors["temporada"] = "La clasificación debe usar la misma temporada que la recepción."
-
-            self.bodega_id = self.recepcion.bodega_id
-            self.temporada_id = self.recepcion.temporada_id
-            self.tipo_mango = self.recepcion.tipo_mango
-            # Heredar lote
-            if not self.lote_id and self.recepcion.lote_id:
-                self.lote_id = self.recepcion.lote_id
-
-
-            if self.fecha and self.recepcion.fecha and self.fecha < self.recepcion.fecha:
-                errors["fecha"] = "La fecha de clasificación no puede ser anterior a la recepción."
-
-        # Resolver semana si no viene
-        if not self.semana_id and self.bodega_id and self.temporada_id and self.fecha:
-            # preferimos la semana de la recepción si existe
-            if self.recepcion_id and self.recepcion.semana_id:
-                self.semana_id = self.recepcion.semana_id
-            else:
-                self.semana = _resolver_semana_por_fecha(self.bodega_id, self.temporada_id, self.fecha)
-
-        if not self.semana_id:
-            errors["semana"] = "Debe existir una semana que cubra la fecha (inicia una semana desde el tablero)."
-        else:
-            if not self.semana.is_active:
-                errors["semana"] = "La semana está archivada; no es válida para operar."
-            if self.semana.bodega_id != self.bodega_id or self.semana.temporada_id != self.temporada_id:
-                errors["semana"] = "La semana no pertenece a esta bodega y temporada."
-            if self.semana.fecha_hasta is not None:
-                errors["semana"] = "No se pueden registrar clasificaciones en una semana cerrada."
-
-            if self.fecha:
-                semana_fin = self.semana.fecha_hasta or (self.semana.fecha_desde + timedelta(days=6))
-                if not (self.semana.fecha_desde <= self.fecha <= semana_fin):
-                    errors["fecha"] = "La fecha debe estar dentro del rango de la semana."
-
-            if self.recepcion_id and self.recepcion.semana_id and self.recepcion.semana_id != self.semana_id:
-                errors["semana"] = "La semana de la clasificación debe coincidir con la de la recepción."
-
-        if errors:
-            raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
         update_fields = kwargs.get("update_fields")
-        if not _is_only_archival_fields(update_fields):
-            self.full_clean()
         return super().save(*args, **kwargs)
 
 
@@ -727,19 +577,9 @@ class InventarioPlastico(TimeStampedModel):
         dueño = self.cliente_id or "propio"
         return f"InvPlástico({dueño}) {self.calidad}-{self.tipo_mango}: {self.stock}"
 
-    def clean(self):
-        errors = {}
-        if self.temporada_id and (not self.temporada.is_active or self.temporada.finalizada):
-            errors["temporada"] = "La temporada debe estar activa y no finalizada."
-        if self.stock < 0:
-            errors["stock"] = "El stock no puede ser negativo."
-        if errors:
-            raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
         update_fields = kwargs.get("update_fields")
-        if not _is_only_archival_fields(update_fields):
-            self.full_clean()
         return super().save(*args, **kwargs)
 
 
@@ -771,14 +611,9 @@ class MovimientoPlastico(TimeStampedModel):
     def __str__(self) -> str:
         return f"{self.tipo} {self.cantidad} ({self.motivo})"
 
-    def clean(self):
-        if self.cantidad <= 0:
-            raise ValidationError({"cantidad": "La cantidad debe ser positiva."})
 
     def save(self, *args, **kwargs):
         update_fields = kwargs.get("update_fields")
-        if not _is_only_archival_fields(update_fields):
-            self.full_clean()
         return super().save(*args, **kwargs)
 
 
@@ -810,24 +645,12 @@ class CompraMadera(TimeStampedModel):
     def __str__(self) -> str:
         return f"CompraMadera #{self.id} ({self.proveedor_nombre})"
 
-    def clean(self):
-        errors = {}
-        if self.temporada_id and (not self.temporada.is_active or self.temporada.finalizada):
-            errors["temporada"] = "La temporada debe estar activa y no finalizada."
-        if self.cantidad_cajas <= 0:
-            errors["cantidad_cajas"] = "La cantidad de cajas debe ser positiva."
-        if self.precio_unitario <= 0:
-            errors["precio_unitario"] = "El precio unitario debe ser positivo."
-        if errors:
-            raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
         self.monto_total = (self.precio_unitario or Decimal("0")) * Decimal(self.cantidad_cajas or 0)
         if self._state.adding:
             self.saldo = self.monto_total
         update_fields = kwargs.get("update_fields")
-        if not _is_only_archival_fields(update_fields):
-            self.full_clean()
         super().save(*args, **kwargs)
 
     @transaction.atomic
@@ -885,17 +708,9 @@ class Pedido(TimeStampedModel):
     def __str__(self) -> str:
         return f"Pedido #{self.id} ({self.estado})"
 
-    def clean(self):
-        errors = {}
-        if self.temporada_id and (not self.temporada.is_active or self.temporada.finalizada):
-            errors["temporada"] = "La temporada debe estar activa y no finalizada."
-        if errors:
-            raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
         update_fields = kwargs.get("update_fields")
-        if not _is_only_archival_fields(update_fields):
-            self.full_clean()
         return super().save(*args, **kwargs)
 
 
@@ -920,14 +735,9 @@ class PedidoRenglon(TimeStampedModel):
     def pendiente(self) -> int:
         return max(0, (self.cantidad_solicitada or 0) - (self.cantidad_surtida or 0))
 
-    def clean(self):
-        if self.cantidad_solicitada <= 0:
-            raise ValidationError({"cantidad_solicitada": "Debe ser positiva."})
 
     def save(self, *args, **kwargs):
         update_fields = kwargs.get("update_fields")
-        if not _is_only_archival_fields(update_fields):
-            self.full_clean()
         return super().save(*args, **kwargs)
 
 
@@ -950,31 +760,9 @@ class SurtidoRenglon(TimeStampedModel):
     def __str__(self) -> str:
         return f"Surtido #{self.id} {self.cantidad}"
 
-    def clean(self):
-        if self.cantidad <= 0:
-            raise ValidationError("La cantidad de surtido debe ser positiva.")
-
-        if self.renglon.material != self.origen_clasificacion.material:
-            raise ValidationError("Material del renglón y del origen no coincide.")
-        if self.renglon.calidad != self.origen_clasificacion.calidad:
-            raise ValidationError("La calidad del renglón y de la clasificación no coincide.")
-
-        cons_qs = self.origen_clasificacion.surtidos.all()
-        if self.pk:
-            cons_qs = cons_qs.exclude(pk=self.pk)
-
-        consumido = cons_qs.aggregate(total=Sum("cantidad"))["total"] or 0
-        disponible = (self.origen_clasificacion.cantidad_cajas or 0) - consumido
-        if self.cantidad > disponible:
-            raise ValidationError("No hay suficiente disponible en esa clasificación (overpicking origen).")
-
-        if self.cantidad > self.renglon.pendiente:
-            raise ValidationError("La cantidad excede lo pendiente en el renglón (overpicking renglón).")
 
     def save(self, *args, **kwargs):
         update_fields = kwargs.get("update_fields")
-        if not _is_only_archival_fields(update_fields):
-            self.full_clean()
         return super().save(*args, **kwargs)
 
 
@@ -999,7 +787,7 @@ class CamionSalida(TimeStampedModel):
         help_text="Folio único generado al confirmar (formato: BOD-X-TX-WX-CXXXXX)"
     )
     estado = models.CharField(max_length=12, choices=EstadoCamion.choices, default=EstadoCamion.BORRADOR)
-    fecha_salida = models.DateField(default=timezone.now)
+    fecha_salida = models.DateField(null=True, blank=True)
     placas = models.CharField(max_length=20, blank=True, default="")
     chofer = models.CharField(max_length=80, blank=True, default="")
     destino = models.CharField(max_length=120, blank=True, default="")
@@ -1025,31 +813,18 @@ class CamionSalida(TimeStampedModel):
         nro = self.numero if self.numero is not None else "S/N"
         return f"Camión {nro} ({self.estado})"
 
-    def clean(self):
-        errors = {}
-        if self.temporada_id and (not self.temporada.is_active or self.temporada.finalizada):
-            errors["temporada"] = "La temporada debe estar activa y no finalizada."
-        
-        # Resolver semana
-        if not self.semana_id and self.bodega_id and self.temporada_id and self.fecha_salida:
-            self.semana = _resolver_semana_por_fecha(self.bodega_id, self.temporada_id, self.fecha_salida)
-        
-        if self.estado == EstadoCamion.CONFIRMADO and not self.semana_id:
-            errors["semana"] = "Un camion confirmado debe pertenecer a una semana activa."
 
-        if errors:
-            raise ValidationError(errors)
-
-
-    @transaction.atomic
     def confirmar(self):
         if self.estado == EstadoCamion.ANULADO:
             raise ValidationError("No se puede confirmar un camión anulado.")
         if self.numero is not None and self.estado == EstadoCamion.CONFIRMADO:
             return  # idempotente
 
+        # Asignar fecha e intentar resolver semana ahora si no tenía
+        if not self.fecha_salida:
+            self.fecha_salida = timezone.now().date()
+
         # Validación fuerte: para confirmar, semana debe existir
-        self.full_clean()
 
         # Lock “padre” estable para evitar carreras
         TemporadaBodega = apps.get_model("gestion_bodega", "TemporadaBodega")
@@ -1063,12 +838,10 @@ class CamionSalida(TimeStampedModel):
 
         self.numero = ultimo + 1
         self.estado = EstadoCamion.CONFIRMADO
-        self.save(update_fields=["numero", "estado", "actualizado_en"])
+        self.save(update_fields=["numero", "estado", "fecha_salida", "semana_id", "actualizado_en"])
 
     def save(self, *args, **kwargs):
         update_fields = kwargs.get("update_fields")
-        if not _is_only_archival_fields(update_fields):
-            self.full_clean()
         return super().save(*args, **kwargs)
 
 
@@ -1092,14 +865,9 @@ class CamionItem(TimeStampedModel):
     def __str__(self) -> str:
         return f"ItemCamión #{self.id} {self.material}-{self.calidad} {self.cantidad_cajas}"
 
-    def clean(self):
-        if self.cantidad_cajas <= 0:
-            raise ValidationError({"cantidad_cajas": "Debe ser positiva."})
 
     def save(self, *args, **kwargs):
         update_fields = kwargs.get("update_fields")
-        if not _is_only_archival_fields(update_fields):
-            self.full_clean()
         return super().save(*args, **kwargs)
 
 
@@ -1122,22 +890,9 @@ class CamionConsumoEmpaque(TimeStampedModel):
     def __str__(self) -> str:
         return f"Carga #{self.id} -> Camion {self.camion_id}: {self.cantidad}"
 
-    def clean(self):
-        if self.cantidad <= 0:
-            raise ValidationError("La cantidad debe ser positiva.")
-        
-        # Validation real con bloqueo solo si hay transacción activa (safe)
-        from gestion_bodega.utils.inventario_empaque import validate_consumo_camion
-        try:
-            lock = connection.in_atomic_block
-            validate_consumo_camion(self.clasificacion_empaque_id, self.cantidad, exclude_id=self.pk, lock=lock)
-        except ValueError as e:
-            raise ValidationError(str(e))
 
     def save(self, *args, **kwargs):
         update_fields = kwargs.get("update_fields")
-        if not _is_only_archival_fields(update_fields):
-            self.full_clean()
         return super().save(*args, **kwargs)
 
 
@@ -1169,16 +924,6 @@ class Consumible(TimeStampedModel):
     def __str__(self) -> str:
         return f"Consumible #{self.id} {self.concepto} (${self.total})"
 
-    def clean(self):
-        errors = {}
-        if self.temporada_id and (not self.temporada.is_active or self.temporada.finalizada):
-            errors["temporada"] = "La temporada debe estar activa y no finalizada."
-        if self.cantidad <= 0:
-            errors["cantidad"] = "La cantidad debe ser positiva."
-        if self.costo_unitario < 0:
-            errors["costo_unitario"] = "El costo unitario no puede ser negativo."
-        if errors:
-            raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
         try:
@@ -1186,8 +931,6 @@ class Consumible(TimeStampedModel):
         except InvalidOperation:
             self.total = Decimal("0.00")
         update_fields = kwargs.get("update_fields")
-        if not _is_only_archival_fields(update_fields):
-            self.full_clean()
         super().save(*args, **kwargs)
 
 
@@ -1250,64 +993,6 @@ class CierreSemanal(TimeStampedModel):
     def activa(self) -> bool:
         return self.fecha_hasta is None
 
-    def clean(self):
-        errors = {}
-
-        # Bloqueos por bodega/temporada
-        if self.bodega_id and not self.bodega.is_active:
-            errors["bodega"] = "La bodega debe estar activa."
-
-        if self.temporada_id:
-            if (not self.temporada.is_active) or self.temporada.finalizada:
-                errors["temporada"] = "La temporada debe estar activa y no finalizada."
-            if self.bodega_id and self.temporada.bodega_id != self.bodega_id:
-                errors["temporada"] = "La temporada no corresponde a la bodega indicada."
-
-        # No permitir fechas futuras
-        hoy = timezone.localdate()
-        if self.fecha_desde and self.fecha_desde > hoy:
-            errors["fecha_desde"] = "No se puede iniciar una semana en fecha futura."
-        if self.fecha_hasta and self.fecha_hasta > hoy:
-            errors["fecha_hasta"] = "No se puede cerrar una semana con fecha futura."
-
-        if self.fecha_hasta and self.fecha_hasta < self.fecha_desde:
-            errors["fecha_hasta"] = "La fecha de cierre no puede ser anterior a la fecha de inicio."
-
-        # Máximo 7 días al cerrar
-        if self.fecha_hasta:
-            delta = (self.fecha_hasta - self.fecha_desde).days
-            if delta > 6:
-                errors["fecha_hasta"] = "La semana no puede exceder 7 días."
-
-        # No permitir reabrir NI editar rangos de una semana ya cerrada
-        if self.pk:
-            old = CierreSemanal.objects.filter(pk=self.pk).only("fecha_desde", "fecha_hasta").first()
-            if old and old.fecha_hasta is not None:
-                if (self.fecha_desde != old.fecha_desde) or (self.fecha_hasta != old.fecha_hasta):
-                    errors["fecha_hasta"] = "Una semana cerrada no se puede editar ni reabrir."
-
-            if old and old.fecha_hasta is not None and self.fecha_hasta is None:
-                errors["fecha_hasta"] = "No se puede reabrir una semana que ya fue cerrada."
-
-        # Solapes (ignoramos semanas archivadas)
-        self_start = self.fecha_desde
-        self_end = self.fecha_hasta or (self.fecha_desde + timedelta(days=6))
-
-        qs = CierreSemanal.objects.filter(
-            bodega=self.bodega,
-            temporada=self.temporada,
-            is_active=True,
-        ).exclude(pk=self.pk)
-
-        for other in qs:
-            other_start = other.fecha_desde
-            other_end = other.fecha_hasta or (other.fecha_desde + timedelta(days=6))
-            if self_start <= other_end and self_end >= other_start:
-                errors["fecha_desde"] = "El rango de la semana solapa con otra semana existente."
-                break
-
-        if errors:
-            raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
         update_fields = kwargs.get("update_fields")
@@ -1317,6 +1002,4 @@ class CierreSemanal(TimeStampedModel):
                 self.iso_semana = f"{iso.year}-W{str(iso.week).zfill(2)}"
             except Exception:
                 pass
-        if not _is_only_archival_fields(update_fields):
-            self.full_clean()
         return super().save(*args, **kwargs)

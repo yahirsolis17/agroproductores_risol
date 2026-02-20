@@ -7,7 +7,7 @@ export type LogisticaRowUI = {
   id: string | number;
   ref?: string | number;
   fecha?: string | null;
-  kg?: number | string | null; // en tu mapper hoy viene como `kg` (aunque lo rotules "Cajas")
+  cajas?: number | string | null;
   estado?: string | null;
   acciones?: any;
 };
@@ -36,11 +36,10 @@ type Props = {
   onFilterEstadoChange?: (est: string | null) => void;
 };
 
+import { formatSmartDateTime } from "../../../../../global/utils/date";
+
 const formatFecha = (iso?: string | null) => {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return String(iso);
-  return d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
+  return formatSmartDateTime(iso);
 };
 
 const formatCajas = (v?: number | string | null) => {
@@ -89,7 +88,14 @@ const LogisticaSection: React.FC<Props> = ({
       {
         label: "Referencia",
         key: "ref",
-        render: (r) => <Typography variant="body2" sx={{ fontWeight: 600 }}>{r.ref}</Typography>,
+        render: (_r, i) => {
+          const effectiveCount = count > 0 ? count : rows.length;
+          return (
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {`Camión #${effectiveCount - (page - 1) * pageSize - (i ?? 0)}`}
+            </Typography>
+          );
+        },
       },
       {
         label: "Fecha de salida",
@@ -98,9 +104,9 @@ const LogisticaSection: React.FC<Props> = ({
       },
       {
         label: "Cajas",
-        key: "kg",
+        key: "cajas",
         align: "right",
-        render: (r) => formatCajas(r.kg),
+        render: (r) => formatCajas(r.cajas),
       },
       {
         label: "Estado",
@@ -111,16 +117,17 @@ const LogisticaSection: React.FC<Props> = ({
         label: "Folio",
         key: "ref",
         render: (r) => {
-          const raw = (r.estado || "").toString().trim().toUpperCase();
-          if (raw === "CONFIRMADO") {
-            let s = String(r.ref || "");
-            // kpis.py sets ref to "Camión {numero}"
-            if (s.includes("Camión")) {
-              s = s.replace("Camión", "").trim();
-              const n = parseInt(s, 10);
-              if (!isNaN(n)) return `#${String(n).padStart(5, "0")}`;
-            }
+          const anyRow = r as any;
+          // 1. Show string folio if available (e.g., BOD-1-T1-W1-C00001)
+          if (anyRow.folio && typeof anyRow.folio === "string" && anyRow.folio.trim()) {
+            return anyRow.folio;
           }
+          // 2. Fallback: show numero as padded #
+          const num = anyRow.numero;
+          if (num != null && !isNaN(Number(num))) {
+            return `#${String(num).padStart(5, "0")}`;
+          }
+          // 3. Borradores — no folio yet
           return "—";
         },
       },
@@ -146,7 +153,7 @@ const LogisticaSection: React.FC<Props> = ({
         },
       },
     ],
-    [onEditCamion]
+    [onEditCamion, count, rows.length, page, pageSize]
   );
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: string) => {

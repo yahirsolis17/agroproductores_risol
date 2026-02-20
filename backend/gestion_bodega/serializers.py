@@ -1018,17 +1018,34 @@ class CamionConsumoEmpaqueSerializer(serializers.ModelSerializer):
     clasificacion_id = serializers.PrimaryKeyRelatedField(queryset=ClasificacionEmpaque.objects.all(), source="clasificacion_empaque", write_only=True)
     clasificacion_desc = serializers.StringRelatedField(source="clasificacion_empaque", read_only=True)
     tipo_mango = serializers.CharField(source="clasificacion_empaque.tipo_mango", read_only=True)
+    material = serializers.CharField(source="clasificacion_empaque.material", read_only=True)
+    calidad = serializers.CharField(source="clasificacion_empaque.calidad", read_only=True)
+    huertero_nombre = serializers.CharField(source="clasificacion_empaque.recepcion.huertero_nombre", read_only=True, default="")
+    recepcion_id = serializers.IntegerField(source="clasificacion_empaque.recepcion_id", read_only=True)
+    recepcion_folio = serializers.SerializerMethodField()
 
     class Meta:
         model = CamionConsumoEmpaque
         fields = [
             "id", "camion", "camion_id",
             "clasificacion_empaque", "clasificacion_id", "clasificacion_desc",
-            "tipo_mango",
+            "tipo_mango", "material", "calidad", "huertero_nombre", "recepcion_id", "recepcion_folio",
             "cantidad",
             "creado_en", "actualizado_en",
         ]
         read_only_fields = ["camion", "clasificacion_empaque", "creado_en", "actualizado_en"]
+
+    def get_recepcion_folio(self, obj):
+        try:
+            rec = obj.clasificacion_empaque.recepcion
+            from gestion_bodega.models import Recepcion
+            return Recepcion.objects.filter(
+                bodega_id=rec.bodega_id,
+                temporada_id=rec.temporada_id,
+                id__lte=rec.id
+            ).count()
+        except Exception:
+            return None
 
     def validate(self, data):
         cantidad = data.get("cantidad") or getattr(self.instance, "cantidad", None)
@@ -1062,8 +1079,16 @@ class CamionSalidaSerializer(serializers.ModelSerializer):
 
     bodega_id    = serializers.PrimaryKeyRelatedField(queryset=Bodega.objects.all(),           source="bodega",    write_only=True)
     temporada_id = serializers.PrimaryKeyRelatedField(queryset=TemporadaBodega.objects.all(), source="temporada", write_only=True)
-    items        = CamionItemSerializer(many=True, read_only=True)
-    cargas       = CamionConsumoEmpaqueSerializer(many=True, read_only=True)
+    items        = serializers.SerializerMethodField()
+    cargas       = serializers.SerializerMethodField()
+
+    def get_items(self, obj):
+        qs = obj.items.filter(is_active=True) if hasattr(obj, 'items') else []
+        return CamionItemSerializer(qs, many=True).data
+
+    def get_cargas(self, obj):
+        qs = obj.cargas.filter(is_active=True) if hasattr(obj, 'cargas') else []
+        return CamionConsumoEmpaqueSerializer(qs, many=True).data
 
     class Meta:
         model = CamionSalida
@@ -1074,7 +1099,7 @@ class CamionSalidaSerializer(serializers.ModelSerializer):
             "items", "cargas",
             "is_active", "archivado_en", "creado_en", "actualizado_en",
         ]
-        read_only_fields = ["bodega", "temporada", "numero", "folio", "estado", "is_active", "archivado_en", "creado_en", "actualizado_en"]
+        read_only_fields = ["bodega", "temporada", "numero", "folio", "estado", "fecha_salida", "is_active", "archivado_en", "creado_en", "actualizado_en"]
 
     def validate(self, data):
         temporada = data.get("temporada")    or getattr(self.instance, "temporada", None)
@@ -1294,10 +1319,10 @@ class QueueItemSerializer(serializers.Serializer):
     ref = serializers.CharField()
     fecha = DateOrDateTimeField()  # Soporta date y datetime (ISO)
     huerta = serializers.CharField(allow_null=True, required=False)
-    kg = serializers.FloatField()
+    cajas = serializers.FloatField()
     # Aliases para compatibilidad con EmpaqueDrawer y otros componentes
-    cajas_campo = serializers.FloatField(source="kg", read_only=True)
-    cantidad_cajas = serializers.FloatField(source="kg", read_only=True)
+    cajas_campo = serializers.FloatField(source="cajas", read_only=True)
+    cantidad_cajas = serializers.FloatField(source="cajas", read_only=True)
 
     # P5 Integrity Fields explicitly exposed
     clasificacion_label = serializers.CharField(required=False, allow_null=True)
@@ -1308,6 +1333,10 @@ class QueueItemSerializer(serializers.Serializer):
     temporada_id = serializers.IntegerField(required=False, allow_null=True)
 
     estado = serializers.CharField()
+
+    # Despachos-specific fields
+    folio = serializers.CharField(required=False, allow_null=True, allow_blank=True, default="")
+    numero = serializers.IntegerField(required=False, allow_null=True)
 
     # Opcionales usados para badges o metadata libre
     chips = serializers.ListField(

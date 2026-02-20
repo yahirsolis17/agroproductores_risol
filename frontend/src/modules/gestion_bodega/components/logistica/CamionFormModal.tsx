@@ -32,7 +32,6 @@ const validationSchema = yup.object({
   chofer: yup.string().required('Requerido'),
   destino: yup.string().required('Requerido'),
   receptor: yup.string().required('Requerido'),
-  fecha_salida: yup.string().required('Requerido'),
 });
 
 const CamionFormModal: React.FC<CamionFormModalProps> = ({
@@ -52,13 +51,12 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
     if (open) {
       if (camion?.id) {
         setLoading(true);
-        camionesService.list({ id: camion.id })
+        camionesService.get(camion.id)
           .then((res: any) => {
-            const found = Array.isArray(res.data) ? res.data.find((c: any) => c.id === camion.id) : (res.data?.results?.find((c: any) => c.id === camion.id) || camion);
-            setCurrentCamion(found);
+            // DRF retrieve returns the single object directly in res.data
+            setCurrentCamion(res.data || camion);
           })
           .catch(() => {
-            // console.error("Error loading truck details");
             setCurrentCamion(camion);
           })
           .finally(() => setLoading(false));
@@ -109,7 +107,6 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
       chofer: currentCamion?.chofer || '',
       destino: currentCamion?.destino || '',
       receptor: currentCamion?.receptor || '',
-      fecha_salida: currentCamion?.fecha_salida || new Date().toISOString().split('T')[0],
       observaciones: currentCamion?.observaciones || '',
     },
     enableReinitialize: true,
@@ -172,14 +169,9 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
         setCurrentCamion(maybeCamion);
       } else {
         // Si no retorna, refetch para traer numero (folio) y cargas finales
-        await camionesService.list({ id: currentCamion.id })
+        await camionesService.get(currentCamion.id)
           .then((r: any) => {
-            const found =
-              Array.isArray(r.data)
-                ? r.data.find((c: any) => c.id === currentCamion.id)
-                : (r.data?.results?.find((c: any) => c.id === currentCamion.id) || currentCamion);
-
-            setCurrentCamion(found);
+            setCurrentCamion(r.data || currentCamion);
           });
       }
       setConfirmDialogOpen(false);
@@ -197,10 +189,9 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
   const refreshTruck = () => {
     if (!currentCamion?.id) return;
     // Re-fetch truck details to update loads
-    camionesService.list({ id: currentCamion.id })
+    camionesService.get(currentCamion.id)
       .then((res: any) => {
-        const found = Array.isArray(res.data) ? res.data.find((c: any) => c.id === currentCamion.id) : (res.data?.results?.find((c: any) => c.id === currentCamion.id) || currentCamion);
-        setCurrentCamion(found);
+        setCurrentCamion(res.data || currentCamion);
       })
       .catch(console.error);
   };
@@ -268,20 +259,6 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
                   onChange={formik.handleChange}
                   error={formik.touched.receptor && Boolean(formik.errors.receptor)}
                   helperText={(formik.touched.receptor && formik.errors.receptor) as string}
-                  disabled={isConfirmado || loading}
-                />
-              </Box>
-              <Box>
-                <TextField
-                  fullWidth
-                  type="date"
-                  label="Fecha Llegada"
-                  name="fecha_salida"
-                  InputLabelProps={{ shrink: true }}
-                  value={formik.values.fecha_salida}
-                  onChange={formik.handleChange}
-                  error={formik.touched.fecha_salida && Boolean(formik.errors.fecha_salida)}
-                  helperText={(formik.touched.fecha_salida && formik.errors.fecha_salida) as string}
                   disabled={isConfirmado || loading}
                 />
               </Box>

@@ -3,8 +3,9 @@ export type AlertSeverity = "info" | "warning" | "critical";
 
 export interface WeekActive {
   id: number;
-  fecha_inicio: string; // "YYYY-MM-DD"
-  fecha_fin: string | null; // null si abierta
+  // F-11 FIX: Estandarizado con backend (fecha_desde/fecha_hasta)
+  fecha_desde: string; // "YYYY-MM-DD"
+  fecha_hasta: string | null; // null si abierta
   rango_inferido: { from: string; to: string };
   estado: "ABIERTA" | "CERRADA";
   iso_semana: string | null;
@@ -77,10 +78,12 @@ export interface QueueItem {
   ref: string;
   fecha: string; // ISO
   huerta: string | null;
-  kg: number; // el backend manda "kg"; en UI lo mostramos como "cajas" si aplica
+  cajas: number; // Antes era "kg"; backend ahora envía "cajas"
   estado: string;
   meta?: Record<string, any>;
   despachado?: boolean;
+  folio?: string;
+  numero?: number;
 }
 
 export interface DashboardQueueResponse {

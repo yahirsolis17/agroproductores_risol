@@ -6,7 +6,7 @@ import Button from "@mui/material/Button";
 
 import { TableLayout, Column } from "../../../../components/common/TableLayout";
 import ActionsMenu from "../common/ActionsMenu";
-import { formatDateDisplay } from "../../../../global/utils/date";
+import { formatSmartDateTime } from "../../../../global/utils/date";
 import type { Captura, PaginationMeta, EmpaqueStatus } from "../../types/capturasTypes";
 
 type BaseProps = {
@@ -40,6 +40,7 @@ function safeStatus(v: any): EmpaqueStatus {
   const s = String(v || "").trim().toUpperCase();
   if (s === "EMPACADO") return "EMPACADO";
   if (s === "PARCIAL") return "PARCIAL";
+  if (s === "MERMA_TOTAL") return "MERMA_TOTAL";
   return "SIN_EMPAQUE";
 }
 
@@ -52,27 +53,31 @@ function getEmpaqueChipProps(row: Captura, blocked: boolean) {
     };
   }
 
-  // Fallback: cantidad_cajas (alias) o cajas_campo (campo real)
-  const captured = Number(row.cantidad_cajas) || Number((row as any).cajas_campo) || 0;
+  // cajas_empaquetadas EXCLUDES merma (backend fix)
   const packed = Number(row.cajas_empaquetadas) || 0;
+  const merma = Number(row.cajas_merma) || 0;
   const st = safeStatus(row.empaque_status);
 
-  if (st === "EMPACADO") {
+  if (st === "MERMA_TOTAL") {
     return {
-      label: `Empacado ${packed}/${captured}`,
-      color: "success" as const,
+      label: `Merma ${merma}`,
+      color: "error" as const,
       variant: "filled" as const,
     };
   }
-  if (st === "PARCIAL") {
+  if (st === "EMPACADO" || st === "PARCIAL") {
+    const parts: string[] = [];
+    if (packed > 0) parts.push(`Empacado ${packed}`);
+    if (merma > 0) parts.push(`Merma ${merma}`);
+    const label = parts.length > 0 ? parts.join(" · ") : "Sin empacar";
     return {
-      label: `Parcial ${packed}/${captured}`,
-      color: "warning" as const,
+      label,
+      color: (st === "EMPACADO" ? "success" : "warning") as "success" | "warning",
       variant: "filled" as const,
     };
   }
   return {
-    label: `Sin empacar 0/${captured}`,
+    label: "Sin empacar",
     color: "default" as const,
     variant: "outlined" as const,
   };
@@ -104,7 +109,7 @@ export default function CapturasTable({
         label: "Fecha",
         key: "fecha",
         align: "left",
-        render: (r) => formatDateDisplay(r.fecha),
+        render: (r) => formatSmartDateTime(r.fecha),
       },
       { label: "Huertero", key: "huertero_nombre", align: "left" },
       { label: "Tipo", key: "tipo_mango", align: "left" },

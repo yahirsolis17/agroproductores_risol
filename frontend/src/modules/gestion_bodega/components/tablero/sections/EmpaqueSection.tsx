@@ -6,6 +6,7 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import LocalMallIcon from "@mui/icons-material/LocalMall";
 import ReportProblemIcon from "@mui/icons-material/ReportProblem";
 import { TableLayout } from "../../../../../components/common/TableLayout";
+import { formatSmartDateTime } from "../../../../../global/utils/date";
 import type { QueueItem } from "../../../types/tableroBodegaTypes";
 
 type Metric = {
@@ -24,6 +25,9 @@ interface EmpaqueSectionProps {
 
   page?: number;
   pageSize?: number;
+  // F-03 FIX: total del servidor y callback real para paginación del lado del servidor
+  totalCount?: number;
+  onPageChange?: (page: number) => void;
   /** Acción opcional: aplica filtro visual en Recepciones (Fase 5). */
   onVerPendientes?: () => void;
 
@@ -39,6 +43,8 @@ const EmpaqueSection: React.FC<EmpaqueSectionProps> = ({
   inventoryRows = [],
   page = 1,
   pageSize = 100,
+  totalCount,
+  onPageChange,
   onVerPendientes,
   helperText,
 }) => {
@@ -51,10 +57,8 @@ const EmpaqueSection: React.FC<EmpaqueSectionProps> = ({
     { label: "Merma", value: merma, icon: <ReportProblemIcon fontSize="small" /> },
   ];
 
-  const formatCajas = (value?: number | string | null) => {
-    if (value == null) return "—";
-    if (typeof value === "string") return value;
-    const n = Number(value);
+  const fmtKg = (v: unknown) => {
+    const n = Number(v);
     if (!Number.isFinite(n)) return "—";
     return `${new Intl.NumberFormat("es-MX", { maximumFractionDigits: 0 }).format(n)} cajas`;
   };
@@ -88,7 +92,7 @@ const EmpaqueSection: React.FC<EmpaqueSectionProps> = ({
 
             <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500, lineHeight: 1.6 }}>
               {helperText ??
-                "En este tablero, Empaque no tendrá tabla principal. Se abre como Drawer desde la columna “Empaque” en Recepciones (chip/acción)."}
+                "En este tablero, Empaque no tendrá tabla principal. Se abre como Drawer desde la columna \u201cEmpaque\u201d en Recepciones (chip/acción)."}
             </Typography>
 
             <Box sx={{ mt: 1.5, display: "flex", gap: 1, flexWrap: "wrap" }}>
@@ -107,7 +111,6 @@ const EmpaqueSection: React.FC<EmpaqueSectionProps> = ({
               >
                 Ver pendientes
               </Button>
-
             </Box>
           </Box>
 
@@ -167,25 +170,19 @@ const EmpaqueSection: React.FC<EmpaqueSectionProps> = ({
               {
                 label: "Referencia",
                 key: "ref",
-                render: (_, i) => (
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {`Empaque #${(page - 1) * pageSize + i + 1}`}
-                  </Typography>
-                )
+                render: (_, i) => {
+                  const effectiveCount = (totalCount && totalCount > 0) ? totalCount : inventoryRows.length;
+                  return (
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {`Empaque #${(effectiveCount || 0) - (page - 1) * pageSize - (i ?? 0)}`}
+                    </Typography>
+                  );
+                }
               },
               {
                 label: "Fecha",
                 key: "fecha",
-                render: (r) => {
-                  if (!r.fecha) return "—";
-                  // Mostrar fecha y hora local
-                  try {
-                    const d = new Date(r.fecha);
-                    return d.toLocaleString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" });
-                  } catch {
-                    return r.fecha;
-                  }
-                }
+                render: (r) => formatSmartDateTime(r.fecha)
               },
               {
                 label: "Clasificación",
@@ -195,7 +192,6 @@ const EmpaqueSection: React.FC<EmpaqueSectionProps> = ({
                     return (r as any).clasificacion_label;
                   }
                   const m = (r.meta || {}) as any;
-                  // Prioridad 2: Desglose ya formateado desde backend (Legacy P4)
                   const items = m.desglose;
                   if (Array.isArray(items) && items.length > 0) {
                     return (
@@ -208,7 +204,6 @@ const EmpaqueSection: React.FC<EmpaqueSectionProps> = ({
                       </Box>
                     );
                   }
-                  // Prioridad 3: Construcción manual si el backend manda campos planos en meta (fallback robusto)
                   if (m.material || m.calidad || m.tipo) {
                     return `${m.material || "?"} ${m.calidad || "?"} ${m.tipo || "?"}`;
                   }
@@ -218,13 +213,28 @@ const EmpaqueSection: React.FC<EmpaqueSectionProps> = ({
               { label: "Huertero", key: "huerta", render: (r) => <Typography variant="body2">{r.huerta || "—"}</Typography> },
               {
                 label: "Cajas",
-                key: "kg",
-                align: "right",
-                render: (r) => (
-                  <Typography variant="body2" fontWeight={700}>
-                    {formatCajas(r.kg)}
-                  </Typography>
-                ),
+                key: "cajas",
+                render: (r) => {
+                  const total = (r as any).cajas ?? (r as any).kg ?? 0;
+                  const totalStr = fmtKg(total);
+                  // Determine which materials are present
+                  const raw = ((r.meta || {}) as any).desglose_raw as Array<{ material?: string }> | undefined;
+                  if (raw && raw.length > 0) {
+                    const mats = new Set(raw.map(d => (d.material || "").toUpperCase()));
+                    const hasMadera = mats.has("MADERA");
+                    const hasPlastico = mats.has("PLASTICO");
+                    const matLabel = hasMadera && hasPlastico ? "📦 · 🔲" : hasMadera ? "📦 Madera" : hasPlastico ? "🔲 Plástico" : "";
+                    if (matLabel) {
+                      return (
+                        <Box>
+                          <Typography variant="body2" fontWeight={600}>{totalStr}</Typography>
+                          <Typography variant="caption" color="text.secondary">{matLabel}</Typography>
+                        </Box>
+                      );
+                    }
+                  }
+                  return totalStr;
+                },
               },
               {
                 label: "Despachado",
@@ -249,8 +259,9 @@ const EmpaqueSection: React.FC<EmpaqueSectionProps> = ({
             rowKey={(r) => r.id}
             page={page}
             pageSize={pageSize}
-            count={inventoryRows.length}
-            onPageChange={() => { }}
+            // F-03 FIX: Usar totalCount del servidor en lugar de inventoryRows.length
+            count={totalCount ?? inventoryRows.length}
+            onPageChange={onPageChange ?? (() => { })}
             loading={false}
             dense
             striped={true}

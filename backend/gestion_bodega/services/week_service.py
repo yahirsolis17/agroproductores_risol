@@ -25,6 +25,42 @@ class WeekService:
     """
 
     @staticmethod
+    def auto_close_expired_week(
+        bodega: Bodega,
+        temporada: TemporadaBodega,
+    ) -> Optional[CierreSemanal]:
+        """
+        Si hay una semana abierta cuyo rango ya expiró (fecha_desde + 6 < hoy),
+        se cierra automáticamente con fecha_hasta = fecha_desde + 6.
+
+        Returns:
+            El CierreSemanal cerrado, o None si no había semana expirada.
+        """
+        today = timezone.localdate()
+        open_week = (
+            CierreSemanal.objects.select_for_update()
+            .filter(
+                bodega=bodega,
+                temporada=temporada,
+                fecha_hasta__isnull=True,
+                is_active=True,
+            )
+            .first()
+        )
+        if not open_week:
+            return None
+
+        limit = open_week.fecha_desde + timedelta(days=6)
+        if today <= limit:
+            # Still within the 7-day window — not expired
+            return None
+
+        # Auto-close at day 7
+        open_week.fecha_hasta = limit
+        open_week.save(update_fields=["fecha_hasta", "actualizado_en"])
+        return open_week
+
+    @staticmethod
     def start_week(
         bodega: Bodega,
         temporada: TemporadaBodega,
@@ -34,6 +70,9 @@ class WeekService:
     ) -> CierreSemanal:
         """
         Inicia una nueva semana operativa (abierta: fecha_hasta = None).
+
+        Si existe una semana abierta expirada (>7 días), se auto-cierra
+        antes de crear la nueva.
 
         Args:
             bodega: Instancia de la bodega
@@ -46,7 +85,7 @@ class WeekService:
             CierreSemanal creado
 
         Raises:
-            ValidationError: Si ya existe una semana abierta o validaciones fallan
+            ValidationError: Si ya existe una semana abierta NO expirada
         """
         # Validaciones previas
         if not bodega.is_active:
@@ -67,7 +106,10 @@ class WeekService:
                 iso_semana = None
 
         with transaction.atomic():
-            # Verificar que no exista otra semana abierta
+            # Auto-close any expired open week before checking constraint
+            WeekService.auto_close_expired_week(bodega, temporada)
+
+            # Verificar que no exista otra semana abierta (non-expired)
             if (
                 CierreSemanal.objects.select_for_update()
                 .filter(

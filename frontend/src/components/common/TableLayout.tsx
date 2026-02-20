@@ -409,7 +409,7 @@ export function TableLayout<T>({
                     onClick={() => onRowClick?.(item)}
                   >
                     <td className="px-4 border">
-                      {(page - 1) * effectivePageSize + i + 1}
+                      {count - (page - 1) * effectivePageSize - i}
                     </td>
                     {columns.map((col, j) => (
                       <td

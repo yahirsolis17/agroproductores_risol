@@ -15,15 +15,11 @@ import {
   Alert,
   Tabs,
   Tab,
-  Zoom,
   Card,
   CardContent,
   CircularProgress,
   Avatar,
   AvatarGroup,
-  SpeedDial,
-  SpeedDialAction,
-  SpeedDialIcon,
   useMediaQuery,
 } from "@mui/material";
 
@@ -31,20 +27,15 @@ import {
   Add as AddIcon,
   Remove as RemoveIcon,
   Inventory2Outlined as InventoryIcon,
-  LocalShippingOutlined as ShippingIcon,
+  AgricultureOutlined as ShippingIcon,
   InfoOutlined as InfoIcon,
   WarningAmber as WarningIcon,
   Dashboard as DashboardIcon,
-  SwapHoriz as TransferIcon,
-  AutoFixHigh as AutoDistributeIcon,
   PieChart as ChartIcon,
-  Timeline as TimelineIcon,
-  Palette as MaterialIcon,
   Grade as QualityIcon,
   Restore as ResetIcon,
   Save as SaveIcon,
   Close as CloseIcon,
-  TouchApp as TouchIcon,
 } from "@mui/icons-material";
 
 import { formatDateDisplay, formatDateISO } from "../../../../global/utils/date";
@@ -240,7 +231,6 @@ export default function EmpaqueDrawer({
 
   // Estados
   const [activeTab, setActiveTab] = useState<Material>("PLASTICO");
-  const [notes, setNotes] = useState<string>("");
   const [lines, setLines] = useState<Record<LineKey, number>>(() => buildInitialLines());
   const [quickActions, setQuickActions] = useState<string[]>([]);
 
@@ -256,7 +246,6 @@ export default function EmpaqueDrawer({
     // pero sí cuando abre (manejado arriba).
     if (!open) return;
 
-    setNotes(recepcion?.observaciones ?? "");
     setLines(buildInitialLines()); // base en 0
     setQuickActions([]);
     setInitialSnapshot(buildInitialLines());
@@ -329,29 +318,30 @@ export default function EmpaqueDrawer({
     setLines((prev) => ({ ...prev, [key]: Math.max(0, clampInt(prev[key]) + delta) }));
   };
 
-  const distributeRemaining = () => {
-    if (isBulk) return;
-    if (totals.remaining <= 0) return;
-
-    const activeQualities = activeTab === "PLASTICO" ? PLASTIC_QUALITIES : WOOD_QUALITIES;
-    const linesToUpdate = activeQualities
-      .map((q) => `${activeTab}.${q}` as LineKey)
-      .filter((key) => clampInt(lines[key]) === 0);
-
-    if (linesToUpdate.length === 0) return;
-
-    const distribution = Math.floor(totals.remaining / linesToUpdate.length);
-    const updates = linesToUpdate.reduce((acc, key) => ({ ...acc, [key]: distribution }), {});
-
-    setLines((prev) => ({ ...prev, ...updates }));
-    setQuickActions((prev) => [`Distribución automática: ${distribution} cajas/calidad`, ...prev]);
-  };
-
-  // Componente de tarjeta de calidad
+  // Componente de tarjeta de calidad — usa estado local para el input
+  // para evitar re-renders del parent en cada tecla
   const QualityCard = ({ material, quality }: { material: Material; quality: string }) => {
     const key = `${material}.${quality}` as LineKey;
-    const value = clampInt(lines[key]);
+    const committedValue = clampInt(lines[key]);
     const meta = QUALITY_METADATA[material][quality];
+
+    // Estado local del input — solo se sincroniza al parent en blur/Enter
+    const [localValue, setLocalValue] = useState<string>(committedValue === 0 ? "" : String(committedValue));
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    // Sincronizar hacia abajo cuando el parent cambia (reset, hidratación, distribución)
+    useEffect(() => {
+      const str = committedValue === 0 ? "" : String(committedValue);
+      setLocalValue(str);
+    }, [committedValue]);
+
+    // Commit: aplica el valor local al state global
+    const commit = () => {
+      const newVal = clampInt(localValue);
+      if (newVal !== committedValue) {
+        setLine(key, newVal);
+      }
+    };
 
     return (
       <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
@@ -370,38 +360,20 @@ export default function EmpaqueDrawer({
             },
           }}
         >
-          <CardContent sx={{ p: "0 !important" }}>
-            <Box sx={{ display: "flex", alignItems: "center", mb: 1.5 }}>
-              <Avatar
-                sx={{
-                  bgcolor: alpha(meta?.color || theme.palette.primary.main, 0.1),
-                  color: meta?.color || theme.palette.primary.main,
-                  mr: 1.5,
-                  width: 32,
-                  height: 32,
-                }}
-              >
-                <Typography variant="body2">{meta?.icon || "📦"}</Typography>
-              </Avatar>
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 900, lineHeight: 1.2 }}>
-                  {quality}
-                </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-                  {meta?.description}
-                </Typography>
-              </Box>
-              <Tooltip title="Historial">
-                <IconButton size="small">
-                  <TimelineIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
+          <CardContent sx={{ p: "0 !important", display: "flex", flexDirection: "column", gap: 1 }}>
+            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", mb: 0.5 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 900, lineHeight: 1.2, textAlign: "center" }}>
+                {quality}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", textAlign: "center" }}>
+                {meta?.description}
+              </Typography>
             </Box>
 
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <IconButton
                 size="small"
-                disabled={inputsDisabled || value === 0}
+                disabled={inputsDisabled || committedValue === 0}
                 onClick={() => bumpLine(key, -1)}
                 sx={{
                   bgcolor: alpha(theme.palette.error.main, 0.1),
@@ -412,13 +384,30 @@ export default function EmpaqueDrawer({
               </IconButton>
 
               <TextField
-                value={value === 0 ? "" : value}
-                onChange={(e) => setLine(key, e.target.value)}
+                inputRef={inputRef}
+                value={localValue}
+                onChange={(e) => setLocalValue(e.target.value)}
+                onBlur={commit}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    commit();
+                    // Move focus to next input for fast data entry
+                    const allInputs = document.querySelectorAll<HTMLInputElement>(
+                      '[data-quality-input="true"]'
+                    );
+                    const idx = Array.from(allInputs).indexOf(e.target as HTMLInputElement);
+                    if (idx >= 0 && idx < allInputs.length - 1) {
+                      allInputs[idx + 1].focus();
+                      allInputs[idx + 1].select();
+                    }
+                  }
+                }}
                 placeholder="0"
                 disabled={inputsDisabled}
                 type="number"
                 inputProps={{
                   min: 0,
+                  "data-quality-input": "true",
                   style: {
                     textAlign: "center",
                     fontSize: "1.2rem",
@@ -451,12 +440,12 @@ export default function EmpaqueDrawer({
             <Box sx={{ display: "flex", justifyContent: "space-between", mt: 1.5 }}>
               <Tooltip title="Porcentaje del total">
                 <Typography variant="caption" color="text.secondary">
-                  {captured > 0 ? `${((value / captured) * 100).toFixed(1)}%` : "0%"}
+                  {captured > 0 ? `${((committedValue / captured) * 100).toFixed(1)}%` : "0%"}
                 </Typography>
               </Tooltip>
-              <Tooltip title="Peso estimado">
+              <Tooltip title="Cajas empacadas">
                 <Typography variant="caption" color="text.secondary">
-                  ~{value * 18}kg
+                  {committedValue} cajas
                 </Typography>
               </Tooltip>
             </Box>
@@ -520,7 +509,9 @@ export default function EmpaqueDrawer({
             ? "BLOQUEADO"
             : readOnly
               ? "SOLO LECTURA"
-              : "EDITANDO";
+              : totals.packed === 0
+                ? "REGISTRANDO"
+                : "EDITANDO";
   const modeColor = loadingInitial ? "info" : readOnly ? "warning" : "success";
 
   // Header improved
@@ -539,7 +530,7 @@ export default function EmpaqueDrawer({
               mb: 0.5,
             }}
           >
-            {isBulk ? "Empaque Masivo (FIFO)" : (recepcion ? `Recepción #${recepcion.id}` : "Nueva Recepción")}
+            {isBulk ? "Empaque Masivo (FIFO)" : (recepcion ? "Captura de Calidades" : "Nueva Recepción")}
           </Typography>
 
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
@@ -562,7 +553,7 @@ export default function EmpaqueDrawer({
                   sx={{ fontWeight: 700 }}
                 />
                 <Chip
-                  icon={<MaterialIcon />}
+                  icon={<span style={{ fontSize: '1.2rem', marginLeft: '4px' }}>🥭</span>}
                   label={recepcion?.tipo_mango || "—"}
                   size="small"
                   sx={{ fontWeight: 700 }}
@@ -776,7 +767,6 @@ export default function EmpaqueDrawer({
                   <Typography variant="h6" sx={{ fontWeight: 900, display: "flex", alignItems: "center", gap: 1 }}>
                     <DashboardIcon /> Dashboard de Control
                   </Typography>
-                  <Chip label="MODO VISUAL" color="primary" variant="outlined" sx={{ fontWeight: 900 }} />
                 </Box>
 
                 <Box
@@ -978,23 +968,6 @@ export default function EmpaqueDrawer({
                     </Alert>
                   )}
                 </Box>
-
-                <TextField
-                  label="Notas del empaque"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  fullWidth
-                  multiline
-                  rows={4}
-                  disabled={inputsDisabled}
-                  placeholder="📝 Registra observaciones importantes del proceso de empaque..."
-                  sx={{
-                    "& .MuiOutlinedInput-root": {
-                      borderRadius: 3,
-                      bgcolor: alpha(theme.palette.background.paper, 0.5),
-                    },
-                  }}
-                />
               </Paper>
             </Box>
           </Box>
@@ -1031,17 +1004,6 @@ export default function EmpaqueDrawer({
               </Box>
 
               <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-                <Button
-                  startIcon={<AutoDistributeIcon />}
-                  onClick={distributeRemaining}
-                  disabled={inputsDisabled || totals.remaining <= 0}
-                  variant="outlined"
-                  size="small"
-                  sx={{ borderRadius: 3, fontWeight: 700 }}
-                >
-                  Distribuir {totals.remaining} restantes
-                </Button>
-
                 <Tabs
                   value={activeTab}
                   onChange={(_, v) => setActiveTab(v)}
@@ -1112,49 +1074,6 @@ export default function EmpaqueDrawer({
             ))}
           </Box>
         </motion.div>
-
-        {/* Acciones Rápidas Flotantes */}
-        {!readOnly && (
-          <Zoom in={true}>
-            <SpeedDial
-              ariaLabel="Acciones rápidas de empaque"
-              sx={{
-                position: "fixed",
-                bottom: 100,
-                right: 32,
-                "& .MuiSpeedDialAction-fab": {
-                  bgcolor: theme.palette.primary.main,
-                  color: "white",
-                  "&:hover": {
-                    bgcolor: theme.palette.primary.dark,
-                  },
-                },
-              }}
-              icon={<SpeedDialIcon icon={<TouchIcon />} openIcon={<CloseIcon />} />}
-              direction="up"
-            >
-              <SpeedDialAction
-                icon={<TransferIcon />}
-                tooltipTitle="Transferir entre calidades"
-                onClick={() => {
-                  // Implementar transferencia
-                }}
-              />
-              <SpeedDialAction
-                icon={<AutoDistributeIcon />}
-                tooltipTitle="Distribución automática"
-                onClick={distributeRemaining}
-              />
-              <SpeedDialAction
-                icon={<ChartIcon />}
-                tooltipTitle="Ver análisis detallado"
-                onClick={() => {
-                  // Implementar análisis
-                }}
-              />
-            </SpeedDial>
-          </Zoom>
-        )}
       </Box>
     </AppDrawer>
   );

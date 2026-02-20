@@ -19,6 +19,8 @@
     "@mui/material": "^7.0.2",
     "@reduxjs/toolkit": "^2.6.1",
     "axios": "^1.8.4",
+    "baseline-browser-mapping": "^2.10.0",
+    "caniuse-lite": "^1.0.30001770",
     "clsx": "^2.1.1",
     "formik": "^2.4.6",
     "framer-motion": "^12.6.5",

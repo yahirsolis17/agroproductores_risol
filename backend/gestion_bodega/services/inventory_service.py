@@ -58,8 +58,9 @@ class InventoryService:
             qs_periodo = qs_periodo.filter(fecha__lte=fecha_hasta)
 
         # 2. Agregación Global (Periodo) - Para KPIs de "Producción Reciente"
+        # FIX: produced_period EXCLUYE merma — merma es pérdida, no producción real
         agg_periodo = qs_periodo.aggregate(
-            produced=Coalesce(Sum("cantidad_cajas"), 0),
+            produced=Coalesce(Sum("cantidad_cajas", filter=~Q(calidad__iexact="MERMA")), 0),
             merma=Coalesce(Sum("cantidad_cajas", filter=Q(calidad__iexact="MERMA")), 0)
         )
         produced_period = agg_periodo["produced"]
@@ -123,17 +124,32 @@ class InventoryService:
         if fecha_desde: qs = qs.filter(fecha__gte=fecha_desde)
         if fecha_hasta: qs = qs.filter(fecha__lte=fecha_hasta)
         
-        # Anotamos lo empacado REAL (histórico total de esa recepción)
+        # Anotamos lo empacado REAL (excluyendo MERMA — merma no es producto empacado)
+        # FIX: MERMA se contaba como "empacado", haciendo que recepciones con solo
+        # merma aparecieran como finalizadas cuando realmente no se empacó nada útil.
         qs = qs.annotate(
             total_packed=Coalesce(
-                Sum("clasificaciones__cantidad_cajas", filter=Q(clasificaciones__is_active=True)), 
+                Sum("clasificaciones__cantidad_cajas", filter=Q(
+                    clasificaciones__is_active=True
+                ) & ~Q(clasificaciones__calidad__iexact="MERMA")), 
+                0
+            ),
+            total_merma=Coalesce(
+                Sum("clasificaciones__cantidad_cajas", filter=Q(
+                    clasificaciones__is_active=True,
+                    clasificaciones__calidad__iexact="MERMA"
+                )), 
                 0
             )
         )
         
         total = qs.count()
-        pendientes = qs.filter(total_packed__lt=F("cajas_campo")).count()
-        empacadas = qs.filter(total_packed__gte=F("cajas_campo"), cajas_campo__gt=0).count()
+        # Annotate total classified (packed + merma) — both are "accounted for"
+        qs = qs.annotate(total_classified=F("total_packed") + F("total_merma"))
+        # Pendientes: still have unclassified cajas
+        pendientes = qs.filter(total_classified__lt=F("cajas_campo")).count()
+        # Finalizadas: all cajas are accounted for (packed + merma ≥ cajas_campo)
+        empacadas = qs.filter(total_classified__gte=F("cajas_campo"), cajas_campo__gt=0).count()
         
         return {
             "total_recepciones": total,
@@ -185,6 +201,8 @@ class InventoryService:
             
             if disponible > 0:
                 # Construimos el DTO
+                recepcion = getattr(item, "recepcion", None)
+                huertero = getattr(recepcion, "huertero_nombre", "") if recepcion else ""
                 results.append({
                     "id": item.id,  # Integer real
                     "material": item.material or "",
@@ -194,6 +212,7 @@ class InventoryService:
                     "fecha": item.fecha.isoformat() if item.fecha else "",
                     "lote_codigo": item.lote.codigo_lote if item.lote else "",
                     "recepcion_id": item.recepcion_id,
+                    "huertero": huertero,
                     "_debug_initial": item.cantidad_cajas,
                 })
 

@@ -699,4 +699,63 @@ NOTIFICATION_MESSAGES = {
         "type": "warning",
         "code": 400,
     },
+
+    # ==========================
+    # Nuevas llaves (20-Feb-2026)
+    # ==========================
+    "camion_carga_creada": {
+        "message": "Carga creada exitosamente.",
+        "type": "success",
+        "code": 201,
+    },
+    "camion_cargas_creadas": {
+        "message": "Cargas creadas exitosamente.",
+        "type": "success",
+        "code": 201,
+    },
+    "camion_inmutable": {
+        "message": "Este camión ya fue confirmado o anulado y no se puede editar.",
+        "type": "error",
+        "code": 409,
+    },
+    "clasificacion_balance_invalido": {
+        "message": "El balance de masa introducido es congruente.",
+        "type": "error",
+        "code": 400,
+    },
+    "clasificacion_bulk_fifo_ok": {
+        "message": "Renglones asignados automáticamente usando FIFO.",
+        "type": "success",
+        "code": 200,
+    },
+    "cliente_update_success": {
+        "message": "Cliente actualizado.",
+        "type": "success",
+        "code": 200,
+    },
+    "recepcion_inmutable_por_consumo": {
+        "message": "La recepción no puede alterarse porque ya ha sido surtida o cargada.",
+        "type": "error",
+        "code": 409,
+    },
+    "recurso_eliminado": {
+        "message": "El recurso fue eliminado exitosamente.",
+        "type": "success",
+        "code": 200,
+    },
+    "recurso_no_encontrado": {
+        "message": "El recurso solicitado no fue encontrado.",
+        "type": "error",
+        "code": 404,
+    },
+    "stock_disponible_fetched": {
+        "message": "Stock disponible calculado.",
+        "type": "success",
+        "code": 200,
+    },
+    "unexpected_error": {
+        "message": "Ha ocurrido un error inesperado al procesar la solicitud.",
+        "type": "error",
+        "code": 500,
+    },
 }

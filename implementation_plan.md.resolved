@@ -1,0 +1,75 @@
+# Plan de Acción: Trazabilidad Física del Inventario de Madera
+
+Este documento establece la arquitectura lógica para controlar el inventario **físico** de cajas de madera, separándolo del control financiero (deuda) que ya existe. El objetivo es máxima robustez, CERO bifurcaciones de código, y aprovechar la estructura actual sin crear archivos innecesarios.
+
+## 1. El Reto Principal (Contexto)
+Actualmente, [CompraMadera](file:///c:/Users/Yahir/agroproductores_risol/backend/gestion_bodega/models.py#789-848) registra la **deuda financiera** (ej. compré 1000 cajas a $1, debo $1000). Pero no existe un almacén que diga "Hay 1000 cajas de madera físicamente en la bodega".
+Como consecuencia, los empacadores pueden registrar cajas de madera al infinito en [ClasificacionEmpaque](file:///c:/Users/Yahir/agroproductores_risol/backend/gestion_bodega/models.py#570-698) sin que el sistema los detenga por falta de stock.
+
+## 2. Solución Arquitectónica (Reutilización de Código)
+
+En lugar de crear un modelo nuevo `InventarioMadera`, **vamos a reutilizar el modelo de Compras existente agregando un campo de "stock remanente"**.
+
+### Modificaciones en la Base de Datos ([models.py](file:///c:/Users/Yahir/agroproductores_risol/backend/gestion_bodega/models.py))
+Modificaremos el modelo [CompraMadera](file:///c:/Users/Yahir/agroproductores_risol/backend/gestion_bodega/models.py#789-848) agregándole un campo de stock físico, independiente del saldo financiero.
+
+```python
+class CompraMadera(TimeStampedModel):
+    # ... campos existentes (proveedor, cantidad_cajas, precio, saldo, etc) ...
+
+    # [NUEVO] Control de stock físico (inicia igual a cantidad_cajas)
+    stock_fisico = models.PositiveIntegerField(default=0, help_text="Cajas físicas aún disponibles en esta compra")
+    # [NUEVO] Booleano para búsquedas rápidas (True si stock_fisico > 0)
+    hay_stock = models.BooleanField(default=True)
+```
+
+**Justificación:** ¿Por qué no crear `InventarioMaderaGlobal`?
+Porque el método FIFO (First In, First Out) es vital en bodega. Si compramos madera y está defectuosa, necesitamos saber de qué proveedor/compra provino. Al descontar las cajas de madera usadas directamente de las compras más antiguas ([CompraMadera](file:///c:/Users/Yahir/agroproductores_risol/backend/gestion_bodega/models.py#789-848) con `hay_stock=True`), mantenemos la trazabilidad exacta.
+
+---
+
+## 3. Flujo Dinámico (Cómo cobrará vida)
+
+### Evento A: Llega madera nueva a la bodega (Entrada)
+Cuando el usuario registra una nueva [CompraMadera](file:///c:/Users/Yahir/agroproductores_risol/backend/gestion_bodega/models.py#789-848) de 1,000 cajas a $10 pesos:
+1. El backend genera la deuda de $10,000.
+2. El backend establece `cantidad_cajas = 1000` y **`stock_fisico = 1000`**.
+3. El estado de la compra se marca con `hay_stock = True`.
+
+### Evento B: El Empacador usa Cajas de Madera (Salida)
+Cuando el usuario en la UI (EmpaqueDrawer) guarda un bloque de cajas de madera (ej. 50 cajas Primera, 10 Niño = 60 cajas en total):
+1. **Validación Previa:** El backend suma todo el `stock_fisico` de las compras de madera activas en la temporada. Si Total (ej. 40) < Requerido (60), revienta la transacción con un error `400 Bad Request`: *"Stock insuficiente de madera. Faltan 20 cajas"*.
+2. **Descuento FIFO:** El backend busca la [CompraMadera](file:///c:/Users/Yahir/agroproductores_risol/backend/gestion_bodega/models.py#789-848) más antigua con `hay_stock=True`.
+    - Compra #1 tiene 50 cajas.
+    - Descuenta las 50 cajas (Compra #1 queda en 0 y `hay_stock = False`).
+    - Faltan 10 cajas. Va a la Compra #2.
+    - Se descuentan las 10 cajas.
+3. Se guarda el registro de [ClasificacionEmpaque](file:///c:/Users/Yahir/agroproductores_risol/backend/gestion_bodega/models.py#570-698).
+
+### Evento C: El Empacador se equivoca y borra/edita un registro (Reembolso)
+Si el empacador había guardado 60 cajas de madera, pero luego lo edita para que sean solo 40:
+1. El sistema nota que "sobran" 20 cajas.
+2. **Reembolso:** El sistema toma las 20 cajas y se las vuelve a sumar (reembolsar) a las últimas compras de donde las había restado (LIFO).
+3. Si el stock sube de 0, vuelve a encender `hay_stock = True`.
+
+---
+
+## 4. Archivos a Modificar (Impacto Controlado)
+
+Ningún archivo nuevo será creado. Modificaremos los núcleos lógicos:
+
+1. **[backend/gestion_bodega/models.py](file:///c:/Users/Yahir/agroproductores_risol/backend/gestion_bodega/models.py)**
+   - Modificar [CompraMadera](file:///c:/Users/Yahir/agroproductores_risol/backend/gestion_bodega/models.py#789-848) (agregar `stock_fisico` y `hay_stock`).
+2. **[backend/gestion_bodega/serializers.py](file:///c:/Users/Yahir/agroproductores_risol/backend/gestion_bodega/serializers.py)**
+   - En [ClasificacionEmpaqueSerializer](file:///c:/Users/Yahir/agroproductores_risol/backend/gestion_bodega/serializers.py#499-604), interceptar la creación/actualización cuando `material == Material.MADERA`. Ejecutar el algoritmo FIFO de descuento. Ejecutar reembolsos automáticos si se elimina/edita la clasificación a la baja.
+3. **[backend/gestion_bodega/utils/inventario_empaque.py](file:///c:/Users/Yahir/agroproductores_risol/backend/gestion_bodega/utils/inventario_empaque.py)** (o helper similar)
+   - Crear una función estricta con `@transaction.atomic` y `.select_for_update()` para evitar condiciones de carrera (dos empacadores guardando al mismo tiempo y logrando stock negativo).
+
+## 5. El "Plus" de Robustez (Puntos Ciegos resueltos)
+
+- **Cierre de Temporada:** Al finalizar una temporada, todo stock físico que sobra de [CompraMadera](file:///c:/Users/Yahir/agroproductores_risol/backend/gestion_bodega/models.py#789-848) de esa temporada se "congela" (no pasa a la siguiente). 
+- **Concurrencia:** Con bloqueos de base de datos a nivel fila (`select_for_update`), es matemáticamente imposible que el stock quede en negativo (-10).
+- **Flexibilidad:** Este esquema respeta la arquitectura actual que no distingue por "tipos de cajas de madera", asumiendo que "caja de madera" es un consumible unitario universal. Si en un futuro se necesitan tipos (Chica, Grande), el modelo [CompraMadera](file:///c:/Users/Yahir/agroproductores_risol/backend/gestion_bodega/models.py#789-848) sencillamente recibiría un campo `tipo_caja`.
+
+---
+*Fin del Análisis Arquitectónico. Listo para discusión técnica.*

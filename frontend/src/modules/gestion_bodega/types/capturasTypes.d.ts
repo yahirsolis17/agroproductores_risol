@@ -15,7 +15,7 @@ export type PaginationMeta = {
 };
 
 // ------------ Empaque (resumen por recepción) ------------
-export type EmpaqueStatus = "SIN_EMPAQUE" | "PARCIAL" | "EMPACADO";
+export type EmpaqueStatus = "SIN_EMPAQUE" | "PARCIAL" | "EMPACADO" | "MERMA_TOTAL";
 
 // ------------ Dominio: Capturas (backend: Recepciones) ------------
 export interface Captura {

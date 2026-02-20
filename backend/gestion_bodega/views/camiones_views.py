@@ -108,6 +108,11 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
         self.required_permissions = self._perm_map.get(getattr(self, "action", ""), [])
         return super().get_permissions()
 
+    def retrieve(self, request, *args, **kwargs):
+        obj = self.get_object()
+        ser = self.get_serializer(obj)
+        return self.notify(key="data_processed_success", data=ser.data, status_code=status.HTTP_200_OK)
+
     def create(self, request, *args, **kwargs):
         ser = self.get_serializer(data=request.data)
         try:
@@ -116,12 +121,14 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
             return self.notify(key="validation_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
 
         data = ser.validated_data
-        if _semana_cerrada(data["bodega"].id, data["temporada"].id, data["fecha_salida"]):
-            return self.notify(key="camion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
+        fecha = data.get("fecha_salida")
+        if fecha:
+            if _semana_cerrada(data["bodega"].id, data["temporada"].id, fecha):
+                return self.notify(key="camion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
 
         semana = data.get("semana")
-        if not semana:
-            semana = _resolve_semana_for_fecha(data["bodega"], data["temporada"], data["fecha_salida"])
+        if not semana and fecha:
+            semana = _resolve_semana_for_fecha(data["bodega"], data["temporada"], fecha)
             if not semana:
                 return self.notify(
                     key="validation_error",
@@ -130,7 +137,7 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
                 )
 
         with transaction.atomic():
-            obj = ser.save(semana=semana)
+            obj = ser.save(semana=semana) if semana else ser.save()
 
         return self.notify(key="camion_creado", data={"camion": self.get_serializer(obj).data}, status_code=status.HTTP_201_CREATED)
 
@@ -147,8 +154,11 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
             return self.notify(key="validation_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
 
         data = ser.validated_data
-        if _semana_cerrada(data.get("bodega", obj.bodega).id, data.get("temporada", obj.temporada).id, data.get("fecha_salida", obj.fecha_salida)):
-            return self.notify(key="camion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
+        fecha = data.get("fecha_salida", getattr(obj, "fecha_salida", None))
+        
+        if fecha:
+            if _semana_cerrada(data.get("bodega", obj.bodega).id, data.get("temporada", obj.temporada).id, fecha):
+                return self.notify(key="camion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
 
         with transaction.atomic():
             obj = ser.save()
@@ -168,8 +178,10 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
             return self.notify(key="validation_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
 
         data = ser.validated_data
-        if _semana_cerrada(data.get("bodega", obj.bodega).id, data.get("temporada", obj.temporada).id, data.get("fecha_salida", obj.fecha_salida)):
-            return self.notify(key="camion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
+        fecha = data.get("fecha_salida", getattr(obj, "fecha_salida", None))
+        if fecha:
+            if _semana_cerrada(data.get("bodega", obj.bodega).id, data.get("temporada", obj.temporada).id, fecha):
+                return self.notify(key="camion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
 
         with transaction.atomic():
             obj = ser.save()
@@ -182,7 +194,7 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
         if obj.estado == "CONFIRMADO":
             return self.notify(key="camion_inmutable", status_code=status.HTTP_409_CONFLICT)
         
-        if _semana_cerrada(obj.bodega_id, obj.temporada_id, obj.fecha_salida):
+        if obj.fecha_salida and _semana_cerrada(obj.bodega_id, obj.temporada_id, obj.fecha_salida):
             return self.notify(key="camion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
         with transaction.atomic():
             obj.archivar()
@@ -191,7 +203,7 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
     @action(detail=True, methods=["post"])
     def confirmar(self, request, pk=None):
         obj = self.get_object()
-        if _semana_cerrada(obj.bodega_id, obj.temporada_id, obj.fecha_salida):
+        if obj.fecha_salida and _semana_cerrada(obj.bodega_id, obj.temporada_id, obj.fecha_salida):
             return self.notify(key="camion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
 
         # P1 FIX: Collect reconciliation data BEFORE confirmation
@@ -212,48 +224,19 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
 
         with transaction.atomic():
             try:
-                # P2 FIX: Generate folio AFTER confirmation (assigns numero)
                 obj.confirmar()
                 
-                # P2 FINAL (R1): Derive semana from actual consumptions
-                semanas_consumidas = set()
-                if hasattr(obj, 'cargas') and obj.cargas.exists():
-                    semanas_consumidas = set(
-                        obj.cargas
-                        .filter(is_active=True)
-                        .select_related('clasificacion_empaque')
-                        .values_list('clasificacion_empaque__semana_id', flat=True)
-                        .distinct()
-                    )
-                    # Remove None if exists
-                    semanas_consumidas.discard(None)
-                
-                # Validación de consistencia de semana
-                if len(semanas_consumidas) > 1:
-                    return self.notify(
-                        key="camion_semana_inconsistente",
-                        data={
-                            "reason": "El camión tiene consumos de múltiples semanas",
-                            "semanas": list(semanas_consumidas),
-                        },
-                        status_code=status.HTTP_409_CONFLICT
-                    )
-                
-                # Usar semana derivada o fallback
-                semana_id = (
-                    list(semanas_consumidas)[0] if len(semanas_consumidas) == 1
-                    else obj.semana_id if obj.semana_id
-                    else 0  # Solo si está vacío o sin consumos
-                )
-                
-                folio = f"BOD-{obj.bodega_id}-T{obj.temporada_id}-W{semana_id}-C{obj.numero:05d}"
+                # Generate short unique alphanumeric folio
+                import uuid
+                folio = uuid.uuid4().hex[:8].upper()
                 obj.folio = folio
                 obj.save(update_fields=['folio', 'actualizado_en'])
                 
-            except serializers.ValidationError as e:
+            except (serializers.ValidationError, DjangoValidationError) as e:
+                detail = getattr(e, 'detail', None) or getattr(e, 'message_dict', None) or str(e)
                 return self.notify(
                     key="camion_no_confirmable", 
-                    data={"errors": e.detail if hasattr(e, "detail") else str(e)}, 
+                    data={"errors": detail}, 
                     status_code=status.HTTP_400_BAD_REQUEST
                 )
 
@@ -371,7 +354,7 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
                 )
             
             # Validar semana cerrada
-            if _semana_cerrada(obj.bodega_id, obj.temporada_id, obj.fecha_salida):
+            if obj.fecha_salida and _semana_cerrada(obj.bodega_id, obj.temporada_id, obj.fecha_salida):
                 return self.notify(key="camion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
             
             # Delegar a InventoryService para asignar por FEFO
@@ -417,7 +400,7 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
         except serializers.ValidationError:
             return self.notify(key="validation_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
 
-        if _semana_cerrada(obj.bodega_id, obj.temporada_id, obj.fecha_salida):
+        if obj.fecha_salida and _semana_cerrada(obj.bodega_id, obj.temporada_id, obj.fecha_salida):
             return self.notify(key="camion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
 
         with transaction.atomic():
@@ -445,7 +428,7 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
         except CamionConsumoEmpaque.DoesNotExist:
             return self.notify(key="recurso_no_encontrado", status_code=status.HTTP_404_NOT_FOUND)
 
-        if _semana_cerrada(obj.bodega_id, obj.temporada_id, obj.fecha_salida):
+        if obj.fecha_salida and _semana_cerrada(obj.bodega_id, obj.temporada_id, obj.fecha_salida):
             return self.notify(key="camion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
 
         with transaction.atomic():

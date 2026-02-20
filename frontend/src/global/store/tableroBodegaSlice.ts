@@ -46,6 +46,7 @@ export interface TableroFilters {
   order_by: string | null;
 }
 
+// F-05 FIX: Fuente única de verdad para order_by (alineada con aliases del backend)
 const DEFAULT_ORDER_BY: Record<QueueType, string> = {
   recepciones: "fecha:desc,id:desc",
   inventarios: "fecha:desc,id:desc",
@@ -60,7 +61,7 @@ const DEFAULT_FILTERS: TableroFilters = {
   calidad: null,
   madurez: null,
   estado: null,
-  solo_pendientes: true,
+  solo_pendientes: undefined, // F-04 FIX: sin filtro silencioso — mostrar todas por defecto
   page: 1,
   page_size: 10,
   order_by: DEFAULT_ORDER_BY.recepciones,
