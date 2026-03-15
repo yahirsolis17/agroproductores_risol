@@ -2,6 +2,7 @@
 from datetime import timedelta, datetime, time
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import Sum, Q
 from django.utils import timezone
@@ -1027,6 +1028,7 @@ class CierreSemanalSerializer(serializers.ModelSerializer):
             "actualizado_en",
         ]
         read_only_fields = ["locked_by", "creado_en", "actualizado_en"]
+        validators = []
 
     def get_activa(self, obj: CierreSemanal) -> bool:
         return obj.fecha_hasta is None
@@ -1080,8 +1082,12 @@ class CierreSemanalSerializer(serializers.ModelSerializer):
             )
             if self.instance is not None:
                 qs_open = qs_open.exclude(pk=self.instance.pk)
-            if qs_open.exists():
-                raise serializers.ValidationError({"fecha_hasta": _("Ya existe una semana abierta para esta bodega y temporada.")})
+            open_week = qs_open.order_by("-fecha_desde").first()
+            if open_week:
+                open_limit = open_week.fecha_desde + timedelta(days=6)
+                can_auto_close = self.instance is None and timezone.localdate() > open_limit
+                if not can_auto_close:
+                    raise serializers.ValidationError({"fecha_hasta": _("Ya existe una semana abierta para esta bodega y temporada.")})
 
         def _end_or_theoretical(c: CierreSemanal):
             return c.fecha_hasta or (c.fecha_desde + timedelta(days=6))
@@ -1108,12 +1114,27 @@ class CierreSemanalSerializer(serializers.ModelSerializer):
     def create(self, validated_data: Dict[str, Any]) -> CierreSemanal:
         iso_semana = validated_data.get("iso_semana")
         fdesde = validated_data.get("fecha_desde")
+        fhasta = validated_data.get("fecha_hasta")
         if not iso_semana and fdesde:
             try:
                 iso_semana = f"{fdesde.isocalendar().year}-W{str(fdesde.isocalendar().week).zfill(2)}"
                 validated_data["iso_semana"] = iso_semana
             except Exception:
                 pass
+        if fhasta is None:
+            from gestion_bodega.services.week_service import WeekService
+
+            try:
+                return WeekService.start_week(
+                    bodega=validated_data["bodega"],
+                    temporada=validated_data["temporada"],
+                    fecha_desde=fdesde,
+                    user=validated_data.get("locked_by"),
+                    iso_semana=iso_semana,
+                )
+            except DjangoValidationError as exc:
+                detail = getattr(exc, "message_dict", None) or {"non_field_errors": exc.messages}
+                raise serializers.ValidationError(detail) from exc
         return super().create(validated_data)
 
 

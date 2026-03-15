@@ -41,6 +41,13 @@ const forceLogout = () => {
   window.location.href = '/login';
 };
 
+type RefreshTokens = {
+  access: string;
+  refresh?: string;
+};
+
+let refreshRequest: Promise<RefreshTokens> | null = null;
+
 export const isApiClientTransportError = (err: unknown): err is AxiosError<unknown> => {
   if (!axios.isAxiosError(err)) return false;
 
@@ -51,6 +58,42 @@ export const isApiClientConfirmedAuthError = (err: unknown): err is AxiosError<u
   if (!axios.isAxiosError(err)) return false;
 
   return err.response?.status === 401 || err.response?.status === 403;
+};
+
+const requestTokenRefresh = async (): Promise<RefreshTokens> => {
+  if (!refreshRequest) {
+    const refresh = authService.getRefreshToken();
+
+    if (!refresh) {
+      forceLogout();
+      throw new Error('Refresh token faltante');
+    }
+
+    refreshRequest = axios.post(REFRESH_URL, { refresh })
+      .then((res) => {
+        const access = res.data.access as string | undefined;
+        const nextRefresh = typeof res.data.refresh === 'string' ? res.data.refresh : undefined;
+
+        if (!access) {
+          forceLogout();
+          throw new Error('Access token faltante en refresh');
+        }
+
+        authService.setAccessToken(access);
+        if (nextRefresh) {
+          authService.setRefreshToken(nextRefresh);
+        }
+
+        apiClient.defaults.headers.common.Authorization = `Bearer ${access}`;
+
+        return { access, refresh: nextRefresh };
+      })
+      .finally(() => {
+        refreshRequest = null;
+      });
+  }
+
+  return refreshRequest;
 };
 
 apiClient.interceptors.request.use(config => {
@@ -69,24 +112,16 @@ apiClient.interceptors.response.use(
   },
   async error => {
     const originalRequest = error.config;
+    if (!originalRequest) {
+      return Promise.reject(error);
+    }
+
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
-        const refresh = authService.getRefreshToken();
-        if (!refresh) { forceLogout(); return Promise.reject(error); }
-
-        const res = await axios.post(REFRESH_URL, { refresh });
-        const newAccess = res.data.access;
-
-        if (!newAccess) {
-          forceLogout();
-          return Promise.reject(error);
-        }
-
-        // Persistir y propagar
-        authService.setAccessToken(newAccess);
-        apiClient.defaults.headers.common['Authorization'] = `Bearer ${newAccess}`;
-        originalRequest.headers.Authorization = `Bearer ${newAccess}`;
+        const { access } = await requestTokenRefresh();
+        originalRequest.headers = originalRequest.headers ?? {};
+        originalRequest.headers.Authorization = `Bearer ${access}`;
 
         return apiClient(originalRequest);
       } catch (refreshError) {

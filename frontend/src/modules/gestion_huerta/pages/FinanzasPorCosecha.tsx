@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { Paper, Typography, Box, CircularProgress, Divider, Tabs, Tab, Button } from '@mui/material';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 
 import { useAppDispatch } from '../../../global/store/store';
 import { temporadaService } from '../services/temporadaService';
@@ -213,7 +213,7 @@ const FinanzasPorCosecha: React.FC = () => {
   const cosechaState = cosechaInfo ? { is_active: cosechaInfo.is_active, finalizada: cosechaInfo.finalizada } : null;
 
   return (
-    <motion.div className="p-6 max-w-6xl mx-auto" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+    <m.div className="p-6 max-w-6xl mx-auto" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
       <Paper elevation={4} className="p-6 bg-white rounded-2xl">
         <Typography variant="h4" gutterBottom>Finanzas por Cosecha</Typography>
 
@@ -259,7 +259,7 @@ const FinanzasPorCosecha: React.FC = () => {
           </>
         )}
       </Paper>
-    </motion.div>
+    </m.div>
   );
 };
 

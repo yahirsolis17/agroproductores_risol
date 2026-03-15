@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import {
   Button,
   IconButton,
@@ -51,7 +51,7 @@ const ChangePassword: React.FC = () => {
   return (
     <Box className="auth-stage px-4">
       <Paper elevation={4} className="auth-card w-full max-w-md p-8">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
@@ -159,7 +159,7 @@ const ChangePassword: React.FC = () => {
               </Form>
             )}
           </Formik>
-        </motion.div>
+        </m.div>
       </Paper>
     </Box>
   );

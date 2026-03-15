@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import {
   Box,
   Paper,
@@ -518,7 +518,7 @@ const BodegaTemporadasPage: React.FC = () => {
   }
 
   return (
-    <motion.div
+    <m.div
       className="p-6 max-w-6xl mx-auto"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -617,7 +617,7 @@ const BodegaTemporadasPage: React.FC = () => {
           </DialogActions>
         </Dialog>
       </Paper>
-    </motion.div>
+    </m.div>
   );
 };
 

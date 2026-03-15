@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import ForestIcon from '@mui/icons-material/Forest';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import CompraMaderaTable from './CompraMaderaTable';
 import ConsumibleTable from './ConsumibleTable';
 import { useAuth } from '../../../gestion_usuarios/context/AuthContext';
@@ -109,7 +109,7 @@ const GastosPageContent: React.FC<Props> = ({ bodegaId, temporadaId }) => {
       <AnimatePresence mode="wait" initial={false}>
         <Box
           key={tab}
-          component={motion.div}
+          component={m.div}
           variants={panelVariants}
           initial="initial"
           animate="animate"

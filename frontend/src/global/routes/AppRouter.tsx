@@ -8,12 +8,11 @@ import MainLayout   from '../../components/layout/MainLayout';
 import ErrorBoundary from '../../components/common/ErrorBoundary';
 import { lazyRoute } from '../../components/common/LazyRoutes';
 
-import Login        from '../../modules/gestion_usuarios/pages/Login';
-import Unauthorized from '../../components/common/Unauthorized';
-
 import { moduleRoutes } from './moduleRoutes';
 
+const loginRouteElement = lazyRoute(() => import('../../modules/gestion_usuarios/pages/Login'));
 const dashboardRouteElement = lazyRoute(() => import('../../modules/gestion_usuarios/pages/Dashboard'));
+const unauthorizedRouteElement = lazyRoute(() => import('../../components/common/Unauthorized'));
 
 function AppRouter() {
   return (
@@ -24,9 +23,9 @@ function AppRouter() {
     }>
       <Routes>
         {/* ---------- PÚBLICAS ---------- */}
-        <Route path="/"         element={<Login />} />
-        <Route path="/login"    element={<Login />} />
-        <Route path="/unauthorized" element={<Unauthorized />} />
+        <Route path="/"         element={loginRouteElement} />
+        <Route path="/login"    element={loginRouteElement} />
+        <Route path="/unauthorized" element={unauthorizedRouteElement} />
 
         {/* -------- PRIVADAS CON LAYOUT -------- */}
         <Route element={<PrivateRoute />}>

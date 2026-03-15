@@ -5,7 +5,7 @@ import {
   Box, Typography, Alert,
 } from '@mui/material';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { useAppSelector } from '../../../global/store/store';
 import LogisticaSection from '../components/tablero/sections/LogisticaSection';
 import CamionFormModal from '../components/logistica/CamionFormModal';
@@ -104,7 +104,7 @@ export default function Logistica() {
       <AnimatePresence mode="wait" initial={false}>
         <Box
           key="logistica-content"
-          component={motion.div}
+          component={m.div}
           variants={panelVariants}
           initial="initial"
           animate="animate"

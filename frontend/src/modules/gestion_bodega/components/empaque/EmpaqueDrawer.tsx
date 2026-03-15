@@ -41,7 +41,7 @@ import {
 import { formatDateDisplay, formatDateISO } from "../../../../global/utils/date";
 import { formatWithThousands, normalizeNumericInput, parseIntegerInput } from "../../../../global/utils/numericInput";
 import AppDrawer from "../../../../components/common/AppDrawer";
-import { motion } from "framer-motion";
+import { m } from 'framer-motion';
 import { capturasService } from "../../services/capturasService";
 
 type RecepcionLike = {
@@ -193,7 +193,7 @@ const QualityCard = ({
   };
 
   return (
-    <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+    <m.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
       <Card
         variant="outlined"
         sx={{
@@ -300,7 +300,7 @@ const QualityCard = ({
           </Box>
         </CardContent>
       </Card>
-    </motion.div>
+    </m.div>
   );
 };
 
@@ -621,7 +621,7 @@ export default function EmpaqueDrawer({
 
   // Banner de estado
   const banner = blockReason ? (
-    <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
+    <m.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
       <Alert
         severity={isArchived ? "info" : "warning"}
         sx={{
@@ -645,9 +645,9 @@ export default function EmpaqueDrawer({
           )}
         </Box>
       </Alert>
-    </motion.div>
+    </m.div>
   ) : overPacked ? (
-    <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
+    <m.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
       <Alert
         severity="error"
         sx={{
@@ -663,7 +663,7 @@ export default function EmpaqueDrawer({
           Excediste la capacidad de la recepción ({totals.packed} / {captured}). Ajusta las cantidades.
         </Typography>
       </Alert>
-    </motion.div>
+    </m.div>
   ) : null;
 
   // Footer mejorado
@@ -760,7 +760,7 @@ export default function EmpaqueDrawer({
         }}
       >
         {/* Dashboard Superior */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+        <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <Box
             sx={{
               display: "flex",
@@ -990,10 +990,10 @@ export default function EmpaqueDrawer({
               </Paper>
             </Box>
           </Box>
-        </motion.div>
+        </m.div>
 
         {/* Selector de Material y Controles */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+        <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <Paper
             sx={{
               p: 2.5,
@@ -1070,10 +1070,10 @@ export default function EmpaqueDrawer({
               </Box>
             </Box>
           </Paper>
-        </motion.div>
+        </m.div>
 
         {/* Grid de Calidades usando Box con CSS Grid */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+        <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           <Box
             sx={{
               display: "grid",
@@ -1101,7 +1101,7 @@ export default function EmpaqueDrawer({
               </Box>
             ))}
           </Box>
-        </motion.div>
+        </m.div>
       </Box>
     </AppDrawer>
   );

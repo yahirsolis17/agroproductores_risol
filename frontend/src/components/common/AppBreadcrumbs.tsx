@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 
@@ -28,7 +28,7 @@ const AppBreadcrumbs: React.FC = () => {
 
   return (
     <div className="mb-4 flex justify-center px-4">
-      <motion.nav
+      <m.nav
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.24 }}
@@ -62,7 +62,7 @@ const AppBreadcrumbs: React.FC = () => {
             </React.Fragment>
           );
         })}
-      </motion.nav>
+      </m.nav>
     </div>
   );
 };

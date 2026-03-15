@@ -103,6 +103,15 @@ const authService = {
     localStorage.setItem(ACCESS_TOKEN_KEY, token);
   },
 
+  setRefreshToken: (token: string | null) => {
+    if (!token) {
+      localStorage.removeItem(REFRESH_TOKEN_KEY);
+      return;
+    }
+
+    localStorage.setItem(REFRESH_TOKEN_KEY, token);
+  },
+
   setUser: (user: User | null) => {
     if (!user) {
       localStorage.removeItem(USER_KEY);

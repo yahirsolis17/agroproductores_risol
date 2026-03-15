@@ -1,6 +1,6 @@
 import React from "react";
 import { Paper, Box, Typography, Skeleton } from "@mui/material";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from 'framer-motion';
 import type { KpiCard } from "../../hooks/useTableroBodega";
 
 type Props = {
@@ -8,7 +8,7 @@ type Props = {
   loading?: boolean;
 };
 
-const MotionPaper = motion.create(Paper)
+const MotionPaper = m.create(Paper)
 
 const fadeIn = {
   initial: { opacity: 0, y: 6 },

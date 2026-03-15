@@ -2,7 +2,7 @@
 import React from "react";
 import { Box, Stack, Alert, AlertTitle, Link, Typography } from "@mui/material";
 import type { AlertColor } from "@mui/material";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from 'framer-motion';
 import type { AlertCardUI } from "../../hooks/useTableroBodega";
 import { useSearchParams } from "react-router-dom";
 
@@ -13,7 +13,7 @@ type Props = {
   onNavigate?: (href: string) => void;
 };
 
-const MotionBox = motion.create(Box);
+const MotionBox = m.create(Box);
 
 const itemAnim = {
   initial: { opacity: 0, y: 6 },

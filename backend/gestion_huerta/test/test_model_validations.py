@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 from gestion_huerta.models import (
     Propietario,
     Huerta,
+    HuertaRentada,
     Temporada,
     Cosecha,
     CategoriaInversion,
@@ -103,3 +104,34 @@ class ModelCreationValidationTests(TestCase):
             huerta=self.huerta,
         )
         self.assertIsNotNone(venta.pk)
+
+    def test_temporada_rechaza_origen_duplicado_por_anio(self):
+        with self.assertRaises(ValidationError) as context:
+            Temporada.objects.create(año=2024, huerta=self.huerta)
+        self.assertIn("año", context.exception.message_dict)
+
+    def test_temporada_requiere_un_solo_origen(self):
+        rentada = HuertaRentada.objects.create(
+            nombre="Rentada",
+            ubicacion="Ubic rentada",
+            variedades="Var",
+            historial="",
+            hectareas=2,
+            monto_renta=1000,
+            propietario=self.huerta.propietario,
+        )
+
+        with self.assertRaises(ValidationError) as context:
+            Temporada.objects.create(año=2025, huerta=self.huerta, huerta_rentada=rentada)
+
+        self.assertIn("huerta", context.exception.message_dict)
+        self.assertIn("huerta_rentada", context.exception.message_dict)
+
+    def test_temporada_rechaza_huerta_archivada(self):
+        self.huerta.is_active = False
+        self.huerta.save(update_fields=["is_active"])
+
+        with self.assertRaises(ValidationError) as context:
+            Temporada.objects.create(año=2025, huerta=self.huerta)
+
+        self.assertIn("huerta", context.exception.message_dict)

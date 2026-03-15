@@ -73,6 +73,7 @@ body {
 
 .app-content {
   animation: app-rise 280ms ease-out;
+  min-height: clamp(28rem, calc(100vh - 13rem), 52rem);
 }
 
 .app-surface {
@@ -240,6 +241,11 @@ body {
 
 .dashboard-panel {
   backdrop-filter: blur(18px);
+}
+
+.dashboard-section-deferred {
+  content-visibility: auto;
+  contain-intrinsic-size: 720px;
 }
 
 .brand-chip-stage {

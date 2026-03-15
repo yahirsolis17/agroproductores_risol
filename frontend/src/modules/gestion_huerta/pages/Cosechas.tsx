@@ -6,7 +6,7 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button,
   Tabs, Tab, Skeleton, // 👈 añadimos Skeleton
 } from '@mui/material';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { useDispatch } from 'react-redux';
 import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 
@@ -247,7 +247,7 @@ useEffect(() => {
   };
 
   return (
-    <motion.div className="p-6 max-w-6xl mx-auto" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
+    <m.div className="p-6 max-w-6xl mx-auto" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
       <Paper elevation={4} className="p-6 sm:p-10 rounded-2xl bg-white">
         <Typography variant="h4" className="text-primary-dark font-bold mb-2">
           Gestión de Cosechas
@@ -338,7 +338,7 @@ useEffect(() => {
           </DialogActions>
         </Dialog>
       </Paper>
-    </motion.div>
+    </m.div>
   );
 };
 

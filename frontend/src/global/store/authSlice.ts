@@ -58,8 +58,9 @@ export const changePasswordThunk = createAsyncThunk<
 export const logoutThunk = createAsyncThunk<void, void>(
   'auth/logout',
   async (_, { dispatch }) => {
+    const refreshToken = authService.getRefreshToken();
     try {
-      await apiClient.post('/usuarios/logout/', {});
+      await apiClient.post('/usuarios/logout/', refreshToken ? { refresh_token: refreshToken } : {});
     } catch {
       // Logout local must still proceed even if token revocation fails.
     } finally {

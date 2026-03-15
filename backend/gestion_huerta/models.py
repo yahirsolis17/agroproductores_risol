@@ -247,13 +247,69 @@ class Temporada(models.Model):
             models.Index(fields=['año', 'huerta']),
             models.Index(fields=['año', 'huerta_rentada']),
         ]
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    (Q(huerta__isnull=False) & Q(huerta_rentada__isnull=True))
+                    | (Q(huerta__isnull=True) & Q(huerta_rentada__isnull=False))
+                ),
+                name="chk_temporada_single_origin",
+            ),
+            models.UniqueConstraint(
+                fields=["año", "huerta"],
+                condition=Q(huerta__isnull=False),
+                name="uniq_temporada_huerta_anio",
+            ),
+            models.UniqueConstraint(
+                fields=["año", "huerta_rentada"],
+                condition=Q(huerta_rentada__isnull=False),
+                name="uniq_temporada_huerta_rentada_anio",
+            ),
+        ]
 
 
     def clean(self):
+        errors = {}
+        actual = timezone.now().year
+
+        if self.año < 2000 or self.año > actual + 1:
+            errors["año"] = "El año debe estar entre 2000 y el año siguiente al actual."
+
         if not self.huerta and not self.huerta_rentada:
-            raise ValidationError("Debe asignar una huerta propia o rentada.")
+            errors["huerta"] = "Debe asignar una huerta propia o rentada."
+            errors["huerta_rentada"] = "Debe asignar una huerta propia o rentada."
+
         if self.huerta and self.huerta_rentada:
-            raise ValidationError("No puede asignar ambas huertas a la vez.")
+            errors["huerta"] = "No puede asignar ambas huertas a la vez."
+            errors["huerta_rentada"] = "No puede asignar ambas huertas a la vez."
+
+        if self.huerta and not getattr(self.huerta, "is_active", True):
+            errors["huerta"] = "No se puede crear/editar temporada en una huerta archivada."
+
+        if self.huerta_rentada and not getattr(self.huerta_rentada, "is_active", True):
+            errors["huerta_rentada"] = "No se puede crear/editar temporada en una huerta rentada archivada."
+
+        duplicate_qs = Temporada.objects.all()
+        if self.pk:
+            duplicate_qs = duplicate_qs.exclude(pk=self.pk)
+
+        if self.huerta and duplicate_qs.filter(huerta=self.huerta, año=self.año).exists():
+            errors["año"] = "Ya existe una temporada para esta huerta en ese año."
+
+        if self.huerta_rentada and duplicate_qs.filter(huerta_rentada=self.huerta_rentada, año=self.año).exists():
+            errors["año"] = "Ya existe una temporada para esta huerta rentada en ese año."
+
+        if self.fecha_fin and self.fecha_inicio and self.fecha_fin < self.fecha_inicio:
+            errors["fecha_fin"] = "La fecha fin no puede ser anterior a la fecha inicio."
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        update_fields = kwargs.get("update_fields")
+        if not _is_only_archival_fields(update_fields):
+            self.full_clean()
+        return super().save(*args, **kwargs)
 
     def finalizar(self):
         if not self.finalizada:
@@ -296,6 +352,11 @@ class Temporada(models.Model):
 
         if self.is_active:
             return {"temporadas": 0, "cosechas": 0, "inversiones": 0, "ventas": 0}
+
+        if self.huerta and not self.huerta.is_active:
+            raise ValidationError("No se puede desarchivar una temporada ligada a una huerta archivada.")
+        if self.huerta_rentada and not self.huerta_rentada.is_active:
+            raise ValidationError("No se puede desarchivar una temporada ligada a una huerta rentada archivada.")
 
         self.is_active = True
         self.archivado_en = None

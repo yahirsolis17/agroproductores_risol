@@ -301,6 +301,58 @@ class RecepcionAPITests(APITestCase):
         self.assertEqual(response.json()["notification"]["key"], "recepcion_semana_invalida")
 
 
+class CierresAPITests(APITestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_superuser(
+            telefono="9990000003",
+            password="secret123",
+            nombre="Test",
+            apellido="Cierres",
+        )
+        self.client.force_authenticate(self.user)
+        self.url = "/bodega/cierres/semanal/"
+        self.bodega = Bodega.objects.create(nombre="Bodega Cierres", ubicacion="Centro")
+        self.temporada = TemporadaBodega.objects.create(
+            bodega=self.bodega,
+            año=2026,
+            fecha_inicio=timezone.localdate() - timedelta(days=30),
+        )
+
+    def test_open_week_endpoint_auto_closes_expired_open_week(self):
+        old_start = timezone.localdate() - timedelta(days=9)
+        old_week = CierreSemanal.objects.create(
+            bodega=self.bodega,
+            temporada=self.temporada,
+            fecha_desde=old_start,
+            fecha_hasta=None,
+        )
+
+        response = self.client.post(
+            self.url,
+            {
+                "bodega": self.bodega.id,
+                "temporada": self.temporada.id,
+                "fecha_desde": str(timezone.localdate()),
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.json()["notification"]["key"], "cierre_semanal_creado")
+
+        old_week.refresh_from_db()
+        self.assertEqual(old_week.fecha_hasta, old_start + timedelta(days=6))
+        self.assertEqual(
+            CierreSemanal.objects.filter(
+                bodega=self.bodega,
+                temporada=self.temporada,
+                fecha_hasta__isnull=True,
+                is_active=True,
+            ).count(),
+            1,
+        )
+
+
 class RecepcionPermissionAPITests(APITestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(

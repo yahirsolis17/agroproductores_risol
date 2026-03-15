@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import {
   Typography,
   Paper,
@@ -165,7 +165,7 @@ const ActivityLog: React.FC = () => {
   }
 
   return (
-    <motion.div
+    <m.div
       className="p-4 sm:p-6 max-w-7xl mx-auto"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -250,7 +250,7 @@ const ActivityLog: React.FC = () => {
           dense
         />
       </Paper>
-    </motion.div>
+    </m.div>
   );
 };
 

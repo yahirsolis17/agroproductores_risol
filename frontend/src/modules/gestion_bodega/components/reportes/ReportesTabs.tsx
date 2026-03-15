@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, Tab, Tabs, Typography, alpha, useTheme } from '@mui/material';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, m } from 'framer-motion';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import ReporteBodegaViewer from './ReporteBodegaViewer';
@@ -194,7 +194,7 @@ const ReportesTabs: React.FC<Props> = ({ bodegaId, temporadaId, semanaIso, fecha
       <AnimatePresence mode="wait" initial={false}>
         <Box
           key={tab}
-          component={motion.div}
+          component={m.div}
           variants={panelVariants}
           initial="initial"
           animate="animate"

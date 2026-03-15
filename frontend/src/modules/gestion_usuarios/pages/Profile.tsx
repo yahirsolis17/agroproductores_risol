@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import {
   Paper,
   Typography,
@@ -73,7 +73,7 @@ const Profile: React.FC = () => {
 
   return (
     <AnimatePresence>
-      <motion.div
+      <m.div
         variants={containerVariants}
         initial="hidden"
         animate="visible"
@@ -138,9 +138,9 @@ const Profile: React.FC = () => {
           }}
         >
           {/* Header with avatar */}
-          <motion.div variants={itemVariants}>
+          <m.div variants={itemVariants}>
             <Box display="flex" alignItems="center" gap={3} mb={4}>
-              <motion.div
+              <m.div
                 whileHover={{ scale: 1.05 }}
                 transition={{ type: "spring", stiffness: 300 }}
               >
@@ -158,7 +158,7 @@ const Profile: React.FC = () => {
                 >
                   {user.nombre[0]}{user.apellido[0]}
                 </Avatar>
-              </motion.div>
+              </m.div>
               
               <Box>
                 <Typography 
@@ -175,7 +175,7 @@ const Profile: React.FC = () => {
                 >
                   {user.nombre} {user.apellido}
                   {inactive && (
-                    <motion.div
+                    <m.div
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
                       transition={{ type: "spring", stiffness: 500, delay: 0.2 }}
@@ -192,7 +192,7 @@ const Profile: React.FC = () => {
                           '& .MuiChip-label': { px: 1.5 }
                         }}
                       />
-                    </motion.div>
+                    </m.div>
                   )}
                 </Typography>
                 <Typography 
@@ -208,7 +208,7 @@ const Profile: React.FC = () => {
                 </Typography>
               </Box>
             </Box>
-          </motion.div>
+          </m.div>
 
           <Divider 
             sx={{ 
@@ -223,7 +223,7 @@ const Profile: React.FC = () => {
           />
 
           {/* Data grid */}
-          <motion.div variants={itemVariants}>
+          <m.div variants={itemVariants}>
             <Box 
               component="dl" 
               sx={{ 
@@ -234,7 +234,7 @@ const Profile: React.FC = () => {
               }}
             >
               {dataItems.map((item) => (
-                <motion.div
+                <m.div
                   key={item.label}
                   variants={itemVariants}
                   whileHover={{ scale: 1.02 }}
@@ -277,17 +277,17 @@ const Profile: React.FC = () => {
                       {item.value}
                     </Typography>
                   </Box>
-                </motion.div>
+                </m.div>
               ))}
             </Box>
-          </motion.div>
+          </m.div>
 
           {/* Action button */}
-          <motion.div 
+          <m.div 
             variants={itemVariants}
             style={{ display: 'flex', justifyContent: 'flex-end' }}
           >
-            <motion.div
+            <m.div
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
@@ -313,10 +313,10 @@ const Profile: React.FC = () => {
               >
                 Cambiar contraseña
               </Button>
-            </motion.div>
-          </motion.div>
+            </m.div>
+          </m.div>
         </Paper>
-      </motion.div>
+      </m.div>
     </AnimatePresence>
   );
 };

@@ -14,7 +14,7 @@ import {
   Button,
   Divider,
 } from '@mui/material';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 
@@ -366,7 +366,7 @@ const Temporadas: React.FC = () => {
 
   /* ──────────────────── Render ──────────────────── */
   return (
-    <motion.div className="p-6 max-w-6xl mx-auto" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
+    <m.div className="p-6 max-w-6xl mx-auto" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
       <Paper elevation={4} className="p-6 sm:p-10 rounded-2xl bg-white">
         <Typography variant="h4" className="text-primary-dark font-bold mb-2">
           Gestión de Temporadas
@@ -484,7 +484,7 @@ const Temporadas: React.FC = () => {
           </DialogActions>
         </Dialog>
       </Paper>
-    </motion.div>
+    </m.div>
   );
 };
 

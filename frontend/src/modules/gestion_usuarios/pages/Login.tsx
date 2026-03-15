@@ -14,7 +14,7 @@ import {
   InputAdornment,
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { applyBackendErrorsToFormik } from '../../../global/validation/backendFieldErrors';
 import { focusFirstError } from '../../../global/validation/focusFirstError';
 import FormAlertBanner from '../../../components/common/form/FormAlertBanner';
@@ -60,7 +60,7 @@ const Login: React.FC = () => {
 
   return (
     <div className="auth-stage px-4">
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1], reducedMotion: 'user' }}
@@ -212,7 +212,7 @@ const Login: React.FC = () => {
             )}
           </Formik>
         </Paper>
-      </motion.div>
+      </m.div>
     </div>
   );
 };

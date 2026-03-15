@@ -1,6 +1,6 @@
 import React, { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import {
   ArrowRight,
   Boxes,
@@ -130,14 +130,47 @@ const Glyph: React.FC<{ icon: string; className?: string }> = ({ icon, className
 };
 
 const Surface: React.FC<React.PropsWithChildren<{ className?: string; delay?: number }>> = ({ className, delay = 0, children }) => (
-  <motion.section
+  <m.section
     initial={{ opacity: 0, y: 16 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.3, delay }}
     className={clsx('dashboard-panel rounded-[30px] border border-white/70 bg-white/80 p-5 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur-xl', className)}
   >
     {children}
-  </motion.section>
+  </m.section>
+);
+
+const SkeletonBlock: React.FC<{ className?: string }> = ({ className }) => (
+  <div
+    aria-hidden="true"
+    className={clsx(
+      'animate-pulse rounded-[22px] bg-[linear-gradient(135deg,rgba(226,232,240,0.92),rgba(241,245,249,0.78))]',
+      className,
+    )}
+  />
+);
+
+const MetricSkeletonCard: React.FC<{ compact?: boolean }> = ({ compact = false }) => (
+  <div className={clsx('rounded-[26px] border border-slate-200/70 bg-white/78 p-4 shadow-sm', compact ? 'min-h-[140px]' : 'min-h-[156px]')}>
+    <div className="flex items-center justify-between">
+      <SkeletonBlock className="h-3.5 w-24 rounded-full" />
+      <SkeletonBlock className="h-4 w-4 rounded-full" />
+    </div>
+    <SkeletonBlock className="mt-5 h-9 w-24" />
+    <SkeletonBlock className="mt-3 h-3.5 w-full rounded-full" />
+    <SkeletonBlock className="mt-2 h-3.5 w-2/3 rounded-full" />
+  </div>
+);
+
+const StackSkeleton: React.FC<{ rows?: number; tall?: boolean }> = ({ rows = 3, tall = false }) => (
+  <div className="mt-4 grid gap-3">
+    {Array.from({ length: rows }).map((_, index) => (
+      <SkeletonBlock
+        key={index}
+        className={clsx('w-full rounded-[24px]', tall ? 'h-32' : 'h-24')}
+      />
+    ))}
+  </div>
 );
 
 const Dashboard: React.FC = () => {
@@ -257,85 +290,132 @@ const Dashboard: React.FC = () => {
     return true;
   }), [access, overview?.next_action.alternatives]);
   const nextActionTarget = resolveSafeEntryRoute(overview?.next_action.to);
+  const hasOverview = Boolean(overview);
+  const showShell = !hasOverview;
+  const showErrorState = !loading && !hasOverview;
+  const heroHeadline = overview?.hero.headline ?? 'Centro de mando inteligente';
+  const heroSupport = overview?.hero.support ?? (
+    showErrorState
+      ? 'No se pudo cargar el centro de mando. Puedes reintentar sin salir del dashboard.'
+      : 'Estamos preparando indicadores, alertas y atajos para que el tablero aparezca estable desde el primer render.'
+  );
+  const heroBadges = overview?.hero.badges ?? ['Contexto activo', 'Indicadores en carga', 'Atajos listos'];
+  const todayTitle = overview?.today.title ?? 'En foco hoy';
+  const todaySubtitle = overview?.today.subtitle ?? 'Reservando espacio para tus indicadores prioritarios.';
 
   const goTo = (to: string) => {
     setPaletteOpen(false);
     navigate(to);
   };
 
-  if (loading) return <div className="mx-auto max-w-7xl px-4 py-8 text-sm text-slate-500">Cargando centro de mando...</div>;
-  if (!overview || error) return <div className="mx-auto max-w-7xl px-4 py-8"><Surface><p className="text-sm text-slate-600">{error}</p><button type="button" onClick={() => void loadOverview(true)} className="mt-4 rounded-2xl bg-slate-900 px-4 py-2 text-sm text-white">Reintentar</button></Surface></div>;
-
   return (
-    <div className="dashboard-intelligence mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 pb-8 pt-2">
-      <motion.section {...fadeUp} className="dashboard-hero relative overflow-hidden rounded-[36px] border border-white/70 bg-[radial-gradient(circle_at_top_left,_rgba(14,116,144,0.18),_transparent_38%),radial-gradient(circle_at_bottom_right,_rgba(16,185,129,0.22),_transparent_35%),linear-gradient(135deg,_rgba(255,255,255,0.96),_rgba(240,249,255,0.82))] p-6 shadow-[0_30px_90px_rgba(15,23,42,0.12)] lg:p-8">
+    <div className="dashboard-intelligence mx-auto flex min-h-[calc(100vh-13rem)] w-full max-w-7xl flex-col gap-6 px-4 pb-8 pt-2">
+      <m.section {...fadeUp} className="dashboard-hero relative min-h-[26rem] overflow-hidden rounded-[36px] border border-white/70 bg-[radial-gradient(circle_at_top_left,_rgba(14,116,144,0.18),_transparent_38%),radial-gradient(circle_at_bottom_right,_rgba(16,185,129,0.22),_transparent_35%),linear-gradient(135deg,_rgba(255,255,255,0.96),_rgba(240,249,255,0.82))] p-6 shadow-[0_30px_90px_rgba(15,23,42,0.12)] lg:p-8">
         <div className="dashboard-grid-lines absolute inset-0 opacity-60" />
         <div className="relative grid gap-6 lg:grid-cols-[1.25fr,0.85fr]">
           <div>
             <span className="inline-flex rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-slate-600">Centro de mando</span>
-            <h1 className="mt-4 max-w-3xl text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">{user?.nombre ? `Hola, ${user.nombre}.` : 'Hola.'} {overview.hero.headline}</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">{overview.hero.support}</p>
-            <div className="mt-5 flex flex-wrap gap-2">{overview.hero.badges.map((badge) => <span key={badge} className="rounded-full border border-white/80 bg-white/75 px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm">{badge}</span>)}</div>
+            <h1 className="mt-4 max-w-3xl text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">{user?.nombre ? `Hola, ${user.nombre}.` : 'Hola.'} {heroHeadline}</h1>
+            {hasOverview ? (
+              <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">{heroSupport}</p>
+            ) : (
+              <div className="mt-3 max-w-2xl space-y-2">
+                <SkeletonBlock className="h-4 w-full rounded-full" />
+                <SkeletonBlock className="h-4 w-11/12 rounded-full" />
+                <SkeletonBlock className="h-4 w-3/4 rounded-full" />
+              </div>
+            )}
+            <div className="mt-5 flex flex-wrap gap-2">{heroBadges.map((badge) => <span key={badge} className="rounded-full border border-white/80 bg-white/75 px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm">{badge}</span>)}</div>
             <div ref={searchRef} className="relative mt-6 max-w-2xl">
               <label className="flex items-center gap-3 rounded-[24px] border border-white/80 bg-white/85 px-4 py-3 shadow-lg backdrop-blur-xl">
                 <Search className="h-5 w-5 text-slate-400" />
-                <input ref={inputRef} value={query} onFocus={() => setPaletteOpen(true)} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar acciones, huertas, temporadas, cosechas o bodegas" className="w-full bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400" />
+                <input ref={inputRef} value={query} onFocus={() => hasOverview && setPaletteOpen(true)} onChange={(event) => setQuery(event.target.value)} disabled={!hasOverview} placeholder={hasOverview ? 'Buscar acciones, huertas, temporadas, cosechas o bodegas' : 'Preparando busqueda global...'} className="w-full bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400 disabled:cursor-wait disabled:text-slate-400" />
                 <span className="rounded-xl border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-500">Ctrl + K</span>
               </label>
-              <AnimatePresence>{paletteOpen ? <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="absolute left-0 right-0 z-20 mt-3 overflow-hidden rounded-[24px] border border-white/80 bg-white/95 p-3 shadow-[0_28px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl">{searching ? <p className="px-3 py-2 text-sm text-slate-500">Buscando...</p> : paletteResults.length ? <div className="space-y-2">{paletteResults.map((item) => <button key={item.id} type="button" onClick={() => goTo(item.to)} className="flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left transition hover:bg-slate-100"><div><p className="text-sm font-semibold text-slate-900">{item.title}</p><p className="text-xs text-slate-500">{item.group} · {item.subtitle}</p></div><ChevronRight className="h-4 w-4 text-slate-400" /></button>)}</div> : <p className="px-3 py-2 text-sm text-slate-500">No hay resultados para esta busqueda.</p>}</motion.div> : null}</AnimatePresence>
+              <AnimatePresence>{hasOverview && paletteOpen ? <m.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="absolute left-0 right-0 z-20 mt-3 overflow-hidden rounded-[24px] border border-white/80 bg-white/95 p-3 shadow-[0_28px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl">{searching ? <p className="px-3 py-2 text-sm text-slate-500">Buscando...</p> : paletteResults.length ? <div className="space-y-2">{paletteResults.map((item) => <button key={item.id} type="button" onClick={() => goTo(item.to)} className="flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left transition hover:bg-slate-100"><div><p className="text-sm font-semibold text-slate-900">{item.title}</p><p className="text-xs text-slate-500">{item.group} · {item.subtitle}</p></div><ChevronRight className="h-4 w-4 text-slate-400" /></button>)}</div> : <p className="px-3 py-2 text-sm text-slate-500">No hay resultados para esta busqueda.</p>}</m.div> : null}</AnimatePresence>
             </div>
-            <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{visibleHeroStats.map((metric, index) => <MetricCard key={metric.id} metric={metric} delay={0.06 + index * 0.03} />)}</div>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{showShell ? Array.from({ length: 4 }).map((_, index) => <MetricSkeletonCard key={index} />) : visibleHeroStats.map((metric, index) => <MetricCard key={metric.id} metric={metric} delay={0.06 + index * 0.03} />)}</div>
           </div>
 
-          <Surface className="relative overflow-hidden border-slate-200/80 bg-[radial-gradient(circle_at_top_right,_rgba(56,189,248,0.16),_transparent_34%),radial-gradient(circle_at_bottom_left,_rgba(16,185,129,0.14),_transparent_40%),linear-gradient(160deg,_rgba(255,255,255,0.96),_rgba(241,245,249,0.92))] text-slate-950" delay={0.08}>
+          <Surface className="relative min-h-[22rem] overflow-hidden border-slate-200/80 bg-[radial-gradient(circle_at_top_right,_rgba(56,189,248,0.16),_transparent_34%),radial-gradient(circle_at_bottom_left,_rgba(16,185,129,0.14),_transparent_40%),linear-gradient(160deg,_rgba(255,255,255,0.96),_rgba(241,245,249,0.92))] text-slate-950" delay={0.08}>
             <div className="absolute inset-0 bg-[linear-gradient(135deg,_rgba(255,255,255,0.28),_transparent_58%)]" />
             <div className="relative">
-              <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-white/78 px-3 py-1 text-xs uppercase tracking-[0.2em] text-sky-900"><Sparkles className="h-3.5 w-3.5" /> Siguiente mejor accion</div>
-              <h2 className="mt-4 text-2xl font-semibold leading-tight">{overview.next_action.title}</h2>
-              <p className="mt-3 text-sm leading-7 text-slate-600">{overview.next_action.description}</p>
-              {nextActionTarget ? (
-                <button type="button" onClick={() => goTo(nextActionTarget)} className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-800"><Glyph icon={overview.next_action.icon} className="h-4 w-4" /> Abrir ahora <ArrowRight className="h-4 w-4" /></button>
+              {overview ? (
+                <>
+                  <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-white/78 px-3 py-1 text-xs uppercase tracking-[0.2em] text-sky-900"><Sparkles className="h-3.5 w-3.5" /> Siguiente mejor accion</div>
+                  <h2 className="mt-4 text-2xl font-semibold leading-tight">{overview.next_action.title}</h2>
+                  <p className="mt-3 text-sm leading-7 text-slate-600">{overview.next_action.description}</p>
+                  {nextActionTarget ? (
+                    <button type="button" onClick={() => goTo(nextActionTarget)} className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-800"><Glyph icon={overview.next_action.icon} className="h-4 w-4" /> Abrir ahora <ArrowRight className="h-4 w-4" /></button>
+                  ) : (
+                    <p className="mt-6 text-sm font-medium text-slate-500">Este frente se abre desde su flujo natural, no desde un acceso directo global.</p>
+                  )}
+                  <div className="mt-6 space-y-2">{visibleAlternatives.map((action) => <button key={action.id} type="button" onClick={() => goTo(action.to)} className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white/76 px-4 py-3 text-left transition hover:border-slate-300 hover:bg-white"><div><p className="text-sm font-semibold text-slate-900">{action.title}</p><p className="text-xs text-slate-600">{action.description}</p></div><ChevronRight className="h-4 w-4 text-slate-400" /></button>)}</div>
+                </>
+              ) : showErrorState ? (
+                <>
+                  <div className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-white/78 px-3 py-1 text-xs uppercase tracking-[0.2em] text-rose-900"><ShieldAlert className="h-3.5 w-3.5" /> Conexion pendiente</div>
+                  <h2 className="mt-4 text-2xl font-semibold leading-tight">No pudimos traer tu resumen operativo.</h2>
+                  <p className="mt-3 text-sm leading-7 text-slate-600">{error ?? 'Intenta recargar el dashboard para volver a solicitar los indicadores.'}</p>
+                  <button type="button" onClick={() => void loadOverview(true)} className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-800">
+                    Reintentar
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                </>
               ) : (
-                <p className="mt-6 text-sm font-medium text-slate-500">Este frente se abre desde su flujo natural, no desde un acceso directo global.</p>
+                <>
+                  <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-white/78 px-3 py-1 text-xs uppercase tracking-[0.2em] text-sky-900"><Sparkles className="h-3.5 w-3.5" /> Preparando foco</div>
+                  <SkeletonBlock className="mt-4 h-8 w-3/4" />
+                  <div className="mt-3 space-y-2">
+                    <SkeletonBlock className="h-4 w-full rounded-full" />
+                    <SkeletonBlock className="h-4 w-5/6 rounded-full" />
+                    <SkeletonBlock className="h-4 w-2/3 rounded-full" />
+                  </div>
+                  <SkeletonBlock className="mt-6 h-11 w-40 rounded-2xl" />
+                  <div className="mt-6 space-y-2">
+                    <SkeletonBlock className="h-16 w-full rounded-[22px]" />
+                    <SkeletonBlock className="h-16 w-full rounded-[22px]" />
+                    <SkeletonBlock className="h-16 w-full rounded-[22px]" />
+                  </div>
+                </>
               )}
-              <div className="mt-6 space-y-2">{visibleAlternatives.map((action) => <button key={action.id} type="button" onClick={() => goTo(action.to)} className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white/76 px-4 py-3 text-left transition hover:border-slate-300 hover:bg-white"><div><p className="text-sm font-semibold text-slate-900">{action.title}</p><p className="text-xs text-slate-600">{action.description}</p></div><ChevronRight className="h-4 w-4 text-slate-400" /></button>)}</div>
             </div>
           </Surface>
         </div>
-      </motion.section>
+      </m.section>
 
-      <Surface delay={0.12}>
-        <SectionTitle title={overview.today.title} subtitle={overview.today.subtitle} />
-        <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5">{visibleCards.map((metric, index) => <MetricCard key={metric.id} metric={metric} delay={0.02 + index * 0.03} compact />)}</div>
+      <Surface delay={0.12} className="dashboard-section-deferred">
+        <SectionTitle title={todayTitle} subtitle={todaySubtitle} />
+        <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5">{showShell ? Array.from({ length: 5 }).map((_, index) => <MetricSkeletonCard key={index} compact />) : visibleCards.map((metric, index) => <MetricCard key={metric.id} metric={metric} delay={0.02 + index * 0.03} compact />)}</div>
       </Surface>
 
       <div className="grid gap-6 xl:grid-cols-[1.05fr,0.95fr]">
-        <Surface delay={0.16}>
+        <Surface delay={0.16} className="dashboard-section-deferred">
           <SectionTitle title="Radar" subtitle="Alertas e ideas que valen mas que abrir cinco pantallas." />
-          <div className="mt-4 grid gap-3">{overview.alerts.map((alert) => <AlertCard key={alert.id} alert={alert} onOpen={goTo} />)}{overview.insights.map((insight) => <InsightCard key={insight.id} insight={insight} onOpen={goTo} />)}</div>
+          {overview ? <div className="mt-4 grid gap-3">{overview.alerts.map((alert) => <AlertCard key={alert.id} alert={alert} onOpen={goTo} />)}{overview.insights.map((insight) => <InsightCard key={insight.id} insight={insight} onOpen={goTo} />)}</div> : <StackSkeleton rows={4} tall />}
         </Surface>
 
-        <Surface delay={0.2}>
+        <Surface delay={0.2} className="dashboard-section-deferred">
           <SectionTitle title="Comparativos" subtitle="Lectura inmediata de si vas mejor, peor o igual." />
-          <div className="mt-4 grid gap-3">{visibleComparisons.map((comparison) => <ComparisonCard key={comparison.id} comparison={comparison} onOpen={goTo} />)}</div>
+          {overview ? <div className="mt-4 grid gap-3">{visibleComparisons.map((comparison) => <ComparisonCard key={comparison.id} comparison={comparison} onOpen={goTo} />)}</div> : <StackSkeleton rows={4} tall />}
         </Surface>
       </div>
 
-      <Surface delay={0.24}>
+      <Surface delay={0.24} className="dashboard-section-deferred">
         <SectionTitle title="Espacios" subtitle="Cada modulo convertido en frente de trabajo con salida directa." />
-        <div className="mt-4 grid gap-4 xl:grid-cols-3">{visibleModules.map((module) => <ModuleCard key={module.id} module={module} onOpen={goTo} />)}</div>
+        {overview ? <div className="mt-4 grid gap-4 xl:grid-cols-3">{visibleModules.map((module) => <ModuleCard key={module.id} module={module} onOpen={goTo} />)}</div> : <div className="mt-4 grid gap-4 xl:grid-cols-3">{Array.from({ length: 3 }).map((_, index) => <SkeletonBlock key={index} className="h-[22rem] w-full rounded-[28px]" />)}</div>}
       </Surface>
 
-      <Surface delay={0.28}>
+      <Surface delay={0.28} className="dashboard-section-deferred">
         <SectionTitle title="Linea de tiempo" subtitle="Lo ultimo que realmente paso en el sistema." />
-        <div className="mt-4 space-y-3">{overview.timeline.map((item) => <TimelineRow key={item.id} item={item} onOpen={goTo} />)}</div>
+        {overview ? <div className="mt-4 space-y-3">{overview.timeline.map((item) => <TimelineRow key={item.id} item={item} onOpen={goTo} />)}</div> : <StackSkeleton rows={4} />}
       </Surface>
     </div>
   );
 };
 
 const SectionTitle: React.FC<{ title: string; subtitle: string }> = ({ title, subtitle }) => <div><h2 className="text-xl font-semibold text-slate-950">{title}</h2><p className="mt-1 text-sm text-slate-500">{subtitle}</p></div>;
-const MetricCard: React.FC<{ metric: DashboardMetric; delay?: number; compact?: boolean }> = ({ metric, delay = 0, compact = false }) => <motion.article initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28, delay }} className={clsx('rounded-[26px] border p-4 shadow-sm', toneClass[metric.tone] ?? toneClass.slate, compact ? 'min-h-[140px]' : 'min-h-[156px]')}><div className="flex items-center justify-between"><span className="text-xs font-semibold uppercase tracking-[0.18em]">{metric.label}</span><Glyph icon={metric.icon} className="h-4 w-4" /></div><p className="mt-5 text-3xl font-semibold tracking-tight">{metric.display}</p><p className="mt-2 text-sm leading-6 opacity-80">{metric.helper}</p></motion.article>;
+const MetricCard: React.FC<{ metric: DashboardMetric; delay?: number; compact?: boolean }> = ({ metric, delay = 0, compact = false }) => <m.article initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28, delay }} className={clsx('rounded-[26px] border p-4 shadow-sm', toneClass[metric.tone] ?? toneClass.slate, compact ? 'min-h-[140px]' : 'min-h-[156px]')}><div className="flex items-center justify-between"><span className="text-xs font-semibold uppercase tracking-[0.18em]">{metric.label}</span><Glyph icon={metric.icon} className="h-4 w-4" /></div><p className="mt-5 text-3xl font-semibold tracking-tight">{metric.display}</p><p className="mt-2 text-sm leading-6 opacity-80">{metric.helper}</p></m.article>;
 const AlertCard: React.FC<{ alert: DashboardAlert; onOpen: (to: string) => void }> = ({ alert, onOpen }) => {
   const safeTo = resolveSafeEntryRoute(alert.to);
   const clickable = Boolean(safeTo);

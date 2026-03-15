@@ -18,7 +18,7 @@ import {
 } from "@mui/material";
 import { useDispatch } from "react-redux";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from 'framer-motion';
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import StopIcon from "@mui/icons-material/Stop";
 import AssessmentIcon from "@mui/icons-material/Assessment";
@@ -142,7 +142,7 @@ const BodegaTabsInline: React.FC<{
     onChange(nextValue);
   };
   return (
-    <Box component={motion.div} initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0, transition: { duration: 0.25, ease: 'easeOut' } }}>
+    <Box component={m.div} initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0, transition: { duration: 0.25, ease: 'easeOut' } }}>
       <Tabs
         value={value} onChange={handleTabChange} variant="scrollable" scrollButtons="auto"
         TabIndicatorProps={{ style: { height: 3, borderRadius: '3px 3px 0 0', background: `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})` } }}
@@ -799,7 +799,7 @@ const TableroBodegaPage: React.FC = () => {
   return (
     <Box
       p={{ xs: 1.5, sm: 2, md: 2.5 }}
-      component={motion.div}
+      component={m.div}
       {...pageTransition}
       sx={{
         background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.02)} 0%, ${alpha(
@@ -934,12 +934,12 @@ const TableroBodegaPage: React.FC = () => {
             gap={{ xs: 1.5, sm: 2, md: 3 }}
             flexWrap="wrap"
             mb={{ xs: 1.5, md: 0 }}
-            component={motion.div}
+            component={m.div}
             variants={staggerChildren}
             initial="initial"
             animate="animate"
           >
-            <Box component={motion.div} variants={sectionTransition} sx={{ flexGrow: { xs: 1, md: 0 } }}>
+            <Box component={m.div} variants={sectionTransition} sx={{ flexGrow: { xs: 1, md: 0 } }}>
               <WeekSwitcher
                 value={weekValue}
                 onChange={handleWeekChange}
@@ -954,7 +954,7 @@ const TableroBodegaPage: React.FC = () => {
               display="flex"
               alignItems="center"
               gap={{ xs: 1, sm: 1.5 }}
-              component={motion.div}
+              component={m.div}
               variants={sectionTransition}
               sx={{
                 flexGrow: { xs: 1, md: 0 },
@@ -1026,7 +1026,7 @@ const TableroBodegaPage: React.FC = () => {
           <AnimatePresence>
             {isExpiredWeek && (
               <Box
-                component={motion.div as any}
+                component={m.div as any}
                 initial={{ opacity: 0, height: 0, mb: 0 }}
                 animate={{ opacity: 1, height: "auto", mb: 16 }}
                 exit={{ opacity: 0, height: 0, mb: 0 }}
@@ -1103,13 +1103,13 @@ const TableroBodegaPage: React.FC = () => {
             {activeTab === 'tablero' && (
               <Box
                 key="tab-tablero"
-                component={motion.div}
+                component={m.div}
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0, transition: { duration: 0.28, ease: 'easeOut' } }}
                 exit={{ opacity: 0, x: 8, transition: { duration: 0.18, ease: 'easeIn' } }}
               >
                 <AnimatePresence initial={false} mode="wait">
-                  <Box component={motion.div} key={weekValue.from} {...pageTransition}>
+                  <Box component={m.div} key={weekValue.from} {...pageTransition}>
                     <TableroSectionsAccordion
                       isActiveSelectedWeek={isActiveSelectedWeek}
                       isExpiredWeek={isExpiredWeek}
@@ -1187,7 +1187,7 @@ const TableroBodegaPage: React.FC = () => {
             {activeTab === 'inventarios' && (
               <Box
                 key="tab-inventarios"
-                component={motion.div}
+                component={m.div}
                 initial={{ opacity: 0, x: 8 }}
                 animate={{ opacity: 1, x: 0, transition: { duration: 0.28, ease: 'easeOut' } }}
                 exit={{ opacity: 0, x: -8, transition: { duration: 0.18, ease: 'easeIn' } }}
@@ -1202,7 +1202,7 @@ const TableroBodegaPage: React.FC = () => {
             {activeTab === 'gastos' && (
               <Box
                 key="tab-gastos"
-                component={motion.div}
+                component={m.div}
                 initial={{ opacity: 0, x: 8 }}
                 animate={{ opacity: 1, x: 0, transition: { duration: 0.28, ease: 'easeOut' } }}
                 exit={{ opacity: 0, x: -8, transition: { duration: 0.18, ease: 'easeIn' } }}
@@ -1217,7 +1217,7 @@ const TableroBodegaPage: React.FC = () => {
             {activeTab === 'reportes' && (
               <Box
                 key="tab-reportes"
-                component={motion.div}
+                component={m.div}
                 initial={{ opacity: 0, x: 8 }}
                 animate={{ opacity: 1, x: 0, transition: { duration: 0.28, ease: 'easeOut' } }}
                 exit={{ opacity: 0, x: -8, transition: { duration: 0.18, ease: 'easeIn' } }}

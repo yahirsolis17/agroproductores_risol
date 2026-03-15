@@ -1,5 +1,10 @@
-# gestion_usuarios/apps.py
+import logging
+
 from django.apps import AppConfig
+
+
+logger = logging.getLogger(__name__)
+
 
 class GestionUsuariosConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
@@ -10,5 +15,5 @@ class GestionUsuariosConfig(AppConfig):
         try:
             from . import signals  # noqa: F401
         except Exception:
-            # Evita romper inicialización si el entorno aún no está listo
-            pass
+            logger.exception("No se pudieron registrar las señales de gestion_usuarios.")
+            raise

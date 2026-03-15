@@ -1,4 +1,4 @@
-﻿// frontend/src/modules/gestion_bodega/components/gastos/ConsumibleTable.tsx
+// frontend/src/modules/gestion_bodega/components/gastos/ConsumibleTable.tsx
 import { useEffect, useState, useRef, useCallback } from 'react';
 import {
   Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -8,7 +8,7 @@ import {
 import RefreshIcon from '@mui/icons-material/Refresh';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import AddIcon from '@mui/icons-material/Add';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import ConsumibleFormModal from './ConsumibleFormModal';
 import { gastosService } from '../../services/gastosService';
 import { useAppDispatch, useAppSelector } from '../../../../global/store/store';
@@ -84,12 +84,12 @@ export default function ConsumibleTable({ bodegaId, temporadaId }: Props) {
 
   const columns = ['Concepto', 'Cantidad', 'Costo Unit.', 'Total', 'Fecha'];
 
-  // Suma total de la página actual
+  // Suma total de la p�gina actual
   const totalPagina = items.reduce((acc: number, r: any) => acc + Number(r.total ?? 0), 0);
   const formatFechaLocal = (fecha?: string) => {
-    if (!fecha) return '—';
+    if (!fecha) return '�';
     const d = parseLocalDateStrict(fecha);
-    if (isNaN(d.getTime())) return '—';
+    if (isNaN(d.getTime())) return '�';
     return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
@@ -97,7 +97,7 @@ export default function ConsumibleTable({ bodegaId, temporadaId }: Props) {
     <Box>
       <Box display="flex" alignItems="center" justifyContent="space-between" mb={1.5}>
         <Typography variant="subtitle2" color="text.secondary" fontWeight={600}>
-          Materiales consumibles — rafia, gises, pega, etc.
+          Materiales consumibles � rafia, gises, pega, etc.
         </Typography>
         <Box display="flex" alignItems="center" gap={1}>
           <Button
@@ -163,7 +163,7 @@ export default function ConsumibleTable({ bodegaId, temporadaId }: Props) {
                     <Box display="flex" flexDirection="column" alignItems="center" py={5} gap={1.5} color="text.secondary">
                       <ShoppingCartIcon sx={{ fontSize: 42, opacity: 0.25 }} />
                       <Typography variant="body2" fontWeight={500}>Sin consumibles registrados</Typography>
-                      <Typography variant="caption">Los gastos de materiales se registran aquí</Typography>
+                      <Typography variant="caption">Los gastos de materiales se registran aqu�</Typography>
                     </Box>
                   </TableCell>
                 </TableRow>
@@ -171,7 +171,7 @@ export default function ConsumibleTable({ bodegaId, temporadaId }: Props) {
                 <AnimatePresence initial={false}>
                   {items.map((row, i) => (
                     <TableRow
-                      component={motion.tr as any}
+                      component={m.tr as any}
                       custom={i}
                       variants={rowVariants}
                       initial="hidden"
@@ -181,7 +181,7 @@ export default function ConsumibleTable({ bodegaId, temporadaId }: Props) {
                       sx={{ '&:last-child td': { border: 0 } }}
                     >
                       <TableCell>
-                        <Typography variant="body2" fontWeight={600}>{row.concepto ?? '—'}</Typography>
+                        <Typography variant="body2" fontWeight={600}>{row.concepto ?? '�'}</Typography>
                         {row.observaciones && (
                           <Typography variant="caption" color="text.secondary" display="block" noWrap>{row.observaciones}</Typography>
                         )}
@@ -208,11 +208,11 @@ export default function ConsumibleTable({ bodegaId, temporadaId }: Props) {
                   ))}
                 </AnimatePresence>
               )}
-              {/* Fila de total de página */}
+              {/* Fila de total de p�gina */}
               {items.length > 0 && !isLoading && (
                 <TableRow sx={{ backgroundColor: alpha(theme.palette.primary.main, 0.03) }}>
                   <TableCell colSpan={3} sx={{ fontWeight: 700, fontSize: '0.8rem', color: 'text.secondary' }}>
-                    Total (esta página)
+                    Total (esta p�gina)
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2" fontWeight={800} color="primary.main">
@@ -240,7 +240,7 @@ export default function ConsumibleTable({ bodegaId, temporadaId }: Props) {
         )}
       </Paper>
 
-      {/* Modal de creación/edición */}
+      {/* Modal de creaci�n/edici�n */}
       <ConsumibleFormModal
         open={formOpen}
         onClose={() => setFormOpen(false)}

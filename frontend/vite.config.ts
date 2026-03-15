@@ -4,6 +4,24 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      '@mui/material',
+      '@emotion/react',
+      '@emotion/styled',
+      '@reduxjs/toolkit',
+      'react-redux',
+      'axios',
+      'formik',
+      'yup',
+      'react-toastify',
+      'clsx',
+    ],
+    exclude: ['lucide-react'],
+  },
   build: {
     rollupOptions: {
       output: {
@@ -35,11 +53,12 @@ export default defineConfig({
             return 'forms-vendor';
           }
 
+          if (id.includes('/lucide-react/')) return 'icons-vendor';
+          if (id.includes('/framer-motion/')) return 'animation-vendor';
+          if (id.includes('/recharts/')) return 'charts-vendor';
+
           if (
-            id.includes('/recharts/')
-            || id.includes('/framer-motion/')
-            || id.includes('/lucide-react/')
-            || id.includes('/react-icons/')
+            id.includes('/react-icons/')
             || id.includes('/react-toastify/')
           ) {
             return 'visual-vendor';

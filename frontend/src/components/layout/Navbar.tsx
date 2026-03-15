@@ -1,6 +1,6 @@
 import React, { useEffect, useId, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { AnimatePresence, m, useReducedMotion } from 'framer-motion';
 import clsx from 'clsx';
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle } from '@mui/material';
 
@@ -80,7 +80,7 @@ const BrandMascot: React.FC<BrandMascotProps & { pointerNudge?: PointerNudge }> 
 
   return (
     <span className={clsx('brand-mascot-shell', compact && 'brand-mascot-shell--compact')} aria-hidden="true">
-      <motion.span
+      <m.span
         animate={bodyAnimation}
         transition={bodyTransition}
         className={clsx('brand-mascot', compact && 'brand-mascot--compact')}
@@ -146,7 +146,7 @@ const BrandMascot: React.FC<BrandMascotProps & { pointerNudge?: PointerNudge }> 
             strokeLinecap="round"
           />
 
-          <motion.g
+          <m.g
             animate={leafAnimation}
             transition={leafTransition}
             style={{ transformOrigin: '28px 13px' }}
@@ -179,7 +179,7 @@ const BrandMascot: React.FC<BrandMascotProps & { pointerNudge?: PointerNudge }> 
               strokeWidth="0.65"
               strokeLinecap="round"
             />
-          </motion.g>
+          </m.g>
 
           <path d={body} fill={`url(#${gradientId})`} />
           <path d={body} fill={`url(#${sunBlushId})`} />
@@ -202,7 +202,7 @@ const BrandMascot: React.FC<BrandMascotProps & { pointerNudge?: PointerNudge }> 
           <ellipse cx="19.5" cy="37" rx="4.1" ry="2.6" fill={`url(#${blushId})`} opacity={cheekOpacity} />
           <ellipse cx="36.5" cy="36" rx="4.3" ry="2.6" fill={`url(#${blushId})`} opacity={cheekOpacity} />
 
-          <motion.path
+          <m.path
             d="M19.6 26Q22.2 24.4 24.8 25.6"
             stroke="rgba(65,25,5,0.62)"
             strokeWidth="1.45"
@@ -220,7 +220,7 @@ const BrandMascot: React.FC<BrandMascotProps & { pointerNudge?: PointerNudge }> 
             transition={{ duration: 0.22 }}
             style={{ transformOrigin: '22px 25px' }}
           />
-          <motion.path
+          <m.path
             d="M31.2 25.6Q33.8 24.4 36.4 25.8"
             stroke="rgba(65,25,5,0.62)"
             strokeWidth="1.45"
@@ -239,7 +239,7 @@ const BrandMascot: React.FC<BrandMascotProps & { pointerNudge?: PointerNudge }> 
             style={{ transformOrigin: '34px 25px' }}
           />
 
-          <motion.g
+          <m.g
             animate={shouldAnimate ? { x: pupilX, y: pupilY } : undefined}
             transition={
               shouldAnimate
@@ -247,7 +247,7 @@ const BrandMascot: React.FC<BrandMascotProps & { pointerNudge?: PointerNudge }> 
                 : { duration: 0 }
             }
           >
-            <motion.g
+            <m.g
               animate={shouldAnimate ? { scaleY: [1, 1, 1, 0.16, 1, 1] } : undefined}
               transition={
                 shouldAnimate
@@ -261,9 +261,9 @@ const BrandMascot: React.FC<BrandMascotProps & { pointerNudge?: PointerNudge }> 
               <ellipse cx="22" cy="30.5" rx="2.55" ry="3.2" fill="#1A1008" />
               <circle cx="22.58" cy="29.15" r="0.8" fill="#FFFDF0" />
               <circle cx="21.1" cy="29.75" r="0.38" fill="rgba(255,255,240,0.52)" />
-            </motion.g>
+            </m.g>
 
-            <motion.g
+            <m.g
               animate={shouldAnimate ? { scaleY: [1, 1, 1, 0.16, 1, 1] } : undefined}
               transition={
                 shouldAnimate
@@ -277,10 +277,10 @@ const BrandMascot: React.FC<BrandMascotProps & { pointerNudge?: PointerNudge }> 
               <ellipse cx="34" cy="30.5" rx="2.55" ry="3.2" fill="#1A1008" />
               <circle cx="34.6" cy="29.15" r="0.8" fill="#FFFDF0" />
               <circle cx="33.1" cy="29.75" r="0.38" fill="rgba(255,255,240,0.52)" />
-            </motion.g>
-          </motion.g>
+            </m.g>
+          </m.g>
 
-          <motion.path
+          <m.path
             d="M21.5 38Q28 43.5 34.5 38"
             stroke="#7A2E14"
             strokeWidth="2.25"
@@ -293,7 +293,7 @@ const BrandMascot: React.FC<BrandMascotProps & { pointerNudge?: PointerNudge }> 
 
           {shouldAnimate && (
             <>
-              <motion.circle
+              <m.circle
                 cx="41"
                 cy="17.5"
                 r="1.12"
@@ -301,7 +301,7 @@ const BrandMascot: React.FC<BrandMascotProps & { pointerNudge?: PointerNudge }> 
                 animate={{ opacity: [0.18, 0.88, 0.18], scale: [0.84, 1.16, 0.84] }}
                 transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
               />
-              <motion.circle
+              <m.circle
                 cx="43.5"
                 cy="22.5"
                 r="0.72"
@@ -309,7 +309,7 @@ const BrandMascot: React.FC<BrandMascotProps & { pointerNudge?: PointerNudge }> 
                 animate={{ opacity: [0.12, 0.62, 0.12], y: [0, -1.3, 0] }}
                 transition={{ duration: 2.3, repeat: Infinity, ease: 'easeInOut', delay: 0.45 }}
               />
-              <motion.circle
+              <m.circle
                 cx="38.5"
                 cy="13"
                 r="0.56"
@@ -320,7 +320,7 @@ const BrandMascot: React.FC<BrandMascotProps & { pointerNudge?: PointerNudge }> 
             </>
           )}
         </svg>
-      </motion.span>
+      </m.span>
     </span>
   );
 };
@@ -390,11 +390,8 @@ const BrandChip: React.FC<BrandChipProps> = ({ mobile = false }) => {
     ];
 
   return (
-    <motion.div
-      className={clsx(
-        'brand-chip-stage',
-        mobile ? 'brand-chip-stage--mobile md:hidden' : 'hidden md:block',
-      )}
+    <m.div
+      className={clsx('brand-chip-stage', mobile && 'brand-chip-stage--mobile')}
       onMouseEnter={handleHoverStart}
       onMouseLeave={handleHoverEnd}
       onPointerMove={handlePointerMove}
@@ -416,7 +413,7 @@ const BrandChip: React.FC<BrandChipProps> = ({ mobile = false }) => {
       }
       transition={{ duration: visualState === 'active' ? 0.36 : 0.2, ease: 'easeOut' }}
     >
-      <motion.span
+      <m.span
         className="brand-chip-track"
         animate={
           prefersReducedMotion
@@ -428,7 +425,7 @@ const BrandChip: React.FC<BrandChipProps> = ({ mobile = false }) => {
         }
         transition={{ duration: visualState === 'active' ? 0.42 : 0.24, ease: 'easeOut' }}
       />
-      <motion.span
+      <m.span
         className="brand-chip-track-glow"
         animate={
           prefersReducedMotion
@@ -441,7 +438,7 @@ const BrandChip: React.FC<BrandChipProps> = ({ mobile = false }) => {
         transition={{ duration: visualState === 'active' ? 0.46 : 0.28, ease: 'easeOut' }}
       />
 
-      <motion.button
+      <m.button
         type="button"
         aria-label="Animar mango mascota de Risol"
         className={clsx('brand-mascot-button', mobile && 'brand-mascot-button--mobile')}
@@ -468,7 +465,7 @@ const BrandChip: React.FC<BrandChipProps> = ({ mobile = false }) => {
           handleActive();
         }}
       >
-        <motion.span
+        <m.span
           className={clsx('brand-mascot-actor', mobile && 'brand-mascot-actor--compact')}
           animate={
             prefersReducedMotion
@@ -494,15 +491,15 @@ const BrandChip: React.FC<BrandChipProps> = ({ mobile = false }) => {
             mood={visualState === 'active' ? 'celebrate' : visualState}
             pointerNudge={pointerNudge}
           />
-        </motion.span>
-      </motion.button>
+        </m.span>
+      </m.button>
 
       <Link
         to="/dashboard"
         className={clsx('brand-chip-simple', mobile && 'brand-chip-simple--mobile')}
       >
         <span className="brand-chip-sheen" />
-        <motion.span
+        <m.span
           className="brand-chip-label"
           animate={
             prefersReducedMotion
@@ -516,13 +513,13 @@ const BrandChip: React.FC<BrandChipProps> = ({ mobile = false }) => {
           transition={visualState === 'active' ? { duration: 0.34, ease: 'easeOut' } : { duration: 0.22, ease: 'easeOut' }}
         >
           Risol
-        </motion.span>
+        </m.span>
       </Link>
 
       <AnimatePresence>
         {isActive && !prefersReducedMotion && (
           <>
-            <motion.span
+            <m.span
               initial={{ opacity: 0.3, scale: 0.92 }}
               animate={{ opacity: [0.32, 0], scale: [0.92, 1.12] }}
               exit={{ opacity: 0 }}
@@ -530,7 +527,7 @@ const BrandChip: React.FC<BrandChipProps> = ({ mobile = false }) => {
               className="brand-chip-ripple"
             />
             {sparkles.map((spark, index) => (
-              <motion.span
+              <m.span
                 key={spark.key}
                 className="brand-chip-spark"
                 style={spark.style}
@@ -549,7 +546,7 @@ const BrandChip: React.FC<BrandChipProps> = ({ mobile = false }) => {
           </>
         )}
       </AnimatePresence>
-    </motion.div>
+    </m.div>
   );
 };
 
@@ -604,7 +601,7 @@ const Navbar: React.FC = () => {
 
         <AnimatePresence>
           {hoverMenu === section.id && (
-            <motion.div
+            <m.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
@@ -634,7 +631,7 @@ const Navbar: React.FC = () => {
                   </Link>
                 ))}
               </div>
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
       </div>
@@ -666,7 +663,7 @@ const Navbar: React.FC = () => {
 
         <AnimatePresence initial={false}>
           {isOpen && (
-            <motion.div
+            <m.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
@@ -688,7 +685,7 @@ const Navbar: React.FC = () => {
                   {item.label}
                 </Link>
               ))}
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
       </div>
@@ -697,7 +694,7 @@ const Navbar: React.FC = () => {
 
   return (
     <>
-      <motion.nav
+      <m.nav
         initial={{ y: -24, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.28, ease: 'easeOut' }}
@@ -705,8 +702,12 @@ const Navbar: React.FC = () => {
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3 lg:gap-5">
-            <BrandChip />
-            <BrandChip mobile />
+            <div className="hidden md:block">
+              <BrandChip />
+            </div>
+            <div className="md:hidden">
+              <BrandChip mobile />
+            </div>
 
             {isAuthenticated && (
               <>
@@ -751,16 +752,17 @@ const Navbar: React.FC = () => {
                   <p className="text-xs uppercase tracking-[0.18em] text-neutral-500">{role}</p>
                 </div>
 
-                <Button
-                  onClick={() => setOpenLogout(true)}
-                  variant="contained"
-                  color="primary"
-                  size="small"
-                  className="hidden md:inline-flex"
-                  sx={{ textTransform: 'none', fontWeight: 600, borderRadius: '999px' }}
-                >
-                  Cerrar sesion
-                </Button>
+                <div className="hidden md:block">
+                  <Button
+                    onClick={() => setOpenLogout(true)}
+                    variant="contained"
+                    color="primary"
+                    size="small"
+                    sx={{ textTransform: 'none', fontWeight: 600, borderRadius: '999px' }}
+                  >
+                    Cerrar sesion
+                  </Button>
+                </div>
 
                 <button
                   onClick={() => setMobileMenuOpen((open) => !open)}
@@ -788,7 +790,7 @@ const Navbar: React.FC = () => {
             )}
           </div>
         </div>
-      </motion.nav>
+      </m.nav>
 
       <Dialog open={openLogout} onClose={() => setOpenLogout(false)}>
         <DialogTitle>Confirmar cierre de sesion</DialogTitle>
@@ -812,7 +814,7 @@ const Navbar: React.FC = () => {
       <AnimatePresence>
         {mobileMenuOpen && isAuthenticated && (
           <>
-            <motion.div
+            <m.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -820,7 +822,7 @@ const Navbar: React.FC = () => {
               onClick={handleCloseMobile}
             />
 
-            <motion.aside
+            <m.aside
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
@@ -879,7 +881,7 @@ const Navbar: React.FC = () => {
                   Cerrar sesion
                 </Button>
               </div>
-            </motion.aside>
+            </m.aside>
           </>
         )}
       </AnimatePresence>

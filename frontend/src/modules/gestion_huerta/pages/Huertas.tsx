@@ -2,7 +2,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import {
   Paper,
   Typography,
@@ -262,7 +262,7 @@ const Huertas: React.FC = () => {
   }
 
   return (
-    <motion.div className="p-6 max-w-6xl mx-auto" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
+    <m.div className="p-6 max-w-6xl mx-auto" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
       <Paper elevation={4} className="p-6 sm:px-10 sm:pb-8 rounded-2xl bg-white">
         <Typography variant="h4" className="text-primary-dark font-bold mb-4">
           Gestión de Huertas
@@ -367,7 +367,7 @@ const Huertas: React.FC = () => {
           </DialogActions>
         </Dialog>
       </Paper>
-    </motion.div>
+    </m.div>
   );
 };
 

@@ -7,7 +7,7 @@ import {
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import WarehouseIcon from '@mui/icons-material/Warehouse';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { useAppDispatch, useAppSelector } from '../../../../global/store/store';
 import {
   fetchInventarioMadera,
@@ -152,7 +152,7 @@ export default function InventarioMaderaTable({ bodegaId, temporadaId }: Props) 
                     const pct = stockInicial > 0 ? Math.min(100, Math.round((stockActual / stockInicial) * 100)) : 0;
                     return (
                       <TableRow
-                        component={motion.tr as any}
+                        component={m.tr as any}
                         custom={i}
                         variants={rowVariants}
                         initial="hidden"

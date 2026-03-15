@@ -9,7 +9,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import AddIcon from '@mui/icons-material/Add';
 import PaymentsIcon from '@mui/icons-material/Payments';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import CompraMaderaFormModal from './CompraMaderaFormModal';
 import AbonoMaderaModal from './AbonoMaderaModal';
 import { gastosService } from '../../services/gastosService';
@@ -178,7 +178,7 @@ export default function CompraMaderaTable({ bodegaId, temporadaId }: Props) {
                     const saldoPct = monto > 0 ? Math.round((saldo / monto) * 100) : 0;
                     return (
                       <TableRow
-                        component={motion.tr as any}
+                        component={m.tr as any}
                         custom={i}
                         variants={rowVariants}
                         initial="hidden"

@@ -18,7 +18,7 @@ import {
   Tabs,
   Tab,
 } from '@mui/material';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 
 import PropietarioToolbar   from '../components/propietario/PropietarioToolbar';
 import PropietarioTable     from '../components/propietario/PropietarioTable';
@@ -164,7 +164,7 @@ const handleFilterChange = (filters: Record<string, any>) => {
   };
 
   return (
-    <motion.div
+    <m.div
       className="p-6 max-w-6xl mx-auto"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -311,7 +311,7 @@ loadOptions: async (input: string) => {
           </Button>
         </DialogActions>
       </Dialog>
-    </motion.div>
+    </m.div>
   );
 };
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Iterable
 
 from django.contrib.auth.models import Permission
@@ -8,6 +9,9 @@ from django.db.models.signals import post_migrate
 from django.dispatch import receiver
 from django.apps import apps as django_apps
 from .permissions_policy import allowed_prefixes_for
+
+
+logger = logging.getLogger(__name__)
 
 
 # Apps del dominio a las que se les generarán permisos extra
@@ -97,6 +101,5 @@ def ensure_custom_permissions(sender, app_config, **kwargs):
                 _ensure_permissions_for_model(model)
         _HAS_RUN = True
     except Exception:
-        # Evita romper migrate si algo falla; el comando rebuild_permissions
-        # actúa como red de seguridad.
-        pass
+        logger.exception("No se pudieron garantizar los permisos personalizados tras migrate.")
+        raise

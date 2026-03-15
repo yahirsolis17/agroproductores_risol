@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Form, Formik, FormikHelpers } from 'formik';
 import * as Yup from 'yup';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -101,7 +101,7 @@ const Register: React.FC = () => {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
@@ -284,7 +284,7 @@ const Register: React.FC = () => {
           </Formik>
         </Paper>
 
-        <motion.aside
+        <m.aside
           initial={{ opacity: 0, x: 18 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.35, delay: 0.06 }}
@@ -311,8 +311,8 @@ const Register: React.FC = () => {
               text="Este formulario envia solo lo necesario al endpoint de usuarios y reutiliza el manejo canonico de errores."
             />
           </div>
-        </motion.aside>
-      </motion.div>
+        </m.aside>
+      </m.div>
     </main>
   );
 };
