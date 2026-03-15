@@ -1,7 +1,6 @@
-import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useId, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import type { LottieRefCurrentProps } from 'lottie-react';
 import clsx from 'clsx';
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle } from '@mui/material';
 
@@ -24,406 +23,303 @@ type BrandChipProps = {
 };
 
 type BrandInteractionState = 'idle' | 'hover' | 'active';
-type LottieAnimationData = Record<string, unknown>;
-type LottiePlayerComponent = typeof import('lottie-react').default;
+type PointerNudge = { x: number; y: number };
 
-const BrandMascot: React.FC<BrandMascotProps> = ({ compact = false, mood = 'idle', staticMode = false }) => {
+const BrandMascot: React.FC<BrandMascotProps & { pointerNudge?: PointerNudge }> = ({
+  compact = false,
+  mood = 'idle',
+  staticMode = false,
+  pointerNudge = { x: 0, y: 0 },
+}) => {
   const prefersReducedMotion = useReducedMotion();
   const shouldAnimate = !staticMode && !prefersReducedMotion;
   const gradientId = useId();
+  const highlightId = useId();
+  const blushId = useId();
   const shadowId = useId();
-  const bodyFloat = !shouldAnimate
-    ? undefined
-    : mood === 'celebrate'
-      ? {
-        y: [0, -2.4, 0],
-        rotate: [-9, -4, -10],
-        scale: [1, 1.03, 1],
-      }
-      : mood === 'hover'
-        ? {
-          y: [0, -1.4, 0],
-          rotate: [-10, -6, -9],
-          scale: [1, 1.015, 1],
-        }
-        : {
-          y: [0, -1, 0],
-          rotate: [-10, -8, -10],
-        };
+  const leafGradId = useId();
+  const sunBlushId = useId();
+  const stemGradId = useId();
+
+  const pupilX = shouldAnimate ? clamp(pointerNudge.x * 0.16, -0.42, 0.52) : 0;
+  const pupilY = shouldAnimate ? clamp(pointerNudge.y * 0.12, -0.24, 0.3) : 0;
+
   const bodyAnimation = !shouldAnimate
     ? undefined
     : mood === 'celebrate'
-      ? {
-        y: [0, -4, 0],
-        rotate: [0, -10, 8, 0],
-        scale: [1, 1.08, 1],
-      }
+      ? { y: [0, -3.4, 0], rotate: [-8, -3, -9], scale: [1, 1.05, 1] }
       : mood === 'hover'
-        ? {
-          y: [0, -2.2, 0],
-          rotate: [-2, 2, -1],
-          scale: [1, 1.03, 1],
-        }
-        : {
-          y: [0, -1.8, 0],
-          rotate: [0, -2.5, 0, 2.5, 0],
-        };
+        ? { y: [0, -1.8, 0], rotate: [-7.6, -4.8, -6.6], scale: [1, 1.018, 1] }
+        : { y: [0, -1.15, 0], rotate: [-7.4, -6.5, -7.4] };
   const bodyTransition = !shouldAnimate
     ? { duration: 0 }
     : mood === 'celebrate'
-      ? {
-        duration: 0.9,
-        ease: 'easeInOut',
-      }
-      : {
-        duration: mood === 'hover' ? 2.8 : 4.8,
-        repeat: Infinity,
-        ease: 'easeInOut',
-      };
+      ? { duration: 0.82, ease: 'easeInOut' }
+      : { duration: mood === 'hover' ? 2.5 : 4.6, repeat: Infinity, ease: 'easeInOut' };
+
   const leafAnimation = !shouldAnimate
     ? undefined
     : mood === 'celebrate'
-      ? {
-        rotate: [0, 14, -10, 0],
-      }
+      ? { rotate: [0, 18, -14, 0] }
       : mood === 'hover'
-        ? { rotate: [0, 10, 0, -8, 0] }
+        ? { rotate: [0, 11, 0, -8, 0] }
         : { rotate: [0, 7, 0, -6, 0] };
   const leafTransition = !shouldAnimate
     ? { duration: 0 }
     : mood === 'celebrate'
       ? { duration: 0.8, ease: 'easeInOut' }
-      : { duration: mood === 'hover' ? 2.2 : 3.6, repeat: Infinity, ease: 'easeInOut' };
-  return (
-    <motion.span
-      animate={bodyAnimation}
-      transition={bodyTransition}
-      className={clsx('brand-mascot', compact && 'brand-mascot--compact')}
-      aria-hidden="true"
-    >
-      <svg viewBox="0 0 54 54" className="brand-mascot-svg" fill="none">
-        <defs>
-          <linearGradient id={gradientId} x1="12" y1="8" x2="42" y2="45" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#FFD700" />
-            <stop offset="45%" stopColor="#FFA500" />
-            <stop offset="100%" stopColor="#FF6347" />
-          </linearGradient>
-          <radialGradient id="mangoHighlight" cx="40%" cy="30%">
-            <stop offset="0%" stopColor="rgba(255,255,255,0.6)" />
-            <stop offset="100%" stopColor="rgba(255,255,255,0)" />
-          </radialGradient>
-          <filter id={shadowId} x="0" y="0" width="54" height="54" filterUnits="userSpaceOnUse">
-            <feGaussianBlur stdDeviation="2.2" />
-          </filter>
-        </defs>
+      : { duration: mood === 'hover' ? 2.15 : 3.5, repeat: Infinity, ease: 'easeInOut' };
 
-        <ellipse cx="26" cy="47.3" rx="12.2" ry="3.8" fill="#0f513e" fillOpacity="0.16" filter={`url(#${shadowId})`} />
+  const blinkTimes = mood === 'hover' ? [0, 0.3, 0.44, 0.54, 1] : [0, 0.42, 0.58, 0.66, 1];
+  const blinkDuration = mood === 'hover' ? 3.2 : 5.8;
+  const mouthScaleX = mood === 'celebrate' ? 1.16 : mood === 'hover' ? 1.09 : 1;
+  const mouthLift = mood === 'celebrate' ? -0.6 : mood === 'hover' ? -0.2 : 0;
+  const cheekOpacity = mood === 'celebrate' ? 0.78 : mood === 'hover' ? 0.64 : 0.46;
 
-        <path
-          d="M27.2 10.4c.5-1.8 2-3.5 4-4.3"
-          stroke="#8B5A2B"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
-        <motion.path
-          d="M18.5 13.2c1.8-4.8 7.2-8.1 12-7-1.2 5-4.9 8.6-10 9.6l-2.2-.3Z"
-          fill="#56A860"
-          animate={leafAnimation}
-          transition={leafTransition}
-          style={{ transformOrigin: '22px 12px' }}
-        />
-        <path d="M18.8 14.1c1.4-3.1 4-5.8 7.1-6.8" stroke="#2E6C45" strokeWidth="1.7" strokeLinecap="round" />
-
-        <motion.g
-          animate={bodyFloat}
-          transition={
-            !shouldAnimate
-              ? { duration: 0 }
-              : mood === 'celebrate'
-                ? { duration: 0.66, ease: 'easeInOut' }
-                : { duration: mood === 'hover' ? 2.6 : 4.2, repeat: Infinity, ease: 'easeInOut' }
-          }
-          style={{ transformOrigin: '26px 31px' }}
-        >
-          <path
-            d="M18.2 17.1c3.1-3.8 8.4-6.2 14-6.1 5.4.1 10.2 2.8 12.8 7.4 2.8 5 2.7 11.2 0 16.2-2.4 4.6-7.2 8-12.6 8.8-5.8.9-12-1.2-15.2-5.8-2.8-4-3.2-9.8-1.4-14.8.9-2.5 2.4-5 4.4-6.7Z"
-            fill={`url(#${gradientId})`}
-            stroke="#F5F0D4"
-            strokeWidth="1.2"
-          />
-          <path
-            d="M22.6 19.8c2.8-1.9 6.2-2.7 9.2-1.8 3.8 1.2 6.4 4.6 7 8.2"
-            stroke="rgba(255,255,255,0.5)"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-          />
-          <ellipse cx="31" cy="22" rx="8" ry="11" fill="url(#mangoHighlight)" opacity="0.4" />
-          <path
-            d="M20.8 24.2c1.1-2.8 3.6-5.2 6.4-6.2"
-            stroke="rgba(255,255,255,0.3)"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
-          <path
-            d="M32.2 18.6c2.4 2.8 3.8 6.4 3.6 10.2-.2 3.2-1.8 6.6-4.2 9.2"
-            stroke="rgba(255,140,50,0.25)"
-            strokeWidth="5.2"
-            strokeLinecap="round"
-          />
-        </motion.g>
-
-        {shouldAnimate ? (
-          <>
-            <motion.circle
-              cx="36.2"
-              cy="16.8"
-              r="1.1"
-              fill="rgba(255,255,255,0.85)"
-              animate={{ opacity: [0.3, 0.9, 0.3], scale: [0.85, 1.15, 0.85] }}
-              transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
-            />
-            <motion.circle
-              cx="38.8"
-              cy="21.4"
-              r="0.75"
-              fill="rgba(255,255,255,0.65)"
-              animate={{ opacity: [0.2, 0.75, 0.2], y: [0, -1.2, 0] }}
-              transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut', delay: 0.4 }}
-            />
-          </>
-        ) : null}
-      </svg>
-    </motion.span>
-  );
-};
-
-const risolMangoAnimationUrl = new URL('../../assets/animations/risol-mango.json', import.meta.url);
-
-let risolMangoAnimationCache: LottieAnimationData | null = null;
-let risolMangoAnimationRequest: Promise<LottieAnimationData> | null = null;
-let lottiePlayerCache: LottiePlayerComponent | null = null;
-let lottiePlayerRequest: Promise<LottiePlayerComponent> | null = null;
-
-const loadRisolMangoAnimation = async (): Promise<LottieAnimationData> => {
-  if (risolMangoAnimationCache) {
-    return risolMangoAnimationCache;
-  }
-
-  if (!risolMangoAnimationRequest) {
-    risolMangoAnimationRequest = fetch(risolMangoAnimationUrl)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error('No se pudo cargar la animacion de Risol.');
-        }
-
-        return response.json() as Promise<LottieAnimationData>;
-      })
-      .then((data) => {
-        risolMangoAnimationCache = data;
-        return data;
-      })
-      .catch(() => {
-        risolMangoAnimationRequest = null;
-        throw new Error('No se pudo cargar la animacion de Risol.');
-      });
-  }
-
-  return risolMangoAnimationRequest;
-};
-
-const loadLottiePlayer = async (): Promise<LottiePlayerComponent> => {
-  if (lottiePlayerCache) {
-    return lottiePlayerCache;
-  }
-
-  if (!lottiePlayerRequest) {
-    lottiePlayerRequest = import('lottie-react')
-      .then((module) => {
-        lottiePlayerCache = module.default;
-        return module.default;
-      })
-      .catch(() => {
-        lottiePlayerRequest = null;
-        throw new Error('No se pudo cargar el player de Lottie.');
-      });
-  }
-
-  return lottiePlayerRequest;
-};
-
-const BrandMascotLottie: React.FC<Pick<BrandMascotProps, 'compact'> & { state: BrandInteractionState }> = ({ compact = false, state }) => {
-  const prefersReducedMotion = useReducedMotion();
-  const lottieRef = useRef<LottieRefCurrentProps | null>(null);
-  const [LottiePlayer, setLottiePlayer] = useState<LottiePlayerComponent | null>(lottiePlayerCache);
-  const [animationData, setAnimationData] = useState<LottieAnimationData | null>(risolMangoAnimationCache);
-  const [loadFailed, setLoadFailed] = useState(false);
-
-  useEffect(() => {
-    if (animationData || loadFailed) {
-      return undefined;
-    }
-
-    let active = true;
-
-    loadRisolMangoAnimation()
-      .then((data) => {
-        if (active) {
-          setAnimationData(data);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setLoadFailed(true);
-        }
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [animationData, loadFailed]);
-
-  useEffect(() => {
-    if (LottiePlayer || loadFailed) {
-      return undefined;
-    }
-
-    let active = true;
-
-    loadLottiePlayer()
-      .then((component) => {
-        if (active) {
-          setLottiePlayer(() => component);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setLoadFailed(true);
-        }
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [LottiePlayer, loadFailed]);
-
-  useEffect(() => {
-    const player = lottieRef.current;
-
-    if (!player || !animationData) {
-      return;
-    }
-
-    if (prefersReducedMotion) {
-      player.pause();
-      player.goToAndStop(0, true);
-      return;
-    }
-
-    const speed = state === 'active' ? 1.08 : state === 'hover' ? 0.92 : 0.76;
-    player.setSpeed(speed);
-
-    if (state === 'active') {
-      player.goToAndPlay(0, true);
-      return;
-    }
-
-    player.play();
-  }, [animationData, prefersReducedMotion, state]);
-
-  const fallbackMood = state === 'active' ? 'celebrate' : state;
+  const body = 'M28.5 13.5C37.5 12 46 20.5 46 31.8C46 43.2 39.2 52 30 53C23.2 53.8 14.5 49 12.5 41.5C10.5 34 11.8 21.5 18.5 16.5C21.5 13.8 25.2 13 28.5 13.5Z';
 
   return (
-    <span className={clsx('brand-mascot-shell', compact && 'brand-mascot-shell--compact')}>
-      {animationData && !loadFailed ? (
-        LottiePlayer ? (
-          <LottiePlayer
-            lottieRef={lottieRef}
-            animationData={animationData}
-            loop={!prefersReducedMotion}
-            autoplay={!prefersReducedMotion}
-            className="brand-mascot-lottie"
-            rendererSettings={{ preserveAspectRatio: 'xMidYMid meet' }}
-            onDataFailed={() => setLoadFailed(true)}
-          />
-        ) : (
-          <BrandMascot compact={compact} mood={fallbackMood} staticMode />
-        )
-      ) : (
-        <BrandMascot compact={compact} mood={fallbackMood} staticMode />
-      )}
+    <span className={clsx('brand-mascot-shell', compact && 'brand-mascot-shell--compact')} aria-hidden="true">
       <motion.span
-        className={clsx('brand-mascot-face', compact && 'brand-mascot-face--compact')}
-        animate={
-          prefersReducedMotion
-            ? undefined
-            : state === 'active'
-              ? { y: [-0.4, 0, -0.4] }
-              : state === 'hover'
-                ? { y: -0.2 }
-                : { y: 0 }
-        }
-        transition={state === 'active' ? { duration: 0.28, ease: 'easeOut' } : { duration: 0.18, ease: 'easeOut' }}
-        aria-hidden="true"
+        animate={bodyAnimation}
+        transition={bodyTransition}
+        className={clsx('brand-mascot', compact && 'brand-mascot--compact')}
       >
-        <div className="brand-mascot-eye-row">
-          <motion.span
-            className="brand-mascot-eye"
-            animate={
-              prefersReducedMotion
-                ? undefined
-                : state === 'active'
-                  ? { scaleY: [1, 0.2, 1] }
-                  : state === 'hover'
-                    ? { scaleY: [1, 1, 0.18, 1, 1] }
-                    : { scaleY: [1, 1, 1, 0.2, 1, 1] }
-            }
-            transition={
-              prefersReducedMotion
-                ? { duration: 0 }
-                : state === 'active'
-                  ? { duration: 0.34, ease: 'easeInOut' }
-                  : state === 'hover'
-                    ? { duration: 3.2, repeat: Infinity, ease: 'easeInOut', times: [0, 0.36, 0.48, 0.58, 1] }
-                    : { duration: 5.8, repeat: Infinity, ease: 'easeInOut', times: [0, 0.36, 0.52, 0.58, 0.66, 1] }
-            }
+        <svg viewBox="0 0 56 56" className="brand-mascot-svg" fill="none">
+          <defs>
+            <linearGradient id={gradientId} x1="44" y1="12" x2="12" y2="52" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#C01E35" />
+              <stop offset="18%" stopColor="#E04226" />
+              <stop offset="42%" stopColor="#FF7E22" />
+              <stop offset="68%" stopColor="#FFBC28" />
+              <stop offset="100%" stopColor="#FFE050" />
+            </linearGradient>
+
+            <radialGradient id={highlightId} cx="37%" cy="22%" r="50%">
+              <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.85" />
+              <stop offset="30%" stopColor="#FFFFFF" stopOpacity="0.32" />
+              <stop offset="65%" stopColor="#FFFFFF" stopOpacity="0.07" />
+              <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
+            </radialGradient>
+
+            <radialGradient id={sunBlushId} cx="76%" cy="24%" r="44%">
+              <stop offset="0%" stopColor="#A81020" stopOpacity="0.52" />
+              <stop offset="55%" stopColor="#A81020" stopOpacity="0.14" />
+              <stop offset="100%" stopColor="#A81020" stopOpacity="0" />
+            </radialGradient>
+
+            <radialGradient id={blushId} cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#FF7BAC" stopOpacity="0.92" />
+              <stop offset="100%" stopColor="#FF7BAC" stopOpacity="0" />
+            </radialGradient>
+
+            <linearGradient id={leafGradId} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#72D485" />
+              <stop offset="45%" stopColor="#27A04E" />
+              <stop offset="100%" stopColor="#196634" />
+            </linearGradient>
+
+            <linearGradient id={stemGradId} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#8C4A1C" />
+              <stop offset="100%" stopColor="#5C2E0A" />
+            </linearGradient>
+
+            <filter id={shadowId} x="-40%" y="-40%" width="180%" height="180%">
+              <feGaussianBlur stdDeviation="2.4" />
+            </filter>
+          </defs>
+
+          <ellipse
+            cx="28"
+            cy="52.5"
+            rx="12"
+            ry="2.6"
+            fill="#6A0F0A"
+            fillOpacity="0.22"
+            filter={`url(#${shadowId})`}
           />
-          <motion.span
-            className="brand-mascot-eye"
-            animate={
-              prefersReducedMotion
-                ? undefined
-                : state === 'active'
-                  ? { scaleY: [1, 0.2, 1] }
-                  : state === 'hover'
-                    ? { scaleY: [1, 0.92, 1, 0.86, 1] }
-                    : { scaleY: [1, 1, 1, 0.2, 1, 1] }
-            }
-            transition={
-              prefersReducedMotion
-                ? { duration: 0 }
-                : state === 'active'
-                  ? { duration: 0.34, ease: 'easeInOut', delay: 0.03 }
-                  : state === 'hover'
-                    ? { duration: 3.2, repeat: Infinity, ease: 'easeInOut', delay: 0.04, times: [0, 0.2, 0.48, 0.72, 1] }
-                    : { duration: 5.8, repeat: Infinity, ease: 'easeInOut', delay: 0.08, times: [0, 0.36, 0.52, 0.58, 0.66, 1] }
-            }
+
+          <path
+            d="M29 14C29.5 9.5 32.5 6.5 34.5 4.5"
+            stroke={`url(#${stemGradId})`}
+            strokeWidth="2.2"
+            strokeLinecap="round"
           />
-        </div>
-        <motion.span
-          className="brand-mascot-mouth"
-          animate={
-            prefersReducedMotion
-              ? undefined
-              : state === 'active'
-                ? { scaleX: [1, 1.16, 1], y: [-0.1, -0.4, -0.1] }
-                : state === 'hover'
-                  ? { scaleX: 1.08, y: -0.12 }
-                  : { scaleX: 1, y: 0 }
-          }
-          transition={state === 'active' ? { duration: 0.32, ease: 'easeOut' } : { duration: 0.2, ease: 'easeOut' }}
-        />
-        <span className="brand-mascot-cheek brand-mascot-cheek--left" />
-        <span className="brand-mascot-cheek brand-mascot-cheek--right" />
+
+          <motion.g
+            animate={leafAnimation}
+            transition={leafTransition}
+            style={{ transformOrigin: '28px 13px' }}
+          >
+            <path
+              d="M30 14C35.5 8 43 5.5 46 8.5C43.5 12 37 14 30 14Z"
+              fill="#1D7E3C"
+              opacity="0.72"
+            />
+            <path
+              d="M30 14C36 10.5 42 8 46 8.5"
+              stroke="rgba(12,60,25,0.45)"
+              strokeWidth="0.6"
+              strokeLinecap="round"
+            />
+
+            <path
+              d="M27.5 14C23 8 14 3.5 9 6.5C11.5 10.5 20.5 14 27.5 14Z"
+              fill={`url(#${leafGradId})`}
+            />
+            <path
+              d="M26.5 14C22 10 16 7 11 7"
+              stroke="rgba(170,255,195,0.48)"
+              strokeWidth="0.85"
+              strokeLinecap="round"
+            />
+            <path
+              d="M27.5 14C21 11 14 8 9 6.5"
+              stroke="rgba(12,72,32,0.52)"
+              strokeWidth="0.65"
+              strokeLinecap="round"
+            />
+          </motion.g>
+
+          <path d={body} fill={`url(#${gradientId})`} />
+          <path d={body} fill={`url(#${sunBlushId})`} />
+          <path d={body} fill={`url(#${highlightId})`} />
+          <path
+            d={body}
+            fill="none"
+            stroke="rgba(255,235,140,0.38)"
+            strokeWidth="0.7"
+          />
+
+          <path
+            d="M17.5 20C25 29 31 38 33 48"
+            stroke="rgba(255,175,35,0.17)"
+            strokeWidth="6"
+            strokeLinecap="round"
+            fill="none"
+          />
+
+          <ellipse cx="19.5" cy="37" rx="4.1" ry="2.6" fill={`url(#${blushId})`} opacity={cheekOpacity} />
+          <ellipse cx="36.5" cy="36" rx="4.3" ry="2.6" fill={`url(#${blushId})`} opacity={cheekOpacity} />
+
+          <motion.path
+            d="M19.6 26Q22.2 24.4 24.8 25.6"
+            stroke="rgba(65,25,5,0.62)"
+            strokeWidth="1.45"
+            strokeLinecap="round"
+            fill="none"
+            animate={
+              shouldAnimate
+                ? mood === 'celebrate'
+                  ? { y: -1.4, rotate: -6 }
+                  : mood === 'hover'
+                    ? { y: -0.6, rotate: -2 }
+                    : { y: 0, rotate: 0 }
+                : undefined
+            }
+            transition={{ duration: 0.22 }}
+            style={{ transformOrigin: '22px 25px' }}
+          />
+          <motion.path
+            d="M31.2 25.6Q33.8 24.4 36.4 25.8"
+            stroke="rgba(65,25,5,0.62)"
+            strokeWidth="1.45"
+            strokeLinecap="round"
+            fill="none"
+            animate={
+              shouldAnimate
+                ? mood === 'celebrate'
+                  ? { y: -1.4, rotate: 6 }
+                  : mood === 'hover'
+                    ? { y: -0.6, rotate: 2 }
+                    : { y: 0, rotate: 0 }
+                : undefined
+            }
+            transition={{ duration: 0.22 }}
+            style={{ transformOrigin: '34px 25px' }}
+          />
+
+          <motion.g
+            animate={shouldAnimate ? { x: pupilX, y: pupilY } : undefined}
+            transition={
+              shouldAnimate
+                ? { type: 'spring', stiffness: 240, damping: 18, mass: 0.48 }
+                : { duration: 0 }
+            }
+          >
+            <motion.g
+              animate={shouldAnimate ? { scaleY: [1, 1, 1, 0.16, 1, 1] } : undefined}
+              transition={
+                shouldAnimate
+                  ? mood === 'celebrate'
+                    ? { duration: 0.34, ease: 'easeInOut' }
+                    : { duration: blinkDuration, repeat: Infinity, ease: 'easeInOut', times: blinkTimes }
+                  : { duration: 0 }
+              }
+              style={{ transformOrigin: '22px 30.5px' }}
+            >
+              <ellipse cx="22" cy="30.5" rx="2.55" ry="3.2" fill="#1A1008" />
+              <circle cx="22.58" cy="29.15" r="0.8" fill="#FFFDF0" />
+              <circle cx="21.1" cy="29.75" r="0.38" fill="rgba(255,255,240,0.52)" />
+            </motion.g>
+
+            <motion.g
+              animate={shouldAnimate ? { scaleY: [1, 1, 1, 0.16, 1, 1] } : undefined}
+              transition={
+                shouldAnimate
+                  ? mood === 'celebrate'
+                    ? { duration: 0.34, ease: 'easeInOut', delay: 0.03 }
+                    : { duration: blinkDuration, repeat: Infinity, ease: 'easeInOut', times: blinkTimes, delay: 0.05 }
+                  : { duration: 0 }
+              }
+              style={{ transformOrigin: '34px 30.5px' }}
+            >
+              <ellipse cx="34" cy="30.5" rx="2.55" ry="3.2" fill="#1A1008" />
+              <circle cx="34.6" cy="29.15" r="0.8" fill="#FFFDF0" />
+              <circle cx="33.1" cy="29.75" r="0.38" fill="rgba(255,255,240,0.52)" />
+            </motion.g>
+          </motion.g>
+
+          <motion.path
+            d="M21.5 38Q28 43.5 34.5 38"
+            stroke="#7A2E14"
+            strokeWidth="2.25"
+            strokeLinecap="round"
+            fill="none"
+            animate={shouldAnimate ? { scaleX: mouthScaleX, y: mouthLift } : undefined}
+            transition={{ duration: mood === 'celebrate' ? 0.32 : 0.2, ease: 'easeOut' }}
+            style={{ transformOrigin: '28px 39.5px' }}
+          />
+
+          {shouldAnimate && (
+            <>
+              <motion.circle
+                cx="41"
+                cy="17.5"
+                r="1.12"
+                fill="rgba(255,252,180,0.9)"
+                animate={{ opacity: [0.18, 0.88, 0.18], scale: [0.84, 1.16, 0.84] }}
+                transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
+              />
+              <motion.circle
+                cx="43.5"
+                cy="22.5"
+                r="0.72"
+                fill="rgba(255,240,140,0.66)"
+                animate={{ opacity: [0.12, 0.62, 0.12], y: [0, -1.3, 0] }}
+                transition={{ duration: 2.3, repeat: Infinity, ease: 'easeInOut', delay: 0.45 }}
+              />
+              <motion.circle
+                cx="38.5"
+                cy="13"
+                r="0.56"
+                fill="rgba(255,230,120,0.55)"
+                animate={{ opacity: [0.08, 0.48, 0.08], scale: [0.8, 1.2, 0.8] }}
+                transition={{ duration: 3.1, repeat: Infinity, ease: 'easeInOut', delay: 1.1 }}
+              />
+            </>
+          )}
+        </svg>
       </motion.span>
     </span>
   );
@@ -547,7 +443,7 @@ const BrandChip: React.FC<BrandChipProps> = ({ mobile = false }) => {
 
       <motion.button
         type="button"
-        aria-label="Animar mascota de Risol"
+        aria-label="Animar mango mascota de Risol"
         className={clsx('brand-mascot-button', mobile && 'brand-mascot-button--mobile')}
         animate={
           prefersReducedMotion
@@ -593,7 +489,11 @@ const BrandChip: React.FC<BrandChipProps> = ({ mobile = false }) => {
                   : { duration: 0.48, ease: [0.22, 1, 0.36, 1] }
           }
         >
-          <BrandMascotLottie compact={mobile} state={visualState} />
+          <BrandMascot
+            compact={mobile}
+            mood={visualState === 'active' ? 'celebrate' : visualState}
+            pointerNudge={pointerNudge}
+          />
         </motion.span>
       </motion.button>
 
