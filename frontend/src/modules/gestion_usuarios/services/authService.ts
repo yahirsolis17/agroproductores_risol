@@ -97,6 +97,7 @@ const authService = {
     localStorage.setItem(ACCESS_TOKEN_KEY, tokens.access);
     localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refresh);
     setStoredJson(USER_KEY, user);
+    localStorage.removeItem(PERMISSIONS_KEY);
   },
 
   setAccessToken: (token: string) => {

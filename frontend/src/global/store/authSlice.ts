@@ -22,12 +22,13 @@ interface AuthState {
 }
 
 const storedUser = authService.getUser() as User | null;
+const storedToken = authService.getAccessToken();
 
 const initialState: AuthState = {
   user: storedUser,
-  token: authService.getAccessToken(),
+  token: storedToken,
   permissions: authService.getPermissions(),
-  isAuthenticated: Boolean(storedUser),
+  isAuthenticated: Boolean(storedUser && storedToken),
   loadingPermissions: false,
 };
 
