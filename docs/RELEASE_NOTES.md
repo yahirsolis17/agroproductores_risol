@@ -1,5 +1,7 @@
 # Release Notes
 
+> Nota 2026-03-15: este documento es un snapshot histórico. Los scripts standalone mencionados en secciones de smoke y guardrails fueron retirados posteriormente del repo y no deben leerse como comandos vigentes.
+
 Fecha de cierre: 2026-03-14
 Estado: Release-ready
 

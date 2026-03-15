@@ -1,5 +1,7 @@
 # Plan De Accion De Consistencia Del Sistema
 
+> Nota 2026-03-15: este plan documenta una pasada histórica. Varias referencias a scripts `check_*.py`, `tools/*` y otros utilitarios standalone quedaron obsoletas tras la limpieza de scripts del commit `033cd61`.
+
 - Fecha de analisis: `2026-03-09`
 - Alcance: `backend`, `frontend`, `docs`, guardrails `check_*`
 - Objetivo: reducir bifurcaciones, eliminar dobles fuentes de verdad y corregir puntos donde el sistema hoy se aparta del canon documentado sin meter regresiones de operacion.
@@ -11,7 +13,7 @@ Documentos canonicos revisados:
 - `docs/fuente_de_la_verdad.md`
 - `docs/README.md`
 - `docs/INDEX.md`
-- `docs/canon/SMOKE_PACK.md`
+- `docs/SMOKE_PACK.md`
 - `docs/INFORME_GESTION_BODEGA.md`
 
 Reglas rectoras confirmadas:

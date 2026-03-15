@@ -1,5 +1,7 @@
 # Analisis de errores de ejecucion de scripts Python
 
+> Nota 2026-03-15: este reporte describe una corrida histórica sobre scripts standalone que ya no forman parte del repo actual. Se conserva como contexto de depuración, no como backlog activo.
+
 ## 1. Contexto de la corrida
 
 - Fecha de corrida: `2026-03-08`

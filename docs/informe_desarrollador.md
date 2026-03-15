@@ -1,5 +1,7 @@
 # Informe Técnico para Desarrolladores (The Developer Bible)
 
+> Nota 2026-03-15: este documento mezcla guías vigentes con referencias históricas a scripts root que ya no existen. Úsalo como manual técnico, pero valida los comandos contra el árbol actual del repo.
+
 > **Agroproductores Risol**  
 > **Guía Oficial de Ingeniería y Operaciones**  
 > **Target Audience:** Backend Devs, Frontend Devs, DevOps.

@@ -1,5 +1,7 @@
 ﻿# Cierre de seguridad, permisos y activity log
 
+> Nota 2026-03-15: este documento refleja una corrida histórica. Las referencias a scripts `check_*.py` y utilitarios standalone deben interpretarse solo como contexto de esa fecha.
+
 Fecha: 2026-03-09
 
 ## 1. Objetivo

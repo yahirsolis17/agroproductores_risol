@@ -1,5 +1,7 @@
 # Informe Maestro Mega-Hiper de Auditoría Integral — Agroproductores Risol
 
+> Nota 2026-03-15: este informe es una fotografía histórica del repositorio. Varias referencias a scripts root y utilitarios de auditoría ya no corresponden al árbol actual después del commit `033cd61`.
+
 > **Objetivo:** entregar un informe quirúrgico, exhaustivo y verificable del estado del sistema (backend + frontend + documentación + políticas operativas). Este documento compila la evidencia encontrada en el repositorio y la estructura técnica real observada.
 
 ---
@@ -73,7 +75,7 @@
 **Fuente:** `backend/agroproductores_risol/utils/pagination.py`
 - `GenericPagination` produce `data.results` + `data.meta` con:
   - `count`, `next`, `previous`, `page`, `page_size`, `total_pages`
-- Mantiene paginadores heredados por compatibilidad (`TemporadaPagination`, `HuertaPagination`, `UsuarioPagination`), todos equivalentes a `GenericPagination`.
+- El repo usa `GenericPagination` como paginador canónico; los aliases heredados equivalentes fueron retirados para reducir ruido y evitar dobles fuentes de verdad.
 
 **Resultado de auditoría:**
 - **Canon de listados unificado.**

@@ -1,5 +1,7 @@
 # 📋 Informe Completo de Implementación: Trazabilidad + Stock Real (Camiones de Salida)
 
+> Nota 2026-03-15: este walkthrough documenta una implementación histórica. El flujo y algunos nombres de modelos pueden haber cambiado desde su redacción original.
+
 **Fecha**: 2025-12-31  
 **Módulo**: `gestion_bodega` (Agroproductores Risol)  
 **Alcance**: Fases 1 y 2 del Plan de Acción

@@ -1,5 +1,7 @@
 # Pasada final de gestion_usuarios
 
+> Nota 2026-03-15: este cierre es histórico. Los guardrails root y varios scripts Python mencionados aquí fueron retirados del repo en una limpieza posterior.
+
 Fecha: 2026-03-09
 
 ## Objetivo

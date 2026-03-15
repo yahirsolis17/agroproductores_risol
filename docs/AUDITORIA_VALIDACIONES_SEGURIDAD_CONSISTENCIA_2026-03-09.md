@@ -1,5 +1,7 @@
 # Auditoria de validaciones, seguridad y consistencia
 
+> Nota 2026-03-15: esta auditoría se conserva como evidencia histórica. Sus referencias a scripts standalone y comandos raíz ya no representan el inventario actual del repo.
+
 Fecha: 2026-03-09
 Scope: login, gestion_usuarios, gestion_huerta, gestion_bodega, contratos backend/frontend, notificaciones, paginacion, filtros y codigo zombie visible.
 

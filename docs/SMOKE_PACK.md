@@ -1,5 +1,7 @@
 # System Canon Smoke Pack (Evidence)
 
+> Nota 2026-03-15: este documento conserva evidencia histórica del canon y de antiguos guardrails root. Algunos scripts mencionados aquí ya no existen en el repo actual.
+
 > **Versión**: 1.0 (Audit Ready)
 > **Fecha**: 2025-12-28
 > **Propósito**: Conjunto mínimo de pruebas para certificar el cumplimiento del Canon Arquitectónico.
