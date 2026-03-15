@@ -22,30 +22,8 @@ Uso típico en un ViewSet:
 from rest_framework.permissions import BasePermission
 
 # Estos vienen del módulo central de usuarios (ya usados en el resto del repo).
-# No reinventamos la rueda: conservamos el mismo contrato.
-try:
-    from gestion_usuarios.permissions import IsAdmin, IsUser, HasModulePermission
-except Exception:  # pragma: no cover
-    # Fallbacks ultra mínimos para entornos donde aún no esté disponible el módulo:
-    from rest_framework.permissions import SAFE_METHODS
-
-    class IsAdmin(BasePermission):
-        def has_permission(self, request, view):
-            return getattr(request.user, "is_authenticated", False) and getattr(request.user, "role", None) == "admin"
-
-    class IsUser(BasePermission):
-        def has_permission(self, request, view):
-            return getattr(request.user, "is_authenticated", False) and getattr(request.user, "role", None) in {"admin", "usuario"}
-
-    class HasModulePermission(BasePermission):
-        """
-        Fallback: permite lectura a cualquiera autenticado y escribe solo admin.
-        El real en `gestion_usuarios.permissions` valida codenames por acción.
-        """
-        def has_permission(self, request, view):
-            if request.method in SAFE_METHODS:
-                return getattr(request.user, "is_authenticated", False)
-            return getattr(request.user, "role", None) == "admin"
+# Si este import falla, preferimos romper startup y no degradar seguridad.
+from gestion_usuarios.permissions import IsAdmin, IsUser, HasModulePermission
 
 
 class IsAdminForBodega(IsAdmin):

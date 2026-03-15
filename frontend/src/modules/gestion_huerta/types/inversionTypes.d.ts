@@ -30,7 +30,7 @@ export interface InversionHuertaCreateData {
 }
 
 /** Payload para actualizar (PATCH) */
-export interface InversionHuertaUpdateData extends Partial<InversionHuertaCreateData> {}
+export type InversionHuertaUpdateData = Partial<InversionHuertaCreateData>;
 
 /* Aliases para no romper imports de formularios */
 export type InversionCreateData = InversionHuertaCreateData;

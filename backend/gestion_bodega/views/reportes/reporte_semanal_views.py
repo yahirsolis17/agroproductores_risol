@@ -1,37 +1,42 @@
-"""Reporte semanal de bodega - placeholder (JSON/PDF/Excel)."""
+"""Reporte semanal de bodega (JSON/PDF/Excel)."""
 
-# backend/gestion_bodega/views/reportes/reporte_semanal_views.py
-from rest_framework import views, permissions, status
-from rest_framework.response import Response
+from django.http import HttpResponse
+from rest_framework import permissions, status, views
 
-from ...utils.notification_handler import NotificationHandler
-
-try:
-    from gestion_usuarios.permissions import HasModulePermission
-    _BasePerms = [permissions.IsAuthenticated, HasModulePermission]
-except Exception:
-    _BasePerms = [permissions.IsAuthenticated]
-
-# Services de negocio (debes implementarlos en services/reportes/semanal_service.py)
+from gestion_usuarios.permissions import HasModulePermission
 from ...services.reportes.semanal_service import (
+    build_reporte_semanal_excel,
     build_reporte_semanal_json,
     build_reporte_semanal_pdf,
-    build_reporte_semanal_excel,
 )
+from ...utils.activity import registrar_actividad
+from ...utils.notification_handler import NotificationHandler
 
 
 class ReporteSemanalView(views.APIView):
     """
-    Expone generación de reportes semanales en JSON/PDF/Excel.
     Body:
       {
         "bodega": 1,
         "temporada": 3,
         "iso_semana": "2025-W36",
-        "formato": "json|pdf|excel"
+        "formato": "json|pdf|excel|xlsx"
       }
     """
-    permission_classes = _BasePerms
+
+    permission_classes = [permissions.IsAuthenticated, HasModulePermission]
+    required_permissions = ["view_dashboard"]
+
+    def get_permissions(self):
+        formato = (getattr(self.request, "data", {}) or {}).get("formato", "json")
+        formato = str(formato).lower()
+        if formato == "pdf":
+            self.required_permissions = ["view_dashboard", "exportpdf_cierresemanal"]
+        elif formato in {"excel", "xlsx"}:
+            self.required_permissions = ["view_dashboard", "exportexcel_cierresemanal"]
+        else:
+            self.required_permissions = ["view_dashboard"]
+        return [permission() for permission in self.permission_classes]
 
     def post(self, request, *args, **kwargs):
         bodega = request.data.get("bodega")
@@ -42,37 +47,61 @@ class ReporteSemanalView(views.APIView):
         try:
             if formato == "json":
                 data = build_reporte_semanal_json(bodega, temporada, iso_semana)
+                registrar_actividad(
+                    request.user,
+                    "Consulto reporte semanal de bodega",
+                    detalles=f"bodega={bodega}; temporada={temporada}; iso_semana={iso_semana}; formato=json",
+                    ip=request.META.get("REMOTE_ADDR"),
+                )
                 return NotificationHandler.generate_response(
-                    message_key="fetch_success",
+                    message_key="reporte_semanal_consultado",
                     data={"reporte": data},
                 )
-            elif formato == "pdf":
+
+            if formato == "pdf":
                 pdf_bytes, filename = build_reporte_semanal_pdf(bodega, temporada, iso_semana)
-                resp = Response(pdf_bytes, content_type="application/pdf", status=status.HTTP_200_OK)
-                resp["Content-Disposition"] = f'attachment; filename="{filename}"'
-                return resp
-            elif formato == "excel":
-                xlsx_bytes, filename = build_reporte_semanal_excel(bodega, temporada, iso_semana)
-                resp = Response(xlsx_bytes, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", status=status.HTTP_200_OK)
-                resp["Content-Disposition"] = f'attachment; filename="{filename}"'
-                return resp
-            else:
-                return NotificationHandler.generate_response(
-                    "validation_error", status_code=status.HTTP_400_BAD_REQUEST,
-                    data={"detail": "formato debe ser json|pdf|excel"}
+                registrar_actividad(
+                    request.user,
+                    "Exporto reporte semanal de bodega",
+                    detalles=f"bodega={bodega}; temporada={temporada}; iso_semana={iso_semana}; formato=pdf",
+                    ip=request.META.get("REMOTE_ADDR"),
                 )
-        except NotImplementedError as exc:
+                resp = HttpResponse(pdf_bytes, content_type="application/pdf", status=status.HTTP_200_OK)
+                resp["Content-Disposition"] = f'attachment; filename="{filename}"'
+                resp["X-Content-Type-Options"] = "nosniff"
+                return resp
+
+            if formato in {"excel", "xlsx"}:
+                xlsx_bytes, filename = build_reporte_semanal_excel(bodega, temporada, iso_semana)
+                registrar_actividad(
+                    request.user,
+                    "Exporto reporte semanal de bodega",
+                    detalles=f"bodega={bodega}; temporada={temporada}; iso_semana={iso_semana}; formato=excel",
+                    ip=request.META.get("REMOTE_ADDR"),
+                )
+                resp = HttpResponse(
+                    xlsx_bytes,
+                    content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    status=status.HTTP_200_OK,
+                )
+                resp["Content-Disposition"] = f'attachment; filename="{filename}"'
+                resp["X-Content-Type-Options"] = "nosniff"
+                return resp
+
             return NotificationHandler.generate_response(
-                "validation_error", status_code=status.HTTP_400_BAD_REQUEST,
-                data={"detail": str(exc)}
+                "reporte_formato_invalido",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                data={"detail": "formato debe ser json|pdf|excel|xlsx"},
             )
         except ValueError as exc:
             return NotificationHandler.generate_response(
-                "validation_error", status_code=status.HTTP_400_BAD_REQUEST,
-                data={"detail": str(exc)}
+                "reporte_parametros_invalidos",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                data={"detail": str(exc)},
             )
-        except Exception as e:
+        except Exception as exc:
             return NotificationHandler.generate_response(
-                "server_error", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                data={"detail": str(e)}
+                "reporte_generacion_error",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                data={"detail": str(exc)},
             )

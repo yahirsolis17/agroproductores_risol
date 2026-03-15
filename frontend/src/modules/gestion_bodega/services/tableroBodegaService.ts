@@ -1,7 +1,6 @@
 // frontend/src/modules/gestion_bodega/services/tableroBodegaService.ts
 
 import apiClient from "../../../global/api/apiClient";
-import { handleBackendNotification } from "../../../global/utils/NotificationEngine";
 import type {
   DashboardSummaryResponse,
   DashboardQueueResponse,
@@ -29,9 +28,6 @@ import type {
  */
 function unwrapEnvelope<T>(payload: any): T {
   const root = payload ?? {};
-
-  // ⚠️ Notificación centralizada (si tu engine decide “silenciar” GET, perfecto)
-  handleBackendNotification(root);
 
   const hasSuccess = typeof root?.success === "boolean";
   const success = hasSuccess ? Boolean(root.success) : true;
@@ -181,9 +177,6 @@ export async function startWeek(body: WeekStartRequest): Promise<WeekCurrentResp
   } catch (err: any) {
     const data = err?.response?.data ?? err?.payload ?? null;
 
-    // ✅ Notificación backend en error
-    handleBackendNotification(data);
-
     const msg =
       pickMsg(
         fieldErr(data, "fecha_desde"),
@@ -209,9 +202,6 @@ export async function finishWeek(body: WeekFinishRequest): Promise<WeekCurrentRe
     return unwrapEnvelope<WeekCurrentResponse>(resp.data);
   } catch (err: any) {
     const data = err?.response?.data ?? err?.payload ?? null;
-
-    // ✅ Notificación backend en error
-    handleBackendNotification(data);
 
     const msg =
       pickMsg(
@@ -242,23 +232,4 @@ export async function getWeeksNav(
   const params = toQueryParams(temporadaId, { bodegaId });
   const resp = await apiClient.get(`${BASE}/semanas/`, { params });
   return unwrapEnvelope<WeeksNavResponse>(resp.data);
-}
-
-/** REPORTE SEMANAL (Blob) */
-export async function getDashboardReport(
-  temporadaId: number,
-  bodegaId: number,
-  semanaId?: number
-): Promise<Blob> {
-  // Ajuste: endpoint en raíz /bodega/reportes/semanal/
-  const url = "/bodega/reportes/semanal/";
-  const params: any = { temporada: temporadaId, bodega: bodegaId };
-  if (semanaId) params.semana_id = semanaId;
-
-  const resp = await apiClient.get(url, {
-    params,
-    responseType: "blob",
-  });
-  // No hay unwrapEnvelope para blob directos
-  return resp.data;
 }

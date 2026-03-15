@@ -1,0 +1,108 @@
+--- SCANNING FOR CORRUPTED ACCENTS ---
+CORRUPTED CamionFormModal.tsx:30 -> camion?: any; // Si es ediciÃ³n
+CORRUPTED CamionFormModal.tsx:140 -> // Si es creaciÃ³n, NO cerramos para permitir agregar cargas
+CORRUPTED CamionFormModal.tsx:141 -> // Si es ediciÃ³n, cerramos.
+CORRUPTED CamionFormModal.tsx:178 -> // Si backend retorna el camiÃ³n confirmado en res.data.camion, Ãºsalo.
+CORRUPTED CamionFormModal.tsx:194 -> setErrorVal("Error al confirmar camiÃ³n: " + (err.response?.data?.message || err.message));
+CORRUPTED CamionFormModal.tsx:214 -> <DialogTitle>{isEdit ? (isConfirmado ? `CamiÃ³n Confirmado #${currentCamion.numero || ''}` : 'Editar CamiÃ³n') : 'Nuevo CamiÃ³n'}</DialogTitle>
+CORRUPTED CamionFormModal.tsx:344 -> {isEdit ? 'Guardar Cambios' : 'Crear CamiÃ³n'}
+CORRUPTED CamionFormModal.tsx:369 -> Â¿EstÃ¡ seguro de confirmar este camiÃ³n? Esta acciÃ³n:
+CORRUPTED CamionFormModal.tsx:372 -> <li>AsignarÃ¡ un <strong>Folio Consecutivo</strong> permanente.</li>
+CORRUPTED CamionFormModal.tsx:373 -> <li>DescontarÃ¡ definitivamente el stock del inventario.</li>
+CORRUPTED CamionFormModal.tsx:374 -> <li><strong>BloquearÃ¡</strong> cualquier ediciÃ³n posterior.</li>
+CORRUPTED CamionFormModal.tsx:379 -> <strong>Folio:</strong> {currentCamion?.numero ? `#${String(currentCamion.numero).padStart(5, "0")}` : "â€” (se asignarÃ¡ al confirmar)"}
+
+--- SCANNING FOR VARIABLES WITH ACCENTS ---
+NON-ASCII VAR models.py -> año
+NON-ASCII DEF serializers.py -> validate_año
+NON-ASCII VAR serializers.py -> año
+NON-ASCII VAR serializers.py -> año
+NON-ASCII VAR serializers.py -> año
+NON-ASCII ARG tests.py -> año
+NON-ASCII VAR tests.py -> año
+NON-ASCII VAR bodegas_views.py -> año
+NON-ASCII VAR bodegas_views.py -> año
+NON-ASCII VAR bodegas_views.py -> año
+NON-ASCII VAR bodegas_views.py -> año
+NON-ASCII VAR models.py -> año
+NON-ASCII DEF serializers.py -> validate_año
+NON-ASCII VAR serializers.py -> año
+NON-ASCII VAR serializers.py -> año
+NON-ASCII VAR serializers.py -> año
+NON-ASCII ARG reportes_produccion_service.py -> años
+NON-ASCII ARG reportes_produccion_service.py -> años
+NON-ASCII VAR reportes_produccion_service.py -> años
+NON-ASCII VAR reportes_produccion_service.py -> años
+NON-ASCII VAR temporadas_views.py -> año
+NON-ASCII VAR temporadas_views.py -> año
+NON-ASCII VAR temporadas_views.py -> año
+NON-ASCII VAR perfil_huerta_views.py -> años_raw
+NON-ASCII VAR perfil_huerta_views.py -> años
+NON-ASCII VAR perfil_huerta_views.py -> años_raw
+NON-ASCII VAR perfil_huerta_views.py -> años
+NON-ASCII VAR perfil_huerta_views.py -> años
+NON-ASCII VAR perfil_huerta_views.py -> años
+
+--- SCANNING FRONTEND FOR NON-ASCII IDENTIFIERS ---
+NON-ASCII IDENT Unauthorized.tsx -> {'página'}
+NON-ASCII IDENT Navbar.tsx -> {'Menú', 'Sesión', 'sesión', 'Estás'}
+NON-ASCII IDENT breadcrumbRoutes.ts -> {'año'}
+NON-ASCII IDENT AppRouter.tsx -> {'Página'}
+NON-ASCII IDENT reportePerfilHuertaSlice.ts -> {'años'}
+NON-ASCII IDENT temporadabodegaSlice.ts -> {'año'}
+NON-ASCII IDENT temporadaSlice.ts -> {'año'}
+NON-ASCII IDENT NotificationEngine.ts -> {'Notificación'}
+NON-ASCII IDENT messages.ts -> {'Mínimo', 'Máximo'}
+NON-ASCII IDENT CapturasTable.tsx -> {'página'}
+NON-ASCII IDENT CapturasToolbar.tsx -> {'recepción'}
+NON-ASCII IDENT RecepcionFormModal.tsx -> {'Operación'}
+NON-ASCII IDENT EmpaqueDrawer.tsx -> {'Roña', 'Última', 'DISTRIBUCIÓN', 'Plástico', 'Distribución', 'recepción', 'Análisis', 'límite', 'Niño', 'Rápido', 'acción'}
+NON-ASCII IDENT EmpaqueHeaderSummary.tsx -> {'Operación', 'recepción', 'clasificación'}
+NON-ASCII IDENT CompraMaderaFormModal.tsx -> {'registrará', 'Crédito', 'automáticamente'}
+NON-ASCII IDENT ConsumibleTable.tsx -> {'página', 'aquí'}
+NON-ASCII IDENT InventarioMaderaTable.tsx -> {'aquí'}
+NON-ASCII IDENT CamionCargasEditor.tsx -> {'más', 'asignará', 'automáticamente', 'Camión'}
+NON-ASCII IDENT CamionFormModal.tsx -> {'EstÃ', 'CamiÃ³n', 'acciÃ³n', 'DescontarÃ', 'camiÃ³n', 'ediciÃ³n', 'AsignarÃ', 'Â', 'BloquearÃ'}
+NON-ASCII IDENT LogisticaSection.tsx -> {'Logística', 'Camión'}
+NON-ASCII IDENT TableroSectionsAccordion.tsx -> {'integración', 'Sección'}
+NON-ASCII IDENT TemporadaBodegaTable.tsx -> {'año'}
+NON-ASCII IDENT useTableroBodega.ts -> {'Cámara'}
+NON-ASCII IDENT Bodegas.tsx -> {'Gestión', 'eliminación'}
+NON-ASCII IDENT Empaque.tsx -> {'Clasificación', 'Recepción', 'recepción', 'encontró', 'clasificación'}
+NON-ASCII IDENT Inventarios.tsx -> {'automáticamente', 'almacén'}
+NON-ASCII IDENT Logistica.tsx -> {'Logística', 'Gestión', 'logística'}
+NON-ASCII IDENT Temporadas.tsx -> {'Ubicación', 'Año', 'año', 'eliminación'}
+NON-ASCII IDENT temporadaBodegaService.ts -> {'año'}
+NON-ASCII IDENT cierreTypes.d.ts -> {'año'}
+NON-ASCII IDENT temporadaBodegaTypes.d.ts -> {'año'}
+NON-ASCII IDENT CategoriaAutocomplete.tsx -> {'eliminación', 'categoría', 'añopt'}
+NON-ASCII IDENT CategoriaInversionEditModal.tsx -> {'categoría'}
+NON-ASCII IDENT InversionToolbar.tsx -> {'Inversión', 'inversión$'}
+NON-ASCII IDENT ReporteProduccionViewer.tsx -> {'más', 'pequeña', 'Inversión', 'producción', 'temporada_año', 'Cómo', 'hectárea', 'métrica'}
+NON-ASCII IDENT ReporteProduccionViewerCharts.tsx -> {'aún', 'Categoría', 'gráfico', 'Inversión'}
+NON-ASCII IDENT ReporteProduccionViewerTables.tsx -> {'Descripción', 'Últimos', 'además', 'inversión', 'Distribución', 'Inversión', 'Año', 'año', 'Categoría', 'Análisis', 'categoría', 'Cómo', 'Histórico', 'mostrará', 'Años', 'envía'}
+NON-ASCII IDENT DesgloseGananciaCard.tsx -> {'generó', 'cómo', 'Inversión'}
+NON-ASCII IDENT GlosarioFinanzasModal.tsx -> {'rindió', 'línea', 'Inversión', 'fácil', 'inversión', 'quedó', 'tamaño', 'Hectáreas', 'Fórmulas', 'Qué'}
+NON-ASCII IDENT TemporadaFormModal.tsx -> {'año'}
+NON-ASCII IDENT TemporadaTable.tsx -> {'año'}
+NON-ASCII IDENT useReportePerfilHuerta.ts -> {'años'}
+NON-ASCII IDENT useTemporadas.ts -> {'año'}
+NON-ASCII IDENT Cosechas.tsx -> {'año', 'Gestión', 'eliminación'}
+NON-ASCII IDENT FinanzasPorCosecha.tsx -> {'año'}
+NON-ASCII IDENT Huertas.tsx -> {'Gestión', 'eliminación'}
+NON-ASCII IDENT Inversion.tsx -> {'eliminación', 'inversión'}
+NON-ASCII IDENT PerfilHuerta.tsx -> {'años'}
+NON-ASCII IDENT Propietarios.tsx -> {'Gestión', 'eliminación'}
+NON-ASCII IDENT ReporteCosecha.tsx -> {'año', 'añoFromData', 'añoFromQS'}
+NON-ASCII IDENT ReporteTemporada.tsx -> {'año', 'añoFromData', 'añoFromQS'}
+NON-ASCII IDENT Temporadas.tsx -> {'año', 'Año', 'Gestión', 'eliminación'}
+NON-ASCII IDENT Venta.tsx -> {'eliminación'}
+NON-ASCII IDENT reportesProduccionService.ts -> {'años'}
+NON-ASCII IDENT temporadaService.ts -> {'año'}
+NON-ASCII IDENT reportesProduccionTypes.ts -> {'temporada_año', 'año', 'años'}
+NON-ASCII IDENT temporadaTypes.d.ts -> {'año'}
+NON-ASCII IDENT reportesAdapters.ts -> {'temporada_año', 'año'}
+NON-ASCII IDENT ChangePassword.tsx -> {'contraseña'}
+NON-ASCII IDENT Profile.tsx -> {'contraseña'}
+NON-ASCII IDENT Register.tsx -> {'ZñÑáéíóúÁÉÍÓÚ'}
+NON-ASCII IDENT UsersAdmin.tsx -> {'eliminación', 'Estás'}

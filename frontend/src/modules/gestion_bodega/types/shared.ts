@@ -23,27 +23,6 @@ export enum CalidadMadera {
   RONIA   = 'RONIA',
 }
 
-/**
- * Calidades para plástico
- * Nota: negocio → “segunda hacia arriba cuenta como PRIMERA”
- * Por eso acá NO existe “SEGUNDA”; se normaliza a PRIMERA.
- */
-export enum CalidadPlastico {
-  PRIMERA = 'PRIMERA',
-  TERCERA = 'TERCERA',
-  NINIO   = 'NINIO',
-  RONIA   = 'RONIA',
-  MADURO  = 'MADURO',
-}
-
-/** Estado de pedidos en bodega */
-export enum EstadoPedido {
-  BORRADOR  = 'BORRADOR',
-  PARCIAL   = 'PARCIAL',
-  SURTIDO   = 'SURTIDO',
-  CANCELADO = 'CANCELADO',
-}
-
 /** Estado del camión de salida (embarque) */
 export enum EstadoCamion {
   BORRADOR   = 'BORRADOR',
@@ -89,5 +68,4 @@ export interface ApiOk {
 /** Utilidad para mapear calidades por material en formularios */
 export type CalidadesPorMaterial = {
   [Material.MADERA]: Array<keyof typeof CalidadMadera>;
-  [Material.PLASTICO]: Array<keyof typeof CalidadPlastico>;
 };

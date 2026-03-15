@@ -7,7 +7,7 @@ class ChangePasswordTests(APITestCase):
         # Usuario con must_change_password=True
         self.user = Users.objects.create_user(
             telefono='5550000001',
-            password='oldpass',
+            password='oldpass1',
             nombre='Test',
             apellido='User'
         )
@@ -16,7 +16,7 @@ class ChangePasswordTests(APITestCase):
         # Autenticamos usando tu LoginView
         login_resp = self.client.post(
             reverse('gestion_usuarios:login'),
-            {'telefono': '5550000001', 'password': 'oldpass'}
+            {'telefono': '5550000001', 'password': 'oldpass1'}
         ).data
         token = login_resp['data']['tokens']['access']
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
@@ -24,8 +24,8 @@ class ChangePasswordTests(APITestCase):
 
     def test_change_password_success(self):
         resp = self.client.post(self.url, {
-            'new_password': 'new1234',
-            'confirm_password': 'new1234'
+            'new_password': 'new12345',
+            'confirm_password': 'new12345'
         })
         self.assertEqual(resp.status_code, 200)
         self.user.refresh_from_db()
@@ -43,8 +43,8 @@ class ChangePasswordTests(APITestCase):
 
     def test_reuse_old_password(self):
         resp = self.client.post(self.url, {
-            'new_password': 'oldpass',
-            'confirm_password': 'oldpass'
+            'new_password': 'oldpass1',
+            'confirm_password': 'oldpass1'
         })
         self.assertEqual(resp.status_code, 400)
         errors = resp.data['data']['errors']

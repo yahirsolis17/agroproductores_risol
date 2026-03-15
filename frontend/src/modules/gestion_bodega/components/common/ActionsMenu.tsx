@@ -101,7 +101,10 @@ const ActionsMenu: React.FC<ActionsMenuProps> = (props) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const openMenu = (e: React.MouseEvent<HTMLElement>) => setAnchorEl(e.currentTarget);
   const closeMenu = () => setAnchorEl(null);
-  const handle = (fn?: () => void) => { closeMenu(); fn && fn(); };
+  const handle = (fn?: () => void) => {
+    closeMenu();
+    if (fn) fn();
+  };
 
   // Permisos estandarizados vía useAuth
   const { user, permissions } = useAuth();
@@ -155,7 +158,18 @@ const ActionsMenu: React.FC<ActionsMenuProps> = (props) => {
   return (
     <>
       <Tooltip title="Más acciones">
-        <IconButton size="small" onClick={openMenu}>
+        <IconButton
+          size="small"
+          onClick={openMenu}
+          aria-label="Abrir acciones"
+          sx={{
+            width: 34,
+            height: 34,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
           <MoreVertIcon fontSize="small" />
         </IconButton>
       </Tooltip>

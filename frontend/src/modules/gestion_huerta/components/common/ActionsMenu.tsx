@@ -106,7 +106,7 @@ const ActionsMenu: React.FC<ActionsMenuProps> = ({
   const closeMenu = () => setAnchorEl(null);
   const handle = (fn?: () => void) => {
     closeMenu();
-    fn && fn();
+    if (fn) fn();
   };
 
   // Permisos: Redux primero; si no hay, cae al Context
@@ -132,7 +132,18 @@ const ActionsMenu: React.FC<ActionsMenuProps> = ({
   return (
     <>
       <Tooltip title="Más acciones">
-        <IconButton size="small" onClick={openMenu}>
+        <IconButton
+          size="small"
+          onClick={openMenu}
+          aria-label="Abrir acciones"
+          sx={{
+            width: 34,
+            height: 34,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
           <MoreVertIcon fontSize="small" />
         </IconButton>
       </Tooltip>

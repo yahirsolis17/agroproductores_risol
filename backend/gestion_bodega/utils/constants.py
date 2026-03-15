@@ -22,13 +22,8 @@ NOTIFICATION_MESSAGES = {
         "code": 500,
     },
     "fetch_success": {
-        "message": "Datos obtenidos correctamente.",
-        "type": "success",
-        "code": 200,
-    },
-    "fetch_success": {
-        "message": "Datos obtenidos correctamente.",
-        "type": "success",
+        "message": "",
+        "type": "info",
         "code": 200,
     },
     "silent_response": {
@@ -42,8 +37,8 @@ NOTIFICATION_MESSAGES = {
         "code": 404,
     },
     "data_processed_success": {
-        "message": "Operación realizada con éxito.",
-        "type": "success",
+        "message": "",
+        "type": "info",
         "code": 200,
     },
 
@@ -752,6 +747,303 @@ NOTIFICATION_MESSAGES = {
         "message": "Stock disponible calculado.",
         "type": "success",
         "code": 200,
+    },
+
+    # ==========================
+    # Tablero de bodega
+    # ==========================
+    "tablero_temporada_requerida": {
+        "message": "Selecciona una temporada valida para consultar el tablero.",
+        "type": "error",
+        "code": 400,
+    },
+    "tablero_bodega_requerida": {
+        "message": "Selecciona una bodega valida para consultar el tablero.",
+        "type": "error",
+        "code": 400,
+    },
+    "tablero_resumen_consultado": {
+        "message": "Resumen del tablero consultado correctamente.",
+        "type": "success",
+        "code": 200,
+    },
+    "tablero_resumen_error": {
+        "message": "No se pudo construir el resumen del tablero.",
+        "type": "error",
+        "code": 500,
+    },
+    "tablero_queue_tipo_invalido": {
+        "message": "El tipo de cola solicitado no es valido.",
+        "type": "error",
+        "code": 400,
+    },
+    "tablero_ordering_invalido": {
+        "message": "El criterio de ordenamiento solicitado no es valido.",
+        "type": "error",
+        "code": 400,
+    },
+    "tablero_cola_consultada": {
+        "message": "Cola del tablero consultada correctamente.",
+        "type": "success",
+        "code": 200,
+    },
+    "tablero_cola_error": {
+        "message": "No se pudo consultar la cola del tablero.",
+        "type": "error",
+        "code": 500,
+    },
+    "tablero_alerts_temporada_invalida": {
+        "message": "La temporada seleccionada no esta activa para esa bodega.",
+        "type": "error",
+        "code": 400,
+    },
+    "tablero_alerts_parametros_invalidos": {
+        "message": "Los parametros de alertas no son validos.",
+        "type": "error",
+        "code": 400,
+    },
+    "tablero_alerts_consultados": {
+        "message": "Alertas del tablero consultadas correctamente.",
+        "type": "success",
+        "code": 200,
+    },
+    "tablero_alerts_error": {
+        "message": "No se pudieron consultar las alertas del tablero.",
+        "type": "error",
+        "code": 500,
+    },
+    "tablero_week_contexto_invalido": {
+        "message": "Los parametros de semana no corresponden a la bodega y temporada.",
+        "type": "error",
+        "code": 400,
+    },
+    "tablero_week_actual_consultada": {
+        "message": "Semana actual consultada correctamente.",
+        "type": "success",
+        "code": 200,
+    },
+    "tablero_week_start_datos_requeridos": {
+        "message": "Debes indicar bodega, temporada y fecha de inicio.",
+        "type": "error",
+        "code": 400,
+    },
+    "tablero_week_start_contexto_invalido": {
+        "message": "La bodega o temporada no es valida para iniciar semana.",
+        "type": "error",
+        "code": 400,
+    },
+    "tablero_week_start_fecha_invalida": {
+        "message": "La fecha de inicio de semana no es valida.",
+        "type": "error",
+        "code": 400,
+    },
+    "tablero_week_start_validacion": {
+        "message": "No fue posible iniciar la semana por una validacion de negocio.",
+        "type": "error",
+        "code": 400,
+    },
+    "tablero_week_start_duplicada": {
+        "message": "Ya existe una semana abierta para esa bodega y temporada.",
+        "type": "error",
+        "code": 409,
+    },
+    "tablero_week_start_ok": {
+        "message": "Semana iniciada correctamente.",
+        "type": "success",
+        "code": 201,
+    },
+    "tablero_week_start_error": {
+        "message": "No se pudo iniciar la semana.",
+        "type": "error",
+        "code": 500,
+    },
+    "tablero_week_finish_datos_requeridos": {
+        "message": "Debes indicar bodega, temporada, semana y fecha de cierre.",
+        "type": "error",
+        "code": 400,
+    },
+    "tablero_week_finish_fecha_invalida": {
+        "message": "La fecha de cierre de semana no es valida.",
+        "type": "error",
+        "code": 400,
+    },
+    "tablero_week_finish_no_encontrada": {
+        "message": "No se encontro la semana solicitada para cerrar.",
+        "type": "error",
+        "code": 400,
+    },
+    "tablero_week_finish_validacion": {
+        "message": "No fue posible cerrar la semana por una validacion de negocio.",
+        "type": "error",
+        "code": 400,
+    },
+    "tablero_week_finish_ok": {
+        "message": "Semana cerrada correctamente.",
+        "type": "success",
+        "code": 200,
+    },
+    "tablero_week_finish_error": {
+        "message": "No se pudo cerrar la semana.",
+        "type": "error",
+        "code": 500,
+    },
+    "tablero_week_nav_datos_requeridos": {
+        "message": "Debes indicar bodega y temporada para navegar semanas.",
+        "type": "error",
+        "code": 400,
+    },
+    "tablero_week_nav_consultada": {
+        "message": "Navegacion de semanas consultada correctamente.",
+        "type": "success",
+        "code": 200,
+    },
+
+    # ==========================
+    # Reportes de bodega
+    # ==========================
+    "reporte_semanal_consultado": {
+        "message": "Reporte semanal generado correctamente.",
+        "type": "success",
+        "code": 200,
+    },
+    "reporte_temporada_consultado": {
+        "message": "Reporte de temporada generado correctamente.",
+        "type": "success",
+        "code": 200,
+    },
+    "reporte_formato_invalido": {
+        "message": "El formato de exportacion solicitado no es valido.",
+        "type": "error",
+        "code": 400,
+    },
+    "reporte_parametros_invalidos": {
+        "message": "Los parametros enviados para generar el reporte no son validos.",
+        "type": "error",
+        "code": 400,
+    },
+    "reporte_generacion_error": {
+        "message": "Ocurrio un error al generar el reporte solicitado.",
+        "type": "error",
+        "code": 500,
+    },
+
+    # ==========================
+    # Mensajes especificos CRUD/listado (normalizados)
+    # ==========================
+    "bodegas_listado_consultado": {
+        "message": "Listado de bodegas consultado correctamente.",
+        "type": "success",
+        "code": 200,
+    },
+    "bodega_validacion_error": {
+        "message": "No se pudo guardar la bodega por errores de validacion.",
+        "type": "error",
+        "code": 400,
+    },
+    "temporadas_listado_consultado": {
+        "message": "Listado de temporadas consultado correctamente.",
+        "type": "success",
+        "code": 200,
+    },
+    "temporada_validacion_error": {
+        "message": "No se pudo guardar la temporada por errores de validacion.",
+        "type": "error",
+        "code": 400,
+    },
+    "recepciones_listado_consultado": {
+        "message": "Listado de recepciones consultado correctamente.",
+        "type": "success",
+        "code": 200,
+    },
+    "recepcion_validacion_error": {
+        "message": "No se pudo guardar la recepcion por errores de validacion.",
+        "type": "error",
+        "code": 400,
+    },
+    "clasificacion_listado_consultado": {
+        "message": "Listado de clasificaciones consultado correctamente.",
+        "type": "success",
+        "code": 200,
+    },
+    "clasificacion_detalle_consultado": {
+        "message": "Detalle de clasificacion consultado correctamente.",
+        "type": "success",
+        "code": 200,
+    },
+    "clasificacion_validacion_error": {
+        "message": "No se pudo guardar la clasificacion por errores de validacion.",
+        "type": "error",
+        "code": 400,
+    },
+    "madera_stock_insuficiente_empaque": {
+        "message": "No hay stock suficiente de cajas de madera para registrar el empaque.",
+        "type": "error",
+        "code": 400,
+    },
+    "lote_resumen_consultado": {
+        "message": "Resumen del lote consultado correctamente.",
+        "type": "success",
+        "code": 200,
+    },
+    "compra_validacion_error": {
+        "message": "No se pudo guardar la compra por errores de validacion.",
+        "type": "error",
+        "code": 400,
+    },
+    "compra_abono_validacion_error": {
+        "message": "No se pudo registrar el abono por errores de validacion.",
+        "type": "error",
+        "code": 400,
+    },
+    "consumible_validacion_error": {
+        "message": "No se pudo guardar el consumible por errores de validacion.",
+        "type": "error",
+        "code": 400,
+    },
+    "camion_detalle_consultado": {
+        "message": "Detalle de camion consultado correctamente.",
+        "type": "success",
+        "code": 200,
+    },
+    "camion_validacion_error": {
+        "message": "No se pudo guardar el camion por errores de validacion.",
+        "type": "error",
+        "code": 400,
+    },
+    "camion_semana_invalida": {
+        "message": "No existe una semana activa para la fecha del camion.",
+        "type": "error",
+        "code": 400,
+    },
+    "camion_carga_validacion_error": {
+        "message": "No se pudo registrar la carga por errores de validacion.",
+        "type": "error",
+        "code": 400,
+    },
+    "camion_carga_id_requerido": {
+        "message": "Debes enviar el identificador de la carga a remover.",
+        "type": "error",
+        "code": 400,
+    },
+    "cierres_listado_consultado": {
+        "message": "Listado de cierres consultado correctamente.",
+        "type": "success",
+        "code": 200,
+    },
+    "cierre_index_parametro_requerido": {
+        "message": "Debes indicar la temporada para consultar el indice de semanas.",
+        "type": "error",
+        "code": 400,
+    },
+    "cierre_index_consultado": {
+        "message": "Indice de semanas consultado correctamente.",
+        "type": "success",
+        "code": 200,
+    },
+    "cierre_validacion_error": {
+        "message": "No fue posible procesar el cierre por errores de validacion.",
+        "type": "error",
+        "code": 400,
     },
     "unexpected_error": {
         "message": "Ha ocurrido un error inesperado al procesar la solicitud.",

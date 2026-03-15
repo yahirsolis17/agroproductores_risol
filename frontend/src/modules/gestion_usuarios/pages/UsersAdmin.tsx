@@ -12,7 +12,6 @@ import {
   DialogActions,
   Button,
 } from '@mui/material';
-import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
 import PermissionsDialog from './PermissionsDialog';
 import UserActionsMenu from '../components/UserActionsMenu';
 import { TableLayout, Column } from '../../../components/common/TableLayout';
@@ -82,22 +81,17 @@ const UsersAdmin: React.FC = () => {
   const handleArchiveOrRestore = async (userId: number, isArchived: boolean) => {
     try {
       const action = isArchived ? restoreUser(userId) : archiveUser(userId);
-      const { envelope } = await dispatch(action).unwrap();
-      handleBackendNotification(envelope);
-      // El estado local se actualiza optimisticamente en el slice, pero si se quiere refetch:
-      // refetch();
-    } catch (err: any) {
-      handleBackendNotification(err?.response?.data || err);
+      await dispatch(action).unwrap();
+    } catch {
+      // The thunk already emits canonical backend feedback.
     }
   };
 
   const handleDeleteUser = async (userId: number) => {
     try {
-      const { envelope } = await dispatch(deleteUser(userId)).unwrap();
-      handleBackendNotification(envelope);
-      // refetch();
-    } catch (err: any) {
-      handleBackendNotification(err?.response?.data || err);
+      await dispatch(deleteUser(userId)).unwrap();
+    } catch {
+      // The thunk already emits canonical backend feedback.
     }
   };
 

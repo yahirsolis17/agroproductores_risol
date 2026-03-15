@@ -3,6 +3,8 @@ import { TypedUseSelectorHook, useDispatch, useSelector } from 'react-redux';
 
 // Slices
 import authReducer from './authSlice';
+import gastosReducer from './gastosSlice';
+import inventariosReducer from './inventariosSlice';
 import propietariosReducer from './propietariosSlice';
 import huertaReducer from './huertaSlice';
 import huertaRentadaReducer from './huertaRentadaSlice';
@@ -28,6 +30,8 @@ export const store = configureStore({
   reducer: {
     auth: authReducer,
     user: userReducer,
+    gastos: gastosReducer,
+    inventarios: inventariosReducer,
     propietarios: propietariosReducer,
     breadcrumbs: breadcrumbsReducer,
     huerta: huertaReducer,

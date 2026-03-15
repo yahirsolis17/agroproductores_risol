@@ -1,11 +1,4 @@
-// frontend/src/global/store/tableroBodegaSlice.ts
-// Slice completo para Tablero de Bodega - Redux Puro (sin React Query)
-// - Estado UI: filters, activeQueue, temporadaId
-// - Datos: summary, alerts, queues, weeksNav
-// - Async thunks para todas las operaciones
-
-import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
-
+﻿import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 
 import {
   getDashboardSummary,
@@ -17,6 +10,7 @@ import {
 } from "../../modules/gestion_bodega/services/tableroBodegaService";
 
 import { extractApiMessage } from "../api/errorUtils";
+import { extractRejectedPayload } from "../types/apiTypes";
 
 import type {
   QueueType,
@@ -29,9 +23,6 @@ import type {
   WeekCurrentResponse,
 } from "../../modules/gestion_bodega/types/tableroBodegaTypes";
 
-// --------------------------
-// Filter Types
-// --------------------------
 export interface TableroFilters {
   huerta_id: number | null;
   fecha_desde: string | null;
@@ -46,7 +37,6 @@ export interface TableroFilters {
   order_by: string | null;
 }
 
-// F-05 FIX: Fuente única de verdad para order_by (alineada con aliases del backend)
 const DEFAULT_ORDER_BY: Record<QueueType, string> = {
   recepciones: "fecha:desc,id:desc",
   inventarios: "fecha:desc,id:desc",
@@ -61,22 +51,17 @@ const DEFAULT_FILTERS: TableroFilters = {
   calidad: null,
   madurez: null,
   estado: null,
-  solo_pendientes: undefined, // F-04 FIX: sin filtro silencioso — mostrar todas por defecto
+  solo_pendientes: undefined,
   page: 1,
   page_size: 10,
   order_by: DEFAULT_ORDER_BY.recepciones,
 };
 
-// --------------------------
-// State Interface
-// --------------------------
 export interface TableroBodegaState {
   temporadaId: number | null;
   bodegaId: number | null;
   filters: TableroFilters;
   activeQueue: QueueType;
-
-  // Data
   summary: DashboardSummaryResponse | null;
   alerts: DashboardAlertResponse | null;
   queues: {
@@ -86,21 +71,16 @@ export interface TableroBodegaState {
   };
   weeksNav: WeeksNavResponse | null;
   selectedWeekId: number | null;
-
-  // Loading states
   loadingSummary: boolean;
   loadingAlerts: boolean;
   loadingQueues: Record<QueueType, boolean>;
   loadingWeeksNav: boolean;
   startingWeek: boolean;
   finishingWeek: boolean;
-
-  // Errors
   errorSummary: string | null;
   errorAlerts: string | null;
   errorQueues: Record<QueueType, string | null>;
   errorWeeksNav: string | null;
-
   lastVisitedAt: number | null;
 }
 
@@ -131,9 +111,6 @@ const initialState: TableroBodegaState = {
   lastVisitedAt: null,
 };
 
-// --------------------------
-// Async Thunks
-// --------------------------
 interface FetchParams {
   temporadaId: number;
   bodegaId: number;
@@ -151,9 +128,7 @@ export const fetchTableroSummary = createAsyncThunk<
     try {
       return await getDashboardSummary(temporadaId, { ...filters, bodegaId, semanaId });
     } catch (err: unknown) {
-      // Devolver objeto si es posible
-      const data = (err as any)?.response?.data ?? (err as any)?.message;
-      return rejectWithValue(data);
+      return rejectWithValue(extractRejectedPayload(err));
     }
   }
 );
@@ -168,8 +143,7 @@ export const fetchTableroAlerts = createAsyncThunk<
     try {
       return await getDashboardAlerts(temporadaId, { bodegaId });
     } catch (err: unknown) {
-      const data = (err as any)?.response?.data ?? (err as any)?.message;
-      return rejectWithValue(data);
+      return rejectWithValue(extractRejectedPayload(err));
     }
   }
 );
@@ -185,8 +159,7 @@ export const fetchTableroQueues = createAsyncThunk<
       const data = await getDashboardQueues(temporadaId, queueType, { ...filters, bodegaId, semanaId });
       return { type: queueType, data };
     } catch (err: unknown) {
-      const data = (err as any)?.payload ?? (err as any)?.response?.data ?? (err as any)?.message;
-      return rejectWithValue(data);
+      return rejectWithValue(extractRejectedPayload(err));
     }
   }
 );
@@ -201,8 +174,7 @@ export const fetchTableroWeeksNav = createAsyncThunk<
     try {
       return await getWeeksNav(temporadaId, bodegaId);
     } catch (err: unknown) {
-      const data = (err as any)?.response?.data ?? (err as any)?.message;
-      return rejectWithValue(data);
+      return rejectWithValue(extractRejectedPayload(err));
     }
   }
 );
@@ -211,37 +183,26 @@ export const tableroStartWeek = createAsyncThunk<
   WeekCurrentResponse,
   WeekStartRequest,
   { rejectValue: unknown }
->(
-  "tableroBodega/startWeek",
-  async (body, { rejectWithValue }) => {
-    try {
-      return await apiStartWeek(body);
-    } catch (err: unknown) {
-      const data = (err as any)?.response?.data ?? (err as any)?.message;
-      return rejectWithValue(data);
-    }
+>("tableroBodega/startWeek", async (body, { rejectWithValue }) => {
+  try {
+    return await apiStartWeek(body);
+  } catch (err: unknown) {
+    return rejectWithValue(extractRejectedPayload(err));
   }
-);
+});
 
 export const tableroFinishWeek = createAsyncThunk<
   WeekCurrentResponse,
   WeekFinishRequest,
   { rejectValue: unknown }
->(
-  "tableroBodega/finishWeek",
-  async (body, { rejectWithValue }) => {
-    try {
-      return await apiFinishWeek(body);
-    } catch (err: unknown) {
-      const data = (err as any)?.response?.data ?? (err as any)?.message;
-      return rejectWithValue(data);
-    }
+>("tableroBodega/finishWeek", async (body, { rejectWithValue }) => {
+  try {
+    return await apiFinishWeek(body);
+  } catch (err: unknown) {
+    return rejectWithValue(extractRejectedPayload(err));
   }
-);
+});
 
-// --------------------------
-// Slice
-// --------------------------
 const tableroBodegaSlice = createSlice({
   name: "tableroBodega",
   initialState,
@@ -281,7 +242,6 @@ const tableroBodegaSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
-    // Summary
     builder.addCase(fetchTableroSummary.pending, (state) => {
       state.loadingSummary = true;
       state.errorSummary = null;
@@ -292,11 +252,9 @@ const tableroBodegaSlice = createSlice({
     });
     builder.addCase(fetchTableroSummary.rejected, (state, action) => {
       state.loadingSummary = false;
-      const msg = extractApiMessage(action.payload ?? action.error, "Error");
-      state.errorSummary = typeof msg === "string" ? msg : JSON.stringify(msg);
+      state.errorSummary = extractApiMessage(action.payload ?? action.error, "Error");
     });
 
-    // Alerts
     builder.addCase(fetchTableroAlerts.pending, (state) => {
       state.loadingAlerts = true;
       state.errorAlerts = null;
@@ -307,11 +265,9 @@ const tableroBodegaSlice = createSlice({
     });
     builder.addCase(fetchTableroAlerts.rejected, (state, action) => {
       state.loadingAlerts = false;
-      const msg = (action.payload as any)?.message ?? (action.payload as any)?.detail ?? action.error.message ?? "Error";
-      state.errorAlerts = typeof msg === "string" ? msg : JSON.stringify(msg);
+      state.errorAlerts = extractApiMessage(action.payload ?? action.error, "Error");
     });
 
-    // Queues
     builder.addCase(fetchTableroQueues.pending, (state, action) => {
       const queueType = action.meta.arg.queueType;
       state.loadingQueues[queueType] = true;
@@ -325,11 +281,9 @@ const tableroBodegaSlice = createSlice({
     builder.addCase(fetchTableroQueues.rejected, (state, action) => {
       const queueType = action.meta.arg.queueType;
       state.loadingQueues[queueType] = false;
-      const msg = (action.payload as any)?.message ?? (action.payload as any)?.detail ?? action.error.message ?? "Error";
-      state.errorQueues[queueType] = typeof msg === "string" ? msg : JSON.stringify(msg);
+      state.errorQueues[queueType] = extractApiMessage(action.payload ?? action.error, "Error");
     });
 
-    // WeeksNav
     builder.addCase(fetchTableroWeeksNav.pending, (state) => {
       state.loadingWeeksNav = true;
       state.errorWeeksNav = null;
@@ -340,11 +294,9 @@ const tableroBodegaSlice = createSlice({
     });
     builder.addCase(fetchTableroWeeksNav.rejected, (state, action) => {
       state.loadingWeeksNav = false;
-      const msg = (action.payload as any)?.message ?? (action.payload as any)?.detail ?? action.error.message ?? "Error";
-      state.errorWeeksNav = typeof msg === "string" ? msg : JSON.stringify(msg);
+      state.errorWeeksNav = extractApiMessage(action.payload ?? action.error, "Error");
     });
 
-    // StartWeek
     builder.addCase(tableroStartWeek.pending, (state) => {
       state.startingWeek = true;
     });
@@ -355,7 +307,6 @@ const tableroBodegaSlice = createSlice({
       state.startingWeek = false;
     });
 
-    // FinishWeek
     builder.addCase(tableroFinishWeek.pending, (state) => {
       state.finishingWeek = true;
     });

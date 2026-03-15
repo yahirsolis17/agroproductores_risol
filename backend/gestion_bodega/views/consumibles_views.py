@@ -52,7 +52,7 @@ class ConsumibleViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelView
         "create":   ["add_consumible"],
         "update":   ["change_consumible"],
         "partial_update": ["change_consumible"],
-        "destroy":  ["delete_consumible"],
+        "destroy":  ["archive_consumible"],
     }
 
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
@@ -68,7 +68,7 @@ class ConsumibleViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelView
     ordering = ["-fecha", "-id"]
 
     def get_permissions(self):
-        self.required_permissions = self._perm_map.get(getattr(self, "action", ""), [])
+        self.required_permissions = self._perm_map.get(getattr(self, "action", ""), ["view_consumible"])
         return super().get_permissions()
 
     def create(self, request, *args, **kwargs):
@@ -76,7 +76,7 @@ class ConsumibleViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelView
         try:
             ser.is_valid(raise_exception=True)
         except serializers.ValidationError:
-            return self.notify(key="validation_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
+            return self.notify(key="consumible_validacion_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
         data = ser.validated_data
         if _semana_cerrada(data["bodega"].id, data["temporada"].id, data["fecha"]):
             return self.notify(key="consumible_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
@@ -89,7 +89,7 @@ class ConsumibleViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelView
         try:
             ser.is_valid(raise_exception=True)
         except serializers.ValidationError:
-            return self.notify(key="validation_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
+            return self.notify(key="consumible_validacion_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
         data = ser.validated_data
         if _semana_cerrada(data.get("bodega", obj.bodega).id, data.get("temporada", obj.temporada).id, data.get("fecha", obj.fecha)):
             return self.notify(key="consumible_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
@@ -102,7 +102,7 @@ class ConsumibleViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelView
         try:
             ser.is_valid(raise_exception=True)
         except serializers.ValidationError:
-            return self.notify(key="validation_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
+            return self.notify(key="consumible_validacion_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
         data = ser.validated_data
         if _semana_cerrada(data.get("bodega", obj.bodega).id, data.get("temporada", obj.temporada).id, data.get("fecha", obj.fecha)):
             return self.notify(key="consumible_semana_cerrada", status_code=status.HTTP_409_CONFLICT)

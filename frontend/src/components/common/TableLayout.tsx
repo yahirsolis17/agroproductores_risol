@@ -1,5 +1,5 @@
 // src/components/common/TableLayout.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Box,
   Pagination,
@@ -9,6 +9,7 @@ import {
   Skeleton,
   CircularProgress,
 } from '@mui/material';
+import useDebouncedValue from '../../global/hooks/useDebouncedValue';
 
 /* ──────────── Tipos genéricos de columnas ──────────── */
 export interface Column<T> {
@@ -90,20 +91,20 @@ const TableSkeleton = ({
   dense,
   hasActions,
 }: TableSkeletonProps) => (
-  <div className="overflow-x-auto rounded-xl shadow">
-    <table className="min-w-full bg-white rounded-xl animate-fade-in">
+  <div className="app-table-shell animate-fade-in">
+    <table className="app-table-grid">
       <thead>
-        <tr className="bg-neutral-100">
-          <th className="px-4 py-2 border">
+        <tr>
+          <th className="px-4 py-3 text-left">
             <Skeleton variant="text" width={20} />
           </th>
           {columns.map((_, i) => (
-            <th key={i} className={`px-4 ${dense ? 'py-1' : 'py-2'} border`}>
+            <th key={i} className={`px-4 ${dense ? 'py-2' : 'py-3'} text-left`}>
               <Skeleton variant="text" width={100} />
             </th>
           ))}
           {hasActions && (
-            <th className={`px-4 ${dense ? 'py-1' : 'py-2'} border`}>
+            <th className={`px-4 ${dense ? 'py-2' : 'py-3'} text-center`}>
               <Skeleton variant="text" width={60} />
             </th>
           )}
@@ -111,12 +112,12 @@ const TableSkeleton = ({
       </thead>
       <tbody>
         {Array.from({ length: skeletonRows }).map((_, i) => (
-          <tr key={i}>
-            <td className="px-4 border">
+          <tr key={i} className="app-table-row">
+            <td className="px-4 py-3">
               <Skeleton variant="text" width={20} />
             </td>
             {columns.map((col, j) => (
-              <td key={j} className={`px-4 ${dense ? 'py-1' : 'py-2'} border`}>
+              <td key={j} className={`px-4 ${dense ? 'py-2' : 'py-3'}`}>
                 <Skeleton
                   variant="text"
                   width={
@@ -130,7 +131,7 @@ const TableSkeleton = ({
               </td>
             ))}
             {hasActions && (
-              <td className={`px-4 ${dense ? 'py-1' : 'py-2'} border`}>
+              <td className={`px-4 ${dense ? 'py-2' : 'py-3'}`}>
                 <Box display="flex" gap={1} justifyContent="center">
                   <Skeleton variant="circular" width={24} height={24} />
                   <Skeleton variant="circular" width={24} height={24} />
@@ -170,9 +171,14 @@ export function TableLayout<T>({
 }: TableLayoutProps<T>) {
   /* ---------- filtros ---------- */
   const [filters, setFilters] = useState(filterValues || {});
+  const isSyncingFiltersRef = useRef(false);
+
   useEffect(() => {
-    if (filterValues) setFilters(filterValues);
+    if (!filterValues) return;
+    isSyncingFiltersRef.current = true;
+    setFilters(filterValues);
   }, [filterValues]);
+  const debouncedFilters = useDebouncedValue(filters, 180);
 
   /* ---------- estado async ---------- */
   const [asyncInput, setAsyncInput] = useState('');
@@ -209,10 +215,17 @@ export function TableLayout<T>({
       ),
   );
 
+  useEffect(() => {
+    if (!onFilterChange) return;
+    if (isSyncingFiltersRef.current) {
+      isSyncingFiltersRef.current = false;
+      return;
+    }
+    onFilterChange(debouncedFilters);
+  }, [debouncedFilters, onFilterChange]);
+
   const handleFilterUpdate = (k: string, v: any) => {
-    const next = { ...filters, [k]: v };
-    setFilters(next);
-    onFilterChange?.(next);
+    setFilters((prev) => ({ ...prev, [k]: v }));
   };
 
   if (showSkeleton)
@@ -230,13 +243,13 @@ export function TableLayout<T>({
     <div className="animate-fade-in">
       {/* Filtros */}
       {filterConfig.length > 0 && (
-        <Box display="flex" flexWrap="wrap" gap={2} mb={3}>
+        <Box className="app-table-toolbar" display="flex" flexWrap="wrap" gap={2} mb={3}>
           {filterConfig.map((cfg) => {
             // Extraemos solo las props que debe recibir el componente, sin `key`
             const commonProps = {
               label: cfg.label,
               size: 'small' as const,
-              sx: { minWidth: cfg.width ?? 160 },
+              sx: { minWidth: cfg.width ?? 180 },
             };
 
             switch (cfg.type) {
@@ -367,15 +380,16 @@ export function TableLayout<T>({
       )}
 
       {/* Tabla */}
-      <div className="overflow-x-auto rounded-xl shadow">
-        <table className="min-w-full bg-white rounded-xl">
+      <div className="app-table-shell">
+        <div className="overflow-x-auto">
+        <table className="app-table-grid min-w-full">
           <thead>
-            <tr className="bg-neutral-100 text-sm text-neutral-700">
-              <th className="px-4 py-2 border">#</th>
+            <tr>
+              <th className="px-4 py-3 text-left">#</th>
               {columns.map((c, i) => (
                 <th
                   key={i}
-                  className={`px-4 ${dense ? 'py-1' : 'py-2'} border`}
+                  className={`px-4 ${dense ? 'py-2' : 'py-3'}`}
                   style={{ textAlign: c.align || 'left' }}
                 >
                   {c.label}
@@ -383,7 +397,7 @@ export function TableLayout<T>({
               ))}
               {renderActions && (
                 <th
-                  className={`px-4 ${dense ? 'py-1' : 'py-2'} border text-center`}
+                  className={`px-4 ${dense ? 'py-2' : 'py-3'} text-center`}
                 >
                   Acciones
                 </th>
@@ -397,32 +411,40 @@ export function TableLayout<T>({
                 return (
                   <tr
                     key={key}
-                    className={`text-sm transition-colors ${striped
+                    className={`app-table-row text-sm ${striped
                       ? i % 2
-                        ? 'bg-neutral-50'
+                        ? 'bg-white/70'
                         : 'bg-white'
                       : ''
                       } ${onRowClick
-                        ? 'cursor-pointer hover:bg-neutral-100'
-                        : 'hover:bg-neutral-50'
+                        ? 'app-table-row--clickable'
+                        : ''
                       }`}
                     onClick={() => onRowClick?.(item)}
                   >
-                    <td className="px-4 border">
+                    <td className={`px-4 ${dense ? 'py-2' : 'py-3'} font-medium text-slate-500`}>
                       {count - (page - 1) * effectivePageSize - i}
                     </td>
                     {columns.map((col, j) => (
                       <td
                         key={j}
-                        className={`px-4 ${dense ? 'py-1' : 'py-2'} border`}
+                        className={`px-4 ${dense ? 'py-2' : 'py-3'} text-slate-700`}
                         style={{ textAlign: col.align || 'left' }}
                       >
                         {col.render ? col.render(item, i) : String(item[col.key])}
                       </td>
                     ))}
                     {renderActions && (
-                      <td className={`px-4 ${dense ? 'py-1' : 'py-2'} border`}>
-                        {renderActions(item, i)}
+                      <td className={`px-4 ${dense ? 'py-2' : 'py-3'} align-middle`}>
+                        <Box
+                          display="flex"
+                          alignItems="center"
+                          justifyContent="center"
+                          width="100%"
+                          minHeight={dense ? 28 : 36}
+                        >
+                          {renderActions(item, i)}
+                        </Box>
                       </td>
                     )}
                   </tr>
@@ -432,7 +454,7 @@ export function TableLayout<T>({
               <tr>
                 <td
                   colSpan={1 + columns.length + (renderActions ? 1 : 0)}
-                  className="py-4 text-center text-neutral-400"
+                  className="app-table-empty"
                 >
                   {emptyMessage}
                 </td>
@@ -440,6 +462,7 @@ export function TableLayout<T>({
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Paginación */}
@@ -451,6 +474,7 @@ export function TableLayout<T>({
           variant="outlined"
           shape="rounded"
           color="primary"
+          size="large"
         />
       </Box>
     </div>

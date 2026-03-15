@@ -8,5 +8,5 @@ export interface CategoriaInversion {
 }
 
 export interface CategoriaInversionCreateData { nombre: string; }
-export interface CategoriaInversionUpdateData extends Partial<CategoriaInversionCreateData> {}
+export type CategoriaInversionUpdateData = Partial<CategoriaInversionCreateData>;
 

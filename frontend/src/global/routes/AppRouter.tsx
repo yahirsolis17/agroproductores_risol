@@ -3,14 +3,17 @@ import { Routes, Route } from 'react-router-dom';
 
 import PrivateRoute from '../../components/common/PrivateRoute';
 import RoleGuard    from '../../components/common/RoleGuard';
+import PermissionGuard from '../../components/common/PermissionGuard';
 import MainLayout   from '../../components/layout/MainLayout';
 import ErrorBoundary from '../../components/common/ErrorBoundary';
+import { lazyRoute } from '../../components/common/LazyRoutes';
 
 import Login        from '../../modules/gestion_usuarios/pages/Login';
-import Dashboard    from '../../modules/gestion_usuarios/pages/Dashboard';
 import Unauthorized from '../../components/common/Unauthorized';
 
 import { moduleRoutes } from './moduleRoutes';
+
+const dashboardRouteElement = lazyRoute(() => import('../../modules/gestion_usuarios/pages/Dashboard'));
 
 function AppRouter() {
   return (
@@ -28,16 +31,17 @@ function AppRouter() {
         {/* -------- PRIVADAS CON LAYOUT -------- */}
         <Route element={<PrivateRoute />}>
           <Route element={<MainLayout />}>
-            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/dashboard" element={dashboardRouteElement} />
 
-            {moduleRoutes.map(({ path, allowedRoles, element }, idx) => (
+            {moduleRoutes.map(({ path, allowedRoles, requiredPermissionsAny, requiredPermissionsAll, element }, idx) => (
               <Route
                 key={idx}
                 path={path}
                 element={
                   <RoleGuard allowed={allowedRoles}>
-                    {element}
-                    
+                    <PermissionGuard anyOf={requiredPermissionsAny} allOf={requiredPermissionsAll}>
+                      {element}
+                    </PermissionGuard>
                   </RoleGuard>
                 }
               />

@@ -1,20 +1,21 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
-import Navbar from './Navbar';
+
+import AppBreadcrumbs from '../common/AppBreadcrumbs';
 import Footer from './Footer';
-// Corrige la ruta (evita "../../../src/..."); usa relativa limpia o alias si tienes "@"
-import Breadcrumbs from '../../modules/gestion_huerta/components/common/Breadcrumbs';
+import Navbar from './Navbar';
 
 const MainLayout: React.FC = () => (
-  <div className="flex flex-col min-h-screen">
+  <div className="app-shell flex min-h-screen flex-col">
     <Navbar />
-
-    {/* role="main" → landmark para lectores de pantalla */}
-    <div role="main" className="flex-grow px-4 py-6">
-      <Breadcrumbs />
-      <Outlet />
+    <div role="main" className="app-main">
+      <div className="app-main-inner">
+        <AppBreadcrumbs />
+        <div className="app-content">
+          <Outlet />
+        </div>
+      </div>
     </div>
-
     <Footer />
   </div>
 );

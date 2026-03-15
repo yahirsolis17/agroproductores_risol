@@ -14,6 +14,7 @@ import {
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
+import { formatWithThousands, normalizeNumericInput, parseIntegerInput } from "../../../../global/utils/numericInput";
 
 export type EmpaqueMaterial = "PLASTICO" | "MADERA";
 
@@ -194,11 +195,11 @@ const EmpaqueLinesEditor: React.FC<EmpaqueLinesEditorProps> = ({
                 </Box>
 
                 <TextField
-                  type="number"
-                  value={Number.isFinite(qty) ? qty : 0}
+                  type="text"
+                  value={formatWithThousands(Number.isFinite(qty) ? qty : 0, { allowDecimal: false })}
                   onChange={(e) => {
-                    const raw = e.target.value;
-                    const n = raw === "" ? 0 : Number(raw);
+                    const normalized = normalizeNumericInput(e.target.value, { allowDecimal: false });
+                    const n = normalized === "" ? 0 : parseIntegerInput(normalized);
                     setQty(material, calidad, n);
                   }}
                   disabled={blocked}

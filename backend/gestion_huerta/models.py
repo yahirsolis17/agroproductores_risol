@@ -272,11 +272,22 @@ class Temporada(models.Model):
         self.archivado_por_cascada = via_cascada
         self.save(update_fields=["is_active", "archivado_en", "archivado_por_cascada"])
 
-        counts = {"temporadas": 1, "cosechas": 0, "inversiones": 0, "ventas": 0}
-        for c in self.cosechas.all():
-            rc = c.archivar(via_cascada=True)
-            counts = _sum_counts(counts, rc if isinstance(rc, dict) else {})
-        return counts
+        cosechas = self.cosechas.filter(is_active=True).update(
+            is_active=False,
+            archivado_en=now,
+            archivado_por_cascada=True,
+        )
+        inversiones = self.inversiones.filter(is_active=True).update(
+            is_active=False,
+            archivado_en=now,
+            archivado_por_cascada=True,
+        )
+        ventas = self.ventas.filter(is_active=True).update(
+            is_active=False,
+            archivado_en=now,
+            archivado_por_cascada=True,
+        )
+        return {"temporadas": 1, "cosechas": cosechas, "inversiones": inversiones, "ventas": ventas}
 
     @transaction.atomic
     def desarchivar(self, via_cascada: bool = False):
@@ -291,11 +302,31 @@ class Temporada(models.Model):
         self.archivado_por_cascada = False
         self.save(update_fields=["is_active", "archivado_en", "archivado_por_cascada"])
 
-        counts = {"temporadas": 1, "cosechas": 0, "inversiones": 0, "ventas": 0}
-        for c in self.cosechas.all():
-            rc = c.desarchivar(via_cascada=True)
-            counts = _sum_counts(counts, rc if isinstance(rc, dict) else {})
-        return counts
+        cosechas = self.cosechas.filter(
+            is_active=False,
+            archivado_por_cascada=True,
+        ).update(
+            is_active=True,
+            archivado_en=None,
+            archivado_por_cascada=False,
+        )
+        inversiones = self.inversiones.filter(
+            is_active=False,
+            archivado_por_cascada=True,
+        ).update(
+            is_active=True,
+            archivado_en=None,
+            archivado_por_cascada=False,
+        )
+        ventas = self.ventas.filter(
+            is_active=False,
+            archivado_por_cascada=True,
+        ).update(
+            is_active=True,
+            archivado_en=None,
+            archivado_por_cascada=False,
+        )
+        return {"temporadas": 1, "cosechas": cosechas, "inversiones": inversiones, "ventas": ventas}
 
     def __str__(self):
         origen = self.huerta or self.huerta_rentada
@@ -433,13 +464,16 @@ class Cosecha(models.Model):
         self.archivado_por_cascada = via_cascada
         self.save(update_fields=["is_active", "archivado_en", "archivado_por_cascada"])
 
-        inv_count = ven_count = 0
-        for inv in self.inversiones.all():
-            if inv.archivar(via_cascada=True):
-                inv_count += 1
-        for v in self.ventas.all():
-            if v.archivar(via_cascada=True):
-                ven_count += 1
+        inv_count = self.inversiones.filter(is_active=True).update(
+            is_active=False,
+            archivado_en=now,
+            archivado_por_cascada=True,
+        )
+        ven_count = self.ventas.filter(is_active=True).update(
+            is_active=False,
+            archivado_en=now,
+            archivado_por_cascada=True,
+        )
 
         return {"cosechas": 1, "inversiones": inv_count, "ventas": ven_count}
 
@@ -456,13 +490,22 @@ class Cosecha(models.Model):
         self.archivado_por_cascada = False
         self.save(update_fields=["is_active", "archivado_en", "archivado_por_cascada"])
 
-        inv_count = ven_count = 0
-        for inv in self.inversiones.all():
-            if inv.desarchivar(via_cascada=True):
-                inv_count += 1
-        for v in self.ventas.all():
-            if v.desarchivar(via_cascada=True):
-                ven_count += 1
+        inv_count = self.inversiones.filter(
+            is_active=False,
+            archivado_por_cascada=True,
+        ).update(
+            is_active=True,
+            archivado_en=None,
+            archivado_por_cascada=False,
+        )
+        ven_count = self.ventas.filter(
+            is_active=False,
+            archivado_por_cascada=True,
+        ).update(
+            is_active=True,
+            archivado_en=None,
+            archivado_por_cascada=False,
+        )
 
         return {"cosechas": 1, "inversiones": inv_count, "ventas": ven_count}
 

@@ -9,6 +9,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 from django.contrib.auth.models import Permission
 from django.core.cache import cache
+from django.db.models import Q
 
 from agroproductores_risol.utils.pagination import GenericPagination
 from gestion_usuarios.permissions import IsAdmin, IsSelfOrAdmin
@@ -16,6 +17,7 @@ from gestion_usuarios.models import Users, RegistroActividad
 from gestion_usuarios.utils.activity import registrar_actividad
 from agroproductores_risol.utils.notification_handler import NotificationHandler
 from gestion_usuarios.utils.throttles import (
+    RefreshTokenThrottle,
     LoginThrottle,
     SensitiveActionThrottle,
     PermissionsThrottle,
@@ -27,6 +29,7 @@ from gestion_usuarios.serializers import (
     CustomUserCreationSerializer,
     PermisoSerializer,
     RegistroActividadSerializer,
+    validate_password_strength,
 )
 
 # --------------------------------------------------------------------------- #
@@ -126,6 +129,39 @@ class LoginView(APIView):
         )
 
 
+class TokenPairBridgeView(LoginView):
+    """
+    Compatibilidad para clientes legacy que siguen usando /api/token/
+    sin saltarse el flujo endurecido de login.
+    """
+
+    def post(self, request):
+        serializer = LoginSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data["user"]
+
+        refresh = RefreshToken.for_user(user)
+        tokens = {"access": str(refresh.access_token), "refresh": str(refresh)}
+
+        registrar_actividad(
+            user,
+            "Inicio de sesion",
+            "Login exitoso via api/token",
+            request.META.get("REMOTE_ADDR"),
+        )
+
+        return NotificationHandler.generate_response(
+            message_key="login_success",
+            data={
+                "tokens": tokens,
+                "user": UsuarioSerializer(user).data,
+                "must_change_password": user.must_change_password,
+            },
+            status_code=status.HTTP_200_OK,
+            extra_data=tokens,
+        )
+
+
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -137,11 +173,18 @@ class LogoutView(APIView):
         except Exception:
             pass
 
+        registrar_actividad(
+            request.user,
+            "Cerro sesion",
+            detalles="logout_manual",
+            ip=request.META.get("REMOTE_ADDR"),
+        )
+
         return NotificationHandler.generate_response(message_key="logout_success")
 
 
 class CustomTokenRefreshView(TokenRefreshView):
-    throttle_classes = []  # configura si deseas rate limit aquí
+    throttle_classes = [RefreshTokenThrottle]
 
 
 # --------------------------------------------------------------------------- #
@@ -314,6 +357,38 @@ class UsuarioViewSet(ModelViewSet):
             data={"results": serializer.data, "meta": meta},
             status_code=status.HTTP_200_OK,
         )
+
+    def retrieve(self, request, *args, **kwargs):
+        serializer = self.get_serializer(self.get_object())
+        return NotificationHandler.generate_response(
+            message_key="silent_response",
+            data=serializer.data,
+            status_code=status.HTTP_200_OK,
+        )
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+
+        if not serializer.is_valid():
+            return NotificationHandler.generate_response(
+                message_key="validation_error",
+                data={"errors": serializer.errors},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = serializer.save()
+        registrar_actividad(request.user, f"Actualizo usuario {user.id}")
+        return NotificationHandler.generate_response(
+            message_key="update_success",
+            data={"user": UsuarioSerializer(user).data},
+            status_code=status.HTTP_200_OK,
+        )
+
+    def partial_update(self, request, *args, **kwargs):
+        kwargs["partial"] = True
+        return self.update(request, *args, **kwargs)
 
     # ──────────────────── ACCIONES PERSONALIZADAS ──────────────────
     # ---------- set-permisos ----------
@@ -530,12 +605,12 @@ class ChangePasswordView(APIView):
         new_password = request.data.get("new_password")
         confirm_password = request.data.get("confirm_password")
 
-        if not new_password or not confirm_password or len(new_password) < 4:
+        if not new_password or not confirm_password:
             return NotificationHandler.generate_response(
                 message_key="validation_error",
                 data={
                     "errors": {
-                        "new_password": ["La contraseña debe tener al menos 4 caracteres."],
+                        "new_password": ["La contrasena es requerida."],
                         "confirm_password": ["Campo requerido."],
                     }
                 },
@@ -554,6 +629,18 @@ class ChangePasswordView(APIView):
             return NotificationHandler.generate_response(
                 message_key="validation_error",
                 data={"errors": {"new_password": ["No se puede reutilizar la misma contraseña."]}},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            validate_password_strength(new_password, user=user)
+        except Exception as exc:
+            detail = exc.detail if hasattr(exc, "detail") else [str(exc)]
+            if isinstance(detail, str):
+                detail = [detail]
+            return NotificationHandler.generate_response(
+                message_key="validation_error",
+                data={"errors": {"new_password": detail}},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -718,5 +805,220 @@ try:
             data={"permissions": plains},
         )
     UserPermissionsView.get = _userperms_get  # type: ignore[attr-defined]
+except Exception:
+    pass
+
+
+# ===== Endurecimiento final de permisos y auditoria =====
+try:
+    from gestion_usuarios.permissions_policy import EXPLICIT_ALLOWED_CODENAMES
+
+    _AREA_LABELS = {
+        "gestion_huerta": "Gestion Huerta",
+        "gestion_bodega": "Gestion Bodega",
+        "gestion_usuarios": "Administracion del sistema",
+    }
+
+    _MODEL_LABELS.update({
+        "bodega": "Bodegas",
+        "temporadabodega": "Temporadas de bodega",
+        "recepcion": "Recepciones",
+        "clasificacionempaque": "Empaque",
+        "camionsalida": "Camiones",
+        "compramadera": "Compras de madera",
+        "abonomadera": "Abonos de madera",
+        "consumible": "Consumibles",
+        "cierresemanal": "Semanas de bodega",
+    })
+
+    _CODENAME_LABELS = {
+        "view_dashboard": "Ver tablero de bodega",
+        "close_week": "Gestionar semanas de bodega",
+        "exportpdf_cierresemanal": "Exportar reportes de bodega a PDF",
+        "exportexcel_cierresemanal": "Exportar reportes de bodega a Excel",
+    }
+
+    def _permission_description(codename: str, model_label: str) -> str:
+        action = codename.split("_", 1)[0] if "_" in codename else codename
+        target = model_label.lower()
+
+        if codename == "view_dashboard":
+            return "Permite entrar al tablero operativo, revisar indicadores y consultar el contexto semanal de bodega."
+        if codename == "close_week":
+            return "Permite iniciar y finalizar semanas operativas de bodega."
+        if codename == "exportpdf_cierresemanal":
+            return "Permite descargar reportes de bodega en formato PDF."
+        if codename == "exportexcel_cierresemanal":
+            return "Permite descargar reportes de bodega en formato Excel."
+
+        descriptions = {
+            "view": f"Permite consultar listados, detalles y pantallas de {target}.",
+            "add": f"Permite registrar nuevos elementos en {target}.",
+            "change": f"Permite editar informacion existente en {target}.",
+            "delete": f"Permite eliminar registros de {target}.",
+            "archive": f"Permite archivar registros de {target} sin borrarlos definitivamente.",
+            "restore": f"Permite restaurar registros archivados de {target}.",
+            "finalize": f"Permite cerrar o finalizar procesos de {target}.",
+            "reactivate": f"Permite reactivar procesos o registros de {target}.",
+            "exportpdf": f"Permite exportar informacion de {target} a PDF.",
+            "exportexcel": f"Permite exportar informacion de {target} a Excel.",
+        }
+        return descriptions.get(action, f"Permite operar sobre {target}.")
+
+    def _friendly_name_from_codename(codename: str, model_label: str) -> str:  # type: ignore[no-redef]
+        if codename in _CODENAME_LABELS:
+            return _CODENAME_LABELS[codename]
+        try:
+            action, *_ = codename.split("_", 1)
+        except ValueError:
+            action = codename
+        target = model_label.lower()
+        templates = {
+            "view": f"Ver {target}",
+            "add": f"Registrar {target}",
+            "change": f"Editar {target}",
+            "delete": f"Eliminar {target}",
+            "archive": f"Archivar {target}",
+            "restore": f"Restaurar {target}",
+            "finalize": f"Finalizar {target}",
+            "reactivate": f"Reactivar {target}",
+            "exportpdf": f"Exportar {target} a PDF",
+            "exportexcel": f"Exportar {target} a Excel",
+        }
+        return templates.get(action, f"Gestionar {target}")
+
+    def _module_sort_weight(app_label: str, model: str) -> tuple[int, str]:
+        area_weight = {
+            "gestion_huerta": 1,
+            "gestion_bodega": 2,
+            "gestion_usuarios": 3,
+        }.get(app_label, 99)
+        module_label = _MODEL_LABELS.get(model, model.capitalize())
+        return (area_weight, module_label)
+
+    def _is_visible_permission(app_label: str, model: str, codename: str) -> bool:
+        if app_label not in ALLOWED_APP_LABELS:
+            return False
+        if codename in EXPLICIT_ALLOWED_CODENAMES:
+            return True
+        if not any(codename.startswith(prefix) for prefix in ALLOWED_PREFIXES):
+            return False
+        if (app_label, model) in MODEL_CAPABILITIES:
+            return is_codename_allowed(app_label, model, codename)
+        return codename.startswith(("add_", "change_", "delete_", "view_"))
+
+    def get_filtered_permissions_qs():  # type: ignore[no-redef]
+        base = (
+            Permission.objects.select_related("content_type")
+            .filter(content_type__app_label__in=ALLOWED_APP_LABELS)
+            .order_by("content_type__app_label", "content_type__model", "codename")
+        )
+        allowed_ids = []
+        for perm in base:
+            app = perm.content_type.app_label
+            model = perm.content_type.model
+            code = perm.codename
+            if _is_visible_permission(app, model, code):
+                allowed_ids.append(perm.id)
+        return (
+            Permission.objects.select_related("content_type")
+            .filter(id__in=allowed_ids)
+            .order_by("content_type__app_label", "content_type__model", "codename")
+        )
+
+    def _registro_get_queryset(self):  # noqa: ANN001
+        qs = RegistroActividad.objects.select_related("usuario").order_by("-fecha_hora")
+        tipo = (self.request.query_params.get("tipo") or "").strip().lower()
+        rol = (self.request.query_params.get("rol") or "").strip().lower()
+
+        if rol in {"admin", "usuario"}:
+            qs = qs.filter(usuario__role=rol)
+
+        if tipo == "seguridad":
+            qs = qs.filter(
+                Q(accion__iregex=r"(denegad|bloquead|fallid)")
+                | Q(detalles__icontains="permiso_requerido=")
+            )
+        elif tipo == "autenticacion":
+            qs = qs.filter(accion__iregex=r"(sesion|login|contrase)")
+        elif tipo == "gestion_bodega":
+            qs = qs.filter(accion__iregex=r"(bodega|recepci|camion|madera|consumible|empaque|semana)")
+        elif tipo == "gestion_huerta":
+            qs = qs.filter(accion__iregex=r"(huerta|cosecha|temporada|venta|inversion|propietario)")
+        elif tipo == "gestion_usuarios":
+            qs = qs.filter(accion__iregex=r"(usuario|permiso)")
+
+        return qs
+
+    RegistroActividadViewSet.get_queryset = _registro_get_queryset  # type: ignore[attr-defined]
+
+    def _userperms_get_strict(self, request):  # noqa: ANN001
+        try:
+            user_id = int(getattr(request.user, "id", 0) or 0)
+        except Exception:
+            user_id = 0
+        try:
+            epoch = cache.get(f"user:{user_id}:perm_epoch") or 1
+            cache_key = f"user:{user_id}:perms:v{int(epoch)}"
+            cached = cache.get(cache_key)
+            if cached is not None:
+                return NotificationHandler.generate_response(
+                    message_key="fetch_success",
+                    data={"permissions": cached},
+                )
+        except Exception:
+            cache_key = None
+
+        dotted = list(request.user.get_all_permissions())
+        plains = _to_plain(dotted)
+        filtered = []
+        perms_qs = Permission.objects.select_related("content_type").filter(
+            codename__in=plains,
+            content_type__app_label__in=ALLOWED_APP_LABELS,
+        )
+        for perm in perms_qs:
+            app = perm.content_type.app_label
+            model = perm.content_type.model
+            code = perm.codename
+            if _is_visible_permission(app, model, code):
+                filtered.append(code)
+
+        filtered = sorted(set(filtered))
+        if cache_key:
+            try:
+                cache.set(cache_key, filtered, 600)
+            except Exception:
+                pass
+        return NotificationHandler.generate_response(
+            message_key="fetch_success",
+            data={"permissions": filtered},
+        )
+
+    UserPermissionsView.get = _userperms_get_strict  # type: ignore[attr-defined]
+
+    def _permisos_filtrados_get(self, request):  # noqa: ANN001
+        permisos = []
+        perms = list(get_filtered_permissions_qs())
+        perms.sort(key=lambda perm: _module_sort_weight(perm.content_type.app_label, perm.content_type.model) + (perm.codename,))
+
+        for perm in perms:
+            app_label = perm.content_type.app_label
+            model = perm.content_type.model
+            modulo = _MODEL_LABELS.get(model, model.capitalize())
+            nombre = _friendly_name_from_codename(perm.codename, modulo)
+            descripcion = _permission_description(perm.codename, modulo)
+            permisos.append({
+                "codename": perm.codename,
+                "nombre": nombre,
+                "descripcion": descripcion,
+                "modulo": modulo,
+                "area": _AREA_LABELS.get(app_label, app_label.replace("_", " ").title()),
+            })
+        return NotificationHandler.generate_response(
+            message_key="fetch_success",
+            data={"permisos": permisos},
+        )
+
+    PermisosFiltradosView.get = _permisos_filtrados_get  # type: ignore[attr-defined]
 except Exception:
     pass

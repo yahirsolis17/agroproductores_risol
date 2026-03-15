@@ -13,6 +13,26 @@ export interface ApiError {
     data?: Record<string, unknown>;
 }
 
+export interface ApiErrorSource {
+    response?: {
+        data?: unknown;
+        status?: number;
+    };
+    message?: string;
+    payload?: unknown;
+}
+
+export interface ApiMessagePayload {
+    message?: string;
+    detail?: string;
+    items?: unknown[];
+    meta?: Record<string, unknown>;
+}
+
+export function isObjectRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+}
+
 /**
  * Helper para extraer mensaje de error de una excepción de API.
  * Uso: catch (err: unknown) { return rejectWithValue(extractApiError(err)); }
@@ -87,4 +107,22 @@ export interface BackendResponse<T = unknown> {
         action?: string;
         target?: string;
     };
+}
+
+export function extractRejectedPayload(err: unknown): unknown {
+    if (typeof err !== 'object' || err === null) {
+        return err;
+    }
+
+    const source = err as ApiErrorSource;
+    return source.response?.data ?? source.payload ?? err;
+}
+
+export function extractRejectedTransportPayload(err: unknown): unknown {
+    if (typeof err !== 'object' || err === null) {
+        return undefined;
+    }
+
+    const source = err as ApiErrorSource;
+    return source.response?.data ?? source.payload;
 }

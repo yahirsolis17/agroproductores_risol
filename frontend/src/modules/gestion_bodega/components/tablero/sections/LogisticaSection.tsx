@@ -1,6 +1,6 @@
 
 import React, { useMemo } from "react";
-import { Box, Typography, Button, Tabs, Tab } from "@mui/material";
+import { Box, Typography, Button, Tabs, Tab, Tooltip } from "@mui/material";
 import { TableLayout, type Column } from "../../../../../components/common/TableLayout";
 
 export type LogisticaRowUI = {
@@ -31,6 +31,8 @@ type Props = {
   onPageChange: (page: number) => void;
   onAddCamion?: () => void;
   onEditCamion?: (row: LogisticaRowUI) => void;
+  canManageCamiones?: boolean;
+  camionesTooltip?: string;
   // Filters
   filterEstado?: string | null;
   onFilterEstadoChange?: (est: string | null) => void;
@@ -65,6 +67,8 @@ const LogisticaSection: React.FC<Props> = ({
   onPageChange,
   onAddCamion,
   onEditCamion,
+  canManageCamiones = true,
+  camionesTooltip = "No tienes permiso para gestionar camiones.",
   filterEstado,
   onFilterEstadoChange,
 }) => {
@@ -175,11 +179,18 @@ const LogisticaSection: React.FC<Props> = ({
             Cola y estado operativo{typeof semanaIndex === "number" ? ` — Semana ${semanaIndex}` : ""}.
           </Typography>
         </Box>
-        {onAddCamion && (
-          <Button variant="contained" size="small" onClick={onAddCamion}>
-            Nuevo Camión
-          </Button>
-        )}
+        <Tooltip title={canManageCamiones ? "" : camionesTooltip} disableHoverListener={canManageCamiones}>
+          <span>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={onAddCamion}
+              disabled={!onAddCamion || !canManageCamiones}
+            >
+              Nuevo Cami?n
+            </Button>
+          </span>
+        </Tooltip>
       </Box>
 
       {/* Tabs Filter */}

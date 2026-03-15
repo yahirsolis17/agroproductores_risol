@@ -33,7 +33,8 @@ class UserCRUDTests(APITestCase):
             'telefono': '5550000003',
             'nombre': 'Nuevo',
             'apellido': 'Usuario',
-            'role': 'usuario'
+            'role': 'usuario',
+            'password': 'Nuevo2026'
         }
         resp = self.client.post(self.list_url, data)
         self.assertEqual(resp.status_code, 201)

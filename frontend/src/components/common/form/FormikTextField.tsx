@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { TextField, TextFieldProps } from '@mui/material';
+import type { SxProps, Theme } from '@mui/material/styles';
 import { useField, useFormikContext } from 'formik';
 import { normalizeErrorMessages, renderErrorMessages } from './formFieldUtils';
 
@@ -27,11 +28,39 @@ const FormikTextField: React.FC<FormikTextFieldProps> = ({ name, onBlur, onFocus
   }, [showError]);
 
   const showSuccess = everErroredRef.current && !hasError && !isFocused;
+  const successSx: SxProps<Theme> = (theme) => ({
+    '& .MuiOutlinedInput-root': {
+      transition: 'border-color 200ms ease, box-shadow 200ms ease',
+      ...(showSuccess
+        ? {
+            '& fieldset': {
+              borderColor: theme.palette.success.main,
+            },
+            '&:hover fieldset': {
+              borderColor: theme.palette.success.dark,
+            },
+            '&.Mui-focused fieldset': {
+              borderColor: theme.palette.success.main,
+              boxShadow: `0 0 0 3px ${theme.palette.success.light}`,
+            },
+          }
+        : {}),
+    },
+    ...(showSuccess
+      ? {
+          '& .MuiFormLabel-root': {
+            color: theme.palette.success.main,
+          },
+        }
+      : {}),
+  });
 
   return (
     <TextField
       {...props}
       {...field}
+      variant={props.variant ?? 'outlined'}
+      size={props.size ?? 'small'}
       name={name}
       value={props.value ?? field.value ?? ''}
       onChange={(event) => {
@@ -57,32 +86,7 @@ const FormikTextField: React.FC<FormikTextFieldProps> = ({ name, onBlur, onFocus
       }}
       error={showError}
       helperText={showError ? renderErrorMessages(errorMessages) : helperText ?? ' '}
-      sx={(theme) => ({
-        '& .MuiOutlinedInput-root': {
-          transition: 'border-color 200ms ease, box-shadow 200ms ease',
-          ...(showSuccess
-            ? {
-                '& fieldset': {
-                  borderColor: theme.palette.success.main,
-                },
-                '&:hover fieldset': {
-                  borderColor: theme.palette.success.dark,
-                },
-                '&.Mui-focused fieldset': {
-                  borderColor: theme.palette.success.main,
-                  boxShadow: `0 0 0 3px ${theme.palette.success.light}`,
-                },
-              }
-            : {}),
-        },
-        ...(showSuccess
-          ? {
-              '& .MuiFormLabel-root': {
-                color: theme.palette.success.main,
-              },
-            }
-          : {}),
-      })}
+      sx={(props.sx ? [successSx, props.sx] : successSx) as SxProps<Theme>}
     />
   );
 };

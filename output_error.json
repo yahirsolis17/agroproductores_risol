@@ -1,0 +1,16 @@
+{
+  "success": false,
+  "message_key": "server_error",
+  "message": "Ha ocurrido un error en el servidor back",
+  "data": {
+    "detail": "Cannot assign \"<django.contrib.auth.models.AnonymousUser object at 0x000002AADD0D2750>\": \"CierreSemanal.locked_by\" must be a \"Users\" instance.",
+    "tb": "Traceback (most recent call last):\n  File \"c:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\views\\tablero_views.py\", line 763, in post\n    cw = WeekService.start_week(\n         ^^^^^^^^^^^^^^^^^^^^^^^\n  File \"c:\\Users\\Yahir\\agroproductores_risol\\backend\\gestion_bodega\\services\\week_service.py\", line 133, in start_week\n    cierre = CierreSemanal.objects.create(\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\db\\models\\manager.py\", line 87, in manager_method\n    return getattr(self.get_queryset(), name)(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\db\\models\\query.py\", line 677, in create\n    obj = self.model(**kwargs)\n          ^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\db\\models\\base.py\", line 543, in __init__\n    _setattr(self, field.name, rel_obj)\n  File \"C:\\Users\\Yahir\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python312\\site-packages\\django\\db\\models\\fields\\related_descriptors.py\", line 284, in __set__\n    raise ValueError(\nValueError: Cannot assign \"<django.contrib.auth.models.AnonymousUser object at 0x000002AADD0D2750>\": \"CierreSemanal.locked_by\" must be a \"Users\" instance.\n"
+  },
+  "notification": {
+    "key": "server_error",
+    "message": "Ha ocurrido un error en el servidor back",
+    "type": "error",
+    "action": null,
+    "target": null
+  }
+}

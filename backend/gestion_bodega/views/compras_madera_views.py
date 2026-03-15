@@ -49,13 +49,13 @@ class CompraMaderaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
 
     permission_classes = [IsAuthenticated, HasModulePermission]
     _perm_map = {
-        "list":     ["view_compra_madera"],
-        "retrieve": ["view_compra_madera"],
-        "create":   ["add_compra_madera"],
-        "update":   ["change_compra_madera"],
-        "partial_update": ["change_compra_madera"],
-        "destroy":  ["delete_compra_madera"],
-        "abonos":   ["add_abono_madera"],
+        "list":     ["view_compramadera"],
+        "retrieve": ["view_compramadera"],
+        "create":   ["add_compramadera"],
+        "update":   ["change_compramadera"],
+        "partial_update": ["change_compramadera"],
+        "destroy":  ["archive_compramadera"],
+        "abonos":   ["add_abonomadera"],
     }
 
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
@@ -70,7 +70,7 @@ class CompraMaderaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
     ordering = ["-creado_en"]
 
     def get_permissions(self):
-        self.required_permissions = self._perm_map.get(getattr(self, "action", ""), [])
+        self.required_permissions = self._perm_map.get(getattr(self, "action", ""), ["view_compramadera"])
         return super().get_permissions()
 
     def create(self, request, *args, **kwargs):
@@ -78,7 +78,7 @@ class CompraMaderaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
         try:
             ser.is_valid(raise_exception=True)
         except serializers.ValidationError:
-            return self.notify(key="validation_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
+            return self.notify(key="compra_validacion_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
 
         data = ser.validated_data
         # Lock semanal por fecha_inicio de temporada? Aquí tomamos "hoy" no estricto.
@@ -96,7 +96,7 @@ class CompraMaderaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
         try:
             ser.is_valid(raise_exception=True)
         except serializers.ValidationError:
-            return self.notify(key="validation_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
+            return self.notify(key="compra_validacion_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
 
         data = ser.validated_data
         if data.get("temporada") and data["temporada"].finalizada:
@@ -113,7 +113,7 @@ class CompraMaderaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
         try:
             ser.is_valid(raise_exception=True)
         except serializers.ValidationError:
-            return self.notify(key="validation_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
+            return self.notify(key="compra_validacion_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
 
         data = ser.validated_data
         if data.get("temporada", obj.temporada).finalizada:
@@ -137,7 +137,7 @@ class CompraMaderaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
         try:
             ser.is_valid(raise_exception=True)
         except serializers.ValidationError:
-            return self.notify(key="validation_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
+            return self.notify(key="compra_abono_validacion_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
 
         monto = ser.validated_data["monto"]
         fecha = ser.validated_data.get("fecha")

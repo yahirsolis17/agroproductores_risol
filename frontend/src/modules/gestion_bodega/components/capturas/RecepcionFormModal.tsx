@@ -12,6 +12,7 @@ import { Save, Add } from "@mui/icons-material";
 import { Formik, Form } from "formik";
 
 import { formatDateISO, parseLocalDateStrict } from "../../../../global/utils/date";
+import { parseIntegerInput } from "../../../../global/utils/numericInput";
 import { applyBackendErrorsToFormik } from "../../../../global/validation/backendFieldErrors";
 import { focusFirstError } from "../../../../global/validation/focusFirstError";
 import FormAlertBanner from "../../../../components/common/form/FormAlertBanner";
@@ -115,7 +116,7 @@ export default function RecepcionFormModal({
     }
 
     const raw = toCantidadString(values.cantidad_cajas).trim();
-    const n = raw ? Number(raw) : NaN;
+    const n = raw ? parseIntegerInput(raw) : NaN;
     if (!Number.isFinite(n) || Math.trunc(n) <= 0) {
       errors.cantidad_cajas = "Debe ser un entero mayor a 0.";
     }
@@ -132,7 +133,7 @@ export default function RecepcionFormModal({
     const semanaFromDate = () => {
       const d = parseLocalDateStrict(values.fecha);
       if (isNaN(d.getTime())) return "S";
-      const w = d.toISOString().slice(0, 10);
+      const w = formatDateISO(d);
       return `S${w}`;
     };
     const b = bodegaId || "B";
@@ -141,7 +142,8 @@ export default function RecepcionFormModal({
     const h = slug(values.huertero_nombre, 3, "HX");
     const m = slug(values.tipo_mango, 4, "MX");
     const raw = toCantidadString(values.cantidad_cajas).trim();
-    const n = Number.isFinite(Number(raw)) ? Math.max(0, Math.trunc(Number(raw))) : 0;
+    const parsed = parseIntegerInput(raw);
+    const n = Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
     const c = `C${String(n).padStart(3, "0")}`;
     return `B${b}-T${t}-${s}-H${h}-M${m}-${c}`;
   };
@@ -159,7 +161,7 @@ export default function RecepcionFormModal({
         validateOnMount={false}
         onSubmit={async (values, helpers) => {
           const raw = toCantidadString(values.cantidad_cajas).trim();
-          const n = Math.trunc(Number(raw));
+          const n = parseIntegerInput(raw);
           const payloadBase = {
             bodega: initial?.bodega ?? (bodegaId as number),
             temporada: initial?.temporada ?? (temporadaId as number),
@@ -215,7 +217,7 @@ export default function RecepcionFormModal({
           })();
 
           const raw = toCantidadString(values.cantidad_cajas).trim();
-          const n = raw ? Number(raw) : NaN;
+          const n = raw ? parseIntegerInput(raw) : NaN;
           const cajasValidas = Number.isFinite(n) && Math.trunc(n) > 0;
 
           const tipoValido = values.tipo_mango.trim().length > 0;
@@ -288,9 +290,11 @@ export default function RecepcionFormModal({
                   <FormikNumberField
                     label="Cantidad de cajas"
                     name="cantidad_cajas"
-                    type="number"
+                    type="text"
                     size="small"
                     inputProps={{ min: 1, step: 1 }}
+                    thousandSeparator
+                    allowDecimal={false}
                     disabled={blocked || busy}
                   />
 

@@ -13,7 +13,7 @@ const formatPretty = (iso: string | null) => {
   const d = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(iso);
   if (isNaN(d.getTime())) return '—';
 
-  let s = new Intl.DateTimeFormat('es-MX', {
+  const s = new Intl.DateTimeFormat('es-MX', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',

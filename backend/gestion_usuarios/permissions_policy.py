@@ -19,6 +19,11 @@ from typing import Dict, Iterable, Set, Tuple
 Capability = str
 ModelKey = Tuple[str, str]
 
+EXPLICIT_ALLOWED_CODENAMES: Set[str] = {
+    "view_dashboard",
+    "close_week",
+}
+
 
 MODEL_CAPABILITIES: Dict[ModelKey, Set[Capability]] = {
     # gestion_huerta (conservadora)
@@ -31,21 +36,14 @@ MODEL_CAPABILITIES: Dict[ModelKey, Set[Capability]] = {
     ("gestion_huerta", "inversioneshuerta"): {"crud", "archive"},
     ("gestion_huerta", "venta"): {"crud", "archive"},
 
-    # gestion_bodega (por decidir lifecycle/export en varias)
+    # gestion_bodega
     ("gestion_bodega", "bodega"): {"crud", "archive"},
     ("gestion_bodega", "temporadabodega"): {"crud", "archive", "lifecycle"},
-    ("gestion_bodega", "cliente"): {"crud", "archive"},
     ("gestion_bodega", "recepcion"): {"crud", "archive"},
     ("gestion_bodega", "clasificacionempaque"): {"crud", "export"},
-    ("gestion_bodega", "inventarioplastico"): {"crud", "archive"},
-    ("gestion_bodega", "movimientoplastico"): {"crud"},
-    ("gestion_bodega", "pedido"): {"crud", "archive"},
-    ("gestion_bodega", "pedidorenglon"): {"crud"},
-    ("gestion_bodega", "surtidorenglon"): {"crud"},
     ("gestion_bodega", "camionsalida"): {"crud", "archive"},
-    ("gestion_bodega", "camionitem"): {"crud"},
     ("gestion_bodega", "compramadera"): {"crud", "archive"},
-    ("gestion_bodega", "abonomadera"): {"crud", "archive"},
+    ("gestion_bodega", "abonomadera"): {"crud"},
     ("gestion_bodega", "consumible"): {"crud", "archive"},
     ("gestion_bodega", "cierresemanal"): {"crud", "export"},
 

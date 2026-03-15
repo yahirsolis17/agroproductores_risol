@@ -8,7 +8,6 @@ import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
 import { CategoriaInversion } from '../../types/categoriaInversionTypes';
 import useCategoriasInversion from '../../hooks/useCategoriasInversion';
-import { handleBackendNotification } from '../../../../global/utils/NotificationEngine';
 import {PermissionButton} from '../../../../components/common/PermissionButton';
 import { applyBackendErrorsToFormik } from '../../../../global/validation/backendFieldErrors';
 import { focusFirstError } from '../../../../global/validation/focusFirstError';
@@ -56,10 +55,6 @@ const CategoriaFormModal: React.FC<Props> = ({ open, onClose, onSuccess, initial
           } catch (err: unknown) {
             const normalized = applyBackendErrorsToFormik(err, helpers);
             setFormErrors(normalized.formErrors);
-            if (!Object.keys(normalized.fieldErrors).length && !normalized.formErrors.length) {
-              const backend = (err as any)?.data || (err as any)?.response?.data || {};
-              handleBackendNotification(backend);
-            }
           } finally {
             helpers.setSubmitting(false);
           }

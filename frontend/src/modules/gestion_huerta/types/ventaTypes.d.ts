@@ -32,7 +32,7 @@ export interface VentaCreateData {
 }
 
 /** Payload para actualizar (PATCH) */
-export interface VentaUpdateData extends Partial<VentaCreateData> {}
+export type VentaUpdateData = Partial<VentaCreateData>;
 
 /* Aliases por consistencia en imports */
 export type VentaHuertaCreateData = VentaCreateData;

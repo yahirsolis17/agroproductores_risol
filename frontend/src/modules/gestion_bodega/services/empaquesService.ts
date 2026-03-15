@@ -1,5 +1,10 @@
 // frontend/src/modules/gestion_bodega/services/empaquesService.ts
 import apiClient from "../../../global/api/apiClient";
+import { 
+  normalizeCalidadToBackend, 
+  normalizeCalidadToUI, 
+  transformDisponiblesAgrupados 
+} from "../utils/empaquesUtils";
 import type {
   EmpaqueCreateDTO,
   EmpaqueUpdateDTO,
@@ -37,67 +42,7 @@ function clampInt(n: unknown): number {
   return Math.max(0, Math.floor(v));
 }
 
-/**
- * Normaliza CALIDAD hacia backend (enum/códigos).
- * - UI: "Niño" -> "NINIO"
- * - UI: "Roña" -> "RONIA"
- * - UI plástico: "Primera (≥ 2da)" -> "PRIMERA"
- * - UI plástico: "Segunda"/"Extra" (si llegaran) -> "PRIMERA"
- */
-export function normalizeCalidadToBackend(material: string, calidad: string): string {
-  const mat = String(material ?? "").trim().toUpperCase();
-  const raw = String(calidad ?? "").trim().toUpperCase();
-
-  const aliases: Record<string, string> = {
-    "NIÑO": "NINIO",
-    "NINO": "NINIO",
-    "NINIO": "NINIO",
-
-    "ROÑA": "RONIA",
-    "RONA": "RONIA",
-    "RONIA": "RONIA",
-
-    "PRIMERA (≥ 2DA)": "PRIMERA",
-    "PRIMERA (>= 2DA)": "PRIMERA",
-    "PRIMERA (≥ 2DA.)": "PRIMERA",
-    "PRIMERA (>= 2DA.)": "PRIMERA",
-  };
-
-  let c = aliases[raw] ?? raw;
-
-  // MADURO/MERMA válidos en ambos
-  if (c === "MADURO" || c === "MERMA") return c;
-
-  // excepción plástico: SEGUNDA/EXTRA se consolidan en PRIMERA
-  if (mat === "PLASTICO") {
-    if (c === "SEGUNDA" || c === "EXTRA") return "PRIMERA";
-  }
-
-  return c;
-}
-
-/**
- * Normaliza CALIDAD hacia UI (labels).
- * - Backend: "NINIO" -> "Niño"
- * - Backend: "RONIA" -> "Roña"
- * - Backend plástico: "PRIMERA" -> "Primera (≥ 2da)"
- * - Backend madera: "PRIMERA" -> "Primera"
- * - Otros: capitalización simple ("TERCERA" -> "Tercera")
- */
-export function normalizeCalidadToUI(material: string, calidad: string): string {
-  const mat = String(material ?? "").trim().toUpperCase();
-  const raw = String(calidad ?? "").trim().toUpperCase();
-
-  if (!raw) return "";
-
-  if (raw === "NINIO") return "Niño";
-  if (raw === "RONIA") return "Roña";
-
-  if (mat === "PLASTICO" && raw === "PRIMERA") return "Primera (≥ 2da)";
-
-  // Para el resto (incluye madera PRIMERA, SEGUNDA, EXTRA, etc.)
-  return raw.charAt(0) + raw.substring(1).toLowerCase();
-}
+// Funciones de normalización movidas a empaquesUtils.ts para reducir acoplamiento
 
 function normalizeEmpaqueRow(row: unknown): EmpaqueRow {
   const r = row as any;
@@ -227,52 +172,7 @@ export const empaquesService = {
     const payload = unwrapData<any>(res.data);
     const resultsRaw = payload?.results ?? [];
 
-    // Agrupar por combinación — exclude MERMA (safety filter)
-    const filtered = (resultsRaw as any[]).filter((item) => {
-      const cal = String(item.calidad ?? "").toUpperCase().trim();
-      return cal !== "MERMA";
-    });
-    const grouped = filtered.reduce((acc, item) => {
-      // Normalizar calidad para UI
-      const material = String(item.material ?? "").toUpperCase();
-      const calidadBackend = String(item.calidad ?? "").toUpperCase();
-      const tipo_mango = String(item.tipo_mango ?? "");
-
-      const key = `${calidadBackend}-${material}-${tipo_mango}`;
-
-      if (!acc[key]) {
-        acc[key] = {
-          calidad: calidadBackend, // Mantener código backend para payload
-          material: material,
-          tipo_mango: tipo_mango,
-          disponible: 0,
-          fecha_min: item.fecha || "", // FEFO reference
-          huerteros_set: new Set<string>(),
-        };
-      }
-
-      acc[key].disponible += Number(item.disponible || 0);
-
-      // Collect unique huerteros
-      const huertero = String(item.huertero ?? "").trim();
-      if (huertero) acc[key].huerteros_set.add(huertero);
-
-      // Actualizar fecha_min si encontramos una más antigua (FEFO)
-      if (item.fecha && (!acc[key].fecha_min || item.fecha < acc[key].fecha_min)) {
-        acc[key].fecha_min = item.fecha;
-      }
-
-      return acc;
-    }, {} as Record<string, any>);
-
-    return Object.values(grouped).map((g: any) => ({
-      calidad: g.calidad,
-      material: g.material,
-      tipo_mango: g.tipo_mango,
-      disponible: g.disponible,
-      fecha_min: g.fecha_min,
-      huerteros: Array.from(g.huerteros_set as Set<string>).join(", ") || "—",
-    }));
+    return transformDisponiblesAgrupados(resultsRaw);
   },
 
   /**

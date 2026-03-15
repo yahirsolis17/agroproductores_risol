@@ -7,7 +7,7 @@ from django.core.exceptions import ValidationError
 from django.db import connection, models, transaction
 from django.db.models import Sum, Q, UniqueConstraint, Index, Max
 from django.utils import timezone
-from datetime import timedelta
+from datetime import date, timedelta
 
 
 # ───────────────────────────────────────────────────────────────────────────
@@ -58,6 +58,16 @@ def _resolver_semana_por_fecha(bodega_id: int, temporada_id: int, fecha):
             return candidate
 
     return None
+
+
+def _week_effective_end(semana) -> date:
+    return semana.fecha_hasta or (semana.fecha_desde + timedelta(days=6))
+
+
+def _date_in_week(semana, fecha) -> bool:
+    if not semana or not fecha:
+        return False
+    return semana.fecha_desde <= fecha <= _week_effective_end(semana)
 
 # P1 Robustez: Auto-Cierre Backend
 def ensure_week_state(bodega_id: int, temporada_id: int):
@@ -120,21 +130,6 @@ class CalidadMadera(models.TextChoices):
     MERMA   = "MERMA", "Merma"
 
 
-class CalidadPlastico(models.TextChoices):
-    # En plástico, "segunda/extra" → PRIMERA (normalizada).
-    PRIMERA = "PRIMERA", "Primera"
-    TERCERA = "TERCERA", "Tercera"
-    NINIO   = "NINIO", "Niño"
-    RONIA   = "RONIA", "Roña"
-    MADURO  = "MADURO", "Maduro"
-    MERMA   = "MERMA", "Merma"
-
-
-class EstadoPedido(models.TextChoices):
-    BORRADOR  = "BORRADOR", "Borrador"
-    PARCIAL   = "PARCIAL", "Parcial"
-    SURTIDO   = "SURTIDO", "Surtido"
-    CANCELADO = "CANCELADO", "Cancelado"
 
 
 class EstadoCamion(models.TextChoices):
@@ -242,7 +237,7 @@ class TemporadaBodega(TimeStampedModel):
     año = models.PositiveIntegerField()
     bodega = models.ForeignKey(Bodega, on_delete=models.CASCADE, related_name="temporadas")
 
-    fecha_inicio = models.DateField(default=timezone.now)
+    fecha_inicio = models.DateField(default=timezone.localdate)
     fecha_fin = models.DateField(null=True, blank=True)
     finalizada = models.BooleanField(default=False)
 
@@ -270,12 +265,41 @@ class TemporadaBodega(TimeStampedModel):
     def __str__(self):
         return f"{self.bodega.nombre} – Temporada {self.año}"
 
+    def clean(self):
+        errors = {}
+
+        if self.bodega_id and not getattr(self.bodega, "is_active", True):
+            errors["bodega"] = "La bodega esta archivada; no se pueden gestionar temporadas."
+
+        if self.fecha_fin and self.fecha_inicio and self.fecha_fin < self.fecha_inicio:
+            errors["fecha_fin"] = "La fecha fin no puede ser anterior a la fecha inicio."
+
+        duplicate_qs = TemporadaBodega.objects.filter(
+            bodega_id=self.bodega_id,
+            año=self.año,
+            is_active=True,
+            finalizada=False,
+        )
+        if self.pk:
+            duplicate_qs = duplicate_qs.exclude(pk=self.pk)
+        if not self.finalizada and duplicate_qs.exists():
+            errors["año"] = "Ya existe una temporada registrada para este año en esta bodega."
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        update_fields = kwargs.get("update_fields")
+        if not _is_only_archival_fields(update_fields):
+            self.full_clean()
+        return super().save(*args, **kwargs)
+
     def finalizar(self):
         if self.finalizada:
             return
 
         self.finalizada = True
-        self.fecha_fin = timezone.now().date()
+        self.fecha_fin = timezone.localdate()
         self.save(update_fields=["finalizada", "fecha_fin"])
 
         # cerrar semana abierta si existe (opcional pero recomendado)
@@ -304,10 +328,6 @@ class TemporadaBodega(TimeStampedModel):
             if r.is_active:
                 res = r.archivar(via_cascada=True)
                 counts = _sum_counts(counts, res)
-
-        for p in self.pedidos.all():
-            if p.is_active:
-                p.archivar(via_cascada=True); counts["pedidos"] += 1
 
         for c in self.camiones.all():
             if c.is_active:
@@ -347,10 +367,6 @@ class TemporadaBodega(TimeStampedModel):
                 res = r.desarchivar(via_cascada=True)
                 counts = _sum_counts(counts, res)
 
-        for p in self.pedidos.all():
-            if (not p.is_active) and p.archivado_por_cascada:
-                p.desarchivar(via_cascada=True); counts["pedidos"] += 1
-
         for c in self.camiones.all():
             if (not c.is_active) and c.archivado_por_cascada:
                 c.desarchivar(via_cascada=True); counts["camiones"] += 1
@@ -368,33 +384,6 @@ class TemporadaBodega(TimeStampedModel):
                 s.desarchivar(via_cascada=True); counts["semanas"] += 1
 
         return counts
-
-
-class Cliente(TimeStampedModel):
-    """
-    Catálogo de clientes para pedidos/consignas de Bodega.
-    """
-    nombre = models.CharField(max_length=120)
-    alias = models.CharField(max_length=20, blank=True, default="")
-    rfc = models.CharField(max_length=20, blank=True, default="")
-    telefono = models.CharField(max_length=30, blank=True, default="")
-    email = models.EmailField(blank=True, default="")
-    direccion = models.CharField(max_length=255, blank=True, default="")
-    notas = models.TextField(blank=True, default="")
-
-    class Meta:
-        ordering = ["-id"]
-        constraints = [
-            UniqueConstraint(fields=["nombre", "rfc"], name="uniq_cliente_bodega_nom_rfc"),
-        ]
-        indexes = [
-            Index(fields=["nombre"], name="idx_cli_nombre"),
-            Index(fields=["rfc"], name="idx_cli_rfc"),
-            Index(fields=["is_active"], name="idx_cli_is_active"),
-        ]
-
-    def __str__(self) -> str:
-        return self.alias or self.nombre
 
 
 # ───────────────────────────────────────────────────────────────────────────
@@ -461,9 +450,45 @@ class Recepcion(TimeStampedModel):
     def __str__(self) -> str:
         return f"Recepción #{self.id} ({self.fecha})"
 
+    def clean(self):
+        errors = {}
+
+        if self.temporada_id and self.bodega_id and self.temporada.bodega_id != self.bodega_id:
+            errors["temporada"] = "La temporada no pertenece a esta bodega."
+
+        if self.bodega_id and not getattr(self.bodega, "is_active", True):
+            errors["bodega"] = "La bodega esta archivada; no se pueden registrar recepciones."
+
+        if self.temporada_id and (not getattr(self.temporada, "is_active", True) or getattr(self.temporada, "finalizada", False)):
+            errors["temporada"] = "La temporada debe estar activa y no finalizada."
+
+        semana = self.semana
+        if self.bodega_id and self.temporada_id and self.fecha and semana is None:
+            semana = _resolver_semana_por_fecha(self.bodega_id, self.temporada_id, self.fecha)
+            if semana is not None:
+                self.semana = semana
+
+        if semana is None:
+            errors["semana"] = "No existe una semana activa que cubra esta fecha. Inicia una semana desde el tablero."
+        else:
+            if semana.bodega_id != self.bodega_id or semana.temporada_id != self.temporada_id:
+                errors["semana"] = "La semana no pertenece a esta bodega y temporada."
+            elif not _date_in_week(semana, self.fecha):
+                errors["fecha"] = "La fecha debe estar dentro del rango de la semana."
+            elif semana.fecha_hasta is not None:
+                errors["semana"] = "La semana esta cerrada; no se permiten mas cambios en ese rango."
+
+        if self.lote_id:
+            if self.lote.bodega_id != self.bodega_id or self.lote.temporada_id != self.temporada_id:
+                errors["lote"] = "El lote no pertenece a esta bodega y temporada."
+
+        if errors:
+            raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
         update_fields = kwargs.get("update_fields")
+        if not _is_only_archival_fields(update_fields):
+            self.full_clean()
         return super().save(*args, **kwargs)
 
     @transaction.atomic
@@ -541,79 +566,70 @@ class ClasificacionEmpaque(TimeStampedModel):
     def __str__(self) -> str:
         return f"Empaque #{self.id} {self.material}-{self.calidad} ({self.cantidad_cajas})"
 
+    def clean(self):
+        errors = {}
+
+        if self.recepcion_id:
+            recepcion = self.recepcion
+            if self.bodega_id != recepcion.bodega_id:
+                errors["bodega"] = "La bodega de la clasificacion debe coincidir con la de la recepcion."
+            if self.temporada_id != recepcion.temporada_id:
+                errors["temporada"] = "La temporada de la clasificacion debe coincidir con la de la recepcion."
+            if self.fecha and recepcion.fecha and self.fecha < recepcion.fecha:
+                errors["fecha"] = "La fecha de clasificacion no puede ser anterior a la recepcion."
+
+            expected_week = recepcion.semana
+            if expected_week is None and recepcion.bodega_id and recepcion.temporada_id and self.fecha:
+                expected_week = _resolver_semana_por_fecha(
+                    recepcion.bodega_id,
+                    recepcion.temporada_id,
+                    self.fecha,
+                )
+
+            if expected_week is not None and self.semana_id is None:
+                self.semana = expected_week
+
+            if self.semana_id and expected_week and self.semana_id != expected_week.id:
+                errors["semana"] = "La semana de la clasificacion debe coincidir con la de la recepcion."
+
+            if expected_week is None:
+                errors["semana"] = "No existe una semana activa que cubra esta fecha. Inicia una semana desde el tablero."
+            elif not _date_in_week(expected_week, self.fecha):
+                errors["fecha"] = "La fecha cae en una semana distinta a la de la recepcion."
+            elif expected_week.fecha_hasta is not None:
+                errors["semana"] = "La semana esta cerrada; no se permiten mas cambios en ese rango."
+
+            duplicate_qs = ClasificacionEmpaque.objects.filter(
+                recepcion_id=self.recepcion_id,
+                material=self.material,
+                calidad=self.calidad,
+                is_active=True,
+            )
+            if self.pk:
+                duplicate_qs = duplicate_qs.exclude(pk=self.pk)
+            if duplicate_qs.exists():
+                errors["calidad"] = "Ya existe una linea activa para esta recepcion, material y calidad."
+
+            existing_total = (
+                ClasificacionEmpaque.objects.filter(recepcion_id=self.recepcion_id, is_active=True)
+                .exclude(pk=self.pk)
+                .aggregate(total=Sum("cantidad_cajas"))
+                .get("total")
+                or 0
+            )
+            if int(existing_total) + int(self.cantidad_cajas or 0) > int(recepcion.cajas_campo or 0):
+                errors["cantidad_cajas"] = "La suma de cajas clasificadas excede las cajas de campo de la recepcion."
+
+            if self.lote_id and recepcion.lote_id and self.lote_id != recepcion.lote_id:
+                errors["lote"] = "La clasificacion debe conservar el lote de la recepcion."
+
+        if errors:
+            raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
         update_fields = kwargs.get("update_fields")
-        return super().save(*args, **kwargs)
-
-
-# ───────────────────────────────────────────────────────────────────────────
-# Inventario Plástico (propio / consigna por Cliente)
-# ───────────────────────────────────────────────────────────────────────────
-
-class InventarioPlastico(TimeStampedModel):
-    """
-    Stock de cajas PLÁSTICAS por bodega/temporada y (opcional) cliente consigna.
-    cliente = NULL -> propio (bodega).
-    """
-    bodega = models.ForeignKey(Bodega, on_delete=models.PROTECT, related_name="inventarios_plastico")
-    temporada = models.ForeignKey(TemporadaBodega, on_delete=models.CASCADE, related_name="inventarios_plastico")
-    cliente = models.ForeignKey(Cliente, on_delete=models.SET_NULL, null=True, blank=True, related_name="inventarios_plastico")
-    calidad = models.CharField(max_length=12, choices=CalidadPlastico.choices)  # normalizada
-    tipo_mango = models.CharField(max_length=80, blank=True, default="")
-    stock = models.PositiveIntegerField(default=0)
-
-    class Meta:
-        ordering = ["-id"]
-        constraints = [
-            UniqueConstraint(fields=["bodega", "temporada", "cliente", "calidad", "tipo_mango"], name="uniq_inv_plastico_key"),
-        ]
-        indexes = [
-            Index(fields=["bodega", "temporada", "cliente"], name="idx_invp_bod_temp_cli"),
-            Index(fields=["calidad", "tipo_mango"], name="idx_invp_cal_tm"),
-        ]
-
-    def __str__(self) -> str:
-        dueño = self.cliente_id or "propio"
-        return f"InvPlástico({dueño}) {self.calidad}-{self.tipo_mango}: {self.stock}"
-
-
-    def save(self, *args, **kwargs):
-        update_fields = kwargs.get("update_fields")
-        return super().save(*args, **kwargs)
-
-
-class MovimientoPlastico(TimeStampedModel):
-    ENTRADA = "ENTRADA"
-    SALIDA = "SALIDA"
-    AJUSTE = "AJUSTE"
-    TIPO_CHOICES = (
-        (ENTRADA, "Entrada"),
-        (SALIDA, "Salida"),
-        (AJUSTE, "Ajuste"),
-    )
-
-    inventario = models.ForeignKey(InventarioPlastico, on_delete=models.CASCADE, related_name="movimientos")
-    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
-    cantidad = models.PositiveIntegerField()
-    motivo = models.CharField(max_length=200, blank=True, default="")
-    referencia_tipo = models.CharField(max_length=50, blank=True, default="")
-    referencia_id = models.CharField(max_length=50, blank=True, default="")
-    fecha = models.DateTimeField(default=timezone.now)
-
-    class Meta:
-        ordering = ["-fecha", "-id"]
-        indexes = [
-            Index(fields=["inventario", "fecha"], name="idx_movp_inv_fecha"),
-            Index(fields=["tipo"], name="idx_movp_tipo"),
-        ]
-
-    def __str__(self) -> str:
-        return f"{self.tipo} {self.cantidad} ({self.motivo})"
-
-
-    def save(self, *args, **kwargs):
-        update_fields = kwargs.get("update_fields")
+        if not _is_only_archival_fields(update_fields):
+            self.full_clean()
         return super().save(*args, **kwargs)
 
 
@@ -629,11 +645,16 @@ class CompraMadera(TimeStampedModel):
     bodega = models.ForeignKey(Bodega, on_delete=models.PROTECT, related_name="compras_madera")
     temporada = models.ForeignKey(TemporadaBodega, on_delete=models.CASCADE, related_name="compras_madera")
     proveedor_nombre = models.CharField(max_length=120)
-    cantidad_cajas = models.PositiveIntegerField()
+    cantidad_cajas = models.DecimalField(max_digits=12, decimal_places=2)
     precio_unitario = models.DecimalField(max_digits=12, decimal_places=2)
     monto_total = models.DecimalField(max_digits=12, decimal_places=2, editable=False)
     saldo = models.DecimalField(max_digits=12, decimal_places=2, editable=False)
     observaciones = models.TextField(blank=True, default="")
+    
+    # --- Control Físico de Inventario (NUEVO) ---
+    stock_inicial = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"), help_text="Cajas físicas compradas")
+    stock_actual = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"), help_text="Cajas físicas disponibles actualmente")
+    hay_stock = models.BooleanField(default=True, db_index=True)
 
     class Meta:
         ordering = ["-creado_en"]
@@ -648,8 +669,20 @@ class CompraMadera(TimeStampedModel):
 
     def save(self, *args, **kwargs):
         self.monto_total = (self.precio_unitario or Decimal("0")) * Decimal(self.cantidad_cajas or 0)
+        
         if self._state.adding:
             self.saldo = self.monto_total
+            # Inicializamos el stock si es nueva y la cantidad viene seteada
+            if self.stock_inicial == 0 and getattr(self, "cantidad_cajas", 0) > 0:
+                self.stock_inicial = self.cantidad_cajas
+                self.stock_actual = self.cantidad_cajas
+                
+        # Forzar recalculado de flag de stock siempre que guarden
+        if getattr(self, "stock_actual", 0) <= 0:
+            self.hay_stock = False
+        else:
+            self.hay_stock = True
+
         update_fields = kwargs.get("update_fields")
         super().save(*args, **kwargs)
 
@@ -663,7 +696,7 @@ class CompraMadera(TimeStampedModel):
         self.save(update_fields=["saldo", "actualizado_en"])
         return AbonoMadera.objects.create(
             compra=self,
-            fecha=fecha or timezone.now().date(),
+            fecha=fecha or timezone.localdate(),
             monto=monto,
             metodo=(metodo or "").strip()[:30],
             saldo_resultante=self.saldo,
@@ -672,7 +705,7 @@ class CompraMadera(TimeStampedModel):
 
 class AbonoMadera(TimeStampedModel):
     compra = models.ForeignKey(CompraMadera, on_delete=models.CASCADE, related_name="abonos")
-    fecha = models.DateField(default=timezone.now)
+    fecha = models.DateField(default=timezone.localdate)
     monto = models.DecimalField(max_digits=12, decimal_places=2)
     metodo = models.CharField(max_length=30, blank=True, default="")
     saldo_resultante = models.DecimalField(max_digits=12, decimal_places=2)
@@ -687,83 +720,23 @@ class AbonoMadera(TimeStampedModel):
         return f"Abono #{self.id} (${self.monto})"
 
 
-# ───────────────────────────────────────────────────────────────────────────
-# Pedidos y Surtidos
-# ───────────────────────────────────────────────────────────────────────────
-
-class Pedido(TimeStampedModel):
-    bodega = models.ForeignKey(Bodega, on_delete=models.PROTECT, related_name="pedidos")
-    temporada = models.ForeignKey(TemporadaBodega, on_delete=models.CASCADE, related_name="pedidos")
-    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name="pedidos_bodega")
-    fecha = models.DateField(default=timezone.now)
-    estado = models.CharField(max_length=12, choices=EstadoPedido.choices, default=EstadoPedido.BORRADOR)
-    observaciones = models.TextField(blank=True, default="")
-
-    class Meta:
-        ordering = ["-fecha", "-id"]
-        indexes = [
-            Index(fields=["bodega", "temporada", "cliente", "estado"], name="idx_ped_claves"),
-        ]
-
-    def __str__(self) -> str:
-        return f"Pedido #{self.id} ({self.estado})"
-
-
-    def save(self, *args, **kwargs):
-        update_fields = kwargs.get("update_fields")
-        return super().save(*args, **kwargs)
-
-
-class PedidoRenglon(TimeStampedModel):
-    pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE, related_name="renglones")
-    material = models.CharField(max_length=10, choices=Material.choices)
-    calidad = models.CharField(max_length=12)  # madera/plástico según material (texto)
-    tipo_mango = models.CharField(max_length=80, blank=True, default="")
-    cantidad_solicitada = models.PositiveIntegerField()
-    cantidad_surtida = models.PositiveIntegerField(default=0)
+class ConsumoMadera(TimeStampedModel):
+    """
+    Consumos de inventario hacia ClasificacionEmpaque, aplicando FIFO sobre CompraMadera.
+    """
+    compra_origen = models.ForeignKey(CompraMadera, on_delete=models.PROTECT, related_name="consumos_despachados")
+    clasificacion = models.ForeignKey(ClasificacionEmpaque, on_delete=models.CASCADE, related_name="consumos_madera")
+    cantidad = models.DecimalField(max_digits=12, decimal_places=2)
 
     class Meta:
         ordering = ["id"]
         indexes = [
-            Index(fields=["pedido", "material", "calidad"], name="idx_pedr_pmc"),
+            Index(fields=["clasificacion", "compra_origen"], name="idx_cons_mad_clas_compra"),
         ]
 
     def __str__(self) -> str:
-        return f"Renglón #{self.id} {self.material}-{self.calidad} {self.cantidad_surtida}/{self.cantidad_solicitada}"
+        return f"Consumo #{self.id} de Compra {self.compra_origen_id} -> Clasificación {self.clasificacion_id} ({self.cantidad} cajas)"
 
-    @property
-    def pendiente(self) -> int:
-        return max(0, (self.cantidad_solicitada or 0) - (self.cantidad_surtida or 0))
-
-
-    def save(self, *args, **kwargs):
-        update_fields = kwargs.get("update_fields")
-        return super().save(*args, **kwargs)
-
-
-class SurtidoRenglon(TimeStampedModel):
-    """
-    Consumo de cajas clasificadas hacia un renglón de pedido.
-    Disponible = clasificacion.cantidad_cajas - sum(surtidos.cantidad)
-    y jamás se permite overpicking en renglón.
-    """
-    renglon = models.ForeignKey(PedidoRenglon, on_delete=models.CASCADE, related_name="surtidos")
-    origen_clasificacion = models.ForeignKey(ClasificacionEmpaque, on_delete=models.PROTECT, related_name="surtidos")
-    cantidad = models.PositiveIntegerField()
-
-    class Meta:
-        ordering = ["id"]
-        indexes = [
-            Index(fields=["renglon", "origen_clasificacion"], name="idx_sur_reng_origen"),
-        ]
-
-    def __str__(self) -> str:
-        return f"Surtido #{self.id} {self.cantidad}"
-
-
-    def save(self, *args, **kwargs):
-        update_fields = kwargs.get("update_fields")
-        return super().save(*args, **kwargs)
 
 
 # ───────────────────────────────────────────────────────────────────────────
@@ -813,6 +786,44 @@ class CamionSalida(TimeStampedModel):
         nro = self.numero if self.numero is not None else "S/N"
         return f"Camión {nro} ({self.estado})"
 
+    def clean(self):
+        errors = {}
+
+        if self.temporada_id and self.bodega_id and self.temporada.bodega_id != self.bodega_id:
+            errors["temporada"] = "La temporada no pertenece a esta bodega."
+
+        if self.temporada_id and (not getattr(self.temporada, "is_active", True) or getattr(self.temporada, "finalizada", False)):
+            errors["temporada"] = "No se pueden registrar camiones en temporadas archivadas o finalizadas."
+
+        semana = self.semana
+        if self.fecha_salida and self.bodega_id and self.temporada_id and semana is None:
+            semana = _resolver_semana_por_fecha(self.bodega_id, self.temporada_id, self.fecha_salida)
+            if semana is not None:
+                self.semana = semana
+
+        if self.fecha_salida and semana is None and (self.estado == EstadoCamion.CONFIRMADO or self.numero is not None):
+            errors["semana"] = "No existe una semana activa para la fecha de salida."
+        elif self.fecha_salida and semana is not None:
+            if semana.bodega_id != self.bodega_id or semana.temporada_id != self.temporada_id:
+                errors["semana"] = "La semana no pertenece a esta bodega y temporada."
+            elif not _date_in_week(semana, self.fecha_salida):
+                errors["fecha_salida"] = "La fecha de salida debe caer dentro del rango de la semana."
+
+        if self.numero is not None:
+            duplicate_qs = CamionSalida.objects.filter(
+                bodega_id=self.bodega_id,
+                temporada_id=self.temporada_id,
+                numero=self.numero,
+                is_active=True,
+            )
+            if self.pk:
+                duplicate_qs = duplicate_qs.exclude(pk=self.pk)
+            if duplicate_qs.exists():
+                errors["numero"] = "Ya existe un camion confirmado con este numero para la bodega y temporada."
+
+        if errors:
+            raise ValidationError(errors)
+
 
     def confirmar(self):
         if self.estado == EstadoCamion.ANULADO:
@@ -822,7 +833,7 @@ class CamionSalida(TimeStampedModel):
 
         # Asignar fecha e intentar resolver semana ahora si no tenía
         if not self.fecha_salida:
-            self.fecha_salida = timezone.now().date()
+            self.fecha_salida = timezone.localdate()
 
         # Validación fuerte: para confirmar, semana debe existir
 
@@ -842,32 +853,8 @@ class CamionSalida(TimeStampedModel):
 
     def save(self, *args, **kwargs):
         update_fields = kwargs.get("update_fields")
-        return super().save(*args, **kwargs)
-
-
-class CamionItem(TimeStampedModel):
-    """
-    Ítems del manifiesto del camión (no mueven stock).
-    """
-    camion = models.ForeignKey(CamionSalida, on_delete=models.CASCADE, related_name="items")
-    material = models.CharField(max_length=10, choices=Material.choices)
-    calidad = models.CharField(max_length=12)
-    tipo_mango = models.CharField(max_length=80, blank=True, default="")
-    cantidad_cajas = models.PositiveIntegerField()
-
-    class Meta:
-        ordering = ["id"]
-        indexes = [
-            Index(fields=["camion"], name="idx_cami_camion"),
-            Index(fields=["material", "calidad"], name="idx_cami_mat_cal"),
-        ]
-
-    def __str__(self) -> str:
-        return f"ItemCamión #{self.id} {self.material}-{self.calidad} {self.cantidad_cajas}"
-
-
-    def save(self, *args, **kwargs):
-        update_fields = kwargs.get("update_fields")
+        if not _is_only_archival_fields(update_fields):
+            self.full_clean()
         return super().save(*args, **kwargs)
 
 
@@ -911,7 +898,7 @@ class Consumible(TimeStampedModel):
     cantidad = models.PositiveIntegerField(default=1)
     costo_unitario = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
     total = models.DecimalField(max_digits=12, decimal_places=2, editable=False)
-    fecha = models.DateField(default=timezone.now)
+    fecha = models.DateField(default=timezone.localdate)
     observaciones = models.TextField(blank=True, default="")
 
     class Meta:
@@ -993,6 +980,39 @@ class CierreSemanal(TimeStampedModel):
     def activa(self) -> bool:
         return self.fecha_hasta is None
 
+    def clean(self):
+        errors = {}
+
+        if self.temporada_id and self.bodega_id and self.temporada.bodega_id != self.bodega_id:
+            errors["temporada"] = "La temporada no pertenece a esta bodega."
+
+        if self.fecha_hasta and self.fecha_hasta < self.fecha_desde:
+            errors["fecha_hasta"] = "La fecha de cierre no puede ser anterior al inicio de la semana."
+
+        if self.fecha_hasta and self.fecha_hasta > self.fecha_desde + timedelta(days=6):
+            errors["fecha_hasta"] = "La semana no puede exceder 7 dias."
+
+        candidate_end = self.fecha_hasta or (self.fecha_desde + timedelta(days=6))
+        overlap_qs = CierreSemanal.objects.filter(
+            bodega_id=self.bodega_id,
+            temporada_id=self.temporada_id,
+            is_active=True,
+        )
+        if self.pk:
+            overlap_qs = overlap_qs.exclude(pk=self.pk)
+
+        open_qs = overlap_qs.filter(fecha_hasta__isnull=True)
+        if self.fecha_hasta is None and open_qs.exists():
+            errors["fecha_hasta"] = "Ya existe una semana abierta para esta bodega y temporada."
+
+        for other in overlap_qs:
+            other_end = _week_effective_end(other)
+            if self.fecha_desde <= other_end and candidate_end >= other.fecha_desde:
+                errors["fecha_desde"] = "La semana se traslapa con otra semana existente."
+                break
+
+        if errors:
+            raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
         update_fields = kwargs.get("update_fields")
@@ -1002,4 +1022,6 @@ class CierreSemanal(TimeStampedModel):
                 self.iso_semana = f"{iso.year}-W{str(iso.week).zfill(2)}"
             except Exception:
                 pass
+        if not _is_only_archival_fields(update_fields):
+            self.full_clean()
         return super().save(*args, **kwargs)

@@ -1,9 +1,11 @@
 from rest_framework.test import APITestCase
 from django.urls import reverse
+from django.core.cache import cache
 from gestion_usuarios.models import Users
 
 class LoginTests(APITestCase):
     def setUp(self):
+        cache.clear()
         self.user = Users.objects.create_user(
             telefono='5550000000',
             password='pass1234',
@@ -34,3 +36,21 @@ class LoginTests(APITestCase):
         self.assertFalse(resp.data['success'])
         self.assertIn('notification', resp.data)
         self.assertIn('errors', resp.data['data'])
+
+    def test_login_temporarily_locks_after_repeated_failures(self):
+        for _ in range(5):
+            resp = self.client.post(self.url, {
+                'telefono': '5550000000',
+                'password': 'wrongpass'
+            })
+
+        self.assertEqual(resp.status_code, 400)
+        errors = resp.data['data']['errors']
+        self.assertIn('telefono', errors)
+
+        locked_resp = self.client.post(self.url, {
+            'telefono': '5550000000',
+            'password': 'pass1234'
+        })
+        self.assertEqual(locked_resp.status_code, 400)
+        self.assertIn('telefono', locked_resp.data['data']['errors'])

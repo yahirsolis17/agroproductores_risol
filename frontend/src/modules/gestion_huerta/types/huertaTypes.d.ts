@@ -26,4 +26,4 @@ export interface HuertaCreateData {
   propietario: number;
 }
 
-export interface HuertaUpdateData extends Partial<HuertaCreateData> {}
+export type HuertaUpdateData = Partial<HuertaCreateData>;

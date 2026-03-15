@@ -74,11 +74,11 @@ def diagnose():
         for item in items:
             # Check if this item matches our candidates
             # KPI item has 'kg' (cajas) and 'huertero'
-            if item['kg'] in targets:
+            if item['cajas'] in targets:
                 print(f"\nMATCH IN KPI OUTPUT:")
                 print(f"  - ID (LoteID): {item['id']}")
                 print(f"  - Ref: {item['ref']}")
-                print(f"  - Cajas: {item['kg']}")
+                print(f"  - Cajas: {item['cajas']}")
                 print(f"  - Clasificacion Label: {item.get('clasificacion_label')}")
                 print(f"  - Meta.Despachado: {item['meta']['despachado']}")
                 

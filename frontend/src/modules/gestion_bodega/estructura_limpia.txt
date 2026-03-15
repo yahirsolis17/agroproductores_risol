@@ -26,7 +26,6 @@ modules/
         InventariosTabs.tsx
         InventarioPlasticoTable.tsx
         AjusteInventarioModal.tsx
-        MovimientosPlasticoDrawer.tsx
         InventarioMaderaTable.tsx
 
       logistica/
@@ -86,7 +85,6 @@ modules/
       bodegaService.ts
       temporadaBodegaService.ts
       capturasService.ts
-      inventarioService.ts
       pedidosService.ts
       camionesService.ts
       gastosService.ts
@@ -108,5 +106,4 @@ modules/
     utils/
       bodegaTypeGuards.ts
       format.ts
-      hotkeys.ts
 

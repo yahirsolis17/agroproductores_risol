@@ -7,7 +7,7 @@ Script para crear datos de prueba completos para verificar:
 import os
 import sys
 import django
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 
 sys.path.append(r'C:\Users\Yahir\agroproductores_risol\backend')
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'agroproductores_risol.settings')
@@ -17,9 +17,8 @@ from django.db import transaction
 from gestion_bodega.models import (
     Bodega, TemporadaBodega, CierreSemanal,
     Recepcion, LoteBodega, ClasificacionEmpaque,
-    CamionSalida, CamionItem
+    CamionSalida, CamionConsumoEmpaque
 )
-from gestion_usuarios.models import Users
 
 def create_complete_test_dataset():
     """Crea un dataset completo para pruebas end-to-end"""
@@ -28,25 +27,10 @@ def create_complete_test_dataset():
     print("CREANDO DATASET DE PRUEBA COMPLETO")
     print("=" * 60)
     
-    # 1. Obtener o crear usuario de prueba
-    user, _ = Users.objects.get_or_create(
-        telefono="1234567890",
-        defaults={
-            "nombre": "Test",
-            "apellido": "User",
-            "is_staff": True,
-            "is_superuser": True
-        }
-    )
-    if not user.check_password("testpassword123"):
-        user.set_password("testpassword123")
-        user.save()
-    print(f"✅ Usuario: {user.telefono}")
-    
     # 2. Obtener o crear Bodega
     bodega, created = Bodega.objects.get_or_create(
         nombre="risol",
-        defaults={"direccion": "Test Address"}
+        defaults={"ubicacion": "Test Address"}
     )
     print(f"✅ Bodega: {bodega.nombre} (ID: {bodega.id}) {'[CREADA]' if created else '[EXISTENTE]'}")
     
@@ -68,13 +52,13 @@ def create_complete_test_dataset():
         fecha_desde=start_of_week,
         defaults={
             "fecha_hasta": None,  # Semana abierta
-            "locked_by": user,
             "is_active": True
         }
     )
     print(f"✅ Semana: {semana.fecha_desde} (ID: {semana.id}) {'[CREADA]' if created else '[EXISTENTE]'}")
     
     with transaction.atomic():
+        run_token = datetime.now().strftime("%H%M%S")
         # 5. CREAR RECEPCIONES (2 recepciones diferentes)
         print("\n📦 Creando Recepciones...")
         
@@ -96,8 +80,7 @@ def create_complete_test_dataset():
             fecha=today - timedelta(days=1),
             huertero_nombre="María García",
             tipo_mango="TOMMY",
-            cajas_campo=200,
-            created_by=user
+            cajas_campo=200
         )
         print(f"  → Recepción 2: {recepcion2.huertero_nombre} - {recepcion2.cajas_campo} cajas")
         
@@ -107,20 +90,18 @@ def create_complete_test_dataset():
         lote1 = LoteBodega.objects.create(
             bodega=bodega,
             temporada=temporada,
-            codigo_lote=f"LOTE-{semana.id}-001",
-            recepcion=recepcion1,
-            tipo_mango="KENT",
-            created_by=user
+            semana=semana,
+            codigo_lote=f"LOTE-{semana.id}-{run_token}-001",
+            origen_nombre=recepcion1.huertero_nombre
         )
         print(f"  → Lote 1: {lote1.codigo_lote}")
         
         lote2 = LoteBodega.objects.create(
             bodega=bodega,
             temporada=temporada,
-            codigo_lote=f"LOTE-{semana.id}-002",
-            recepcion=recepcion2,
-            tipo_mango="TOMMY",
-            created_by=user
+            semana=semana,
+            codigo_lote=f"LOTE-{semana.id}-{run_token}-002",
+            origen_nombre=recepcion2.huertero_nombre
         )
         print(f"  → Lote 2: {lote2.codigo_lote}")
         
@@ -137,8 +118,7 @@ def create_complete_test_dataset():
             fecha=today - timedelta(days=2),
             material="PLASTICO",
             calidad="PRIMERA",
-            cantidad_cajas=100,
-            created_by=user
+            cantidad_cajas=100
         )
         print(f"  → Emp 1.1: {emp1_1.calidad} ({emp1_1.material}) = {emp1_1.cantidad_cajas}")
         
@@ -151,8 +131,7 @@ def create_complete_test_dataset():
             fecha=today - timedelta(days=2),
             material="PLASTICO",
             calidad="TERCERA",
-            cantidad_cajas=30,
-            created_by=user
+            cantidad_cajas=30
         )
         print(f"  → Emp 1.2: {emp1_2.calidad} ({emp1_2.material}) = {emp1_2.cantidad_cajas}")
         
@@ -165,8 +144,7 @@ def create_complete_test_dataset():
             fecha=today - timedelta(days=2),
             material="MADERA",
             calidad="NINIO",
-            cantidad_cajas=20,
-            created_by=user
+            cantidad_cajas=20
         )
         print(f"  → Emp 1.3: {emp1_3.calidad} ({emp1_3.material}) = {emp1_3.cantidad_cajas}")
         
@@ -180,8 +158,7 @@ def create_complete_test_dataset():
             fecha=today - timedelta(days=1),
             material="PLASTICO",
             calidad="PRIMERA",
-            cantidad_cajas=150,
-            created_by=user
+            cantidad_cajas=150
         )
         print(f"  → Emp 2.1: {emp2_1.calidad} ({emp2_1.material}) = {emp2_1.cantidad_cajas}")
         
@@ -194,8 +171,7 @@ def create_complete_test_dataset():
             fecha=today - timedelta(days=1),
             material="PLASTICO",
             calidad="EXTRA",
-            cantidad_cajas=50,
-            created_by=user
+            cantidad_cajas=50
         )
         print(f"  → Emp 2.2: {emp2_2.calidad} ({emp2_2.material}) = {emp2_2.cantidad_cajas}")
         
@@ -206,52 +182,43 @@ def create_complete_test_dataset():
         camion1 = CamionSalida.objects.create(
             bodega=bodega,
             temporada=temporada,
-            numero="CAM-001",
+            numero=101,
             fecha_salida=today + timedelta(days=1),
-            estado="BORRADOR",
-            created_by=user
+            estado="BORRADOR"
         )
         print(f"  → Camión 1: {camion1.numero} - {camion1.estado}")
         
         # Items del camión 1
-        CamionItem.objects.create(
+        CamionConsumoEmpaque.objects.create(
             camion=camion1,
-            clasificacion=emp1_1,
-            lote=lote1,
-            tipo_mango="KENT",
-            cantidad_cajas=50,
-            created_by=user
+            clasificacion_empaque=emp1_1,
+            cantidad=50
         )
         
         # Confirmado
         camion2 = CamionSalida.objects.create(
             bodega=bodega,
             temporada=temporada,
-            numero="CAM-002",
+            numero=102,
             fecha_salida=today + timedelta(days=2),
-            estado="CONFIRMADO",
-            created_by=user
+            estado="CONFIRMADO"
         )
         print(f"  → Camión 2: {camion2.numero} - {camion2.estado}")
         
         # Items del camión 2
-        CamionItem.objects.create(
+        CamionConsumoEmpaque.objects.create(
             camion=camion2,
-            clasificacion=emp2_1,
-            lote=lote2,
-            tipo_mango="TOMMY",
-            cantidad_cajas=100,
-            created_by=user
+            clasificacion_empaque=emp2_1,
+            cantidad=100
         )
         
         # Otro Borrador
         camion3 = CamionSalida.objects.create(
             bodega=bodega,
             temporada=temporada,
-            numero="CAM-003",
+            numero=103,
             fecha_salida=today + timedelta(days=3),
-            estado="BORRADOR",
-            created_by=user
+            estado="BORRADOR"
         )
         print(f"  → Camión 3: {camion3.numero} - {camion3.estado}")
     

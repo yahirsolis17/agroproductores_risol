@@ -222,7 +222,8 @@ const Huertas: React.FC = () => {
         await huertasRentadas.removeHuerta(delDialog.id);
       }
       await refetchAll();
-    } catch (e: any) {
+    } catch {
+      // The data hooks already surface backend notifications.
     } finally {
       setDelDialog(null);
     }

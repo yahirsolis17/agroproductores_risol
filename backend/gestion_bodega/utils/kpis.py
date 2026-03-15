@@ -13,7 +13,6 @@ from gestion_bodega.models import (
     Recepcion,
     ClasificacionEmpaque,
     CamionSalida,
-    CamionItem,
     CamionConsumoEmpaque,
 )
 
@@ -417,13 +416,15 @@ def build_queue_items(tipo: str, raw_rows) -> List[Dict[str, Any]]:
         tipos_por_camion: Dict[int, List[str]] = {}
         if camion_ids:
             for row in (
-                CamionItem.objects.filter(camion_id__in=camion_ids)
-                .exclude(tipo_mango="")
-                .values("camion_id", "tipo_mango")
+                CamionConsumoEmpaque.objects.filter(camion_id__in=camion_ids, is_active=True)
+                .exclude(clasificacion_empaque__tipo_mango="")
+                .values("camion_id", "clasificacion_empaque__tipo_mango")
             ):
-                tipos_por_camion.setdefault(row["camion_id"], [])
-                if row["tipo_mango"] not in tipos_por_camion[row["camion_id"]]:
-                    tipos_por_camion[row["camion_id"]].append(row["tipo_mango"])
+                cid = row["camion_id"]
+                tm = row["clasificacion_empaque__tipo_mango"]
+                tipos_por_camion.setdefault(cid, [])
+                if tm and tm not in tipos_por_camion[cid]:
+                    tipos_por_camion[cid].append(tm)
         for idx, r in enumerate(raw_rows, start=1):
             ref_str = f"Camión #{r.get('numero')}" if r.get('numero') else f"Camión #{idx}"
             items.append({

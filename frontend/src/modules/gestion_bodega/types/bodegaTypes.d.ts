@@ -44,7 +44,7 @@ export interface ListBodegasData {
 }
 
 /** Alias por compatibilidad con otros módulos. */
-export interface ListBodegasResult extends ListBodegasData { }
+export type ListBodegasResult = ListBodegasData;
 
 /** Notificaciones backend (NotificationMixin). */
 export type NotificationType = 'success' | 'error' | 'warning' | 'info';

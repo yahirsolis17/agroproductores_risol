@@ -6,7 +6,6 @@ import * as Yup from 'yup';
 
 import { HuertaRentadaCreateData } from '../../types/huertaRentadaTypes';
 import { Propietario } from '../../types/propietarioTypes';
-import { handleBackendNotification } from '../../../../global/utils/NotificationEngine';
 import { PermissionButton } from '../../../../components/common/PermissionButton';
 import { propietarioService } from '../../services/propietarioService';
 import { applyBackendErrorsToFormik } from '../../../../global/validation/backendFieldErrors';
@@ -15,6 +14,7 @@ import FormAlertBanner from '../../../../components/common/form/FormAlertBanner'
 import FormikAutocomplete from '../../../../components/common/form/FormikAutocomplete';
 import FormikNumberField from '../../../../components/common/form/FormikNumberField';
 import FormikTextField from '../../../../components/common/form/FormikTextField';
+import { parseIntegerInput } from '../../../../global/utils/numericInput';
 
 const yupSchema = Yup.object({
   nombre: Yup.string().required('Nombre requerido'),
@@ -62,17 +62,16 @@ const HuertaRentadaFormModal: React.FC<Props> = ({
 
   const submit = async (vals: HuertaRentadaCreateData, actions: FormikHelpers<HuertaRentadaCreateData>) => {
     try {
-      await onSubmit(vals);
+      const montoRenta = parseIntegerInput(String(vals.monto_renta ?? ''));
+      await onSubmit({
+        ...vals,
+        monto_renta: Number.isFinite(montoRenta) ? montoRenta : 0,
+      });
       setFormErrors([]);
       onClose();
     } catch (err: unknown) {
       const normalized = applyBackendErrorsToFormik(err, actions);
       setFormErrors(normalized.formErrors);
-      if (!Object.keys(normalized.fieldErrors).length && !normalized.formErrors.length) {
-        const error = err as { response?: { data: any }; data?: any };
-        const backend = error?.response?.data || error?.data || {};
-        handleBackendNotification(backend);
-      }
     } finally {
       actions.setSubmitting(false);
     }
@@ -227,7 +226,8 @@ const HuertaRentadaFormModal: React.FC<Props> = ({
               fullWidth
               label="Monto Renta"
               name="monto_renta"
-              type="number"
+              thousandSeparator
+              allowDecimal={false}
               value={values.monto_renta || ''}
               onChange={handleChange}
               onBlur={handleBlur}

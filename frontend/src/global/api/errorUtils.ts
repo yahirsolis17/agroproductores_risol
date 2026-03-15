@@ -1,4 +1,4 @@
-import axios, { AxiosError } from "axios";
+import { isApiClientAxiosError, ApiClientAxiosError } from "./apiClient";
 
 type ApiErrorShape = {
     message?: string;
@@ -7,14 +7,14 @@ type ApiErrorShape = {
     errors?: Record<string, unknown>;
 };
 
-export function isAxiosError<T = unknown>(err: unknown): err is AxiosError<T> {
-    return axios.isAxiosError(err);
+export function isAxiosError(err: unknown): err is ApiClientAxiosError {
+    return isApiClientAxiosError(err);
 }
 
 export function extractApiMessage(err: unknown, fallback = "Error"): string {
     // Axios
-    if (isAxiosError<ApiErrorShape>(err)) {
-        const data = err.response?.data;
+    if (isAxiosError(err)) {
+        const data = err.response?.data as ApiErrorShape | undefined;
         return data?.message ?? data?.detail ?? err.message ?? fallback;
     }
     // Thunk reject payload (si lo pasas como object)

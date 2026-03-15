@@ -6,72 +6,72 @@
 
 Tabla                    | Registros | Activos | Archivados
 ----------------------------------------------------------------------
-Bodega                    |     8     |    8    |     0     
-TemporadaBodega           |     9     |    9    |     0     
-CierreSemanal             |    10     |   10    |     0     
-LoteBodega                |    12     |    6    |     6     
-Recepcion                 |    77     |   71    |     6     
-ClasificacionEmpaque      |    63     |   46    |     17    
-CamionSalida              |    16     |   12    |     4     
-CamionConsumoEmpaque      |    12     |   12    |     0     
+Bodega                    |     4     |    4    |     0     
+TemporadaBodega           |     4     |    4    |     0     
+CierreSemanal             |    16     |   16    |     0     
+LoteBodega                |    46     |   17    |     29    
+Recepcion                 |    93     |   56    |     37    
+ClasificacionEmpaque      |    195    |   128   |     67    
+CamionSalida              |    58     |   24    |     34    
+CamionConsumoEmpaque      |    16     |   16    |     0     
 
 ----------------------▶ SECCIÓN 2: PROPAGACIÓN DE CONTEXTO (IDs Padre → Hijo)-----------------------
 
 [NIVEL 1] Bodega → Temporada:
-  📦 Bodega[ID=17] 'prueba 5'
+  📦 Bodega[ID=4] 'prueba 10'
      └─ Temporadas activas: 1
-  📦 Bodega[ID=16] 'prueba 4'
-     └─ Temporadas activas: 2
-  📦 Bodega[ID=15] 'prueba 3'
+  📦 Bodega[ID=3] 'prueba 1'
+     └─ Temporadas activas: 1
+  📦 Bodega[ID=2] 'risol'
      └─ Temporadas activas: 1
 
 [NIVEL 2] Temporada → Semana:
-  📅 Temporada[ID=9] (Bodega_ID=17)
+  📅 Temporada[ID=4] (Bodega_ID=4)
      ├─ Semanas totales: 1
      ├─ Abiertas: 1
      └─ Cer radas: 0
-  📅 Temporada[ID=8] (Bodega_ID=16)
+  📅 Temporada[ID=3] (Bodega_ID=3)
      ├─ Semanas totales: 1
-     ├─ Abiertas: 1
-     └─ Cer radas: 0
-  📅 Temporada[ID=7] (Bodega_ID=16)
-     ├─ Semanas totales: 1
-     ├─ Abiertas: 1
-     └─ Cer radas: 0
+     ├─ Abiertas: 0
+     └─ Cer radas: 1
+  📅 Temporada[ID=1] (Bodega_ID=1)
+     ├─ Semanas totales: 12
+     ├─ Abiertas: 0
+     └─ Cer radas: 12
 
 [NIVEL 3] Semana → Recepciones:
-  📦 Semana[ID=10] (Bodega=17, Temporada=9)
-     ├─ Período: 2026-01-02 → (abierta)
+  📦 Semana[ID=16] (Bodega=1, Temporada=1)
+     ├─ Período: 2026-03-09 → 2026-03-09
      ├─ Recepciones: 0
      └─ Total cajas: 0
-  📦 Semana[ID=8] (Bodega=16, Temporada=7)
-     ├─ Período: 2025-12-31 → (abierta)
-     ├─ Recepciones: 6
-     └─ Total cajas: 930
-  📦 Semana[ID=7] (Bodega=15, Temporada=6)
-     ├─ Período: 2025-12-30 → (abierta)
+  📦 Semana[ID=15] (Bodega=4, Temporada=4)
+     ├─ Período: 2026-03-09 → (abierta)
+     ├─ Recepciones: 2
+     └─ Total cajas: 350
+  📦 Semana[ID=14] (Bodega=1, Temporada=1)
+     ├─ Período: 2026-03-09 → 2026-03-09
      ├─ Recepciones: 0
      └─ Total cajas: 0
 
 [NIVEL 4] Recepción → Clasificaciones:
-  📥 Recepción[ID=79]
-     ├─ Contexto: Bodega=16, Temp=8, Semana=9
+  📥 Recepción[ID=107]
+     ├─ Contexto: Bodega=4, Temp=4, Semana=15
      ├─ Lote: N/A
      ├─ Cajas recibidas: 200
-     ├─ Clasificaciones: 0
-     └─ Total clasificado: 0
-  📥 Recepción[ID=69]
-     ├─ Contexto: Bodega=16, Temp=7, Semana=8
-     ├─ Lote: 6
-     ├─ Cajas recibidas: 500
-     ├─ Clasificaciones: 6
-     └─ Total clasificado: 500
-  📥 Recepción[ID=68]
-     ├─ Contexto: Bodega=16, Temp=7, Semana=8
-     ├─ Lote: 5
-     ├─ Cajas recibidas: 50
      ├─ Clasificaciones: 2
-     └─ Total clasificado: 20
+     └─ Total clasificado: 200
+  📥 Recepción[ID=97]
+     ├─ Contexto: Bodega=3, Temp=3, Semana=11
+     ├─ Lote: N/A
+     ├─ Cajas recibidas: 200
+     ├─ Clasificaciones: 2
+     └─ Total clasificado: 200
+  📥 Recepción[ID=109]
+     ├─ Contexto: Bodega=2, Temp=2, Semana=12
+     ├─ Lote: N/A
+     ├─ Cajas recibidas: 200
+     ├─ Clasificaciones: 2
+     └─ Total clasificado: 200
 
 ----------------------------▶ SECCIÓN 3: VALIDACIÓN DE INTEGRIDAD DE IDs----------------------------
 
@@ -84,63 +84,61 @@ CamionConsumoEmpaque      |    12     |   12    |     0
 ---------------------------▶ SECCIÓN 4: VALIDACIÓN DE CONSTRAINTS ÚNICOS----------------------------
 
 [CONSTRAINT] Máximo 1 semana abierta por (bodega, temporada):
-  ✅ CORRECTO: No hay semanas abiertas duplicadas
+  ❌ VIOLACIÓN: Bodega=2, Temporada=2 → 2 abiertas
 
 --------------------------▶ SECCIÓN 5: INTEGRIDAD DE BALANCE (Overpicking)--------------------------
 
 [CHECK] Clasificación no excede Recepción:
-  ✅ CORRECTO: No hay overpicking detectado
+  ❌ Recv[32]: Recibidas=205, Clasificadas=412 (OVER+207)
+  ❌ Recv[50]: Recibidas=102, Clasificadas=158 (OVER+56)
+  ❌ Recv[40]: Recibidas=298, Clasificadas=452 (OVER+154)
 
 -------------------------------▶ SECCIÓN 6: TRAZABILIDAD (LoteBodega)-------------------------------
 
 [LOTES] Propagación de Lote a Recepciones y Clasificaciones:
-  🏷️  Lote[ID=6] 'B16-T7-S8-HYAH-MMANI-C500'
-     ├─ Contexto: Bodega=16, Temp=7, Semana=8
-     ├─ Origen: yahir
-     ├─ Recepciones: 1
-     └─ Clasificaciones: 6
-  🏷️  Lote[ID=5] 'B16-T7-S8-HTES-MHADE-C050'
-     ├─ Contexto: Bodega=16, Temp=7, Semana=8
-     ├─ Origen: Test Huertero
-     ├─ Recepciones: 1
+  🏷️  Lote[ID=59] 'LOTE-12-213426-002'
+     ├─ Contexto: Bodega=2, Temp=2, Semana=12
+     ├─ Origen: María García
+     ├─ Recepciones: 0
      └─ Clasificaciones: 2
-  🏷️  Lote[ID=4] 'B16-T7-S8-HPOP-MMANI-C125'
-     ├─ Contexto: Bodega=16, Temp=7, Semana=8
-     ├─ Origen: popo
-     ├─ Recepciones: 1
-     └─ Clasificaciones: 1
+  🏷️  Lote[ID=58] 'LOTE-12-213426-001'
+     ├─ Contexto: Bodega=2, Temp=2, Semana=12
+     ├─ Origen: Juan Pérez
+     ├─ Recepciones: 0
+     └─ Clasificaciones: 3
+  🏷️  Lote[ID=57] 'TEST-15-213425-002'
+     ├─ Contexto: Bodega=4, Temp=4, Semana=15
+     ├─ Origen: María García - TEST
+     ├─ Recepciones: 0
+     └─ Clasificaciones: 2
 
 ---------------------------▶ SECCIÓN 7: STOCK REAL (CamionConsumoEmpaque)---------------------------
 
 [CAMIONES] Consumo de Stock:
-  🚛 Camión[ID=12] Placas:TEST-123, Estado:CONFIRMADO
-     ├─ Contexto: Bodega=16, Temp=7
-     ├─ Cargas: 1
-     └─ Total cajas: 50
-  🚛 Camión[ID=11] Placas:220315, Estado:BORRADOR
-     ├─ Contexto: Bodega=16, Temp=7
+  🚛 Camión[ID=58] Placas:, Estado:BORRADOR
+     ├─ Contexto: Bodega=2, Temp=2
      ├─ Cargas: 0
      └─ Total cajas: 0
-  🚛 Camión[ID=10] Placas:220315, Estado:BORRADOR
-     ├─ Contexto: Bodega=16, Temp=7
+  🚛 Camión[ID=55] Placas:, Estado:BORRADOR
+     ├─ Contexto: Bodega=4, Temp=4
+     ├─ Cargas: 0
+     └─ Total cajas: 0
+  🚛 Camión[ID=49] Placas:, Estado:BORRADOR
+     ├─ Contexto: Bodega=2, Temp=2
      ├─ Cargas: 0
      └─ Total cajas: 0
 
 -----------------------------▶ SECCIÓN 8: MÁQUINA DE ESTADOS (Semanas)------------------------------
 
 [ESTADOS] Distribución de Semanas:
-  🟢 ABIERTAS (fecha_hasta=NULL): 7
-  🔵 CERRADAS (fecha_hasta!=NULL): 3
+  🟢 ABIERTAS (fecha_hasta=NULL): 3
+  🔵 CERRADAS (fecha_hasta!=NULL): 13
   📦 ARCHIVADAS (is_active=False): 0
 
 [ANÁLISIS] Semanas Abiertas - Detección de vencidas:
-  Semana[ID=10]: Inicio=2026-01-02, Días=0 → 🟢 VIGENTE
-  Semana[ID=8]: Inicio=2025-12-31, Días=2 → 🟢 VIGENTE
-  Semana[ID=7]: Inicio=2025-12-30, Días=3 → 🟢 VIGENTE
-  Semana[ID=6]: Inicio=2025-12-30, Días=3 → 🟢 VIGENTE
-  Semana[ID=9]: Inicio=2025-12-29, Días=4 → 🟢 VIGENTE
-  Semana[ID=5]: Inicio=2025-12-29, Días=4 → 🟢 VIGENTE
-  Semana[ID=3]: Inicio=2025-12-23, Días=10 → 🔴 VENCIDA (día 10)
+  Semana[ID=15]: Inicio=2026-03-09, Días=0 → 🟢 VIGENTE
+  Semana[ID=12]: Inicio=2026-03-09, Días=0 → 🟢 VIGENTE
+  Semana[ID=4]: Inicio=2026-03-02, Días=7 → 🔴 VENCIDA (día 7)
 
 ====================================================================================================
                                     FIN DEL ANÁLISIS EXHAUSTIVO                                     

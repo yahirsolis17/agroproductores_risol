@@ -1,4 +1,4 @@
-// src/modules/gestion_huerta/components/propietario/PropietarioFormModal.tsx
+import { useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -10,10 +10,10 @@ import {
 import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
 import { PropietarioCreateData } from '../../types/propietarioTypes';
-import { PermissionButton } from '../../../../components/common/PermissionButton'; // ← Import
+import { PermissionButton } from '../../../../components/common/PermissionButton';
 import { applyBackendErrorsToFormik } from '../../../../global/validation/backendFieldErrors';
 import { focusFirstError } from '../../../../global/validation/focusFirstError';
-
+import FormAlertBanner from '../../../../components/common/form/FormAlertBanner';
 import FormikTextField from '../../../../components/common/form/FormikTextField';
 
 interface Props {
@@ -33,11 +33,11 @@ const yupSchema = Yup.object({
     .min(3, 'Los apellidos deben tener al menos 3 caracteres.')
     .required('Los apellidos son requeridos.'),
   telefono: Yup.string()
-    .matches(/^\d{10}$/, 'El teléfono debe tener exactamente 10 dígitos.')
-    .required('El teléfono es requerido.'),
+    .matches(/^\d{10}$/, 'El telefono debe tener exactamente 10 digitos.')
+    .required('El telefono es requerido.'),
   direccion: Yup.string()
-    .min(5, 'La dirección debe tener al menos 5 caracteres.')
-    .required('La dirección es requerida.'),
+    .min(5, 'La direccion debe tener al menos 5 caracteres.')
+    .required('La direccion es requerida.'),
 });
 
 export default function PropietarioFormModal({
@@ -48,6 +48,8 @@ export default function PropietarioFormModal({
   initialValues,
   isEdit = false,
 }: Props) {
+  const [formErrors, setFormErrors] = useState<string[]>([]);
+
   const defaults: PropietarioCreateData = {
     nombre: '',
     apellidos: '',
@@ -77,15 +79,19 @@ export default function PropietarioFormModal({
         onSubmit={async (vals, helpers) => {
           try {
             const nuevo = await onSubmit(vals);
+            setFormErrors([]);
             onSuccess?.(nuevo);
             onClose();
           } catch (error: unknown) {
-            applyBackendErrorsToFormik(error, helpers);
+            const normalized = applyBackendErrorsToFormik(error, helpers, {
+              fieldNames: ['nombre', 'apellidos', 'telefono', 'direccion'],
+              alsoSetFormikErrors: true,
+            });
+            setFormErrors(normalized.formErrors);
           } finally {
             helpers.setSubmitting(false);
           }
         }}
-
       >
         {({
           values,
@@ -113,20 +119,23 @@ export default function PropietarioFormModal({
             }}
           >
             <DialogContent dividers className="space-y-4">
-              {/* No banner - errores van inline en cada campo */}
-              {['nombre', 'apellidos', 'telefono', 'direccion'].map((field) => {
-                return (
-                  <FormikTextField
-                    key={field}
-                    fullWidth
-                    name={field}
-                    label={capitalize(field)}
-                    value={values[field as keyof typeof values]}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                  />
-                );
-              })}
+              <FormAlertBanner
+                open={formErrors.length > 0}
+                severity="error"
+                title="Revisa la informacion"
+                messages={formErrors}
+              />
+              {['nombre', 'apellidos', 'telefono', 'direccion'].map((field) => (
+                <FormikTextField
+                  key={field}
+                  fullWidth
+                  name={field}
+                  label={capitalize(field)}
+                  value={values[field as keyof typeof values]}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                />
+              ))}
             </DialogContent>
 
             <DialogActions className="px-6 py-4">
@@ -151,7 +160,6 @@ export default function PropietarioFormModal({
                   'Guardar'
                 )}
               </PermissionButton>
-
             </DialogActions>
           </Form>
         )}
@@ -164,8 +172,8 @@ function capitalize(campo: string) {
   const labels: Record<string, string> = {
     nombre: 'Nombre',
     apellidos: 'Apellidos',
-    telefono: 'Teléfono',
-    direccion: 'Dirección',
+    telefono: 'Telefono',
+    direccion: 'Direccion',
   };
   return labels[campo] || campo.charAt(0).toUpperCase() + campo.slice(1);
 }

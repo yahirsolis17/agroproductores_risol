@@ -37,7 +37,6 @@ export function useTemporadas({ enabled = true }: { enabled?: boolean } = {}) {
 
   useEffect(() => {
     if (!enabled) return;
-    if (!huertaId && !huertaRentadaId) return;
 
     dispatch(
       fetchTemporadas({

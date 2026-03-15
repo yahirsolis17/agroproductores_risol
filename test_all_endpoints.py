@@ -1,136 +1,72 @@
 #!/usr/bin/env python
-"""
-Test all API endpoints to verify they return 200 OK and have correct structure
-"""
+"""Manual smoke for bodega tablero endpoints using deterministic seeded data."""
+from __future__ import annotations
+
 import os
 import sys
-import json
+from pathlib import Path
 
-sys.path.append(r'C:\Users\Yahir\agroproductores_risol\backend')
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'agroproductores_risol.settings')
 
-import django
-django.setup()
+BACKEND_DIR = Path(__file__).resolve().parent / "backend"
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
 
-from django.test import Client
-from gestion_usuarios.models import Users
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "agroproductores_risol.settings")
 
-def test_all_endpoints():
-    """Test all tablero endpoints"""
-    client = Client(HTTP_HOST='127.0.0.1')
-    
-    # Login
-    try:
-        user = Users.objects.get(telefono="1234567890")
-        client.force_login(user)
-    except:
-        print("❌ No user found")
-        return
-    
-    # Base params (use existing IDs)
-    base = {"temporada": 8, "bodega": 16}
-    
+from smoke_utils import ensure_smoke_context  # noqa: E402
+
+
+def get_boxes(item: dict) -> object:
+    return item.get("cajas", item.get("kg"))
+
+
+def main() -> int:
+    context = ensure_smoke_context()
+
+    from gestion_usuarios.models import Users  # noqa: WPS433
+    from rest_framework.test import APIClient  # noqa: WPS433
+
+    user = Users.objects.get(pk=context.user_id)
+
+    client = APIClient(HTTP_HOST="127.0.0.1")
+    client.force_authenticate(user=user)
+    base = {"temporada": context.temporada_id, "bodega": context.bodega_id}
+
+    checks = [
+        ("summary", "/bodega/tablero/summary/", base),
+        ("queues_recepciones", "/bodega/tablero/queues/", {**base, "queue": "recepciones"}),
+        ("queues_inventarios", "/bodega/tablero/queues/", {**base, "queue": "inventarios"}),
+        ("queues_despachos", "/bodega/tablero/queues/", {**base, "queue": "despachos"}),
+        ("queues_borrador", "/bodega/tablero/queues/", {**base, "queue": "despachos", "estado": "BORRADOR"}),
+        ("queues_confirmado", "/bodega/tablero/queues/", {**base, "queue": "despachos", "estado": "CONFIRMADO"}),
+    ]
+
     print("=" * 60)
-    print("PRUEBAS DE ENDPOINTS - TABLERO BODEGA")
+    print("SMOKE TABLERO BODEGA")
     print("=" * 60)
-    
-    # 1. Test Summary
-    print("\n1️⃣ GET /bodega/tablero/summary/")
-    resp = client.get("/bodega/tablero/summary/", base)
-    print(f"   Status: {resp.status_code}")
-    if resp.status_code == 200:
-        data = resp.json()
-        print(f"   ✅ KPIs: {list(data.get('data', {}).get('kpis', {}).keys())}")
-    else:
-        print(f"   ❌ Error: {resp.content[:200]}")
-    
-    # 2. Test Queues - Recepciones
-    print("\n2️⃣ GET /bodega/tablero/queues/?queue=recepciones")
-    params = {**base, "queue": "recepciones"}  # Fixed: removed invalid order_by
-    resp = client.get("/bodega/tablero/queues/", params)  # Fixed: added trailing slash
-    print(f"   Status: {resp.status_code}")
-    if resp.status_code == 200:
-        data = resp.json()
-        results = data.get('data', {}).get('results', [])
-        print(f"   ✅ Items: {len(results)}")
-        if results:
-            print(f"   Sample: {results[0].get('ref')} - {results[0].get('kg')} cajas")
-            print(f"   🔎 FULL DATA P3: {results[0]}")  # Print full object to see IDs
-    else:
-        print(f"   ❌ Error: {resp.content[:200]}")
-    
-    # 3. Test Queues - Inventarios
-    print("\n3️⃣ GET /bodega/tablero/queues/?queue=inventarios")
-    params = {**base, "queue": "inventarios", "order_by": "fecha:desc,id:desc"}
-    resp = client.get("/bodega/tablero/queues/", params)
-    print(f"   Status: {resp.status_code}")
-    if resp.status_code == 200:
-        data = resp.json()
-        results = data.get('data', {}).get('results', [])
-        print(f"   ✅ Items: {len(results)}")
-        if results:
-            item = results[0]
-            print(f"   Sample ref: {item.get('ref')}")
-            print(f"   Sample desglose: {item.get('meta', {}).get('desglose', [])}")
-            print(f"   Sample total cajas: {item.get('kg')}")
-            print(f"   🔎 FULL DATA P3: {item}")  # IDs Verification
-    else:
-        print(f"   ❌ Error: {resp.content[:200]}")
-    
-    # 4. Test Queues - Despachos (Todos)
-    print("\n4️⃣ GET /bodega/tablero/queues/?queue=despachos")
-    params = {**base, "queue": "despachos", "order_by": "fecha:desc,id:desc"}
-    resp = client.get("/bodega/tablero/queues/", params)
-    print(f"   Status: {resp.status_code}")
-    if resp.status_code == 200:
-        data = resp.json()
-        results = data.get('data', {}).get('results', [])
-        print(f"   ✅ Items: {len(results)}")
-    else:
-        print(f"   ❌ Error: {resp.content[:200]}")
-    
-    # 5. Test Queues - Despachos (Borradores)
-    print("\n5️⃣ GET /bodega/tablero/queues/?queue=despachos&estado=BORRADOR")
-    params = {**base, "queue": "despachos", "estado": "BORRADOR"}
-    resp = client.get("/bodega/tablero/queues/", params)
-    print(f"   Status: {resp.status_code}")
-    if resp.status_code == 200:
-        data = resp.json()
-        results = data.get('data', {}).get('results', [])
-        print(f"   ✅ Items (Borradores): {len(results)}")
-        # Verify all are BORRADOR
-        estados = [r.get('estado') for r in results]
-        if all(e == 'BORRADOR' for e in estados):
-            print(f"   ✅ Filtro correcto: todos son BORRADOR")
-        elif estados:
-            print(f"   ⚠️  Filtro incorrecto: estados={set(estados)}")
-    else:
-        print(f"   ❌ Error: {resp.content[:200]}")
-    
-    # 6. Test Queues - Despachos (Confirmados)
-    print("\n6️⃣ GET /bodega/tablero/queues/?queue=despachos&estado=CONFIRMADO")
-    params = {**base, "queue": "despachos", "estado": "CONFIRMADO"}
-    resp = client.get("/bodega/tablero/queues/", params)
-    print(f"   Status: {resp.status_code}")
-    if resp.status_code == 200:
-        data = resp.json()
-        results = data.get('data', {}).get('results', [])
-        print(f"   ✅ Items (Confirmados): {len(results)}")
-        # Verify all are CONFIRMADO
-        estados = [r.get('estado') for r in results]
-        if all(e == 'CONFIRMADO' for e in estados):
-            print(f"   ✅ Filtro correcto: todos son CONFIRMADO")
-        elif estados:
-            print(f"   ⚠️  Filtro incorrecto: estados={set(estados)}")
-    else:
-        print(f"   ❌ Error: {resp.content[:200]}")
-    
-    print("\n" + "=" * 60)
-    print("RESUMEN DE PRUEBAS")
-    print("=" * 60)
-    print("✅ Si todos los endpoints devuelven 200 OK → Backend estable")
-    print("⚠️  Si faltan datos (0 items) → Crear test  data en UI")
-    print("❌ Si hay 500/400 → Revisar logs del servidor")
+    print(context.to_json())
+
+    failures = 0
+    for name, url, params in checks:
+        response = client.get(url, params)
+        print(f"\n{name}: status={response.status_code}")
+        if response.status_code != 200:
+            print(response.content[:400])
+            failures += 1
+            continue
+
+        payload = response.json().get("data", {})
+        if name == "summary":
+            print(f"kpis={list(payload.get('kpis', {}).keys())}")
+        else:
+            results = payload.get("results", [])
+            print(f"items={len(results)}")
+            if results:
+                print(f"sample={results[0].get('ref')} cajas={get_boxes(results[0])}")
+
+    print("\nRESULTADO:", "OK" if failures == 0 else f"FAIL ({failures})")
+    return 0 if failures == 0 else 1
+
 
 if __name__ == "__main__":
-    test_all_endpoints()
+    raise SystemExit(main())

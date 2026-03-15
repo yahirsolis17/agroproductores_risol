@@ -14,13 +14,9 @@ const PropietarioToolbar: React.FC<PropietarioToolbarProps> = ({ onCreate }) => 
   const [open, setOpen] = useState(false);
 
   const handleSubmit = async (values: PropietarioCreateData) => {
-    try {
-      const nuevo = await onCreate(values);
-      setOpen(false);
-      return nuevo;
-    } catch (error) {
-      throw error;
-    }
+    const nuevo = await onCreate(values);
+    setOpen(false);
+    return nuevo;
   };
 
   return (

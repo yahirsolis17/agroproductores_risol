@@ -24,6 +24,10 @@ Este INDEX.md es la **culminación de toda la documentación del sistema Agropro
 
 ## 📚 **TABLA DE CONTENIDOS NAVEGABLE**
 
+## RELEASE
+
+- [RELEASE_NOTES.md](./RELEASE_NOTES.md) - Cierre v1.0 con gates validados, cambios de release y backlog no bloqueante
+
 ### PARTE I: FUNDAMENTOS DEL SISTEMA
 1. [Visión General y Arquitectura](#1-visión-general-y-arquitectura)
    - 1.1 [Qué es Agroproductores Risol](#11-qué-es-agroproductores-risol)

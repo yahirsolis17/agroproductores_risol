@@ -1,5 +1,5 @@
 // frontend/src/modules/gestion_bodega/pages/TableroBodegaPage.tsx
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
   Paper,
@@ -13,6 +13,8 @@ import {
   CircularProgress,
   IconButton,
   useMediaQuery,
+  Tab,
+  Tabs,
 } from "@mui/material";
 import { useDispatch } from "react-redux";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -22,10 +24,14 @@ import StopIcon from "@mui/icons-material/Stop";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
+import WarehouseIcon from "@mui/icons-material/Warehouse";
+import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
+import DashboardIcon from "@mui/icons-material/Dashboard";
 import { useTableroBodega } from "../hooks/useTableroBodega";
 import WeekSwitcher from "../components/tablero/WeekSwitcher";
 import { setBreadcrumbs } from "../../../global/store/breadcrumbsSlice";
 import { formatDateISO, parseLocalDateStrict } from "../../../global/utils/date";
+import { handleBackendNotification } from "../../../global/utils/NotificationEngine";
 // Fase 1: getWeekCurrent eliminado - hook maneja estado de semana
 import ResumenSection from "../components/tablero/sections/ResumenSection";
 import RecepcionesSection from "../components/tablero/sections/RecepcionesSection";
@@ -34,14 +40,21 @@ import LogisticaSection from "../components/tablero/sections/LogisticaSection";
 import TableroSectionsAccordion, {
   TableroSectionKey,
 } from "../components/tablero/sections/TableroSectionsAccordion";
-import EmpaqueDrawer from "../components/empaque/EmpaqueDrawer";
-import CamionFormModal from "../components/logistica/CamionFormModal";
 import useEmpaques from "../hooks/useEmpaques";
 import { Material } from "../types/shared";
-import { normalizeCalidadToUI } from "../services/empaquesService";
+import { normalizeCalidadToUI } from "../utils/empaquesUtils";
+import reportesBodegaService from "../services/reportesBodegaService";
+import { useAuth } from "../../gestion_usuarios/context/AuthContext";
+
+const EmpaqueDrawer = lazy(() => import("../components/empaque/EmpaqueDrawer"));
+const CamionFormModal = lazy(() => import("../components/logistica/CamionFormModal"));
+const InventariosTabs = lazy(() => import("../components/inventarios/InventariosTabs"));
+const GastosPageContent = lazy(() => import("../components/gastos/GastosPageContent"));
+const ReportesTabs = lazy(() => import("../components/reportes/ReportesTabs"));
 // ---------------------------------------------------------------------------
 // Utils
 // ---------------------------------------------------------------------------
+export type BodegaTabValue = 'tablero' | 'inventarios' | 'gastos' | 'reportes';
 function normalizeBackendCalidadToUILabel(material: "PLASTICO" | "MADERA", calidadRaw: any): string {
   // Reutiliza el normalizador canonico para que las claves coincidan con EmpaqueDrawer.
   return normalizeCalidadToUI(material, calidadRaw);
@@ -105,11 +118,94 @@ const staggerChildren = {
   animate: { transition: { staggerChildren: 0.08 } },
 };
 type WeekValue = { from: string; to: string; isoSemana: string | null };
+
+// ---------------------------------------------------------------------------
+// Componentes Nativos Inline
+// ---------------------------------------------------------------------------
+const BODEGA_TABS: { value: BodegaTabValue; label: string; icon: React.ReactNode }[] = [
+  { value: 'tablero',     label: 'Tablero',     icon: <DashboardIcon fontSize="small" /> },
+  { value: 'inventarios', label: 'Inventarios', icon: <WarehouseIcon fontSize="small" /> },
+  { value: 'gastos',      label: 'Gastos',      icon: <ReceiptLongIcon fontSize="small" /> },
+  { value: 'reportes',    label: 'Reportes',    icon: <AssessmentIcon fontSize="small" /> },
+];
+
+type BodegaTabAccess = Record<BodegaTabValue, { enabled: boolean; tooltip: string }>;
+
+const BodegaTabsInline: React.FC<{
+  value: BodegaTabValue;
+  onChange: (v: BodegaTabValue) => void;
+  tabAccess: BodegaTabAccess;
+}> = ({ value, onChange, tabAccess }) => {
+  const theme = useTheme();
+  const handleTabChange = (_: React.SyntheticEvent, nextValue: BodegaTabValue) => {
+    if (!tabAccess[nextValue]?.enabled) return;
+    onChange(nextValue);
+  };
+  return (
+    <Box component={motion.div} initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0, transition: { duration: 0.25, ease: 'easeOut' } }}>
+      <Tabs
+        value={value} onChange={handleTabChange} variant="scrollable" scrollButtons="auto"
+        TabIndicatorProps={{ style: { height: 3, borderRadius: '3px 3px 0 0', background: `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})` } }}
+        sx={{
+          minHeight: 44,
+          '& .MuiTab-root': {
+            minHeight: 44, textTransform: 'none', fontWeight: 600, fontSize: { xs: '0.8rem', sm: '0.875rem' }, color: theme.palette.text.secondary, gap: 0.75, px: { xs: 1.75, sm: 2.5 }, transition: 'color 0.2s, background-color 0.2s',
+            '&:hover': { color: theme.palette.primary.main, backgroundColor: alpha(theme.palette.primary.main, 0.04) },
+          },
+          '& .Mui-selected': { color: `${theme.palette.primary.main} !important`, fontWeight: 700 },
+        }}
+      >
+        {BODEGA_TABS.map((t) => {
+          const enabled = tabAccess[t.value].enabled;
+          return (
+            <Tab
+              key={t.value}
+              value={t.value}
+              label={t.label}
+              icon={t.icon as any}
+              iconPosition="start"
+              disableRipple={!enabled}
+              title={enabled ? undefined : tabAccess[t.value].tooltip}
+              aria-disabled={!enabled}
+              sx={{
+                opacity: enabled ? 1 : 0.42,
+                cursor: enabled ? 'pointer' : 'not-allowed',
+              }}
+            />
+          );
+        })}
+      </Tabs>
+    </Box>
+  );
+};
+
+const DeferredPanelFallback: React.FC<{ label: string }> = ({ label }) => (
+  <Box
+    display="flex"
+    flexDirection="column"
+    alignItems="center"
+    justifyContent="center"
+    gap={1.5}
+    sx={{
+      minHeight: 240,
+      borderRadius: 3,
+      border: (theme) => `1px solid ${alpha(theme.palette.divider, 0.08)}`,
+      backgroundColor: "rgba(255,255,255,0.72)",
+    }}
+  >
+    <CircularProgress size={26} />
+    <Typography variant="body2" color="text.secondary" fontWeight={600}>
+      {label}
+    </Typography>
+  </Box>
+);
+
 // ---------------------------------------------------------------------------
 // Componente principal
 // ---------------------------------------------------------------------------
 const TableroBodegaPage: React.FC = () => {
   const theme = useTheme();
+  const { hasPerm } = useAuth();
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [sp] = useSearchParams();
@@ -163,6 +259,47 @@ const TableroBodegaPage: React.FC = () => {
   } = tablero;
   const hasWeeks: boolean = !!weekNav?.hasWeeks;
   const [actionError, setActionError] = useState<string | null>(null);
+  // ------ Tab Principal de la Bodega (Tablero | Inventarios | Gastos | Reportes) ------
+  const [activeTab, setActiveTab] = useState<BodegaTabValue>('tablero');
+  const canViewDashboard = hasPerm('view_dashboard');
+  const canViewInventarios = hasPerm('view_compramadera');
+  const canViewGastosMadera = hasPerm('view_compramadera');
+  const canViewGastosConsumibles = hasPerm('view_consumible');
+  const canViewGastos = canViewGastosMadera || canViewGastosConsumibles;
+  const canViewReportes = canViewDashboard;
+  const canManageWeeks = hasPerm('close_week');
+  const canSaveEmpaque = hasPerm('add_clasificacionempaque') || hasPerm('change_clasificacionempaque');
+  const canManageCamiones = hasPerm('add_camionsalida') || hasPerm('change_camionsalida');
+  const canExportWeeklyExcel = hasPerm('exportexcel_cierresemanal');
+  const tabAccess = useMemo<BodegaTabAccess>(() => ({
+    tablero: {
+      enabled: canViewDashboard,
+      tooltip: 'No tienes permiso para ver el tablero de bodega',
+    },
+    inventarios: {
+      enabled: canViewInventarios,
+      tooltip: 'No tienes permiso para consultar inventario de madera',
+    },
+    gastos: {
+      enabled: canViewGastos,
+      tooltip: 'No tienes permiso para consultar gastos de bodega',
+    },
+    reportes: {
+      enabled: canViewReportes,
+      tooltip: 'No tienes permiso para consultar reportes de bodega',
+    },
+  }), [canViewDashboard, canViewInventarios, canViewGastos, canViewReportes]);
+  const firstAllowedTab = useMemo<BodegaTabValue>(() => {
+    if (tabAccess.tablero.enabled) return 'tablero';
+    if (tabAccess.inventarios.enabled) return 'inventarios';
+    if (tabAccess.gastos.enabled) return 'gastos';
+    return 'reportes';
+  }, [tabAccess]);
+  useEffect(() => {
+    if (!tabAccess[activeTab].enabled) {
+      setActiveTab(firstAllowedTab);
+    }
+  }, [activeTab, firstAllowedTab, tabAccess]);
   // F-15 FIX: openSectionKey eliminado (era dead state, nunca se actualizaba)
   // Empaque: state lifted
   const {
@@ -174,6 +311,7 @@ const TableroBodegaPage: React.FC = () => {
     bulkSaving: empBulkSaving,
   } = useEmpaques(false);
   const [openEmpaque, setOpenEmpaque] = useState(false);
+  const [hasLoadedEmpaqueDrawer, setHasLoadedEmpaqueDrawer] = useState(false);
   const [selectedRecepcionForEmpaque, setSelectedRecepcionForEmpaque] = useState<any | null>(null);
   const [empaqueLoading, setEmpaqueLoading] = useState(false);
   const [empaqueInitialLines, setEmpaqueInitialLines] = useState<Record<string, number> | null>(null);
@@ -188,6 +326,11 @@ const TableroBodegaPage: React.FC = () => {
     setEmpaqueLoading(false);
     setEmpaqueInitialLines(null);
   }, []);
+  useEffect(() => {
+    if (openEmpaque) {
+      setHasLoadedEmpaqueDrawer(true);
+    }
+  }, [openEmpaque]);
   // F-15 FIX: Efecto innecesario eliminado (dependía de openSectionKey que nunca cambiaba)
   // Fetch logic for Drawer
   useEffect(() => {
@@ -256,12 +399,25 @@ const TableroBodegaPage: React.FC = () => {
       // Trigger recepciones table refetch (chips se actualizan)
       setEmpaqueRefetchToken((t) => t + 1);
       handleCloseEmpaque();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Empaque save failed", err);
+      const normalizedError =
+        err?.notification
+          ? err
+          : {
+              ...(typeof err === "object" && err ? err : {}),
+              notification: {
+                key: err?.message_key ?? "unexpected_error",
+                message: err?.message ?? "No se pudo guardar el empaque.",
+                type: "error",
+              },
+            };
+      handleBackendNotification(normalizedError);
     }
   };
   // Modal Camion State
   const [camionModalOpen, setCamionModalOpen] = useState(false);
+  const [hasLoadedCamionModal, setHasLoadedCamionModal] = useState(false);
   const [selectedCamion, setSelectedCamion] = useState<any | null>(null);
   const handleAddCamion = useCallback(() => {
     setSelectedCamion(null);
@@ -274,6 +430,11 @@ const TableroBodegaPage: React.FC = () => {
     setSelectedCamion(row);
     setCamionModalOpen(true);
   }, []);
+  useEffect(() => {
+    if (camionModalOpen) {
+      setHasLoadedCamionModal(true);
+    }
+  }, [camionModalOpen]);
 
   // P1 FIX (R1): Refetch serializado para evitar race conditions
   const refetchChainRef = useRef<Promise<void>>(Promise.resolve());
@@ -337,7 +498,12 @@ const TableroBodegaPage: React.FC = () => {
     }
 
     if (from && to) {
-      setWeekValue((prev) => (prev.from === from && prev.to === to ? prev : { from, to, isoSemana: "MANUAL" }));
+      const isoSemana = sw?.iso_semana ?? "MANUAL";
+      setWeekValue((prev) =>
+        prev.from === from && prev.to === to && prev.isoSemana === isoSemana
+          ? prev
+          : { from, to, isoSemana }
+      );
     }
   }, [selectedWeek, isExpiredWeek]);
   // Pretty range
@@ -451,39 +617,34 @@ const TableroBodegaPage: React.FC = () => {
   // Report logic
   const [downloadingReport, setDownloadingReport] = useState(false);
   const handleReport = useCallback(async () => {
-    if (!bodegaId || !temporadaId) return;
-    const sId = (selectedWeek as any)?.id;
-    if (!sId) return;
+    if (!canExportWeeklyExcel || !bodegaId || !temporadaId) return;
+    const isoSemana = (selectedWeek as any)?.iso_semana ?? weekValue.isoSemana;
+    if (!isoSemana) return;
 
     try {
       setDownloadingReport(true);
-      // Dynamic import to avoid circular dep issues or just direct use if available
-      const { getDashboardReport } = await import("../services/tableroBodegaService");
-      const blob = await getDashboardReport(temporadaId, bodegaId, sId);
-
-      // Download trigger
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `reporte_semana_${(selectedWeek as any)?.iso_semana ?? "X"}_${formatDateISO(new Date())}.xlsx`; // Asumimos xlsx por defecto
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-
+      const response = await reportesBodegaService.exportarSemanal("excel", {
+        bodega: bodegaId,
+        temporada: temporadaId,
+        iso_semana: isoSemana,
+      });
+      if (!response.success) {
+        setActionError(response.message || "No se pudo descargar el reporte semanal.");
+      }
     } catch (e: any) {
       console.error("Report download failed", e);
-      // NotificationEngine handles most errors, but if blob fails generic catch:
       setActionError("Error al descargar el reporte.");
     } finally {
       setDownloadingReport(false);
     }
-  }, [bodegaId, temporadaId, selectedWeek]);
+  }, [canExportWeeklyExcel, bodegaId, temporadaId, selectedWeek, weekValue.isoSemana]);
 
   // FIX: Allow start when active week is expired (backend will auto-close it)
-  const disableStartButton = !bodegaId || startingWeek || (hasActiveWeek && !isExpiredWeek) || isSameRangeAsSelectedWeek;
+  const disableStartButton = !canManageWeeks || !bodegaId || startingWeek || (hasActiveWeek && !isExpiredWeek) || isSameRangeAsSelectedWeek;
 
-  const startTooltip = !bodegaId
+  const startTooltip = !canManageWeeks
+    ? "No tienes permiso para gestionar semanas de bodega."
+    : !bodegaId
     ? "Selecciona una bodega valida."
     : hasActiveWeek && !isExpiredWeek
       ? "Ya existe una semana abierta para esta bodega y temporada."
@@ -548,12 +709,12 @@ const TableroBodegaPage: React.FC = () => {
         </span>
       </Tooltip>
       {isActiveSelectedWeek && (
-        <Tooltip title="Finalizar semana">
+        <Tooltip title={canManageWeeks ? "Finalizar semana" : "No tienes permiso para gestionar semanas de bodega."}>
           <span>
             {isMobile ? (
               <IconButton
                 size="small"
-                disabled={!bodegaId || finishingWeek || !canFinish}
+                disabled={!canManageWeeks || !bodegaId || finishingWeek || !canFinish}
                 onClick={handleFinish}
                 sx={{
                   borderRadius: 999,
@@ -572,7 +733,7 @@ const TableroBodegaPage: React.FC = () => {
                 size="medium"
                 variant="outlined"
                 startIcon={finishingWeek ? <CircularProgress size={16} /> : <StopIcon />}
-                disabled={!bodegaId || finishingWeek || !canFinish}
+                disabled={!canManageWeeks || !bodegaId || finishingWeek || !canFinish}
                 onClick={handleFinish}
                 sx={{
                   borderRadius: 999,
@@ -600,13 +761,13 @@ const TableroBodegaPage: React.FC = () => {
           </span>
         </Tooltip>
       )}
-      <Tooltip title="Descargar Reporte Semanal">
+      <Tooltip title={canExportWeeklyExcel ? "Descargar Reporte Semanal" : "No tienes permiso para exportar reportes semanales."}>
         <span>
           <Button
             size="medium"
             variant="text"
             startIcon={downloadingReport ? <CircularProgress size={16} /> : <AssessmentIcon />}
-            disabled={!selectedWeek || downloadingReport}
+            disabled={!selectedWeek || downloadingReport || !canExportWeeklyExcel}
             onClick={handleReport}
             sx={{
               borderRadius: 999,
@@ -759,9 +920,9 @@ const TableroBodegaPage: React.FC = () => {
             top: 0,
             zIndex: (t) => t.zIndex.appBar - 1,
             px: { xs: 1.5, sm: 2, md: 3 },
-            py: { xs: 1.5, sm: 2 },
+            pt: { xs: 1.5, sm: 2 },
+            pb: 0,
             backgroundColor: alpha(theme.palette.background.paper, 0.96),
-            borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
             backdropFilter: "saturate(180%) blur(12px)",
             WebkitBackdropFilter: "saturate(180%) blur(12px)",
           }}
@@ -850,7 +1011,18 @@ const TableroBodegaPage: React.FC = () => {
                 ))}
             </Box>
           </Box>
-          {/* Alerta de Semana Caducada */}
+
+          {/* Tabs de Navegación principal */}
+          <Box
+            mt={{ xs: 1.5, sm: 2 }}
+            mx={{ xs: -1.5, sm: -2, md: -3 }}
+            px={{ xs: 1.5, sm: 2, md: 3 }}
+            sx={{ borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}
+          >
+            <BodegaTabsInline value={activeTab} onChange={setActiveTab} tabAccess={tabAccess} />
+          </Box>
+
+          {/* Alerta de Semana Caducada — solo visible en tablero */}
           <AnimatePresence>
             {isExpiredWeek && (
               <Box
@@ -875,7 +1047,7 @@ const TableroBodegaPage: React.FC = () => {
                         color="inherit"
                         size="small"
                         onClick={handleFinish}
-                        disabled={finishingWeek}
+                        disabled={!canManageWeeks || finishingWeek}
                         sx={{ fontWeight: 700, bgcolor: "rgba(255,255,255,0.2)" }}
                       >
                         Finalizar Ahora
@@ -895,7 +1067,7 @@ const TableroBodegaPage: React.FC = () => {
                       variant="contained"
                       color="inherit"
                       onClick={handleFinish}
-                      disabled={finishingWeek}
+                      disabled={!canManageWeeks || finishingWeek}
                       sx={{ mt: 1, color: "error.main", bgcolor: "white", "&:hover": { bgcolor: "rgba(255,255,255,0.9)" } }}
                       size="small"
                       fullWidth
@@ -924,105 +1096,175 @@ const TableroBodegaPage: React.FC = () => {
             </Box>
           )}
         </Box>
-        {/* Cuerpo semanal (Acordeon: 1 abierto por defecto) */}
-        <Box sx={{ px: { xs: 1.5, sm: 2, md: 3 }, py: 1 }}>
-          <AnimatePresence initial={false} mode="wait">
-            <Box component={motion.div} key={weekValue.from} {...pageTransition}>
-              <TableroSectionsAccordion
-                isActiveSelectedWeek={isActiveSelectedWeek}
-                isExpiredWeek={isExpiredWeek}
-                forcedOpen={forcedOpen}
-                onSectionOpen={(key) => {
-                  if (key === "empaque") {
-                    onChangeQueue?.("inventarios");
-                  } else if (key === "logistica") {
-                    onChangeQueue?.("despachos");
-                  } else if (key === "recepciones") {
-                    onChangeQueue?.("recepciones");
-                  }
-                }}
-                resumen={
-                  <ResumenSection
-                    items={kpiCards}
-                    loading={!!isLoadingSummary}
-                    error={null}
-                    onRetry={() => refetchSummary?.()}
-                  />
-                }
-                recepciones={
-                  <Box ref={recepcionesRef}>
-                    <RecepcionesSection
-                      bodegaId={bodegaId!}
-                      temporadaId={temporadaId}
-                      hasWeeks={hasWeeks}
-                      semanaIndex={semanaIndex}
-                      selectedWeek={selectedWeek}
+        {/* ── Cuerpo principal — renderizado por tab ── */}
+        <Box sx={{ px: { xs: 1.5, sm: 2, md: 3 }, py: 2.5 }}>
+          <AnimatePresence mode="wait" initial={false}>
+            {/* ── TAB: TABLERO ───────────────────────────────────────── */}
+            {activeTab === 'tablero' && (
+              <Box
+                key="tab-tablero"
+                component={motion.div}
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0, transition: { duration: 0.28, ease: 'easeOut' } }}
+                exit={{ opacity: 0, x: 8, transition: { duration: 0.18, ease: 'easeIn' } }}
+              >
+                <AnimatePresence initial={false} mode="wait">
+                  <Box component={motion.div} key={weekValue.from} {...pageTransition}>
+                    <TableroSectionsAccordion
                       isActiveSelectedWeek={isActiveSelectedWeek}
                       isExpiredWeek={isExpiredWeek}
-                      onMutateSuccess={refetchSummary}
-                      onOpenEmpaque={handleOpenEmpaque}
-                      empaqueRefetchToken={empaqueRefetchToken}
+                      forcedOpen={forcedOpen}
+                      onSectionOpen={(key) => {
+                        if (key === "empaque") {
+                          onChangeQueue?.("inventarios");
+                        } else if (key === "logistica") {
+                          onChangeQueue?.("despachos");
+                        } else if (key === "recepciones") {
+                          onChangeQueue?.("recepciones");
+                        }
+                      }}
+                      resumen={
+                        <ResumenSection
+                          items={kpiCards}
+                          loading={!!isLoadingSummary}
+                          error={null}
+                          onRetry={() => refetchSummary?.()}
+                        />
+                      }
+                      recepciones={
+                        <Box ref={recepcionesRef}>
+                          <RecepcionesSection
+                            bodegaId={bodegaId!}
+                            temporadaId={temporadaId}
+                            hasWeeks={hasWeeks}
+                            semanaIndex={semanaIndex}
+                            selectedWeek={selectedWeek}
+                            isActiveSelectedWeek={isActiveSelectedWeek}
+                            isExpiredWeek={isExpiredWeek}
+                            onMutateSuccess={refetchSummary}
+                            onOpenEmpaque={handleOpenEmpaque}
+                            empaqueRefetchToken={empaqueRefetchToken}
+                          />
+                        </Box>
+                      }
+                      empaque={
+                        <EmpaqueSection
+                          onVerPendientes={handleGoPendientesEmpaque}
+                          pendientes={tablero?.summary?.kpis?.empaque?.pendientes}
+                          empacadas={tablero?.summary?.kpis?.empaque?.empacadas}
+                          cajasEmpacadas={tablero?.summary?.kpis?.empaque?.cajas_empacadas}
+                          merma={tablero?.summary?.kpis?.empaque?.merma}
+                          inventoryRows={(tablero?.queueInventarios?.rows || []) as any}
+                          page={tablero?.queueInventarios?.meta?.page}
+                          pageSize={tablero?.queueInventarios?.meta?.page_size}
+                          totalCount={(tablero?.queueInventarios?.meta as any)?.total ?? (tablero?.queueInventarios?.meta as any)?.count ?? 0}
+                          onPageChange={tablero?.onChangePage}
+                        />
+                      }
+                      logistica={
+                        <LogisticaSection
+                          hasWeeks={hasWeeks}
+                          semanaIndex={semanaIndex}
+                          rows={(tablero?.queueLogistica?.rows ?? []) as any[]}
+                          meta={tablero?.queueLogistica?.meta ?? { page: 1, page_size: 10, total: 0 }}
+                          loading={!!tablero?.isLoadingLogistica}
+                          onPageChange={tablero?.onChangePage ?? (() => { })}
+                          onAddCamion={bodegaId && canManageCamiones ? handleAddCamion : undefined}
+                          onEditCamion={canManageCamiones ? handleEditCamion : undefined}
+                          canManageCamiones={canManageCamiones}
+                          camionesTooltip="No tienes permiso para gestionar camiones."
+                          filterEstado={tablero?.filters?.estado}
+                          onFilterEstadoChange={(val) => tablero?.onApplyFilters?.({ estado: val })}
+                        />
+                      }
                     />
                   </Box>
-                }
-                empaque={
-                  <EmpaqueSection
-                    onVerPendientes={handleGoPendientesEmpaque}
-                    pendientes={tablero?.summary?.kpis?.empaque?.pendientes}
-                    empacadas={tablero?.summary?.kpis?.empaque?.empacadas}
-                    cajasEmpacadas={tablero?.summary?.kpis?.empaque?.cajas_empacadas}
-                    merma={tablero?.summary?.kpis?.empaque?.merma}
-                    inventoryRows={(tablero?.queueInventarios?.rows || []) as any}
-                    page={tablero?.queueInventarios?.meta?.page}
-                    pageSize={tablero?.queueInventarios?.meta?.page_size}
-                    // F-03 FIX: Paginación del lado del servidor
-                    totalCount={(tablero?.queueInventarios?.meta as any)?.total ?? (tablero?.queueInventarios?.meta as any)?.count ?? 0}
-                    onPageChange={tablero?.onChangePage}
+                </AnimatePresence>
+              </Box>
+            )}
+
+            {/* ── TAB: INVENTARIOS ───────────────────────────────────── */}
+            {activeTab === 'inventarios' && (
+              <Box
+                key="tab-inventarios"
+                component={motion.div}
+                initial={{ opacity: 0, x: 8 }}
+                animate={{ opacity: 1, x: 0, transition: { duration: 0.28, ease: 'easeOut' } }}
+                exit={{ opacity: 0, x: -8, transition: { duration: 0.18, ease: 'easeIn' } }}
+              >
+                <Suspense fallback={<DeferredPanelFallback label="Cargando inventarios..." />}>
+                  <InventariosTabs bodegaId={bodegaId} temporadaId={temporadaId} />
+                </Suspense>
+              </Box>
+            )}
+
+            {/* ── TAB: GASTOS ─────────────────────────────────────────── */}
+            {activeTab === 'gastos' && (
+              <Box
+                key="tab-gastos"
+                component={motion.div}
+                initial={{ opacity: 0, x: 8 }}
+                animate={{ opacity: 1, x: 0, transition: { duration: 0.28, ease: 'easeOut' } }}
+                exit={{ opacity: 0, x: -8, transition: { duration: 0.18, ease: 'easeIn' } }}
+              >
+                <Suspense fallback={<DeferredPanelFallback label="Cargando gastos..." />}>
+                  <GastosPageContent bodegaId={bodegaId} temporadaId={temporadaId} />
+                </Suspense>
+              </Box>
+            )}
+
+            {/* ── TAB: REPORTES ──────────────────────────────────────── */}
+            {activeTab === 'reportes' && (
+              <Box
+                key="tab-reportes"
+                component={motion.div}
+                initial={{ opacity: 0, x: 8 }}
+                animate={{ opacity: 1, x: 0, transition: { duration: 0.28, ease: 'easeOut' } }}
+                exit={{ opacity: 0, x: -8, transition: { duration: 0.18, ease: 'easeIn' } }}
+              >
+                <Suspense fallback={<DeferredPanelFallback label="Cargando reportes..." />}>
+                  <ReportesTabs
+                    bodegaId={bodegaId}
+                    temporadaId={temporadaId}
+                    semanaIso={weekValue.isoSemana ?? undefined}
+                    fechaDesde={weekValue.from}
                   />
-                }
-                logistica={
-                  <LogisticaSection
-                    hasWeeks={hasWeeks}
-                    semanaIndex={semanaIndex}
-                    rows={(tablero?.queueLogistica?.rows ?? []) as any[]}
-                    meta={tablero?.queueLogistica?.meta ?? { page: 1, page_size: 10, total: 0 }}
-                    loading={!!tablero?.isLoadingLogistica}
-                    onPageChange={tablero?.onChangePage ?? (() => { })}
-                    onAddCamion={bodegaId ? handleAddCamion : undefined}
-                    onEditCamion={handleEditCamion}
-                    filterEstado={tablero?.filters?.estado}
-                    onFilterEstadoChange={(val) => tablero?.onApplyFilters?.({ estado: val })}
-                  />
-                }
-              />
-            </Box>
+                </Suspense>
+              </Box>
+            )}
           </AnimatePresence>
         </Box>
       </Paper >
       {/* Modal Camion */}
-      {bodegaId && temporadaId && (
-        <CamionFormModal
-          open={camionModalOpen}
-          onClose={() => setCamionModalOpen(false)}
-          onSuccess={handleCamionSuccess}
-          bodegaId={bodegaId}
-          temporadaId={temporadaId}
-          semanaId={tablero.selectedSemanaId}
-          camion={selectedCamion}
-        />
+      {hasLoadedCamionModal && bodegaId && temporadaId && (
+        <Suspense fallback={null}>
+          <CamionFormModal
+            open={camionModalOpen}
+            onClose={() => setCamionModalOpen(false)}
+            onSuccess={handleCamionSuccess}
+            bodegaId={bodegaId}
+            temporadaId={temporadaId}
+            semanaId={tablero.selectedSemanaId}
+            camion={selectedCamion}
+          />
+        </Suspense>
       )}
       {/* Empaque Drawer Global */}
-      <EmpaqueDrawer
-        open={openEmpaque}
-        onClose={handleCloseEmpaque}
-        recepcion={selectedRecepcionForEmpaque}
-        blocked={!!selectedRecepcionForEmpaque && !selectedRecepcionForEmpaque.is_active}
-        canSave={true}
-        busy={empBulkSaving}
-        loadingInitial={empaqueLoading}
-        initialLines={empaqueInitialLines}
-        onSave={onSaveEmpaque}
-      />
+      {hasLoadedEmpaqueDrawer && (
+        <Suspense fallback={null}>
+          <EmpaqueDrawer
+            open={openEmpaque}
+            onClose={handleCloseEmpaque}
+            recepcion={selectedRecepcionForEmpaque}
+            blocked={!!selectedRecepcionForEmpaque && !selectedRecepcionForEmpaque.is_active}
+            canSave={canSaveEmpaque}
+            busy={empBulkSaving}
+            loadingInitial={empaqueLoading}
+            initialLines={empaqueInitialLines}
+            onSave={onSaveEmpaque}
+          />
+        </Suspense>
+      )}
     </Box>
   );
 };

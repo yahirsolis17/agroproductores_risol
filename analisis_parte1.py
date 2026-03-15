@@ -58,6 +58,6 @@ for rec in Recepcion.objects.filter(is_active=True)[:3]:
     print(f"  ├─ IDs: Bodega:{rec.bodega_id}, Temp:{rec.temporada_id}, Semana:{rec.semana_id}")
     if rec.lote_id:
         print(f"  ├─ Lote: {rec.lote_id}")
-    print(f"  ├─ Cajas recibidas: {rec.cantidad_cajas}")
+    print(f"  ├─ Cajas recibidas: {rec.cajas_campo}")
     print(f"  ├─ Clasificaciones hijas: {clasifs.count()}")
     print(f"  └─ Total clasificado: {total_clase}")

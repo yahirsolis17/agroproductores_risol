@@ -164,7 +164,7 @@ class InventoryService:
         Calculado como: Item.cantidad - (Sum(ConsumoCamiones) + Sum(ConsumoSurtidos)).
         Devuelve el ID real de la clasificación para garantizar trazabilidad y contrato correcto.
         """
-        from gestion_bodega.models import SurtidoRenglon, CamionConsumoEmpaque
+        from gestion_bodega.models import CamionConsumoEmpaque
 
         # 1. Base Query: Stock producido (items individuales)
         # Traemos campos extra para armar un label útil en el frontend (fecha, lote, recepción)
@@ -190,14 +190,10 @@ class InventoryService:
                 Sum("consumos_camion__cantidad", filter=Q(consumos_camion__is_active=True, consumos_camion__camion__is_active=True)), 
                 0
             ),
-            consumed_orders=Coalesce(
-                Sum("surtidos__cantidad", filter=Q(surtidos__is_active=True, surtidos__renglon__pedido__is_active=True)),
-                0
-            )   
         )
 
         for item in qs_emp:
-            disponible = (item.cantidad_cajas or 0) - (item.consumed_trucks + item.consumed_orders)
+            disponible = (item.cantidad_cajas or 0) - item.consumed_trucks
             
             if disponible > 0:
                 # Construimos el DTO
@@ -239,10 +235,6 @@ class InventoryService:
         if has_camion:
             return True
 
-        # 2. Surtidos (Pedidos)
-        if clasificacion.surtidos.filter(is_active=True).exists():
-            return True
-
         return False
 
     @staticmethod
@@ -266,17 +258,6 @@ class InventoryService:
         if locked_by_truck:
             return True
 
-        # Check 2: Surtidos
-        # Opción query eficiente:
-        locked_by_orders = ClasificacionEmpaque.objects.filter(
-            recepcion=recepcion, 
-            is_active=True,
-            surtidos__is_active=True
-        ).exists()
-        
-        if locked_by_orders:
-            return True
-            
         return False
 
     @staticmethod
@@ -309,34 +290,35 @@ class InventoryService:
         from django.db import transaction
         from django.core.exceptions import ValidationError as DjangoValidationError
         
-        # 1. Obtener empaques disponibles ordenados por FEFO (fecha ASC para First-In-First-Out)
-        qs = ClasificacionEmpaque.objects.filter(
-            temporada_id=camion.temporada_id,
-            bodega_id=camion.bodega_id,
-            calidad=calidad,
-            material=material,
-            tipo_mango=tipo_mango,
-            is_active=True
-        ).exclude(calidad__iexact="MERMA").order_by("fecha", "id")
-        
-        # 2. Anotar consumo actual para cada empaque
-        qs = qs.annotate(
-            consumed_trucks=Coalesce(
-                Sum("consumos_camion__cantidad", filter=Q(consumos_camion__is_active=True, consumos_camion__camion__is_active=True)), 
-                0
-            ),
-            consumed_orders=Coalesce(
-                Sum("surtidos__cantidad", filter=Q(surtidos__is_active=True)),
-                0
-            )
-        )
-        
         remaining = cantidad
         consumos = []
         
         with transaction.atomic():
-            for emp in qs:
-                disponible = (emp.cantidad_cajas or 0) - (emp.consumed_trucks + emp.consumed_orders)
+            # Lock FEFO candidates in deterministic order to avoid double-allocation
+            # when two requests try to consume the same inventory concurrently.
+            locked_items = list(
+                ClasificacionEmpaque.objects.select_for_update()
+                .filter(
+                    temporada_id=camion.temporada_id,
+                    bodega_id=camion.bodega_id,
+                    calidad=calidad,
+                    material=material,
+                    tipo_mango=tipo_mango,
+                    is_active=True,
+                )
+                .exclude(calidad__iexact="MERMA")
+                .order_by("fecha", "id")
+            )
+
+            for emp in locked_items:
+                consumed_trucks = (
+                    CamionConsumoEmpaque.objects.filter(
+                        clasificacion_empaque=emp,
+                        is_active=True,
+                        camion__is_active=True,
+                    ).aggregate(total=Coalesce(Sum("cantidad"), 0))["total"]
+                )
+                disponible = (emp.cantidad_cajas or 0) - consumed_trucks
                 if disponible <= 0:
                     continue
                 

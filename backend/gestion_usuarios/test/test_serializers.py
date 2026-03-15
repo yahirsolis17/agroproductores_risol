@@ -15,21 +15,23 @@ class SerializersTests(APITestCase):
             'telefono': '1234567890',
             'nombre': 'Carlos',
             'apellido': 'Lopez',
-            'role': 'usuario'
+            'role': 'usuario',
+            'password': 'Carlos2026'
         }
         ser = CustomUserCreationSerializer(data=data)
         self.assertTrue(ser.is_valid(), ser.errors)
         u = ser.save()
         self.assertTrue(u.must_change_password)
         # Contraseña por defecto
-        self.assertTrue(u.check_password('12345678'))
+        self.assertTrue(u.check_password('Carlos2026'))
 
     def test_custom_user_creation_invalid_role(self):
         ser = CustomUserCreationSerializer(data={
             'telefono': '0987654321',
             'nombre': 'Ana',
             'apellido': 'Perez',
-            'role': 'manager'
+            'role': 'manager',
+            'password': 'Ana2026Pwd'
         })
         self.assertFalse(ser.is_valid())
         self.assertIn('role', ser.errors)

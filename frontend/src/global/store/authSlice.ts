@@ -2,7 +2,7 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import apiClient from '../../global/api/apiClient';  // Ajusta ruta si hace falta
 import { ensureSuccess } from '../utils/backendEnvelope';
-import { handleBackendNotification } from '../utils/NotificationEngine';
+import authService from '../../modules/gestion_usuarios/services/authService';
 
 interface User {
   id: number;
@@ -21,21 +21,12 @@ interface AuthState {
   loadingPermissions: boolean;    // ← NUEVO: estado para el thunk
 }
 
-const readStoredUser = (): User | null => {
-  try {
-    const raw = localStorage.getItem('user');
-    return raw ? (JSON.parse(raw) as User) : null;
-  } catch {
-    return null;
-  }
-};
-
-const storedUser = readStoredUser();
+const storedUser = authService.getUser() as User | null;
 
 const initialState: AuthState = {
   user: storedUser,
-  token: localStorage.getItem('accessToken'),
-  permissions: JSON.parse(localStorage.getItem('permissions') ?? '[]'),
+  token: authService.getAccessToken(),
+  permissions: authService.getPermissions(),
   isAuthenticated: Boolean(storedUser),
   loadingPermissions: false,
 };
@@ -56,12 +47,10 @@ export const changePasswordThunk = createAsyncThunk<
   { rejectValue: unknown }
 >('auth/changePassword', async (payload, { rejectWithValue }) => {
   try {
-    const res = await apiClient.post('/usuarios/change-password/', payload);
-    handleBackendNotification(res.data);
+    await apiClient.post('/usuarios/change-password/', payload);
     return;
   } catch (err: unknown) {
     const errorData = (err as { response?: { data?: unknown } })?.response?.data;
-    handleBackendNotification(errorData);
     return rejectWithValue(errorData);
   }
 });
@@ -70,12 +59,9 @@ export const logoutThunk = createAsyncThunk<void, void>(
   'auth/logout',
   async (_, { dispatch }) => {
     try {
-      const refresh = localStorage.getItem('refreshToken');
-      const res = await apiClient.post('/usuarios/logout/', { refresh_token: refresh });
-      handleBackendNotification(res.data);
-    } catch (err: unknown) {
-      const errorData = (err as { response?: { data?: unknown } })?.response?.data;
-      handleBackendNotification(errorData);
+      await apiClient.post('/usuarios/logout/', {});
+    } catch {
+      // Logout local must still proceed even if token revocation fails.
     } finally {
       dispatch(logout());
     }
@@ -95,21 +81,20 @@ export const authSlice = createSlice({
       state.token = token;
       state.permissions = permissions;
       state.isAuthenticated = true;
-      localStorage.setItem('permissions', JSON.stringify(permissions));
+      authService.setUser(user);
+      authService.setAccessToken(token);
+      authService.setPermissions(permissions);
     },
     logout: (state) => {
       state.user = null;
       state.token = null;
       state.permissions = [];
       state.isAuthenticated = false;
-      localStorage.removeItem('permissions');
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
+      authService.logout();
     },
     setPermissions: (state, action: PayloadAction<string[]>) => {
       state.permissions = action.payload;
-      localStorage.setItem('permissions', JSON.stringify(action.payload));
+      authService.setPermissions(action.payload);
     },
   },
   extraReducers: (builder) => {
@@ -120,7 +105,7 @@ export const authSlice = createSlice({
       .addCase(fetchPermissionsThunk.fulfilled, (state, action) => {
         state.permissions = action.payload;
         state.loadingPermissions = false;
-        localStorage.setItem('permissions', JSON.stringify(action.payload));
+        authService.setPermissions(action.payload);
       })
       .addCase(fetchPermissionsThunk.rejected, (state) => {
         state.loadingPermissions = false;

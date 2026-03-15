@@ -11,7 +11,7 @@ const formatFechaLarga = (iso?: string | null) => {
   const date = match ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])) : new Date(iso);
   if (Number.isNaN(date.getTime())) return '—';
 
-  let formatted = new Intl.DateTimeFormat('es-MX', {
+  const formatted = new Intl.DateTimeFormat('es-MX', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',

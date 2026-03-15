@@ -3,10 +3,13 @@ export interface CompraMadera {
   bodega: number;
   temporada: number;
   proveedor_nombre: string;
-  cantidad_cajas: number;
+  cantidad_cajas: string;
   precio_unitario: string;
   monto_total: string;
   saldo: string;
+  stock_inicial?: string;
+  stock_actual?: string;
+  hay_stock?: boolean;
 }
 
 export interface AbonoMadera {

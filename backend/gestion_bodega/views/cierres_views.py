@@ -68,13 +68,14 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
         "temporada": ["finalize_temporadabodega"],
         "list": ["view_cierresemanal"],
         "index": ["view_cierresemanal"],
+        "cerrar": ["close_week"],
     }
 
     filter_backends = [DjangoFilterBackend]
     filterset_fields = {"bodega": ["exact"], "temporada": ["exact"], "iso_semana": ["exact"]}
 
     def get_permissions(self):
-        self.required_permissions = self._perm_map.get(getattr(self, "action", ""), [])
+        self.required_permissions = self._perm_map.get(getattr(self, "action", ""), ["view_cierresemanal"])
         return super().get_permissions()
 
     def list(self, request, *args, **kwargs):
@@ -83,7 +84,7 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
         data = self.get_serializer(page or qs, many=True).data
         if page is not None:
             return self.notify(
-                key="data_processed_success",
+                key="cierres_listado_consultado",
                 data={"results": data, "meta": self.get_pagination_meta()},
                 status_code=status.HTTP_200_OK,
             )
@@ -96,7 +97,7 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
             "total_pages": 1,
         }
         return self.notify(
-            key="data_processed_success",
+            key="cierres_listado_consultado",
             data={"results": data, "meta": meta},
             status_code=status.HTTP_200_OK,
         )
@@ -109,7 +110,7 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
         temporada_id = request.query_params.get("temporada")
         if not temporada_id:
             return self.notify(
-                key="validation_error",
+                key="cierre_index_parametro_requerido",
                 data={"errors": {"detail": "Se requiere el parametro 'temporada'"}},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
@@ -123,7 +124,7 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
 
         if not cierres:
             return self.notify(
-                key="data_processed_success",
+                key="cierre_index_consultado",
                 data={
                     "temporada": {"id": temporada.id, "anio": temporada.año, "finalizada": temporada.finalizada},
                     "current_semana_ix": None,
@@ -156,7 +157,7 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
             )
 
         return self.notify(
-            key="data_processed_success",
+            key="cierre_index_consultado",
             data={
                 "temporada": {"id": temporada.id, "anio": temporada.año, "finalizada": temporada.finalizada},
                 "current_semana_ix": idx_actual + 1,
@@ -182,7 +183,7 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
         try:
             ser.is_valid(raise_exception=True)
         except serializers.ValidationError:
-            return self.notify(key="validation_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
+            return self.notify(key="cierre_validacion_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
             cierre = ser.save(locked_by=request.user)
@@ -207,7 +208,7 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
         try:
             ser.is_valid(raise_exception=True)
         except serializers.ValidationError:
-            return self.notify(key="validation_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
+            return self.notify(key="cierre_validacion_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
 
         temporada: TemporadaBodega = ser.validated_data["temporada"]
 
@@ -238,7 +239,7 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
             fhasta = date.fromisoformat(str(raw_fh)) if raw_fh else tz_today_mx()
         except Exception:
             return self.notify(
-                key="validation_error",
+                key="cierre_fecha_invalida",
                 data={"errors": {"fecha_hasta": ["Formato de fecha invalido. Use YYYY-MM-DD."]}},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
@@ -247,7 +248,7 @@ class CierresViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.GenericViewS
             cierre = WeekService.close_week(cierre, fhasta, user=request.user)
         except DjangoValidationError as e:
             return self.notify(
-                key="validation_error",
+                key="cierre_validacion_error",
                 data={"errors": {"detail": str(e)}},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )

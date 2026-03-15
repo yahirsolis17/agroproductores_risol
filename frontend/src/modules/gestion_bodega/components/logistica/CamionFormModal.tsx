@@ -1,4 +1,4 @@
-
+﻿
 import React, { useMemo, useState, useEffect } from 'react';
 import {
   Dialog,
@@ -16,6 +16,9 @@ import * as yup from 'yup';
 
 import camionesService from '../../services/camionesService';
 import CamionCargasEditor from './CamionCargasEditor';
+import { applyBackendErrorsToFormik } from '../../../../global/validation/backendFieldErrors';
+import { focusFirstError } from '../../../../global/validation/focusFirstError';
+import FormAlertBanner from '../../../../components/common/form/FormAlertBanner';
 
 interface CamionFormModalProps {
   open: boolean;
@@ -24,7 +27,7 @@ interface CamionFormModalProps {
   bodegaId: number;
   temporadaId: number;
   semanaId?: number | null;
-  camion?: any; // Si es edición
+  camion?: any; // Si es ediciÃ³n
 }
 
 const validationSchema = yup.object({
@@ -45,6 +48,7 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const [errorVal, setErrorVal] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<string[]>([]);
   const [currentCamion, setCurrentCamion] = useState<any>(camion);
 
   useEffect(() => {
@@ -64,6 +68,7 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
         setCurrentCamion(null);
       }
       setErrorVal(null);
+      setFormErrors([]);
     }
   }, [open, camion]);
 
@@ -114,6 +119,7 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
     onSubmit: async (values) => {
       setLoading(true);
       setErrorVal(null);
+      setFormErrors([]);
       try {
         const payload = {
           ...values,
@@ -131,17 +137,23 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
           setCurrentCamion(res.data?.camion || res);
         }
 
-        // Si es creación, NO cerramos para permitir agregar cargas
-        // Si es edición, cerramos.
+        // Si es creaciÃ³n, NO cerramos para permitir agregar cargas
+        // Si es ediciÃ³n, cerramos.
         // Always refresh parent list
         onSuccess();
         if (isEdit) {
           onClose();
         }
-      } catch (err: any) {
-        console.error(err);
-        const msg = err.response?.data?.message || 'Error al guardar camión';
-        setErrorVal(msg);
+      } catch (err: unknown) {
+        const normalized = applyBackendErrorsToFormik(err, formik as any, {
+          fieldNames: ['placas', 'chofer', 'destino', 'receptor', 'observaciones'],
+          alsoSetFormikErrors: true,
+        });
+        setFormErrors(normalized.formErrors);
+        if (!normalized.formErrors.length && !Object.keys(normalized.fieldErrors).length) {
+          const msg = (err as any)?.response?.data?.message || 'Error al guardar camion';
+          setErrorVal(msg);
+        }
       } finally {
         setLoading(false);
       }
@@ -163,7 +175,7 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
     try {
       const res = await camionesService.confirmar(currentCamion.id);
 
-      // Si backend retorna el camión confirmado en res.data.camion, úsalo.
+      // Si backend retorna el camiÃ³n confirmado en res.data.camion, Ãºsalo.
       const maybeCamion = res?.data?.camion ?? res?.data ?? null;
       if (maybeCamion?.id) {
         setCurrentCamion(maybeCamion);
@@ -179,7 +191,7 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
       onClose();
     } catch (err: any) {
       console.error(err);
-      setErrorVal("Error al confirmar camión: " + (err.response?.data?.message || err.message));
+      setErrorVal("Error al confirmar camiÃ³n: " + (err.response?.data?.message || err.message));
       setConfirmDialogOpen(false);
     } finally {
       setLoading(false);
@@ -199,9 +211,15 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
   return (
     <>
       <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-        <DialogTitle>{isEdit ? (isConfirmado ? `Camión Confirmado #${currentCamion.numero || ''}` : 'Editar Camión') : 'Nuevo Camión'}</DialogTitle>
+        <DialogTitle>{isEdit ? (isConfirmado ? `CamiÃ³n Confirmado #${currentCamion.numero || ''}` : 'Editar CamiÃ³n') : 'Nuevo CamiÃ³n'}</DialogTitle>
         <DialogContent dividers>
           {errorVal && <Alert severity="error" sx={{ mb: 2 }}>{errorVal}</Alert>}
+          <FormAlertBanner
+            open={formErrors.length > 0}
+            severity="error"
+            title="Revisa la informacion"
+            messages={formErrors}
+          />
 
           {/* P2: Folio Display */}
           {isEdit && currentCamion?.folio && (
@@ -212,7 +230,22 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
             </Box>
           )}
 
-          <form onSubmit={formik.handleSubmit} id="camion-form">
+          <form
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const validationErrors = await formik.validateForm();
+              if (Object.keys(validationErrors).length) {
+                const touched = Object.keys(validationErrors).reduce<Record<string, boolean>>(
+                  (acc, key) => ({ ...acc, [key]: true }),
+                  {},
+                );
+                formik.setTouched(touched, false);
+                focusFirstError(validationErrors, event.currentTarget);
+                return;
+              }
+              formik.handleSubmit(event as any);
+            }}
+            id="camion-form">
             <Box display="grid" gridTemplateColumns={{ xs: '1fr', sm: '1fr 1fr' }} gap={2}>
               <Box>
                 <TextField
@@ -308,7 +341,7 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
                 variant="contained"
                 disabled={loading}
               >
-                {isEdit ? 'Guardar Cambios' : 'Crear Camión'}
+                {isEdit ? 'Guardar Cambios' : 'Crear CamiÃ³n'}
               </Button>
 
               {isEdit && (
@@ -333,24 +366,24 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
         </DialogTitle>
         <DialogContent sx={{ mt: 2 }}>
           <Typography variant="body1" gutterBottom>
-            ¿Está seguro de confirmar este camión? Esta acción:
+            Â¿EstÃ¡ seguro de confirmar este camiÃ³n? Esta acciÃ³n:
           </Typography>
           <ul>
-            <li>Asignará un <strong>Folio Consecutivo</strong> permanente.</li>
-            <li>Descontará definitivamente el stock del inventario.</li>
-            <li><strong>Bloqueará</strong> cualquier edición posterior.</li>
+            <li>AsignarÃ¡ un <strong>Folio Consecutivo</strong> permanente.</li>
+            <li>DescontarÃ¡ definitivamente el stock del inventario.</li>
+            <li><strong>BloquearÃ¡</strong> cualquier ediciÃ³n posterior.</li>
           </ul>
           <Box mt={2} p={2} bgcolor="grey.100" borderRadius={1}>
             <Typography variant="subtitle2">Resumen:</Typography>
             <Typography variant="body2">
-              <strong>Folio:</strong> {currentCamion?.numero ? `#${String(currentCamion.numero).padStart(5, "0")}` : "— (se asignará al confirmar)"}
+              <strong>Folio:</strong> {currentCamion?.numero ? `#${String(currentCamion.numero).padStart(5, "0")}` : "â€” (se asignarÃ¡ al confirmar)"}
             </Typography>
             <Typography variant="body2"><strong>Destino:</strong> {currentCamion?.destino}</Typography>
             <Typography variant="body2"><strong>Chofer:</strong> {currentCamion?.chofer}</Typography>
             <Typography variant="body2"><strong>Total Cargas:</strong> {currentCamion?.cargas?.length || 0} registros</Typography>
             <Typography variant="body2"><strong>Total cajas:</strong> {summary.totalCajas || 0}</Typography>
             <Typography variant="body2">
-              <strong>Tipos de mango:</strong> {summary.tipos.length ? summary.tipos.join(", ") : "—"}
+              <strong>Tipos de mango:</strong> {summary.tipos.length ? summary.tipos.join(", ") : "â€”"}
             </Typography>
           </Box>
         </DialogContent>
@@ -366,3 +399,4 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
 };
 
 export default CamionFormModal;
+

@@ -1,109 +1,103 @@
-import os
+﻿import os
 import sys
+
 import django
 from django.utils import timezone
+
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
 
 sys.path.append(r'C:\Users\Yahir\agroproductores_risol\backend')
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'agroproductores_risol.settings')
 django.setup()
 
 from gestion_bodega.models import (
-    Bodega, TemporadaBodega, CierreSemanal, 
-    Recepcion, LoteBodega, ClasificacionEmpaque, 
-    CamionSalida, CamionItem, CamionConsumoEmpaque
+    Bodega,
+    TemporadaBodega,
+    CierreSemanal,
+    Recepcion,
+    LoteBodega,
+    ClasificacionEmpaque,
+    CamionSalida,
+    CamionConsumoEmpaque,
 )
 
-def seed():
-    print("🌱 Seeding P3 Data (Validando IDs canónicos)...")
-    
-    # 1. Contexto (usando existentes del test)
+
+def seed() -> None:
+    print('Seeding P3 Data (validando IDs canonicos)...')
+
     try:
         bodega = Bodega.objects.get(pk=16)
         temporada = TemporadaBodega.objects.get(pk=8)
-    except:
-        print("❌ No se encontró Bodega 16 o Temporada 8 (datos base del test).")
+    except Bodega.DoesNotExist:
+        print('No se encontro Bodega 16.')
+        return
+    except TemporadaBodega.DoesNotExist:
+        print('No se encontro Temporada 8.')
         return
 
-    # 2. Semana Abierta (Field check: fecha_desde / fecha_hasta)
-    # Buscamos o creamos una semana abierta para hoy
     today = timezone.localdate()
     semana, created = CierreSemanal.objects.get_or_create(
         bodega=bodega,
         temporada=temporada,
-        fecha_hasta__isnull=True, # Flag: Abierta
-        defaults={'fecha_desde': today}
+        fecha_hasta__isnull=True,
+        defaults={'fecha_desde': today},
     )
     if created:
-        print(f"✅ Semana abierta creada: ID={semana.id} ({semana.fecha_desde})")
+        print(f'Semana abierta creada: ID={semana.id} ({semana.fecha_desde})')
     else:
-        print(f"ℹ️ Usando semana abierta existente: ID={semana.id} ({semana.fecha_desde})")
+        print(f'Usando semana abierta existente: ID={semana.id} ({semana.fecha_desde})')
 
-    # 3. Recepción (P3: recepcion_id, semana_id, bodega_id, temporada_id)
     recepcion = Recepcion.objects.create(
         bodega=bodega,
         temporada=temporada,
         semana=semana,
-        fecha=today, # Fixed: Debe ser hoy para pasar validación (no fecha inicio semana)
-        huertero_nombre="Huertero P3 Test",
+        fecha=today,
+        huertero_nombre='Huertero P3 Test',
         cajas_campo=100,
-        tipo_mango="KENT"
+        tipo_mango='KENT',
     )
-    print(f"✅ Recepción creada: ID={recepcion.id}")
+    print(f'Recepcion creada: ID={recepcion.id}')
 
-    # 4. Inventario (P3: lote_id, recepcion_id...)
-    # LoteBodega es el PADRE en la FK (Recepcion.lote -> LoteBodega)
     lote = LoteBodega.objects.create(
         bodega=bodega,
         temporada=temporada,
         semana=semana,
-        codigo_lote=f"LOT-P3-{timezone.now().timestamp()}",
-        origen_nombre="Origen Seed P3"
+        codigo_lote=f'LOT-P3-{timezone.now().timestamp()}',
+        origen_nombre='Origen Seed P3',
     )
-    
-    # Asociamos la recepción al lote (si es que la lógica es esa)
-    # OJO: Según models.py: Recepcion.lote FK -> LoteBodega
     recepcion.lote = lote
     recepcion.save()
 
     clasificacion = ClasificacionEmpaque.objects.create(
         lote=lote,
-        calidad="PRIMERA",
+        calidad='PRIMERA',
         cantidad_cajas=50,
         fecha=timezone.now(),
-        is_active=True
+        is_active=True,
     )
-    print(f"✅ Inventario creado: Lote ID={lote.id} (Clasif ID={clasificacion.id})")
+    print(f'Inventario creado: Lote ID={lote.id} (Clasif ID={clasificacion.id})')
 
-    # 5. Despacho (P3: camion_id, folio, semana_id...)
-    # Simulamos item para el camion (necesario para despacho valido)
-    # y consumo
-    folio_mock = f"BOD-{bodega.id}-T{temporada.id}-W{semana.id}-C99999"
+    folio_mock = f'BOD-{bodega.id}-T{temporada.id}-W{semana.id}-C99999'
     camion = CamionSalida.objects.create(
         bodega=bodega,
         temporada=temporada,
         semana=semana,
         fecha_salida=semana.fecha_desde,
         numero=99999,
-        estado="CONFIRMADO",
-        folio=folio_mock
+        estado='CONFIRMADO',
+        folio=folio_mock,
     )
-    # Item para que tenga cajas en el dashboard
-    CamionItem.objects.create(
-        camion=camion,
-        tipo_mango="KENT",
-        cantidad_cajas=50,
-        calidad="PRIMERA"
-    )
-
-    # Consumo (para probar meta.despachado)
     CamionConsumoEmpaque.objects.create(
         camion=camion,
-        clasificacion_empaque=clasificacion
+        clasificacion_empaque=clasificacion,
+        cantidad=50,
     )
-    print(f"✅ Camión creado: ID={camion.id} Folio={camion.folio}")
-    print(f"✅ Consumo creado: Lote {lote.id} despachado en Camión {camion.id}")
+    print(f'Camion creado: ID={camion.id} Folio={camion.folio}')
+    print(f'Consumo creado: Lote {lote.id} despachado en Camion {camion.id}')
 
-    print("\n🎉 Seed completado! Ejecuta python test_all_endpoints.py para verificar P3 IDs.")
+    print('\nSeed completado. Ejecuta python test_all_endpoints.py para verificar P3 IDs.')
 
-if __name__ == "__main__":
+
+if __name__ == '__main__':
     seed()

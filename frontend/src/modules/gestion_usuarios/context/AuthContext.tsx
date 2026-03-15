@@ -9,8 +9,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '../../../global/store/store';
 
 import authService, { User } from '../services/authService';
-import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
-import { fetchPermissionsThunk, loginSuccess, logoutThunk } from '../../../global/store/authSlice';
+import { isApiClientConfirmedAuthError, isApiClientTransportError } from '../../../global/api/apiClient';
+import { fetchPermissionsThunk, loginSuccess, logout as logoutAction, logoutThunk } from '../../../global/store/authSlice';
 
 /* --------- API del contexto --------- */
 interface AuthContextProps {
@@ -45,7 +45,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const [loading, setLoading] = useState(true);
 
   /* --- helpers --- */
-  const hasPerm = (perm: string) => permissions.includes(perm);
+  const hasPerm = (perm: string) => {
+    if (user?.role === 'admin') return true;
+    return permissions.includes(perm);
+  };
+
+  const syncPersistedSession = () => {
+    const storedUser = authService.getUser();
+    const storedToken = authService.getAccessToken();
+
+    if (!storedUser || !storedToken) {
+      dispatch(logoutAction());
+      return;
+    }
+
+    dispatch(loginSuccess({
+      user: storedUser,
+      token: storedToken,
+      permissions: authService.getPermissions(),
+    }));
+  };
 
   /* -------------------------------------------------------------------- */
   /*                             life-cycle                               */
@@ -53,16 +72,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   useEffect(() => {
     const init = async () => {
       try {
-        if (authService.getAccessToken()) await refreshSession();
-      } catch {
-        authService.logout();
-        localStorage.removeItem('permissions');
+        if (authService.getAccessToken()) {
+          await refreshSession();
+        } else if (authService.getUser()) {
+          dispatch(logoutAction());
+        }
+      } catch (error: unknown) {
+        if (isApiClientConfirmedAuthError(error)) {
+          dispatch(logoutAction());
+        } else if (isApiClientTransportError(error)) {
+          syncPersistedSession();
+        } else {
+          syncPersistedSession();
+        }
       } finally {
         setLoading(false);
       }
     };
-    init();
-  }, []);
+    void init();
+  }, [dispatch]);
 
   // 🔁 Refresco de permisos al recuperar foco de la ventana
   useEffect(() => {
@@ -86,8 +114,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       // Dispatch thunk to unify Redux and Context permissions
       const result = await dispatch(fetchPermissionsThunk()).unwrap();
       return result;
-    } catch (err) {
-      console.error('Error fetching permissions', err);
+    } catch {
       return [];
     }
   };
@@ -97,7 +124,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   /* -------------------------------------------------------------------- */
   const refreshSession = async () => {
     const me = await authService.getMe();
-    localStorage.setItem('user', JSON.stringify(me));
+    authService.setUser(me);
     const perms = await fetchPermissions();
     dispatch(loginSuccess({ user: me, token: authService.getAccessToken() || '', permissions: perms }));
   };
@@ -106,19 +133,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     const {
       user: logged,
       must_change_password,
-      notification,
       tokens,
     } = await authService.login({ telefono, password });
 
     // Mostramos notificación (NotificationEngine ya ignora redirect para login_success)
-    handleBackendNotification({ success: true, notification });
 
     // (Los tokens ya se guardan en authService.login; repetimos por compat)
-    localStorage.setItem('accessToken', tokens.access);
-    localStorage.setItem('refreshToken', tokens.refresh);
 
     const loggedWithFlag = { ...logged, must_change_password };
-    localStorage.setItem('user', JSON.stringify(loggedWithFlag));
 
     const perms = await fetchPermissions();
     dispatch(loginSuccess({ user: loggedWithFlag, token: tokens.access, permissions: perms }));
@@ -130,8 +152,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
   const logout = async () => {
     await dispatch(logoutThunk());
-    authService.logout();
-    localStorage.removeItem('permissions');
     navigate('/login');
   };
 

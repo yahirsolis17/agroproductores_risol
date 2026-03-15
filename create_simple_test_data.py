@@ -5,7 +5,7 @@ Script simplificado para crear datos de prueba sin validaciones bloqueantes
 import os
 import sys
 import django
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 
 sys.path.append(r'C:\Users\Yahir\agroproductores_risol\backend')
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'agroproductores_risol.settings')
@@ -15,7 +15,7 @@ from django.db import transaction
 from gestion_bodega.models import (
     Bodega, TemporadaBodega, CierreSemanal,
     Recepcion, LoteBodega, ClasificacionEmpaque,
-    CamionSalida, CamionItem
+    CamionSalida, CamionConsumoEmpaque
 )
 
 def create_simple_test_data():
@@ -59,10 +59,11 @@ def create_simple_test_data():
     ClasificacionEmpaque.objects.filter(temporada=temporada).update(is_active=False)
     LoteBodega.objects.filter(temporada=temporada).update(is_active=False)
     Recepcion.objects.filter(temporada=temporada).update(is_active=False)
-    CamionItem.objects.filter(camion__temporada=temporada).delete()
+    CamionConsumoEmpaque.objects.filter(camion__temporada=temporada).delete()
     CamionSalida.objects.filter(temporada=temporada).update(is_active=False)
     
     today = date.today()
+    run_token = datetime.now().strftime("%H%M%S")
     
     with transaction.atomic():
         print("\n📦 Creando Recepciones...")
@@ -94,7 +95,7 @@ def create_simple_test_data():
             bodega=bodega,
             temporada=temporada,
             semana=semana,
-            codigo_lote=f"TEST-{semana.id}-001",
+            codigo_lote=f"TEST-{semana.id}-{run_token}-001",
             origen_nombre=r1.huertero_nombre
         )
         print(f"  → {l1.codigo_lote}")
@@ -103,7 +104,7 @@ def create_simple_test_data():
             bodega=bodega,
             temporada=temporada,
             semana=semana,
-            codigo_lote=f"TEST-{semana.id}-002",
+            codigo_lote=f"TEST-{semana.id}-{run_token}-002",
             origen_nombre=r2.huertero_nombre
         )
         print(f"  → {l2.codigo_lote}")
@@ -180,41 +181,37 @@ def create_simple_test_data():
         c1 = CamionSalida.objects.create(
             bodega=bodega,
             temporada=temporada,
-            numero="TEST-001",
+            numero=101,
             fecha_salida=today + timedelta(days=1),
             estado="BORRADOR"
         )
         print(f"  → {c1.numero} ({c1.estado})")
         
-        CamionItem.objects.create(
+        CamionConsumoEmpaque.objects.create(
             camion=c1,
-            clasificacion=e11,
-            lote=l1,
-            tipo_mango="KENT",
-            cantidad_cajas=50
+            clasificacion_empaque=e11,
+            cantidad=50
         )
         
         c2 = CamionSalida.objects.create(
             bodega=bodega,
             temporada=temporada,
-            numero="TEST-002",
+            numero=102,
             fecha_salida=today + timedelta(days=2),
             estado="CONFIRMADO"
         )
         print(f"  → {c2.numero} ({c2.estado})")
         
-        CamionItem.objects.create(
+        CamionConsumoEmpaque.objects.create(
             camion=c2,
-            clasificacion=e21,
-            lote=l2,
-            tipo_mango="TOMMY",
-            cantidad_cajas=100
+            clasificacion_empaque=e21,
+            cantidad=100
         )
         
         c3 = CamionSalida.objects.create(
             bodega=bodega,
             temporada=temporada,
-            numero="TEST-003",
+            numero=103,
             fecha_salida=today + timedelta(days=3),
             estado="BORRADOR"
         )

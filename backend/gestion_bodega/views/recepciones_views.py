@@ -115,7 +115,7 @@ def _map_recepcion_validation_errors(errors) -> tuple[str, dict, int]:
         return "recepcion_semana_invalida", {"errors": errors}, status.HTTP_400_BAD_REQUEST
     if _msg_in(errors, "No existe una semana") or _msg_in(errors, "Inicia una semana"):
         return "recepcion_semana_invalida", {"errors": errors}, status.HTTP_400_BAD_REQUEST
-    return "validation_error", {"errors": errors}, status.HTTP_400_BAD_REQUEST
+    return "recepcion_validacion_error", {"errors": errors}, status.HTTP_400_BAD_REQUEST
 
 
 def _inject_empaque_fields(row: dict, *, captured: int, packed: int, merma: int) -> dict:
@@ -184,6 +184,17 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         .order_by("-fecha", "-id")
     )
     pagination_class = GenericPagination
+    permission_classes = [IsAuthenticated, HasModulePermission]
+    _perm_map = {
+        "list": ["view_recepcion"],
+        "retrieve": ["view_recepcion"],
+        "create": ["add_recepcion"],
+        "update": ["change_recepcion"],
+        "partial_update": ["change_recepcion"],
+        "destroy": ["delete_recepcion"],
+        "archivar": ["archive_recepcion"],
+        "restaurar": ["restore_recepcion"],
+    }
 
     # ✅ Filtros activados para evitar data leaks
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
@@ -192,7 +203,9 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
     ordering_fields = ["fecha", "id", "creado_en"]
     ordering = ["-fecha", "-id"]
 
-    # ... (permissions and filter config remain same)
+    def get_permissions(self):
+        self.required_permissions = self._perm_map.get(self.action, ["view_recepcion"])
+        return [permission() for permission in self.permission_classes]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -225,10 +238,11 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
 
         payload = {
             "results": rows,
+            "recepciones": rows,
             "meta": meta,
         }
         return self.notify(
-            key="data_processed_success",
+            key="recepciones_listado_consultado",
             data=payload,
             status_code=status.HTTP_200_OK,
         )
@@ -273,6 +287,9 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         try:
             with transaction.atomic():
                 obj: Recepcion = ser.save()
+        except serializers.ValidationError as ex:
+            key, payload, sc = _map_recepcion_validation_errors(getattr(ex, "detail", ser.errors))
+            return self.notify(key=key, data=payload, status_code=sc)
         except DjangoValidationError as ex:
             errors = getattr(ex, "message_dict", {"non_field_errors": ex.messages})
             key, payload, sc = _map_recepcion_validation_errors(errors)
@@ -344,6 +361,9 @@ class RecepcionViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         try:
             with transaction.atomic():
                 obj: Recepcion = ser.save()
+        except serializers.ValidationError as ex:
+            key, payload, sc = _map_recepcion_validation_errors(getattr(ex, "detail", ser.errors))
+            return self.notify(key=key, data=payload, status_code=sc)
         except DjangoValidationError as ex:
             errors = getattr(ex, "message_dict", {"non_field_errors": ex.messages})
             key, payload, sc = _map_recepcion_validation_errors(errors)

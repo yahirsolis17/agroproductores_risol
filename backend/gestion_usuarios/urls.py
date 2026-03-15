@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 from gestion_usuarios.views.user_views import UsuarioViewSet, \
     LoginView, MeView, UserPermissionsView, ChangePasswordView, \
     CustomTokenRefreshView, RegistroActividadViewSet, LogoutView, PermisoViewSet, PermisosFiltradosView
+from gestion_usuarios.views.dashboard_views import DashboardOverviewView, DashboardSearchView
 
 router = DefaultRouter()
 router.register(r'users',      UsuarioViewSet,      basename='users')
@@ -17,6 +18,8 @@ urlpatterns = [
     path('me/permissions/', UserPermissionsView.as_view(), name='me-permissions'),
     path('change-password/', ChangePasswordView.as_view(), name='change-password'),
     path('api/token/refresh/', CustomTokenRefreshView.as_view(), name='token_refresh'),
+    path('dashboard/overview/', DashboardOverviewView.as_view(), name='dashboard-overview'),
+    path('dashboard/search/', DashboardSearchView.as_view(), name='dashboard-search'),
 
     path('permisos-filtrados/', PermisosFiltradosView.as_view(), name='permisos-filtrados'),
 

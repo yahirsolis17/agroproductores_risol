@@ -1,16 +1,9 @@
-// frontend/src/global/store/cierresSlice.ts
-// Slice completo para Cierres Semanales (Bodega):
-// - Contexto: temporadaId, bodegaId
-// - Filtros/paginación: iso_semana, page, page_size
-// - Datos: index (mapa de semanas), list (registros paginados)
-// - CRUD async thunks
-// - Draft/Modal: creación rápida de semana
-
-import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
+﻿import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 
 import cierresService from "../../modules/gestion_bodega/services/cierresService";
-import { handleBackendNotification } from "../utils/NotificationEngine";
 import { extractApiMessage } from "../api/errorUtils";
+import { extractRejectedPayload } from "../types/apiTypes";
+import { handleBackendNotification } from "../utils/NotificationEngine";
 import type {
   CierresIndexResponse,
   CierreSemanalListResponse,
@@ -19,44 +12,25 @@ import type {
   CierreTemporadaResponse,
 } from "../../modules/gestion_bodega/types/cierreTypes";
 
-// --------------------------
-// State Interface
-// --------------------------
 export interface CierresState {
   temporadaId: number | null;
   bodegaId: number | null;
-
-  // Filtro principal
   iso_semana: string | null;
-
-  // Paginación
   page: number;
   page_size: number;
-
-  // Data
   index: CierresIndexResponse | null;
   list: CierreSemanalListResponse | null;
-
-  // Loading states
   loadingIndex: boolean;
   loadingList: boolean;
   creating: boolean;
   closingSeason: boolean;
-
-  // Errors
   errorIndex: string | null;
   errorList: string | null;
-
-  // Draft para modal de creación
   draft: {
     desde: string | null;
     hasta: string | null;
   };
-
-  // Modal
   showCreateModal: boolean;
-
-  // Meta
   lastVisitedAt: number | null;
 }
 
@@ -79,20 +53,17 @@ const initialState: CierresState = {
   lastVisitedAt: null,
 };
 
-// --------------------------
-// Async Thunks
-// --------------------------
 export const fetchCierresIndex = createAsyncThunk<
   CierresIndexResponse,
-  number, // temporadaId
+  number,
   { rejectValue: unknown }
 >("cierres/fetchIndex", async (temporadaId, { rejectWithValue }) => {
   try {
     return await cierresService.index(temporadaId);
   } catch (err: unknown) {
-    const errData = (err as any)?.response?.data ?? (err as any)?.payload;
+    const errData = extractRejectedPayload(err);
     handleBackendNotification(errData);
-    return rejectWithValue(errData || { message: 'Error al cargar índice' });
+    return rejectWithValue(errData ?? { message: "Error al cargar indice" });
   }
 });
 
@@ -110,9 +81,9 @@ export const fetchCierresList = createAsyncThunk<
       page_size: params.page_size || 10,
     });
   } catch (err: unknown) {
-    const errData = (err as any)?.response?.data ?? (err as any)?.payload;
+    const errData = extractRejectedPayload(err);
     handleBackendNotification(errData);
-    return rejectWithValue(errData || { message: 'Error al cargar lista' });
+    return rejectWithValue(errData ?? { message: "Error al cargar lista" });
   }
 });
 
@@ -124,9 +95,9 @@ export const createCierreSemanal = createAsyncThunk<
   try {
     return await cierresService.semanal(payload);
   } catch (err: unknown) {
-    const errData = (err as any)?.response?.data ?? (err as any)?.payload;
+    const errData = extractRejectedPayload(err);
     handleBackendNotification(errData);
-    return rejectWithValue(errData || { message: 'Error al crear semana' });
+    return rejectWithValue(errData ?? { message: "Error al crear semana" });
   }
 });
 
@@ -138,15 +109,12 @@ export const closeCierreTemporada = createAsyncThunk<
   try {
     return await cierresService.temporada(payload);
   } catch (err: unknown) {
-    const errData = (err as any)?.response?.data ?? (err as any)?.payload;
+    const errData = extractRejectedPayload(err);
     handleBackendNotification(errData);
-    return rejectWithValue(errData || { message: 'Error al cerrar temporada' });
+    return rejectWithValue(errData ?? { message: "Error al cerrar temporada" });
   }
 });
 
-// --------------------------
-// Slice
-// --------------------------
 const cierresSlice = createSlice({
   name: "cierres",
   initialState,
@@ -166,8 +134,8 @@ const cierresSlice = createSlice({
     },
 
     setPagination(state, action: PayloadAction<Partial<Pick<CierresState, "page" | "page_size">>>) {
-      if (action.payload.page !== undefined) state.page = action.payload.page!;
-      if (action.payload.page_size !== undefined) state.page_size = action.payload.page_size!;
+      if (action.payload.page !== undefined) state.page = action.payload.page;
+      if (action.payload.page_size !== undefined) state.page_size = action.payload.page_size;
     },
 
     openCreateModal(state) {
@@ -187,7 +155,6 @@ const cierresSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
-    // fetchIndex
     builder.addCase(fetchCierresIndex.pending, (state) => {
       state.loadingIndex = true;
       state.errorIndex = null;
@@ -198,11 +165,9 @@ const cierresSlice = createSlice({
     });
     builder.addCase(fetchCierresIndex.rejected, (state, action) => {
       state.loadingIndex = false;
-      const msg = extractApiMessage(action.payload ?? action.error, "Error");
-      state.errorIndex = typeof msg === "string" ? msg : JSON.stringify(msg);
+      state.errorIndex = extractApiMessage(action.payload ?? action.error, "Error");
     });
 
-    // fetchList
     builder.addCase(fetchCierresList.pending, (state) => {
       state.loadingList = true;
       state.errorList = null;
@@ -213,11 +178,9 @@ const cierresSlice = createSlice({
     });
     builder.addCase(fetchCierresList.rejected, (state, action) => {
       state.loadingList = false;
-      const msg = extractApiMessage(action.payload ?? action.error, "Error");
-      state.errorList = typeof msg === "string" ? msg : JSON.stringify(msg);
+      state.errorList = extractApiMessage(action.payload ?? action.error, "Error");
     });
 
-    // createSemanal
     builder.addCase(createCierreSemanal.pending, (state) => {
       state.creating = true;
     });
@@ -229,7 +192,6 @@ const cierresSlice = createSlice({
       state.creating = false;
     });
 
-    // closeTemporada
     builder.addCase(closeCierreTemporada.pending, (state) => {
       state.closingSeason = true;
     });

@@ -30,4 +30,4 @@ export interface HuertaRentadaCreateData {
   monto_renta: number;
 }
 
-export interface HuertaRentadaUpdateData extends Partial<HuertaRentadaCreateData> {}
+export type HuertaRentadaUpdateData = Partial<HuertaRentadaCreateData>;

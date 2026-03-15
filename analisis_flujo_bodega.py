@@ -25,8 +25,6 @@ counts = {
     'ClasificacionEmpaque': ClasificacionEmpaque.objects.count(),
     'CamionSalida': CamionSalida.objects.count(),
     'CamionConsumoEmpaque': CamionConsumoEmpaque.objects.count(),
-    'Pedido': Pedido.objects.count(),
-    'SurtidoRenglon': SurtidoRenglon.objects.count(),
 }
 
 for modelo, count in counts.items():
@@ -67,7 +65,7 @@ for rec in Recepcion.objects.select_related('bodega', 'temporada', 'semana', 'lo
     clasif = ClasificacionEmpaque.objects.filter(recepcion=rec, is_active=True)
     print(f"  Recepción[{rec.id}]:")
     print(f"    ├─ Contexto: Bodega:{rec.bodega_id}, Temp:{rec.temporada_id}, Semana:{rec.semana_id}, Lote:{rec.lote_id}")
-    print(f"    ├─ Cajas recibidas: {rec.cantidad_cajas}")
+    print(f"    ├─ Cajas recibidas: {rec.cajas_campo}")
     print(f"    ├─ Clasificaciones hijas: {clasif.count()}")
     total_clasificado = clasif.aggregate(t=Sum('cantidad_cajas'))['t'] or 0
     print(f"    └─ Total clasificado: {total_clasificado} cajas")
@@ -135,8 +133,8 @@ for rec in Recepcion.objects.filter(is_active=True):
         is_active=True
     ).aggregate(t=Sum('cantidad_cajas'))['t'] or 0
     
-    if total_clasif > rec.cantidad_cajas:
-        overpick.append(f"  ❌ Recep[{rec.id}]: Recibidas={rec.cantidad_cajas}, Clasificadas={total_clasif} (OVER by {total_clasif - rec.cantidad_cajas})")
+    if total_clasif > rec.cajas_campo:
+        overpick.append(f"  ❌ Recep[{rec.id}]: Recibidas={rec.cajas_campo}, Clasificadas={total_clasif} (OVER by {total_clasif - rec.cajas_campo})")
 
 if overpick:
     for err in overpick[:10]:

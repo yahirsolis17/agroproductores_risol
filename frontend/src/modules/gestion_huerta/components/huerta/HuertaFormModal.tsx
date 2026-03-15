@@ -11,6 +11,7 @@ import { propietarioService } from '../../services/propietarioService';
 import { applyBackendErrorsToFormik } from '../../../../global/validation/backendFieldErrors';
 import { focusFirstError } from '../../../../global/validation/focusFirstError';
 
+import FormAlertBanner from '../../../../components/common/form/FormAlertBanner';
 import FormikAutocomplete from '../../../../components/common/form/FormikAutocomplete';
 import FormikNumberField from '../../../../components/common/form/FormikNumberField';
 import FormikTextField from '../../../../components/common/form/FormikTextField';
@@ -44,6 +45,7 @@ const HuertaFormModal: React.FC<Props> = ({
   isEdit = false, initialValues, defaultPropietarioId,
 }) => {
   const formikRef = useRef<FormikProps<HuertaCreateData>>(null);
+  const [formErrors, setFormErrors] = useState<string[]>([]);
 
   const defaults: HuertaCreateData = {
     nombre: '', ubicacion: '', variedades: '',
@@ -63,10 +65,14 @@ const HuertaFormModal: React.FC<Props> = ({
   const submit = async (vals: HuertaCreateData, actions: FormikHelpers<HuertaCreateData>) => {
     try {
       await onSubmit(vals);
+      setFormErrors([]);
       onClose();
     } catch (err: unknown) {
-      // Solo inline errors - sin toast, sin banner
-      applyBackendErrorsToFormik(err, actions);
+      const normalized = applyBackendErrorsToFormik(err, actions, {
+        fieldNames: ['nombre', 'ubicacion', 'variedades', 'historial', 'hectareas', 'propietario'],
+        alsoSetFormikErrors: true,
+      });
+      setFormErrors(normalized.formErrors);
     } finally {
       actions.setSubmitting(false);
     }
@@ -186,7 +192,12 @@ const HuertaFormModal: React.FC<Props> = ({
           }}
         >
           <DialogContent dividers className="space-y-4">
-            {/* No banner - errores van inline en cada campo */}
+            <FormAlertBanner
+              open={formErrors.length > 0}
+              severity="error"
+              title="Revisa la informacion"
+              messages={formErrors}
+            />
             <FormikTextField
               fullWidth
               label="Nombre"

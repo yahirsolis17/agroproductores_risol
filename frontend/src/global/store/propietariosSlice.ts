@@ -1,18 +1,16 @@
-// STATE-UPDATE: local list pruning after mutations; allowed by UI-only policy.
+﻿// STATE-UPDATE: local list pruning after archive/restore/delete is intentional in Redux store.
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { propietarioService } from '../../modules/gestion_huerta/services/propietarioService';
 import { PaginationMeta } from '../../modules/gestion_huerta/types/shared';
 import { handleBackendNotification } from '../utils/NotificationEngine';
 import { extractApiMessage } from '../api/errorUtils';
+import { extractRejectedPayload } from '../types/apiTypes';
 import {
   Propietario,
   PropietarioCreateData,
   PropietarioUpdateData,
 } from '../../modules/gestion_huerta/types/propietarioTypes';
 
-/* -------------------------------------------------------------------------- */
-/*  Tipos                                                                      */
-/* -------------------------------------------------------------------------- */
 export type Estado = 'activos' | 'archivados' | 'todos';
 
 interface PropietarioState {
@@ -41,9 +39,6 @@ const initialState: PropietarioState = {
   loadingOptions: false,
 };
 
-/* -------------------------------------------------------------------------- */
-/*  THUNKS                                                                     */
-/* -------------------------------------------------------------------------- */
 type FetchParams = { page: number; estado: Estado } & Record<string, string | number | boolean | undefined>;
 
 export const fetchPropietarios = createAsyncThunk<
@@ -59,8 +54,7 @@ export const fetchPropietarios = createAsyncThunk<
       const res = await propietarioService.list(page, estado, filters, { signal });
       return { propietarios: res.data.results, meta: res.data.meta };
     } catch (err: unknown) {
-      const errorData = (err as any)?.response?.data ?? err;
-      return thunkAPI.rejectWithValue(errorData);
+      return thunkAPI.rejectWithValue(extractRejectedPayload(err));
     }
   }
 );
@@ -77,9 +71,7 @@ export const createPropietario = createAsyncThunk<
       handleBackendNotification(res);
       return res.data.propietario as Propietario;
     } catch (err: unknown) {
-      const errorData = (err as any)?.response?.data ?? err;
-      // No toast here - let the form handle inline errors
-      return rejectWithValue(errorData);
+      return rejectWithValue(extractRejectedPayload(err));
     }
   }
 );
@@ -96,9 +88,7 @@ export const updatePropietario = createAsyncThunk<
       handleBackendNotification(res);
       return res.data.propietario as Propietario;
     } catch (err: unknown) {
-      const errorData = (err as any)?.response?.data ?? err;
-      // No toast here - let the form handle inline errors
-      return rejectWithValue(errorData);
+      return rejectWithValue(extractRejectedPayload(err));
     }
   }
 );
@@ -113,10 +103,10 @@ export const archivePropietario = createAsyncThunk<
     try {
       const res = await propietarioService.archive(id);
       handleBackendNotification(res);
-      return res.data.propietario as Propietario; // Objeto ya archivado
+      return res.data.propietario as Propietario;
     } catch (err: unknown) {
-      const errorData = (err as any)?.response?.data ?? err;
-      handleBackendNotification(errorData); // Non-form action, toast OK
+      const errorData = extractRejectedPayload(err);
+      handleBackendNotification(errorData);
       return rejectWithValue(errorData);
     }
   }
@@ -132,10 +122,10 @@ export const restorePropietario = createAsyncThunk<
     try {
       const res = await propietarioService.restore(id);
       handleBackendNotification(res);
-      return res.data.propietario as Propietario; // Objeto restaurado
+      return res.data.propietario as Propietario;
     } catch (err: unknown) {
-      const errorData = (err as any)?.response?.data ?? err;
-      handleBackendNotification(errorData); // Non-form action, toast OK
+      const errorData = extractRejectedPayload(err);
+      handleBackendNotification(errorData);
       return rejectWithValue(errorData);
     }
   }
@@ -153,8 +143,8 @@ export const deletePropietario = createAsyncThunk<
       handleBackendNotification(res);
       return id;
     } catch (err: unknown) {
-      const errorData = (err as any)?.response?.data ?? err;
-      handleBackendNotification(errorData); // Non-form action, toast OK
+      const errorData = extractRejectedPayload(err);
+      handleBackendNotification(errorData);
       return rejectWithValue(errorData);
     }
   }
@@ -172,88 +162,88 @@ export const fetchPropietarioOptions = createAsyncThunk<
       const res = await propietarioService.getConHuertas(query, { signal });
       return res.data.results.map((p) => ({ label: `${p.nombre} ${p.apellidos}`, value: p.id }));
     } catch (err: unknown) {
-      const errorData = (err as any)?.response?.data ?? err;
-      return thunkAPI.rejectWithValue(errorData);
+      return thunkAPI.rejectWithValue(extractRejectedPayload(err));
     }
   }
 );
 
-/* -------------------------------------------------------------------------- */
-/*  SLICE                                                                      */
-/* -------------------------------------------------------------------------- */
 const propietariosSlice = createSlice({
   name: 'propietarios',
   initialState,
   reducers: {
-    setPage: (s, a: PayloadAction<number>) => { s.page = a.payload; },
-    setEstado: (s, a: PayloadAction<Estado>) => { s.estado = a.payload; s.page = 1; },
-    setFilters: (s, a: PayloadAction<Record<string, string | number | boolean | undefined>>) => {
-      s.filters = { ...a.payload };
-      s.page = 1;
+    setPage: (state, action: PayloadAction<number>) => {
+      state.page = action.payload;
+    },
+    setEstado: (state, action: PayloadAction<Estado>) => {
+      state.estado = action.payload;
+      state.page = 1;
+    },
+    setFilters: (state, action: PayloadAction<Record<string, string | number | boolean | undefined>>) => {
+      state.filters = { ...action.payload };
+      state.page = 1;
     },
   },
-  extraReducers: (b) => {
-    /* -------- fetch -------- */
-    b.addCase(fetchPropietarios.pending, (s) => { s.loading = true; s.error = null; });
-    b.addCase(fetchPropietarios.fulfilled, (s, { payload }) => {
-      s.items = payload.propietarios;
-      s.meta = payload.meta;
-      s.loading = false;
-      s.loaded = true;
+  extraReducers: (builder) => {
+    builder.addCase(fetchPropietarios.pending, (state) => {
+      state.loading = true;
+      state.error = null;
     });
-    b.addCase(fetchPropietarios.rejected, (s, { payload, error }) => {
-      s.loading = false;
-      s.loaded = true;
-      const msg = extractApiMessage(payload ?? error, 'Error');
-      s.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
+    builder.addCase(fetchPropietarios.fulfilled, (state, { payload }) => {
+      state.items = payload.propietarios;
+      state.meta = payload.meta;
+      state.loading = false;
+      state.loaded = true;
     });
-
-    /* -------- create / update -------- */
-    b.addCase(createPropietario.fulfilled, (s, { payload }) => {
-      if (s.estado === 'activos') s.items.unshift(payload);
-      s.meta.count += 1;
-    });
-    b.addCase(updatePropietario.fulfilled, (s, { payload }) => {
-      const i = s.items.findIndex(p => p.id === payload.id);
-      if (i !== -1) s.items[i] = payload;
+    builder.addCase(fetchPropietarios.rejected, (state, { payload, error }) => {
+      state.loading = false;
+      state.loaded = true;
+      state.error = extractApiMessage(payload ?? error, 'Error');
     });
 
-    /* -------- archive / restore -------- */
-    b.addCase(archivePropietario.fulfilled, (s, { payload }) => {
-      if (s.estado === 'activos') {
-        s.items = s.items.filter(p => p.id !== payload.id);
+    builder.addCase(createPropietario.fulfilled, (state, { payload }) => {
+      if (state.estado === 'activos') state.items.unshift(payload);
+      state.meta.count += 1;
+    });
+    builder.addCase(updatePropietario.fulfilled, (state, { payload }) => {
+      const index = state.items.findIndex((item) => item.id === payload.id);
+      if (index !== -1) state.items[index] = payload;
+    });
+
+    builder.addCase(archivePropietario.fulfilled, (state, { payload }) => {
+      if (state.estado === 'activos') {
+        state.items = state.items.filter((item) => item.id !== payload.id);
       } else {
-        const i = s.items.findIndex(p => p.id === payload.id);
-        if (i !== -1) s.items[i] = payload;
+        const index = state.items.findIndex((item) => item.id === payload.id);
+        if (index !== -1) state.items[index] = payload;
       }
     });
-    b.addCase(restorePropietario.fulfilled, (s, { payload }) => {
-      if (s.estado === 'archivados') {
-        s.items = s.items.filter(p => p.id !== payload.id);
+    builder.addCase(restorePropietario.fulfilled, (state, { payload }) => {
+      if (state.estado === 'archivados') {
+        state.items = state.items.filter((item) => item.id !== payload.id);
       } else {
-        const i = s.items.findIndex(p => p.id === payload.id);
-        if (i !== -1) s.items[i] = payload;
+        const index = state.items.findIndex((item) => item.id === payload.id);
+        if (index !== -1) state.items[index] = payload;
       }
     });
 
-    /* -------- delete -------- */
-    b.addCase(deletePropietario.fulfilled, (s, { payload: id }) => {
-      s.items = s.items.filter(p => p.id !== id);
-      if (s.meta.count > 0) s.meta.count -= 1;
+    builder.addCase(deletePropietario.fulfilled, (state, { payload: id }) => {
+      state.items = state.items.filter((item) => item.id !== id);
+      if (state.meta.count > 0) state.meta.count -= 1;
     });
 
-    b.addCase(fetchPropietarioOptions.pending, (s) => {
-      s.loadingOptions = true;
+    builder.addCase(fetchPropietarioOptions.pending, (state) => {
+      state.loadingOptions = true;
     });
-    b.addCase(fetchPropietarioOptions.fulfilled, (s, { payload }) => {
-      s.loadingOptions = false;
-      s.options = payload;
+    builder.addCase(fetchPropietarioOptions.fulfilled, (state, { payload }) => {
+      state.loadingOptions = false;
+      state.options = payload;
     });
-    b.addCase(fetchPropietarioOptions.rejected, (s) => {
-      s.loadingOptions = false;
+    builder.addCase(fetchPropietarioOptions.rejected, (state) => {
+      state.loadingOptions = false;
     });
   },
 });
 
 export const { setPage, setEstado, setFilters } = propietariosSlice.actions;
 export default propietariosSlice.reducer;
+

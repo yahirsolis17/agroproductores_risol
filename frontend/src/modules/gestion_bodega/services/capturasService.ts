@@ -1,6 +1,5 @@
 ﻿// frontend/src/modules/gestion_bodega/services/capturasService.ts
 import api from "../../../global/api/apiClient";
-import { handleBackendNotification } from "../../../global/utils/NotificationEngine";
 import type {
   PaginationMeta,
   Captura,
@@ -108,8 +107,6 @@ function getDataLayer(res: any): any {
 }
 
 function normalizeListPayload(res: any): CapturasListResponse {
-  handleBackendNotification(res?.data);
-
   const dataLayer = getDataLayer(res);
 
   const rawRows: any[] = dataLayer.results ?? [];
@@ -124,8 +121,6 @@ function normalizeListPayload(res: any): CapturasListResponse {
 }
 
 function normalizeSinglePayload(res: any): CapturaSingleResponse {
-  handleBackendNotification(res?.data);
-
   const dataLayer = getDataLayer(res);
 
   const raw =
@@ -152,92 +147,50 @@ function buildQuery(params: CapturaFilters = {}): Record<string, any> {
 
 export const capturasService = {
   async list(params: CapturaFilters = {}, opts?: { signal?: AbortSignal }): Promise<CapturasListResponse> {
-    try {
-      const res = await api.get(BASE, { params: buildQuery(params), signal: opts?.signal });
-      return normalizeListPayload(res);
-    } catch (err: any) {
-      handleBackendNotification(err?.response?.data);
-      throw err;
-    }
+    const res = await api.get(BASE, { params: buildQuery(params), signal: opts?.signal });
+    return normalizeListPayload(res);
   },
 
   async retrieve(id: number): Promise<CapturaSingleResponse> {
-    try {
-      const res = await api.get(`${BASE}${id}/`);
-      return normalizeSinglePayload(res);
-    } catch (err: any) {
-      handleBackendNotification(err?.response?.data);
-      throw err;
-    }
+    const res = await api.get(`${BASE}${id}/`);
+    return normalizeSinglePayload(res);
   },
 
   async create(payload: CapturaCreateDTO): Promise<CapturaSingleResponse> {
-    try {
-      const res = await api.post(BASE, payload);
-      return normalizeSinglePayload(res);
-    } catch (err: any) {
-      handleBackendNotification(err?.response?.data);
-      throw err;
-    }
+    const res = await api.post(BASE, payload);
+    return normalizeSinglePayload(res);
   },
 
   async update(id: number, payload: CapturaUpdateDTO): Promise<CapturaSingleResponse> {
-    try {
-      const res = await api.put(`${BASE}${id}/`, payload);
-      return normalizeSinglePayload(res);
-    } catch (err: any) {
-      handleBackendNotification(err?.response?.data);
-      throw err;
-    }
+    const res = await api.put(`${BASE}${id}/`, payload);
+    return normalizeSinglePayload(res);
   },
 
   async patch(id: number, payload: CapturaPatchDTO): Promise<CapturaSingleResponse> {
-    try {
-      const res = await api.patch(`${BASE}${id}/`, payload);
-      return normalizeSinglePayload(res);
-    } catch (err: any) {
-      handleBackendNotification(err?.response?.data);
-      throw err;
-    }
+    const res = await api.patch(`${BASE}${id}/`, payload);
+    return normalizeSinglePayload(res);
   },
 
   async archivar(id: number): Promise<{ captura_id: number } & Partial<CapturaSingleResponse>> {
-    try {
-      const res = await api.post(`${BASE}${id}/archivar/`);
-      handleBackendNotification(res?.data);
+    const res = await api.post(`${BASE}${id}/archivar/`);
 
-      const d = getDataLayer(res) ?? {};
-      if (d.recepcion) return { captura_id: d.recepcion.id, captura: normalizeCapturaRow(d.recepcion) };
-      if (d.captura) return { captura_id: d.captura.id, captura: normalizeCapturaRow(d.captura) };
+    const d = getDataLayer(res) ?? {};
+    if (d.recepcion) return { captura_id: d.recepcion.id, captura: normalizeCapturaRow(d.recepcion) };
+    if (d.captura) return { captura_id: d.captura.id, captura: normalizeCapturaRow(d.captura) };
 
-      return { captura_id: d.recepcion_id ?? d.captura_id ?? id };
-    } catch (err: any) {
-      handleBackendNotification(err?.response?.data);
-      throw err;
-    }
+    return { captura_id: d.recepcion_id ?? d.captura_id ?? id };
   },
 
   async restaurar(id: number): Promise<CapturaSingleResponse> {
-    try {
-      const res = await api.post(`${BASE}${id}/restaurar/`);
-      return normalizeSinglePayload(res);
-    } catch (err: any) {
-      handleBackendNotification(err?.response?.data);
-      throw err;
-    }
+    const res = await api.post(`${BASE}${id}/restaurar/`);
+    return normalizeSinglePayload(res);
   },
 
   async remove(id: number): Promise<{ deleted_id: number }> {
-    try {
-      const res = await api.delete(`${BASE}${id}/`);
-      handleBackendNotification(res?.data);
+    const res = await api.delete(`${BASE}${id}/`);
 
-      const d = getDataLayer(res) ?? {};
-      return { deleted_id: d.deleted_id ?? id };
-    } catch (err: any) {
-      handleBackendNotification(err?.response?.data);
-      throw err;
-    }
+    const d = getDataLayer(res) ?? {};
+    return { deleted_id: d.deleted_id ?? id };
   },
 };
 

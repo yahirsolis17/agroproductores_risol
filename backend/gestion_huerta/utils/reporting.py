@@ -561,7 +561,7 @@ def _ensure_weasyprint():
         from weasyprint import HTML, CSS  # noqa: F401
     except Exception as exc:
         raise ImportError(
-            "WeasyPrint es requerido para generar el PDF. Instálalo con 'pip install weasyprint'."
+            "WeasyPrint no esta disponible completamente en este entorno. Instala WeasyPrint junto con sus dependencias nativas, o usa Linux/WSL/Docker para el renderizado completo."
         ) from exc
 
 

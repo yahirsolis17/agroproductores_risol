@@ -1,5 +1,6 @@
 from django.db.models import Sum
-from ..models import ClasificacionEmpaque, SurtidoRenglon, CamionConsumoEmpaque
+
+from ..models import ClasificacionEmpaque, CamionConsumoEmpaque
 
 def get_disponible_for_clasificacion(clasificacion_id: int, lock: bool = False) -> int:
     """
@@ -16,19 +17,14 @@ def get_disponible_for_clasificacion(clasificacion_id: int, lock: bool = False) 
     
     total = obj.cantidad_cajas or 0
     
-    # Consumo por Pedidos (Surtidos)
-    surtido = SurtidoRenglon.objects.filter(
-        origen_clasificacion_id=clasificacion_id,
-        is_active=True
-    ).aggregate(t=Sum("cantidad"))["t"] or 0
-    
+
     # Consumo por Camiones
     camiones = CamionConsumoEmpaque.objects.filter(
         clasificacion_empaque_id=clasificacion_id,
         is_active=True
     ).aggregate(t=Sum("cantidad"))["t"] or 0
     
-    return max(0, total - (surtido + camiones))
+    return max(0, total - camiones)
 
 def validate_consumo_camion(clasificacion_id: int, cantidad: int, exclude_id: int = None, lock: bool = False):
     """

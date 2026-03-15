@@ -173,10 +173,10 @@ export default function CapturasTable({
           const permRest = "restore_recepcion";
           const permArchiveOrRestore = isArchived ? permRest : permArch;
 
-          // Empaque: dedicado si existe, si no, cae a change_recepcion
-          const permEmpaque = ["empaque_recepcion", "change_recepcion"];
-
           const labelEmpaque = blocked || isArchived ? "Ver empaque" : "Empacar";
+          const permEmpaque = blocked || isArchived
+            ? "view_clasificacionempaque"
+            : ["add_clasificacionempaque", "change_clasificacionempaque"];
 
           return (
             <Box

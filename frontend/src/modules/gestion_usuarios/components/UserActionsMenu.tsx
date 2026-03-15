@@ -30,8 +30,19 @@ const UserActionsMenu: React.FC<UserActionsMenuProps> = ({
   return (
     <>
       <Tooltip title="Más acciones">
-        <IconButton size="small" onClick={handleOpen}>
-          <MoreVertIcon />
+        <IconButton
+          size="small"
+          onClick={handleOpen}
+          aria-label="Abrir acciones"
+          sx={{
+            width: 34,
+            height: 34,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <MoreVertIcon fontSize="small" />
         </IconButton>
       </Tooltip>
 

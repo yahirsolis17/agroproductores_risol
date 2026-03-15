@@ -16,7 +16,7 @@ import CosechaFormModal from '../components/cosecha/CosechaFormModal';
 
 import { useCosechas } from '../hooks/useCosechas';
 import { Cosecha } from '../types/cosechaTypes';
-import { handleBackendNotification } from '../../../global/utils/NotificationEngine';
+
 import { filterForDisplay } from '../../../global/utils/uiTransforms';
 
 import { setBreadcrumbs, clearBreadcrumbs } from '../../../global/store/breadcrumbsSlice';
@@ -176,12 +176,7 @@ useEffect(() => {
     // Base sobre el total real en BD (activas + archivadas)
     const base = Math.max(totalRegistradas, ...(visibles.length ? visibles : [0])); // 👈 NUEVO
     const nombre = `Cosecha ${base + 1}`;
-
-    try {
-      await addCosecha({ temporada: temporadaId, nombre });
-    } catch (e: any) {
-      handleBackendNotification(e?.response?.data?.notification || e);
-    }
+    await addCosecha({ temporada: temporadaId, nombre });
   };
 
   // Renombrar
@@ -190,13 +185,9 @@ useEffect(() => {
   const openRename = (c: Cosecha) => { setEditTarget(c); setEditOpen(true); };
   const submitRename = async (nombre: string) => {
     if (!editTarget) return;
-    try {
-      await renameCosecha(editTarget.id, { nombre });
-      setEditOpen(false);
-      setEditTarget(null);
-    } catch (e: any) {
-      handleBackendNotification(e?.response?.data?.notification || e);
-    }
+    await renameCosecha(editTarget.id, { nombre });
+    setEditOpen(false);
+    setEditTarget(null);
   };
 
   // Eliminar
@@ -205,8 +196,6 @@ useEffect(() => {
     if (delId == null) return;
     try {
       await removeCosecha(delId);
-    } catch (e: any) {
-      handleBackendNotification(e?.response?.data?.notification || e);
     } finally {
       setDelId(null);
     }
@@ -214,28 +203,18 @@ useEffect(() => {
 
   // Acciones fila
   const handleArchive = async (c: Cosecha) => {
-    try { await archiveCosecha(c.id); }
-    catch (e: any) { handleBackendNotification(e?.response?.data?.notification || e); }
+    await archiveCosecha(c.id);
   };
   const handleRestore = async (c: Cosecha) => {
-    try { await restoreCosecha(c.id); }
-    catch (e: any) { handleBackendNotification(e?.response?.data?.notification || e); }
+    await restoreCosecha(c.id);
   };
   const handleToggleFinal = async (c: Cosecha) => {
-    try { await toggleFinalizada(c.id); }
-    catch (e: any) { handleBackendNotification(e?.response?.data?.notification || e); }
+    await toggleFinalizada(c.id);
   };
 
   // Navegar a Finanzas por Cosecha
   const handleVerFinanzas = (c: Cosecha) => {
-    if (!temporadaId) {
-      handleBackendNotification({
-        success: false,
-        message: 'Contexto inválido: selecciona una temporada para ver finanzas.',
-        message_key: 'contexto_invalido',
-      });
-      return;
-    }
+    if (!temporadaId) return;
     navigate(`/finanzas/${temporadaId}/${c.id}`);
   };
 
@@ -364,3 +343,5 @@ useEffect(() => {
 };
 
 export default Cosechas;
+
+

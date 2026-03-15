@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -9,8 +9,9 @@ import { Add } from '@mui/icons-material';
 import Tooltip from '@mui/material/Tooltip';
 import { Formik, Form } from 'formik';
 
-// Campos manuales: tipo (texto) y cantidad (nÃºmero)
+// Campos manuales: tipo (texto) y cantidad (número)
 import { formatDateISO, parseLocalDateStrict } from '../../../../global/utils/date';
+import { parseIntegerInput } from '../../../../global/utils/numericInput';
 import { applyBackendErrorsToFormik } from '../../../../global/validation/backendFieldErrors';
 import { focusFirstError } from '../../../../global/validation/focusFirstError';
 import FormAlertBanner from '../../../../components/common/form/FormAlertBanner';
@@ -60,7 +61,7 @@ export default function FastCaptureModal({ open, onClose, onCreate, disabled, bo
     if (!values.tipo_mango.trim()) {
       errors.tipo_mango = 'El tipo es requerido.';
     }
-    const n = Number(values.cantidad_cajas);
+    const n = parseIntegerInput(values.cantidad_cajas);
     if (!Number.isFinite(n) || Math.trunc(n) <= 0) {
       errors.cantidad_cajas = 'Debe ser un entero mayor a 0.';
     }
@@ -82,7 +83,7 @@ export default function FastCaptureModal({ open, onClose, onCreate, disabled, bo
             const payload: CreatePayload = {
               fecha: values.fecha,
               tipo_mango: values.tipo_mango,
-              cantidad_cajas: Math.trunc(Number(values.cantidad_cajas)),
+              cantidad_cajas: parseIntegerInput(values.cantidad_cajas),
               huertero_nombre: values.huertero_nombre || undefined,
               observaciones: values.observaciones || undefined,
             };
@@ -152,9 +153,11 @@ export default function FastCaptureModal({ open, onClose, onCreate, disabled, bo
                   <FormikNumberField
                     label="Cantidad de cajas"
                     name="cantidad_cajas"
-                    type="number"
+                    type="text"
                     size="small"
                     inputProps={{ min: 1 }}
+                    thousandSeparator
+                    allowDecimal={false}
                   />
 
                   <FormikTextField
@@ -195,5 +198,4 @@ export default function FastCaptureModal({ open, onClose, onCreate, disabled, bo
     </Dialog>
   );
 }
-
 

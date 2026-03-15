@@ -45,7 +45,7 @@ class LoteBodegaViewSet(ViewSetAuditMixin, viewsets.ReadOnlyModelViewSet):
     search_fields = ["codigo_lote", "origen_nombre"]
 
     def get_permissions(self):
-        self.required_permissions = self._perm_map.get(self.action, [])
+        self.required_permissions = self._perm_map.get(self.action, ["view_recepcion"])
         return super().get_permissions()
 
     @action(detail=True, methods=["get"])
@@ -71,7 +71,7 @@ class LoteBodegaViewSet(ViewSetAuditMixin, viewsets.ReadOnlyModelViewSet):
             "empaques_count": empaques.count(),
         }
         return NotificationHandler.generate_response(
-            message_key="data_processed_success", 
+            message_key="lote_resumen_consultado", 
             data=data,
             status_code=status.HTTP_200_OK
         )

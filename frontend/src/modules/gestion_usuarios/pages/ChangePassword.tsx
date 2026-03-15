@@ -23,48 +23,48 @@ import FormAlertBanner from '../../../components/common/form/FormAlertBanner';
 import FormikTextField from '../../../components/common/form/FormikTextField';
 
 const ChangePassword: React.FC = () => {
-  const [showNew, setShowNew]       = useState(false);
-  const [showConf, setShowConf]     = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConf, setShowConf] = useState(false);
   const [formErrors, setFormErrors] = useState<string[]>([]);
 
-  /* ----------------- auth / nav ----------------- */
   const { user, refreshSession } = useAuth();
   const dispatch = useAppDispatch();
-  const navigate   = useNavigate();
-  const location   = useLocation();      // 👈 para saber si es voluntario
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  /* --- redirección sólo en cambio *forzado* desde login --- */
   useEffect(() => {
-    const cambioVoluntario = Boolean(location.state?.voluntary);
-    if (user && !user.must_change_password && !cambioVoluntario) {
+    const voluntaryChange = Boolean(location.state?.voluntary);
+    if (user && !user.must_change_password && !voluntaryChange) {
       navigate('/dashboard', { replace: true });
     }
   }, [user, location, navigate]);
 
   const validationSchema = Yup.object({
     new_password: Yup.string()
-      .min(4, 'La contraseña debe tener al menos 4 caracteres.')
-      .required('La contraseña es requerida.'),
+      .min(4, 'La contrasena debe tener al menos 4 caracteres.')
+      .required('La contrasena es requerida.'),
     confirm_password: Yup.string()
-      .oneOf([Yup.ref('new_password')], 'Las contraseñas no coinciden.')
-      .required('Confirma tu contraseña.'),
+      .oneOf([Yup.ref('new_password')], 'Las contrasenas no coinciden.')
+      .required('Confirma tu contrasena.'),
   });
 
-  /* ----------------- UI ----------------- */
   return (
-    <Box className="flex items-center justify-center min-h-screen bg-neutral-100 px-4">
-      <Paper elevation={4} className="w-full max-w-md p-8 rounded-2xl shadow-lg bg-white">
+    <Box className="auth-stage px-4">
+      <Paper elevation={4} className="auth-card w-full max-w-md p-8">
         <motion.div
-          initial={{ opacity:0, y:30 }}
-          animate={{ opacity:1, y:0 }}
-          transition={{ duration:.5 }}
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
         >
-          <header className="space-y-1">
-            <Typography variant="h5" align="center" className="font-bold text-primary-dark">
-              Cambiar contraseña
+          <header className="space-y-2 text-center">
+            <Typography variant="overline" className="tracking-[0.24em] text-sky-800">
+              Seguridad
             </Typography>
-            <Typography variant="body2" align="center" color="text.secondary">
-              Ingresa tu nueva clave de acceso
+            <Typography variant="h5" className="font-bold text-slate-950">
+              Cambiar contrasena
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Actualiza tu clave de acceso para mantener la cuenta protegida.
             </Typography>
           </header>
 
@@ -90,14 +90,14 @@ const ChangePassword: React.FC = () => {
           >
             {({ isSubmitting, submitForm, setTouched, validateForm, values }) => (
               <Form
-                className="space-y-6"
+                className="mt-6 space-y-6"
                 onSubmit={async (event) => {
                   event.preventDefault();
                   const validationErrors = await validateForm();
                   if (Object.keys(validationErrors).length) {
                     const touchedFields = Object.keys(validationErrors).reduce<Record<string, boolean>>(
                       (acc, key) => ({ ...acc, [key]: true }),
-                      {}
+                      {},
                     );
                     setTouched(touchedFields, false);
                     focusFirstError(validationErrors, event.currentTarget);
@@ -109,39 +109,38 @@ const ChangePassword: React.FC = () => {
                 <FormAlertBanner
                   open={formErrors.length > 0}
                   severity="error"
-                  title="Revisa la información"
+                  title="Revisa la informacion"
                   messages={formErrors}
                 />
-                {/* ---- nueva ---- */}
+
                 <FormikTextField
                   fullWidth
-                  label="Nueva contraseña"
+                  label="Nueva contrasena"
                   name="new_password"
                   type={showNew ? 'text' : 'password'}
                   value={values.new_password}
                   InputProps={{
                     endAdornment: (
                       <InputAdornment position="end">
-                        <IconButton onClick={() => setShowNew(!showNew)} edge="end">
-                          {showNew ? <VisibilityOff/> : <Visibility/>}
+                        <IconButton onClick={() => setShowNew((prev) => !prev)} edge="end">
+                          {showNew ? <VisibilityOff /> : <Visibility />}
                         </IconButton>
                       </InputAdornment>
                     ),
                   }}
                 />
 
-                {/* ---- confirmar ---- */}
                 <FormikTextField
                   fullWidth
-                  label="Confirmar contraseña"
+                  label="Confirmar contrasena"
                   name="confirm_password"
                   type={showConf ? 'text' : 'password'}
                   value={values.confirm_password}
                   InputProps={{
                     endAdornment: (
                       <InputAdornment position="end">
-                        <IconButton onClick={() => setShowConf(!showConf)} edge="end">
-                          {showConf ? <VisibilityOff/> : <Visibility/>}
+                        <IconButton onClick={() => setShowConf((prev) => !prev)} edge="end">
+                          {showConf ? <VisibilityOff /> : <Visibility />}
                         </IconButton>
                       </InputAdornment>
                     ),
@@ -153,9 +152,9 @@ const ChangePassword: React.FC = () => {
                   fullWidth
                   type="submit"
                   disabled={isSubmitting}
-                  sx={{ py:2, textTransform:'none', fontWeight:600 }}
+                  size="large"
                 >
-                  {isSubmitting ? <CircularProgress size={24} color="inherit"/> : 'Actualizar'}
+                  {isSubmitting ? <CircularProgress size={24} color="inherit" /> : 'Actualizar'}
                 </Button>
               </Form>
             )}

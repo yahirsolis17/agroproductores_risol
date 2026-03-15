@@ -44,17 +44,19 @@ class TemporadaDesarchivarTests(TestCase):
                 huerta=self.huerta,
             )
             InversionesHuerta.objects.create(
-                nombre="Inv",
                 fecha=timezone.now().date(),
                 descripcion="",
                 gastos_insumos=0,
                 gastos_mano_obra=0,
                 categoria=categoria,
                 cosecha=cosecha,
+                temporada=self.temporada,
                 huerta=self.huerta,
             )
             Venta.objects.create(
                 cosecha=cosecha,
+                temporada=self.temporada,
+                huerta=self.huerta,
                 fecha_venta=timezone.now().date(),
                 num_cajas=1,
                 precio_por_caja=1,
@@ -196,31 +198,23 @@ class BloqueoCreacionInversionVentaTests(TestCase):
 
         resp_inv = self._post_inversion()
         self.assertEqual(resp_inv.status_code, 400)
-        self.assertIn(
-            "No se pueden registrar inversiones en una temporada finalizada o archivada.",
-            resp_inv.json()["data"]["errors"]["temporada_id"][0],
-        )
+        self.assertEqual(resp_inv.json()["notification"]["key"], "inversion_temporada_finalizada")
+        self.assertIn("temporada finalizada", resp_inv.json()["data"]["info"].lower())
 
         resp_venta = self._post_venta()
         self.assertEqual(resp_venta.status_code, 400)
-        self.assertIn(
-            "No se pueden registrar/editar ventas en una temporada finalizada o archivada.",
-            resp_venta.json()["data"]["errors"]["temporada_id"][0],
-        )
+        self.assertEqual(resp_venta.json()["notification"]["key"], "venta_contexto_temporada_finalizada")
+        self.assertIn("temporada", resp_venta.json()["data"]["info"].lower())
 
     def test_bloqueo_por_cosecha_finalizada(self):
         self.cosecha.finalizar()
 
         resp_inv = self._post_inversion()
         self.assertEqual(resp_inv.status_code, 400)
-        self.assertIn(
-            "No se pueden registrar inversiones en una cosecha finalizada.",
-            resp_inv.json()["data"]["errors"]["cosecha_id"][0],
-        )
+        self.assertEqual(resp_inv.json()["notification"]["key"], "inversion_cosecha_finalizada")
+        self.assertIn("cosecha finalizada", resp_inv.json()["data"]["info"].lower())
 
         resp_venta = self._post_venta()
         self.assertEqual(resp_venta.status_code, 400)
-        self.assertIn(
-            "No se pueden registrar/editar ventas en una cosecha finalizada.",
-            resp_venta.json()["data"]["errors"]["cosecha_id"][0],
-        )
+        self.assertEqual(resp_venta.json()["notification"]["key"], "venta_contexto_cosecha_finalizada")
+        self.assertIn("cosecha", resp_venta.json()["data"]["info"].lower())

@@ -10,7 +10,7 @@ type Props = {
 
 const FormAlertBanner: React.FC<Props> = ({ open, severity = 'error', title, messages }) => (
   <Collapse in={open} unmountOnExit>
-    <Alert severity={severity} sx={{ mb: 2 }}>
+    <Alert severity={severity} sx={{ mb: 2, borderRadius: '18px', '& .MuiAlert-message': { width: '100%' } }}>
       {title ? <AlertTitle>{title}</AlertTitle> : null}
       {messages.length === 1 ? messages[0] : (
         <ul style={{ margin: 0, paddingLeft: '1.25rem' }}>

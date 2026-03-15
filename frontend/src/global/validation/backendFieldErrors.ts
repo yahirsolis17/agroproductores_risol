@@ -169,6 +169,15 @@ export const applyBackendErrorsToFormik = <Values extends FormikValues>(
     helpers.setTouched(touchedMap as any, false);
   }
 
+  if (options?.alsoSetFormikErrors) {
+    const firstMessages = Object.entries(mappedFieldErrors).reduce<Record<string, string>>((acc, [field, msgs]) => {
+      const first = msgs[0];
+      if (first) acc[field] = first;
+      return acc;
+    }, {});
+    helpers.setErrors(firstMessages as any);
+  }
+
   return normalized;
 };
 

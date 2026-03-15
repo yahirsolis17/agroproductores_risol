@@ -1,18 +1,16 @@
 // src/modules/gestion_bodega/components/bodegas/BodegaFormModal.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, Box, CircularProgress
 } from '@mui/material';
 import { Formik, Form } from 'formik';
 import { PermissionButton } from '../../../../components/common/PermissionButton';
-import { handleBackendNotification } from '../../../../global/utils/NotificationEngine';
 import {
   applyBackendErrorsToFormik,
-  normalizeBackendErrors,
-  isValidationError,
 } from '../../../../global/validation/backendFieldErrors';
 import { focusFirstError } from '../../../../global/validation/focusFirstError';
+import FormAlertBanner from '../../../../components/common/form/FormAlertBanner';
 import FormikTextField from '../../../../components/common/form/FormikTextField';
 
 import type {
@@ -53,6 +51,7 @@ const BodegaFormModal: React.FC<Props> = ({
   initialValues,
   loading = false,
 }) => {
+  const [formErrors, setFormErrors] = useState<string[]>([]);
   const init: FormValues = {
     nombre: initialValues?.nombre ?? '',
     ubicacion: initialValues?.ubicacion ?? '',
@@ -78,21 +77,15 @@ const BodegaFormModal: React.FC<Props> = ({
               ubicacion: vals.ubicacion.trim() || undefined,
             };
             await onSubmit(payload);
+            setFormErrors([]);
             onClose();
           } catch (err: any) {
-            const normalized = normalizeBackendErrors(err);
-            const backend = err?.response?.data || err?.data || err;
-            const status = normalized.status ?? err?.response?.status ?? err?.status;
-
-            if (status && status >= 500) {
-              helpers.setStatus(undefined as any);
-              handleBackendNotification(backend);
-            } else if (isValidationError(normalized)) {
-              applyBackendErrorsToFormik(err, helpers);
-            } else {
-              helpers.setStatus(undefined as any);
-              handleBackendNotification(backend);
-            }
+            const normalized = applyBackendErrorsToFormik(err, helpers, {
+              fieldNames: ['nombre', 'ubicacion'],
+              spreadNonFieldToFields: ['nombre'],
+              alsoSetFormikErrors: true,
+            });
+            setFormErrors(normalized.formErrors);
           } finally {
             helpers.setSubmitting(false);
           }
@@ -116,6 +109,12 @@ const BodegaFormModal: React.FC<Props> = ({
             }}
           >
             <DialogContent dividers>
+              <FormAlertBanner
+                open={formErrors.length > 0}
+                severity="error"
+                title="Revisa la informacion"
+                messages={formErrors}
+              />
               <Box display="grid" gap={2}>
                 <FormikTextField
                   name="nombre"

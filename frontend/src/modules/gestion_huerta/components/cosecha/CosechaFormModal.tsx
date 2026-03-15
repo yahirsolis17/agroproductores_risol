@@ -1,13 +1,21 @@
-// src/modules/gestion_huerta/components/cosecha/CosechaFormModal.tsx
 import React from 'react';
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, Button, CircularProgress
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  CircularProgress,
 } from '@mui/material';
 import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
+
 import { Cosecha } from '../../types/cosechaTypes';
 import { PermissionButton } from '../../../../components/common/PermissionButton';
+import { applyBackendErrorsToFormik } from '../../../../global/validation/backendFieldErrors';
+import { focusFirstError } from '../../../../global/validation/focusFirstError';
+import FormAlertBanner from '../../../../components/common/form/FormAlertBanner';
+import FormikTextField from '../../../../components/common/form/FormikTextField';
 
 interface Props {
   open: boolean;
@@ -17,48 +25,70 @@ interface Props {
 }
 
 const schema = Yup.object({
-  nombre: Yup.string().min(3, 'Mínimo 3 caracteres').required('Requerido'),
+  nombre: Yup.string().trim().min(3, 'Minimo 3 caracteres').required('Requerido'),
 });
 
 const CosechaFormModal: React.FC<Props> = ({ open, onClose, cosecha, onSubmit }) => (
   <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
     <DialogTitle>Renombrar cosecha</DialogTitle>
-      <Formik
-        initialValues={{ nombre: cosecha?.nombre || '' }}
-        validationSchema={schema}
-        onSubmit={async (vals, { setSubmitting, setErrors }) => {
-          try {
-            await onSubmit(vals.nombre.trim()); // ← si esto lanza, NO cerramos
-            onClose();                          // ← cerrar SOLO en éxito
-          } catch (err: any) {
-            const be = err?.response?.data || err?.data || {};
-            const beErrors = be?.errors || be?.data?.errors || {};
-            if (typeof beErrors?.nombre === 'string') {
-              setErrors({ nombre: beErrors.nombre });
+    <Formik
+      initialValues={{ nombre: cosecha?.nombre || '' }}
+      validationSchema={schema}
+      validateOnChange={false}
+      validateOnBlur
+      validateOnMount={false}
+      enableReinitialize
+      onSubmit={async (values, helpers) => {
+        try {
+          await onSubmit(values.nombre.trim());
+          onClose();
+        } catch (err: unknown) {
+          applyBackendErrorsToFormik(err, helpers, {
+            fieldNames: ['nombre'],
+            spreadNonFieldToFields: ['nombre'],
+            alsoSetFormikErrors: true,
+          });
+        } finally {
+          helpers.setSubmitting(false);
+        }
+      }}
+    >
+      {({ isSubmitting, validateForm, setTouched, status, submitForm }) => (
+        <Form
+          noValidate
+          onSubmit={async (event) => {
+            event.preventDefault();
+            const validationErrors = await validateForm();
+            if (Object.keys(validationErrors).length) {
+              const touched = Object.keys(validationErrors).reduce<Record<string, boolean>>(
+                (acc, key) => ({ ...acc, [key]: true }),
+                {},
+              );
+              setTouched(touched, false);
+              focusFirstError(validationErrors, event.currentTarget);
+              return;
             }
-            // opcional: manejar non_field_errors
-          } finally {
-            setSubmitting(false);
-          }
-        }}
-        enableReinitialize
-      >
-      {({ values, errors, handleChange, isSubmitting }) => (
-        <Form>
+            submitForm();
+          }}
+        >
           <DialogContent dividers>
-            <TextField
+            <FormAlertBanner
+              open={Boolean((status as any)?.serverFormErrors?.length)}
+              severity="error"
+              title="Revisa la informacion"
+              messages={(status as any)?.serverFormErrors ?? []}
+            />
+            <FormikTextField
               autoFocus
               fullWidth
               label="Nombre"
               name="nombre"
-              value={values.nombre}
-              onChange={handleChange}
-              error={Boolean(errors.nombre)}
-              helperText={errors.nombre}
             />
           </DialogContent>
           <DialogActions>
-            <Button onClick={onClose} disabled={isSubmitting}>Cancelar</Button>
+            <Button onClick={onClose} disabled={isSubmitting}>
+              Cancelar
+            </Button>
             <PermissionButton
               perm="change_cosecha"
               type="submit"

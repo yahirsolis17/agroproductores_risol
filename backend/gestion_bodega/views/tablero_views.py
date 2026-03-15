@@ -59,7 +59,15 @@ class BodegaDashboardPermission(BasePermission):
             return False
         if getattr(u, "is_superuser", False) or getattr(u, "is_staff", False):
             return True
-        return u.has_perm("gestion_bodega.view_dashboard")
+        allowed = u.has_perm("gestion_bodega.view_dashboard")
+        if not allowed:
+            registrar_actividad(
+                u,
+                "Intento de acceso denegado",
+                detalles=f"motivo=missing_dashboard_permission; ruta={request.path}; metodo={request.method}; permiso_requerido=view_dashboard",
+                ip=request.META.get("REMOTE_ADDR"),
+            )
+        return allowed
 
 
 class WeekManagePermission(BasePermission):
@@ -71,18 +79,19 @@ class WeekManagePermission(BasePermission):
             return False
         if getattr(u, "is_superuser", False) or getattr(u, "is_staff", False):
             return True
-        return u.has_perm("gestion_bodega.close_week")
+        allowed = u.has_perm("gestion_bodega.close_week")
+        if not allowed:
+            registrar_actividad(
+                u,
+                "Intento de acceso denegado",
+                detalles=f"motivo=missing_week_permission; ruta={request.path}; metodo={request.method}; permiso_requerido=close_week",
+                ip=request.META.get("REMOTE_ADDR"),
+            )
+        return allowed
 
 
 class BaseDashboardAPIView(APIView):
     permission_classes = [IsAuthenticated, BodegaDashboardPermission]
-
-    def permission_denied(self, request, message=None, code=None):
-        return NotificationHandler.generate_response(
-            "permission_denied",
-            data=None,
-            status_code=status.HTTP_403_FORBIDDEN,
-        )
 
 
 def _to_int(v: Optional[str]) -> Optional[int]:
@@ -388,7 +397,7 @@ class TableroBodegaSummaryView(BaseDashboardAPIView):
         temporada_id = _require_temporada(request)
         if not temporada_id:
             return NotificationHandler.generate_response(
-                "validation_error",
+                "tablero_temporada_requerida",
                 data=None,
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
@@ -396,7 +405,7 @@ class TableroBodegaSummaryView(BaseDashboardAPIView):
             bodega_id = _to_int(request.query_params.get("bodega"))
             if not bodega_id:
                 return NotificationHandler.generate_response(
-                    "validation_error",
+                    "tablero_bodega_requerida",
                     data={"detail": "Parámetro requerido: bodega"},
                     status_code=status.HTTP_400_BAD_REQUEST,
                 )
@@ -427,14 +436,14 @@ class TableroBodegaSummaryView(BaseDashboardAPIView):
             data["context"] = _context_payload(temporada_id, bodega_id)
 
             return NotificationHandler.generate_response(
-                "data_processed_success",
+                "tablero_resumen_consultado",
                 data=data,
                 status_code=status.HTTP_200_OK,
             )
         except Exception as e:
             logger.exception("Error en TableroBodegaSummaryView: %s", e)
             return NotificationHandler.generate_response(
-                "server_error",
+                "tablero_resumen_error",
                 data=None,
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
@@ -451,7 +460,7 @@ class TableroBodegaQueuesView(BaseDashboardAPIView):
         temporada_id = _require_temporada(request)
         if not temporada_id:
             return NotificationHandler.generate_response(
-                "validation_error",
+                "tablero_temporada_requerida",
                 data=None,
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
@@ -459,7 +468,7 @@ class TableroBodegaQueuesView(BaseDashboardAPIView):
         tipo = request.query_params.get("queue") or request.query_params.get("type")
         if tipo not in {"recepciones", "inventarios", "despachos"}:
             return NotificationHandler.generate_response(
-                "validation_error",
+                "tablero_queue_tipo_invalido",
                 data=None,
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
@@ -468,7 +477,7 @@ class TableroBodegaQueuesView(BaseDashboardAPIView):
             bodega_id = _to_int(request.query_params.get("bodega"))
             if not bodega_id:
                 return NotificationHandler.generate_response(
-                    "validation_error",
+                    "tablero_bodega_requerida",
                     data={"detail": "Parámetro requerido: bodega"},
                     status_code=status.HTTP_400_BAD_REQUEST,
                 )
@@ -487,7 +496,7 @@ class TableroBodegaQueuesView(BaseDashboardAPIView):
             except ValueError as ve:
                 logger.info("Alias inválido en order_by: %s", ve)
                 return NotificationHandler.generate_response(
-                    "validation_error",
+                    "tablero_ordering_invalido",
                     data={"detail": str(ve)},
                     status_code=status.HTTP_400_BAD_REQUEST,
                 )
@@ -528,7 +537,7 @@ class TableroBodegaQueuesView(BaseDashboardAPIView):
                     base_qs = base_qs.order_by(*ordering)
                 except FieldError as fe:
                     return NotificationHandler.generate_response(
-                        "validation_error",
+                        "tablero_ordering_invalido",
                         data={"detail": f"ordering_not_supported:{str(fe)}"},
                         status_code=status.HTTP_400_BAD_REQUEST,
                     )
@@ -558,7 +567,7 @@ class TableroBodegaQueuesView(BaseDashboardAPIView):
             data["context"] = _context_payload(temporada_id, bodega_id)
 
             return NotificationHandler.generate_response(
-                "data_processed_success",
+                "tablero_cola_consultada",
                 data=data,
                 status_code=status.HTTP_200_OK,
             )
@@ -566,7 +575,7 @@ class TableroBodegaQueuesView(BaseDashboardAPIView):
         except Exception as e:
             logger.exception("Error en TableroBodegaQueuesView: %s", e)
             return NotificationHandler.generate_response(
-                "server_error",
+                "tablero_cola_error",
                 data=None,
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
@@ -600,7 +609,7 @@ class TableroBodegaAlertsView(BaseDashboardAPIView):
                 )
             except TemporadaBodega.DoesNotExist:
                 return NotificationHandler.generate_response(
-                    "validation_error",
+                    "tablero_alerts_temporada_invalida",
                     data={"detail": "Temporada inválida o no activa para esta bodega."},
                     status_code=status.HTTP_400_BAD_REQUEST,
                 )
@@ -615,20 +624,20 @@ class TableroBodegaAlertsView(BaseDashboardAPIView):
             data["context"] = _context_payload(temporada_id, bodega_id)
 
             return NotificationHandler.generate_response(
-                "data_processed_success",
+                "tablero_alerts_consultados",
                 data=data,
                 status_code=status.HTTP_200_OK,
             )
         except (ValueError, DjangoValidationError) as ve:
             return NotificationHandler.generate_response(
-                "validation_error",
+                "tablero_alerts_parametros_invalidos",
                 data={"detail": str(ve)},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:
             logger.exception("Error en TableroBodegaAlertsView: %s", e)
             return NotificationHandler.generate_response(
-                "server_error",
+                "tablero_alerts_error",
                 data=None,
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
@@ -640,13 +649,6 @@ class TableroBodegaAlertsView(BaseDashboardAPIView):
 
 class BaseWeekAPIView(APIView):
     permission_classes = [IsAuthenticated, WeekManagePermission]
-
-    def permission_denied(self, request, message=None, code=None):
-        return NotificationHandler.generate_response(
-            "permission_denied",
-            data=None,
-            status_code=status.HTTP_403_FORBIDDEN,
-        )
 
     def _require_ctx(
         self,
@@ -682,7 +684,7 @@ class TableroBodegaWeekCurrentView(BaseDashboardAPIView):
         temporada_id = _require_temporada(request)
         if not bodega_id or not temporada_id:
             return NotificationHandler.generate_response(
-                "validation_error",
+                "tablero_week_contexto_invalido",
                 data={"detail": "Parámetros inválidos o temporada/bodega no corresponden."},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
@@ -698,7 +700,7 @@ class TableroBodegaWeekCurrentView(BaseDashboardAPIView):
             }
 
         return NotificationHandler.generate_response(
-            "data_processed_success",
+            "tablero_week_actual_consultada",
             data={
                 "active_week": aw,
                 "week": week_simple,
@@ -730,7 +732,7 @@ class TableroBodegaWeekStartView(BaseWeekAPIView):
 
         if not (bodega_id and temporada_id and fecha_desde_s):
             return NotificationHandler.generate_response(
-                "validation_error",
+                "tablero_week_start_datos_requeridos",
                 data={"detail": "bodega, temporada y fecha_desde son obligatorios."},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
@@ -745,7 +747,7 @@ class TableroBodegaWeekStartView(BaseWeekAPIView):
             )
         except (Bodega.DoesNotExist, TemporadaBodega.DoesNotExist):
             return NotificationHandler.generate_response(
-                "validation_error",
+                "tablero_week_start_contexto_invalido",
                 data={"detail": "Temporada o bodega inválida o no activa."},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
@@ -753,7 +755,7 @@ class TableroBodegaWeekStartView(BaseWeekAPIView):
         f = _parse_date_str(fecha_desde_s)
         if not f:
             return NotificationHandler.generate_response(
-                "validation_error",
+                "tablero_week_start_fecha_invalida",
                 data={"detail": "fecha_desde inválida."},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
@@ -776,7 +778,7 @@ class TableroBodegaWeekStartView(BaseWeekAPIView):
             )
 
             return NotificationHandler.generate_response(
-                "data_processed_success",
+                "tablero_week_start_ok",
                 data={
                     "week": week_payload,
                     "active_week": aw,
@@ -787,20 +789,20 @@ class TableroBodegaWeekStartView(BaseWeekAPIView):
         except DjangoValidationError as e:
             # Validaciones de WeekService (unicidad, etc.)
             return NotificationHandler.generate_response(
-                "validation_error",
+                "tablero_week_start_validacion",
                 data={"errors": {"detail": str(e)}},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
         except IntegrityError:
             return NotificationHandler.generate_response(
-                "validation_error",
+                "tablero_week_start_duplicada",
                 data={"detail": "Ya existe una semana abierta para esta bodega y temporada."},
                 status_code=status.HTTP_409_CONFLICT,
             )
         except Exception as e:
             logger.exception("Error al iniciar semana: %s", e)
             return NotificationHandler.generate_response(
-                "server_error",
+                "tablero_week_start_error",
                 data=None,
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
@@ -832,7 +834,7 @@ class TableroBodegaWeekFinishView(BaseWeekAPIView):
 
         if not (bodega_id and temporada_id and semana_id and fecha_hasta_s):
             return NotificationHandler.generate_response(
-                "validation_error",
+                "tablero_week_finish_datos_requeridos",
                 data={"detail": "bodega, temporada, semana_id y fecha_hasta son obligatorios."},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
@@ -840,7 +842,7 @@ class TableroBodegaWeekFinishView(BaseWeekAPIView):
         h = _parse_date_str(fecha_hasta_s)
         if not h:
             return NotificationHandler.generate_response(
-                "validation_error",
+                "tablero_week_finish_fecha_invalida",
                 data={"detail": "fecha_hasta inválida."},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
@@ -854,7 +856,7 @@ class TableroBodegaWeekFinishView(BaseWeekAPIView):
             )
         except CierreSemanal.DoesNotExist:
             return NotificationHandler.generate_response(
-                "validation_error",
+                "tablero_week_finish_no_encontrada",
                 data={"detail": "No existe la semana indicada para cerrar."},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
@@ -872,7 +874,7 @@ class TableroBodegaWeekFinishView(BaseWeekAPIView):
             )
 
             return NotificationHandler.generate_response(
-                "data_processed_success",
+                "tablero_week_finish_ok",
                 data={
                     "week": week_payload,  # 👈 semana cerrada concreta
                     "active_week": aw,
@@ -882,14 +884,14 @@ class TableroBodegaWeekFinishView(BaseWeekAPIView):
             )
         except DjangoValidationError as e:
             return NotificationHandler.generate_response(
-                "validation_error",
+                "tablero_week_finish_validacion",
                 data={"detail": str(e)},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:
             logger.exception("Error al finalizar semana: %s", e)
             return NotificationHandler.generate_response(
-                "server_error",
+                "tablero_week_finish_error",
                 data=None,
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
@@ -912,7 +914,7 @@ class TableroBodegaWeeksNavView(BaseDashboardAPIView):
         bodega_id = _to_int(request.query_params.get("bodega"))
         if not temporada_id or not bodega_id:
             return NotificationHandler.generate_response(
-                "validation_error",
+                "tablero_week_nav_datos_requeridos",
                 data={"detail": "bodega y temporada son obligatorios."},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
@@ -931,7 +933,7 @@ class TableroBodegaWeeksNavView(BaseDashboardAPIView):
         total = len(semanas)
         if total == 0:
             return NotificationHandler.generate_response(
-                "data_processed_success",
+                "tablero_week_nav_consultada",
                 data={
                     "actual": None,
                     "total": 0,
@@ -1015,7 +1017,7 @@ class TableroBodegaWeeksNavView(BaseDashboardAPIView):
             data["next"] = semanas[idx + 1].get("iso_semana") or None
 
         return NotificationHandler.generate_response(
-            "data_processed_success",
+            "tablero_week_nav_consultada",
             data=data,
             status_code=status.HTTP_200_OK,
         )

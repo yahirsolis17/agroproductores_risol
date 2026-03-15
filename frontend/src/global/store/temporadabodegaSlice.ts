@@ -1,9 +1,9 @@
-// src/global/store/temporadabodegaSlice.ts
-// STATE-UPDATE: local list pruning after mutations; allowed by UI-only policy.
+﻿// STATE-UPDATE: local list pruning after archive/restore/delete is intentional in Redux store.
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import type { RootState } from "./store";
 import { handleBackendNotification } from "../utils/NotificationEngine";
 import { extractApiMessage } from "../api/errorUtils";
+import { extractRejectedTransportPayload } from "../types/apiTypes";
 
 import type {
   TemporadaBodega,
@@ -11,8 +11,8 @@ import type {
   TemporadaBodegaUpdateData,
   EstadoTemporadaBodega,
 } from "../../modules/gestion_bodega/types/temporadaBodegaTypes";
+import temporadaBodegaService from "../../modules/gestion_bodega/services/temporadaBodegaService";
 
-// Nota: defino PaginationMeta local para evitar el error de export faltante.
 type PaginationMeta = {
   page: number;
   page_size: number;
@@ -22,17 +22,11 @@ type PaginationMeta = {
   previous: string | null;
 };
 
-// Importa el service como default (tu archivo exporta un objeto, no funciones sueltas)
-import temporadaBodegaService from "../../modules/gestion_bodega/services/temporadaBodegaService";
-
-// -------------------------
-// Types de estado local
-// -------------------------
 export type TemporadasBodegaFilters = {
   page: number;
   page_size: number;
   ordering?: string;
-  estado?: EstadoTemporadaBodega; // "activas" | "archivadas" | "todas"
+  estado?: EstadoTemporadaBodega;
   bodegaId?: number;
   year?: number;
   finalizada?: boolean | null;
@@ -57,9 +51,6 @@ type SliceState = {
   error: string | null;
 };
 
-// -------------------------
-// Helpers
-// -------------------------
 const emptyMeta: PaginationMeta = {
   page: 1,
   page_size: 10,
@@ -69,13 +60,6 @@ const emptyMeta: PaginationMeta = {
   previous: null,
 };
 
-
-
-
-
-// -------------------------
-// Initial state
-// -------------------------
 const initialState: SliceState = {
   items: [],
   meta: emptyMeta,
@@ -101,9 +85,11 @@ const initialState: SliceState = {
   error: null,
 };
 
-// -------------------------
-// Thunks
-// -------------------------
+const unknownError = (err: unknown): { message: string; md_error: true } => ({
+  md_error: true,
+  message: err instanceof Error ? err.message : "Error desconocido",
+});
+
 export const fetchTemporadasBodega = createAsyncThunk(
   "temporadabodega/fetch",
   async (args: Partial<TemporadasBodegaFilters> | undefined, { rejectWithValue }) => {
@@ -113,16 +99,23 @@ export const fetchTemporadasBodega = createAsyncThunk(
         page_size: args?.page_size,
         estado: args?.estado,
         bodegaId: args?.bodegaId,
-        año: args?.year, // el service espera 'año'
+        año: args?.year,
         finalizada: args?.finalizada ?? null,
         ordering: args?.ordering,
       });
-      handleBackendNotification(response);
+
+      if (!response.success) {
+        return rejectWithValue({
+          key: response.notification?.key,
+          message: response.notification?.message ?? "No se pudieron cargar las temporadas.",
+        });
+      }
+
       return { temporadas: response.data.temporadas, meta: response.data.meta as PaginationMeta };
     } catch (err: unknown) {
-      const resp = (err as { response?: { data?: unknown } })?.response?.data;
-      if (resp) handleBackendNotification(resp);
-      return rejectWithValue(resp || { message: 'Error desconocido' });
+      const transportPayload = extractRejectedTransportPayload(err);
+      if (transportPayload) handleBackendNotification(transportPayload);
+      return rejectWithValue(transportPayload ?? unknownError(err));
     }
   }
 );
@@ -131,18 +124,15 @@ export const addTemporadaBodega = createAsyncThunk(
   "temporadabodega/create",
   async (payload: TemporadaBodegaCreateData, { rejectWithValue }) => {
     try {
-      const res = await temporadaBodegaService.create(payload);
-      handleBackendNotification(res);
-      if (!res?.success) {
-        const key = res?.notification?.key;
-        const message = res?.notification?.message ?? "No se pudo crear la temporada.";
+      const response = await temporadaBodegaService.create(payload);
+      if (!response?.success) {
+        const key = response?.notification?.key;
+        const message = response?.notification?.message ?? "No se pudo crear la temporada.";
         return rejectWithValue({ key, message });
       }
-      return res.data as TemporadaBodega;
+      return response.data as TemporadaBodega;
     } catch (err: unknown) {
-      const resp = (err as any)?.response?.data ?? { md_error: true, message: (err as Error)?.message ?? 'Error desconocido' };
-      if ((err as any)?.response?.data) handleBackendNotification(resp);
-      return rejectWithValue(resp);
+      return rejectWithValue(extractRejectedTransportPayload(err) ?? unknownError(err));
     }
   }
 );
@@ -151,18 +141,15 @@ export const editTemporadaBodega = createAsyncThunk(
   "temporadabodega/update",
   async ({ id, data }: { id: number; data: TemporadaBodegaUpdateData }, { rejectWithValue }) => {
     try {
-      const resp = await temporadaBodegaService.update(id, data);
-      handleBackendNotification(resp);
-      if (!resp?.success) {
-        const key = resp?.notification?.key;
-        const message = resp?.notification?.message ?? "No se pudo actualizar la temporada.";
+      const response = await temporadaBodegaService.update(id, data);
+      if (!response?.success) {
+        const key = response?.notification?.key;
+        const message = response?.notification?.message ?? "No se pudo actualizar la temporada.";
         return rejectWithValue({ key, message });
       }
-      return resp.data as TemporadaBodega;
+      return response.data as TemporadaBodega;
     } catch (err: unknown) {
-      const resp = (err as any)?.response?.data ?? { md_error: true, message: (err as Error)?.message ?? 'Error desconocido' };
-      if ((err as any)?.response?.data) handleBackendNotification(resp);
-      return rejectWithValue(resp);
+      return rejectWithValue(extractRejectedTransportPayload(err) ?? unknownError(err));
     }
   }
 );
@@ -171,18 +158,15 @@ export const archiveTemporada = createAsyncThunk(
   "temporadabodega/archive",
   async (id: number, { rejectWithValue }) => {
     try {
-      const res = await temporadaBodegaService.archivar(id);
-      handleBackendNotification(res);
-      if (!res?.success) {
-        const key = res?.notification?.key;
-        const message = res?.notification?.message ?? "No se pudo archivar la temporada.";
+      const response = await temporadaBodegaService.archivar(id);
+      if (!response?.success) {
+        const key = response?.notification?.key;
+        const message = response?.notification?.message ?? "No se pudo archivar la temporada.";
         return rejectWithValue({ key, message });
       }
-      return res.data as TemporadaBodega | null;
+      return response.data as TemporadaBodega | null;
     } catch (err: unknown) {
-      const resp = (err as any)?.response?.data ?? { md_error: true, message: (err as Error)?.message ?? 'Error desconocido' };
-      if ((err as any)?.response?.data) handleBackendNotification(resp);
-      return rejectWithValue(resp);
+      return rejectWithValue(extractRejectedTransportPayload(err) ?? unknownError(err));
     }
   }
 );
@@ -191,18 +175,15 @@ export const restoreTemporada = createAsyncThunk(
   "temporadabodega/restore",
   async (id: number, { rejectWithValue }) => {
     try {
-      const res = await temporadaBodegaService.restaurar(id);
-      handleBackendNotification(res);
-      if (!res?.success) {
-        const key = res?.notification?.key;
-        const message = res?.notification?.message ?? "No se pudo restaurar la temporada.";
+      const response = await temporadaBodegaService.restaurar(id);
+      if (!response?.success) {
+        const key = response?.notification?.key;
+        const message = response?.notification?.message ?? "No se pudo restaurar la temporada.";
         return rejectWithValue({ key, message });
       }
-      return res.data as TemporadaBodega | null;
+      return response.data as TemporadaBodega | null;
     } catch (err: unknown) {
-      const resp = (err as any)?.response?.data ?? { md_error: true, message: (err as Error)?.message ?? 'Error desconocido' };
-      if ((err as any)?.response?.data) handleBackendNotification(resp);
-      return rejectWithValue(resp);
+      return rejectWithValue(extractRejectedTransportPayload(err) ?? unknownError(err));
     }
   }
 );
@@ -211,18 +192,15 @@ export const finalizeTemporada = createAsyncThunk(
   "temporadabodega/finalize",
   async (id: number, { rejectWithValue }) => {
     try {
-      const res = await temporadaBodegaService.toggleFinalizar(id);
-      handleBackendNotification(res);
-      if (!res?.success) {
-        const key = res?.notification?.key;
-        const message = res?.notification?.message ?? "No se pudo actualizar el estado de la temporada.";
+      const response = await temporadaBodegaService.toggleFinalizar(id);
+      if (!response?.success) {
+        const key = response?.notification?.key;
+        const message = response?.notification?.message ?? "No se pudo actualizar el estado de la temporada.";
         return rejectWithValue({ key, message });
       }
-      return res.data as TemporadaBodega | null;
+      return response.data as TemporadaBodega | null;
     } catch (err: unknown) {
-      const resp = (err as any)?.response?.data ?? { md_error: true, message: (err as Error)?.message ?? 'Error desconocido' };
-      if ((err as any)?.response?.data) handleBackendNotification(resp);
-      return rejectWithValue(resp);
+      return rejectWithValue(extractRejectedTransportPayload(err) ?? unknownError(err));
     }
   }
 );
@@ -231,27 +209,21 @@ export const deleteTemporada = createAsyncThunk(
   "temporadabodega/delete",
   async (id: number, { rejectWithValue }) => {
     try {
-      const res = await temporadaBodegaService.remove(id);
-      handleBackendNotification(res);
-      if (!res?.success) {
-        const key = res?.notification?.key;
-        const message = res?.notification?.message ?? "No se pudo eliminar la temporada.";
+      const response = await temporadaBodegaService.remove(id);
+      if (!response?.success) {
+        const key = response?.notification?.key;
+        const message = response?.notification?.message ?? "No se pudo eliminar la temporada.";
         return rejectWithValue({ key, message });
       }
-      const payload = res.data as { deleted_id?: number; temporada_id?: number } | null;
+      const payload = response.data as { deleted_id?: number; temporada_id?: number } | null;
       const deletedId = payload?.deleted_id ?? payload?.temporada_id ?? id;
       return deletedId;
     } catch (err: unknown) {
-      const resp = (err as any)?.response?.data ?? { md_error: true, message: (err as Error)?.message ?? 'Error desconocido' };
-      if ((err as any)?.response?.data) handleBackendNotification(resp);
-      return rejectWithValue(resp);
+      return rejectWithValue(extractRejectedTransportPayload(err) ?? unknownError(err));
     }
   }
 );
 
-// -------------------------
-// Slice
-// -------------------------
 const slice = createSlice({
   name: "temporadabodega",
   initialState,
@@ -264,7 +236,7 @@ const slice = createSlice({
     },
     setPageSize(state, action: PayloadAction<number>) {
       state.filters.page_size = action.payload || 10;
-      state.filters.page = 1; // reset a página 1 al cambiar page_size
+      state.filters.page = 1;
     },
     setOrdering(state, action: PayloadAction<string | undefined>) {
       state.filters.ordering = action.payload;
@@ -293,7 +265,6 @@ const slice = createSlice({
     },
   },
   extraReducers: (builder) => {
-    // LIST
     builder.addCase(fetchTemporadasBodega.pending, (state) => {
       state.ops.listing = true;
       state.error = null;
@@ -305,11 +276,9 @@ const slice = createSlice({
     });
     builder.addCase(fetchTemporadasBodega.rejected, (state, action) => {
       state.ops.listing = false;
-      const msg = extractApiMessage(action.payload ?? action.error, "Error");
-      state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
+      state.error = extractApiMessage(action.payload ?? action.error, "Error");
     });
 
-    // CREATE
     builder.addCase(addTemporadaBodega.pending, (state) => {
       state.ops.creating = true;
       state.error = null;
@@ -320,11 +289,9 @@ const slice = createSlice({
     });
     builder.addCase(addTemporadaBodega.rejected, (state, action) => {
       state.ops.creating = false;
-      const msg = extractApiMessage(action.payload ?? action.error, "Error");
-      state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
+      state.error = extractApiMessage(action.payload ?? action.error, "Error");
     });
 
-    // UPDATE
     builder.addCase(editTemporadaBodega.pending, (state) => {
       state.ops.updating = true;
       state.error = null;
@@ -332,17 +299,15 @@ const slice = createSlice({
     builder.addCase(editTemporadaBodega.fulfilled, (state, action) => {
       state.ops.updating = false;
       const updated = action.payload;
-      const idx = state.items.findIndex((t) => t.id === updated.id);
-      if (idx >= 0) state.items[idx] = updated;
+      const index = state.items.findIndex((item) => item.id === updated.id);
+      if (index >= 0) state.items[index] = updated;
       if (state.current?.id === updated.id) state.current = updated;
     });
     builder.addCase(editTemporadaBodega.rejected, (state, action) => {
       state.ops.updating = false;
-      const msg = extractApiMessage(action.payload ?? action.error, "Error");
-      state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
+      state.error = extractApiMessage(action.payload ?? action.error, "Error");
     });
 
-    // ARCHIVE
     builder.addCase(archiveTemporada.pending, (state) => {
       state.ops.archiving = true;
       state.error = null;
@@ -353,13 +318,11 @@ const slice = createSlice({
       if (temporada) {
         const currentEstado = state.filters.estado ?? "activas";
         if (currentEstado === "activas") {
-          state.items = state.items.filter((t) => t.id !== temporada.id);
-          if (state.meta.count > 0) {
-            state.meta.count -= 1;
-          }
+          state.items = state.items.filter((item) => item.id !== temporada.id);
+          if (state.meta.count > 0) state.meta.count -= 1;
         } else {
-          const idx = state.items.findIndex((t) => t.id === temporada.id);
-          if (idx >= 0) state.items[idx] = temporada;
+          const index = state.items.findIndex((item) => item.id === temporada.id);
+          if (index >= 0) state.items[index] = temporada;
         }
         if (state.current?.id === temporada.id) {
           state.current = currentEstado === "activas" ? null : temporada;
@@ -368,11 +331,9 @@ const slice = createSlice({
     });
     builder.addCase(archiveTemporada.rejected, (state, action) => {
       state.ops.archiving = false;
-      const msg = extractApiMessage(action.payload ?? action.error, "Error");
-      state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
+      state.error = extractApiMessage(action.payload ?? action.error, "Error");
     });
 
-    // RESTORE
     builder.addCase(restoreTemporada.pending, (state) => {
       state.ops.restoring = true;
       state.error = null;
@@ -383,13 +344,11 @@ const slice = createSlice({
       if (temporada) {
         const currentEstado = state.filters.estado ?? "activas";
         if (currentEstado === "archivadas") {
-          state.items = state.items.filter((t) => t.id !== temporada.id);
-          if (state.meta.count > 0) {
-            state.meta.count -= 1;
-          }
+          state.items = state.items.filter((item) => item.id !== temporada.id);
+          if (state.meta.count > 0) state.meta.count -= 1;
         } else {
-          const idx = state.items.findIndex((t) => t.id === temporada.id);
-          if (idx >= 0) state.items[idx] = temporada;
+          const index = state.items.findIndex((item) => item.id === temporada.id);
+          if (index >= 0) state.items[index] = temporada;
         }
         if (state.current?.id === temporada.id) {
           state.current = currentEstado === "archivadas" ? null : temporada;
@@ -398,11 +357,9 @@ const slice = createSlice({
     });
     builder.addCase(restoreTemporada.rejected, (state, action) => {
       state.ops.restoring = false;
-      const msg = extractApiMessage(action.payload ?? action.error, "Error");
-      state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
+      state.error = extractApiMessage(action.payload ?? action.error, "Error");
     });
 
-    // FINALIZE (toggle)
     builder.addCase(finalizeTemporada.pending, (state) => {
       state.ops.finalizing = true;
       state.error = null;
@@ -411,20 +368,16 @@ const slice = createSlice({
       state.ops.finalizing = false;
       const temporada = action.payload;
       if (temporada) {
-        const idx = state.items.findIndex((t) => t.id === temporada.id);
-        if (idx >= 0) state.items[idx] = temporada;
-        if (state.current?.id === temporada.id) {
-          state.current = temporada;
-        }
+        const index = state.items.findIndex((item) => item.id === temporada.id);
+        if (index >= 0) state.items[index] = temporada;
+        if (state.current?.id === temporada.id) state.current = temporada;
       }
     });
     builder.addCase(finalizeTemporada.rejected, (state, action) => {
       state.ops.finalizing = false;
-      const msg = extractApiMessage(action.payload ?? action.error, "Error");
-      state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
+      state.error = extractApiMessage(action.payload ?? action.error, "Error");
     });
 
-    // DELETE
     builder.addCase(deleteTemporada.pending, (state) => {
       state.ops.deleting = true;
       state.error = null;
@@ -432,10 +385,8 @@ const slice = createSlice({
     builder.addCase(deleteTemporada.fulfilled, (state, action) => {
       state.ops.deleting = false;
       const deletedId = action.payload;
-      state.items = state.items.filter((t) => t.id !== deletedId);
-      if (state.current?.id === deletedId) {
-        state.current = null;
-      }
+      state.items = state.items.filter((item) => item.id !== deletedId);
+      if (state.current?.id === deletedId) state.current = null;
       if (state.meta.count > 0) {
         state.meta.count -= 1;
         if (state.meta.page_size) {
@@ -445,15 +396,11 @@ const slice = createSlice({
     });
     builder.addCase(deleteTemporada.rejected, (state, action) => {
       state.ops.deleting = false;
-      const msg = extractApiMessage(action.payload ?? action.error, "Error");
-      state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
+      state.error = extractApiMessage(action.payload ?? action.error, "Error");
     });
   },
 });
 
-// -------------------------
-// Actions
-// -------------------------
 export const {
   setFilters,
   setPage,
@@ -467,18 +414,12 @@ export const {
   resetTemporadasState,
 } = slice.actions;
 
-// -------------------------
-// Selectors
-// -------------------------
-// Selectores alineados con la clave "temporadasBodega" definida en store.ts.
-export const selectTemporadas = (s: RootState) => s.temporadasBodega.items;
-export const selectTemporadasMeta = (s: RootState) => s.temporadasBodega.meta;
-export const selectTemporadasFilters = (s: RootState) => s.temporadasBodega.filters;
-export const selectTemporadaCurrent = (s: RootState) => s.temporadasBodega.current;
-export const selectTemporadaOps = (s: RootState) => s.temporadasBodega.ops;
-export const selectTemporadasError = (s: RootState) => s.temporadasBodega.error;
+export const selectTemporadas = (state: RootState) => state.temporadasBodega.items;
+export const selectTemporadasMeta = (state: RootState) => state.temporadasBodega.meta;
+export const selectTemporadasFilters = (state: RootState) => state.temporadasBodega.filters;
+export const selectTemporadaCurrent = (state: RootState) => state.temporadasBodega.current;
+export const selectTemporadaOps = (state: RootState) => state.temporadasBodega.ops;
+export const selectTemporadasError = (state: RootState) => state.temporadasBodega.error;
 
-// -------------------------
-// Reducer
-// -------------------------
 export default slice.reducer;
+

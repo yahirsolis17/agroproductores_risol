@@ -69,7 +69,7 @@ def debug_live():
             print("\n---------------------------------------------------")
             print(f"ID (Ref): {item['id']} ({item['ref']})")
             print(f"Fecha: {item['fecha']}")
-            print(f"Cajas (kg): {item['kg']}")
+            print(f"Cajas: {item['cajas']}")
             print(f"Huertero: {item['huertero']}")
             print(f"Clasificacion Label: '{item.get('clasificacion_label')}'")
             print(f"Meta Despachado: {item['meta'].get('despachado')}")

@@ -10,10 +10,10 @@ from django.utils import timezone
 from agroproductores_risol.utils.pagination import GenericPagination
 from gestion_usuarios.permissions import HasModulePermission
 
-from gestion_bodega.models import Bodega, Cliente, TemporadaBodega
+from gestion_bodega.models import Bodega, TemporadaBodega
 from gestion_bodega.serializers import (
     BodegaSerializer,
-    ClienteSerializer,
+    TemporadaBodegaSerializer,
     TemporadaBodegaSerializer,
 )
 
@@ -162,7 +162,7 @@ class BodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
                 "total_pages": None,
             }
         return self.notify(
-            key="data_processed_success",
+            key="bodegas_listado_consultado",
             data={"results": data, "meta": meta},
             status_code=status.HTTP_200_OK,
         )
@@ -174,7 +174,7 @@ class BodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
             ser.is_valid(raise_exception=True)
         except serializers.ValidationError as ex:
             return self.notify(
-                key="validation_error",
+                key="bodega_validacion_error",
                 data={"errors": getattr(ex, "detail", ser.errors)},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
@@ -204,7 +204,7 @@ class BodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
             ser.is_valid(raise_exception=True)
         except serializers.ValidationError as ex:
             return self.notify(
-                key="validation_error",
+                key="bodega_validacion_error",
                 data={"errors": getattr(ex, "detail", ser.errors)},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
@@ -289,133 +289,7 @@ class BodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet)
 # ---------------------------------------------------------------------------
 #  ??  CLIENTES (catálogo)
 # ---------------------------------------------------------------------------
-class ClienteViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewSet):
-    queryset = Cliente.objects.all().order_by("-id")
-    serializer_class = ClienteSerializer
-    pagination_class = GenericPagination
-    permission_classes = [IsAuthenticated, HasModulePermission]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ["is_active", "nombre", "rfc"]
-    search_fields = ["nombre", "alias", "rfc", "telefono", "email", "direccion"]
-    ordering_fields = ["nombre", "actualizado_en", "creado_en", "id"]
-    ordering = ["nombre", "id"]
 
-    _perm_map = {
-        "list":           ["view_cliente"],
-        "retrieve":       ["view_cliente"],
-        "create":         ["add_cliente"],
-        "update":         ["change_cliente"],
-        "partial_update": ["change_cliente"],
-        "destroy":        ["delete_cliente"],
-        "archivar":       ["archive_cliente"],
-        "restaurar":      ["restore_cliente"],
-    }
-
-    def get_permissions(self):
-        self.required_permissions = self._perm_map.get(self.action, ["view_cliente"])
-        return [p() for p in self.permission_classes]
-
-    def get_queryset(self):
-        qs = super().get_queryset()
-        if self.action in {"retrieve", "update", "partial_update", "destroy", "archivar", "restaurar"}:
-            return qs
-        estado = _normalize_estado(self.request.query_params.get("estado"), default="activas")
-        if estado == "activas":
-            qs = qs.filter(archivado_en__isnull=True, is_active=True)
-        elif estado == "archivadas":
-            qs = qs.filter(archivado_en__isnull=False, is_active=False)
-        return qs
-
-    def list(self, request, *args, **kwargs):
-        qs = self.filter_queryset(self.get_queryset())
-        page = self.paginate_queryset(qs)
-        if page is not None:
-            data = self.get_serializer(page, many=True).data
-            meta = self.get_pagination_meta()
-        else:
-            data = self.get_serializer(qs, many=True).data
-            meta = {
-                "count": len(data),
-                "next": None,
-                "previous": None,
-                "page": None,
-                "page_size": None,
-                "total_pages": None,
-            }
-        return self.notify(key="data_processed_success", data={"clientes": data, "meta": meta})
-
-    # Bloqueo de edición si archivado (consistencia)
-    def update(self, request, *args, **kwargs):
-        partial = kwargs.pop("partial", False)
-        instance = self.get_object()
-
-        if not instance.is_active:
-            return self.notify(
-                key="registro_archivado_no_editar",
-                data={"info": "No puedes editar un cliente archivado."},
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
-
-        ser = self.get_serializer(instance, data=request.data, partial=partial)
-        try:
-            ser.is_valid(raise_exception=True)
-        except serializers.ValidationError as ex:
-            return self.notify(
-                key="validation_error",
-                data={"errors": getattr(ex, "detail", ser.errors)},
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
-        self.perform_update(ser)
-        registrar_actividad(request.user, f"Actualizó cliente {ser.data.get('nombre')}")
-        return self.notify(
-            key="cliente_update_success",
-            data={"cliente": ser.data},
-            status_code=status.HTTP_200_OK,
-        )
-
-    def partial_update(self, request, *args, **kwargs):
-        kwargs["partial"] = True
-        return self.update(request, *args, **kwargs)
-
-    @action(detail=True, methods=["post"], url_path="archivar")
-    def archivar(self, request, pk=None):
-        instance = self.get_object()
-        if instance.archivado_en:
-            return self.notify(
-                key="cliente_ya_archivado",
-                data={"info": "El cliente ya está archivado."},
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
-        if not _has_perm_bodega(request.user, "archive_cliente"):
-            return self.notify(
-                key="permission_denied",
-                data={"info": "No tienes permiso para archivar clientes."},
-                status_code=status.HTTP_403_FORBIDDEN,
-            )
-        with transaction.atomic():
-            instance.archivar()
-        registrar_actividad(request.user, f"Archivó cliente {instance.id}")
-        return self.notify(key="cliente_archivado", data={"cliente_id": instance.id})
-
-    @action(detail=True, methods=["post"], url_path="restaurar")
-    def restaurar(self, request, pk=None):
-        instance = self.get_object()
-        if instance.is_active and not instance.archivado_en:
-            return self.notify(
-                key="cliente_ya_activo",
-                data={"info": "El cliente ya está activo."},
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
-        if not _has_perm_bodega(request.user, "restore_cliente"):
-            return self.notify(
-                key="permission_denied",
-                data={"info": "No tienes permiso para restaurar clientes."},
-                status_code=status.HTTP_403_FORBIDDEN,
-            )
-        with transaction.atomic():
-            instance.desarchivar()
-        registrar_actividad(request.user, f"Restauró cliente {instance.id}")
-        return self.notify(key="cliente_restaurado", data={"cliente_id": instance.id})
 
 
 # ---------------------------------------------------------------------------
@@ -476,7 +350,9 @@ class TemporadaBodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
                 return "registro_archivado_no_editable"
             if "la bodega esta archivada; no se pueden gestionar temporadas" in lowered:
                 return "bodega_archivada_no_permite_temporadas"
-        return "validation_error"
+            if "bodega" in lowered and "archivad" in lowered and "temporad" in lowered:
+                return "bodega_archivada_no_permite_temporadas"
+        return "temporada_validacion_error"
 
     def get_permissions(self):
         if self.action == "finalizar":
@@ -540,7 +416,7 @@ class TemporadaBodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
                 "page_size": total,
                 "total_pages": 1,
             }
-        return self.notify(key="data_processed_success", data={"temporadas": data, "meta": meta})
+        return self.notify(key="temporadas_listado_consultado", data={"temporadas": data, "meta": meta})
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -699,7 +575,7 @@ class TemporadaBodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
 
         if not temp.finalizada:
             temp.finalizada = True
-            temp.fecha_fin = timezone.now().date()
+            temp.fecha_fin = timezone.localdate()
             temp.save(update_fields=["finalizada", "fecha_fin", "actualizado_en"])
             registrar_actividad(request.user, f"Finalizó temporada bodega {getattr(temp, 'año', '')}")
             key = "temporada_finalizada"
@@ -733,14 +609,7 @@ class TemporadaBodegaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.Mode
             dependencias.append("recepciones")
         if temp.clasificaciones.exists():
             dependencias.append("clasificaciones")
-        if temp.pedidos.exists():
-            dependencias.append("pedidos")
-        if temp.camiones.exists():
-            dependencias.append("camiones")
-        if temp.compras_madera.exists():
-            dependencias.append("compras_madera")
-        if temp.inventarios_plastico.exists():
-            dependencias.append("inventarios_plastico")
+
         if temp.consumibles.exists():
             dependencias.append("consumibles")
         if temp.cierres.exists():

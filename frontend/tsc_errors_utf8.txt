@@ -1,0 +1,28 @@
+﻿src/global/store/gastosSlice.ts(9,60): error TS2339: Property 'data' does not exist on type '{}'.
+src/global/store/gastosSlice.ts(10,62): error TS2339: Property 'status' does not exist on type '{}'.
+src/global/store/gastosSlice.ts(13,50): error TS2322: Type '{}' is not assignable to type 'string'.
+src/global/store/gastosSlice.ts(53,53): error TS2339: Property 'gastos' does not exist on type '{ auth: AuthState; user: UserState; propietarios: PropietarioState; breadcrumbs: BreadcrumbsState; huerta: HuertaState; ... 16 more ...; reportePerfilHuerta: ReportePerfilHuertaState; }'.
+src/global/store/gastosSlice.ts(58,18): error TS2352: Conversion of type 'BackendResponse<any>' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Index signature for type 'string' is missing in type 'BackendResponse<any>'.
+src/global/store/gastosSlice.ts(59,26): error TS2339: Property 'results' does not exist on type '{}'.
+src/global/store/gastosSlice.ts(60,23): error TS2339: Property 'meta' does not exist on type '{}'.
+src/global/store/gastosSlice.ts(72,53): error TS2339: Property 'gastos' does not exist on type '{ auth: AuthState; user: UserState; propietarios: PropietarioState; breadcrumbs: BreadcrumbsState; huerta: HuertaState; ... 16 more ...; reportePerfilHuerta: ReportePerfilHuertaState; }'.
+src/global/store/gastosSlice.ts(77,18): error TS2352: Conversion of type 'BackendResponse<any>' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Index signature for type 'string' is missing in type 'BackendResponse<any>'.
+src/global/store/gastosSlice.ts(78,26): error TS2339: Property 'results' does not exist on type '{}'.
+src/global/store/gastosSlice.ts(79,23): error TS2339: Property 'meta' does not exist on type '{}'.
+src/global/store/gastosSlice.ts(120,179): error TS2339: Property 'message' does not exist on type '{}'.
+src/global/store/gastosSlice.ts(124,173): error TS2339: Property 'message' does not exist on type '{}'.
+src/global/store/inventariosSlice.ts(10,60): error TS2339: Property 'data' does not exist on type '{}'.
+src/global/store/inventariosSlice.ts(11,62): error TS2339: Property 'status' does not exist on type '{}'.
+src/global/store/inventariosSlice.ts(14,50): error TS2322: Type '{}' is not assignable to type 'string'.
+src/global/store/inventariosSlice.ts(51,53): error TS2339: Property 'inventarios' does not exist on type '{ auth: AuthState; user: UserState; propietarios: PropietarioState; breadcrumbs: BreadcrumbsState; huerta: HuertaState; ... 16 more ...; reportePerfilHuerta: ReportePerfilHuertaState; }'.
+src/global/store/inventariosSlice.ts(59,18): error TS2352: Conversion of type 'BackendResponse<any>' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Index signature for type 'string' is missing in type 'BackendResponse<any>'.
+src/global/store/inventariosSlice.ts(60,26): error TS2339: Property 'results' does not exist on type '{}'.
+src/global/store/inventariosSlice.ts(61,23): error TS2339: Property 'meta' does not exist on type '{}'.
+src/global/store/inventariosSlice.ts(106,44): error TS2339: Property 'message' does not exist on type '{}'.
+src/modules/gestion_bodega/components/gastos/CompraMaderaTable.tsx(38,49): error TS2339: Property 'gastos' does not exist on type '{ auth: AuthState; user: UserState; propietarios: PropietarioState; breadcrumbs: BreadcrumbsState; huerta: HuertaState; ... 16 more ...; reportePerfilHuerta: ReportePerfilHuertaState; }'.
+src/modules/gestion_bodega/components/gastos/ConsumibleTable.tsx(36,47): error TS2339: Property 'gastos' does not exist on type '{ auth: AuthState; user: UserState; propietarios: PropietarioState; breadcrumbs: BreadcrumbsState; huerta: HuertaState; ... 16 more ...; reportePerfilHuerta: ReportePerfilHuertaState; }'.
+src/modules/gestion_bodega/components/inventarios/InventarioMaderaTable.tsx(33,42): error TS2339: Property 'inventarios' does not exist on type '{ auth: AuthState; user: UserState; propietarios: PropietarioState; breadcrumbs: BreadcrumbsState; huerta: HuertaState; ... 16 more ...; reportePerfilHuerta: ReportePerfilHuertaState; }'.
+src/modules/gestion_bodega/hooks/useGastos.ts(20,41): error TS2339: Property 'gastos' does not exist on type '{ auth: AuthState; user: UserState; propietarios: PropietarioState; breadcrumbs: BreadcrumbsState; huerta: HuertaState; ... 16 more ...; reportePerfilHuerta: ReportePerfilHuertaState; }'.

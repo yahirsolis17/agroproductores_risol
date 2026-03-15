@@ -87,7 +87,7 @@ const Temporadas: React.FC = () => {
     finalizeTemporada,
     archiveTemporada,
     restoreTemporada,
-  } = useTemporadas({ enabled: !!huertaId });
+  } = useTemporadas();
 
   // Al montar/cambiar URL, fija el filtro correcto según `tipo`
   useEffect(() => {
@@ -265,6 +265,9 @@ const Temporadas: React.FC = () => {
 
     check();
     // Re-evaluar si cambia la lista (p.ej., archivar/restaurar) o el contexto
+    return () => {
+      cancelled = true;
+    };
   }, [huertaId, tipo, temporadas.length]);
 
   /* ──────────────────── Acciones CRUD / toggle ──────────────────── */

@@ -39,6 +39,7 @@ import {
 } from "@mui/icons-material";
 
 import { formatDateDisplay, formatDateISO } from "../../../../global/utils/date";
+import { formatWithThousands, normalizeNumericInput, parseIntegerInput } from "../../../../global/utils/numericInput";
 import AppDrawer from "../../../../components/common/AppDrawer";
 import { motion } from "framer-motion";
 import { capturasService } from "../../services/capturasService";
@@ -148,6 +149,161 @@ function mergeWithBase(
   }
   return base;
 }
+
+// Extraído para evitar re-render/desmontaje en React
+const QualityCard = ({
+  material,
+  quality,
+  lines,
+  inputsDisabled,
+  captured,
+  setLine,
+  bumpLine,
+  theme,
+}: {
+  material: Material;
+  quality: string;
+  lines: Record<LineKey, number>;
+  inputsDisabled: boolean;
+  captured: number;
+  setLine: (key: LineKey, val: number) => void;
+  bumpLine: (key: LineKey, delta: number) => void;
+  theme: any;
+}) => {
+  const key = `${material}.${quality}` as LineKey;
+  const committedValue = clampInt(lines[key]);
+  const meta = QUALITY_METADATA[material][quality];
+
+  // Estado local del input — solo se sincroniza al parent en blur/Enter
+  const [localValue, setLocalValue] = useState<string>(committedValue === 0 ? "" : String(committedValue));
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Sincronizar hacia abajo cuando el parent cambia (reset, hidratación, distribución)
+  useEffect(() => {
+    const str = committedValue === 0 ? "" : String(committedValue);
+    setLocalValue(str);
+  }, [committedValue]);
+
+  // Commit: aplica el valor local al state global
+  const commit = () => {
+    const newVal = clampInt(parseIntegerInput(localValue));
+    if (newVal !== committedValue) {
+      setLine(key, newVal);
+    }
+  };
+
+  return (
+    <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+      <Card
+        variant="outlined"
+        sx={{
+          p: 2,
+          borderRadius: 3,
+          border: `2px solid ${alpha(meta?.color || theme.palette.divider, 0.2)}`,
+          bgcolor: alpha(meta?.color || theme.palette.background.paper, 0.05),
+          transition: "all 0.2s",
+          height: "100%",
+          "&:hover": {
+            borderColor: alpha(meta?.color || theme.palette.primary.main, 0.4),
+            bgcolor: alpha(meta?.color || theme.palette.background.paper, 0.1),
+          },
+        }}
+      >
+        <CardContent sx={{ p: "0 !important", display: "flex", flexDirection: "column", gap: 1 }}>
+          <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", mb: 0.5 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 900, lineHeight: 1.2, textAlign: "center" }}>
+              {quality}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", textAlign: "center" }}>
+              {meta?.description}
+            </Typography>
+          </Box>
+
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <IconButton
+              size="small"
+              disabled={inputsDisabled || committedValue === 0}
+              onClick={() => bumpLine(key, -1)}
+              sx={{
+                bgcolor: alpha(theme.palette.error.main, 0.1),
+                "&:hover": { bgcolor: alpha(theme.palette.error.main, 0.2) },
+              }}
+            >
+              <RemoveIcon />
+            </IconButton>
+
+            <TextField
+              inputRef={inputRef}
+              value={formatWithThousands(localValue, { allowDecimal: false })}
+              onChange={(e) => setLocalValue(normalizeNumericInput(e.target.value, { allowDecimal: false }))}
+              onBlur={commit}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  commit();
+                  // Move focus to next input for fast data entry
+                  const allInputs = document.querySelectorAll<HTMLInputElement>(
+                    '[data-quality-input="true"]'
+                  );
+                  const idx = Array.from(allInputs).indexOf(e.target as HTMLInputElement);
+                  if (idx >= 0 && idx < allInputs.length - 1) {
+                    allInputs[idx + 1].focus();
+                    allInputs[idx + 1].select();
+                  }
+                }
+              }}
+              placeholder="0"
+              disabled={inputsDisabled}
+              type="text"
+              inputProps={{
+                min: 0,
+                "data-quality-input": "true",
+                style: {
+                  textAlign: "center",
+                  fontSize: "1.2rem",
+                  fontWeight: "bold",
+                },
+              }}
+              size="small"
+              fullWidth
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: 2,
+                  bgcolor: alpha(theme.palette.background.paper, 0.8),
+                },
+              }}
+            />
+
+            <IconButton
+              size="small"
+              disabled={inputsDisabled}
+              onClick={() => bumpLine(key, +1)}
+              sx={{
+                bgcolor: alpha(theme.palette.success.main, 0.1),
+                "&:hover": { bgcolor: alpha(theme.palette.success.main, 0.2) },
+              }}
+            >
+              <AddIcon />
+            </IconButton>
+          </Box>
+
+          <Box sx={{ display: "flex", justifyContent: "space-between", mt: 1.5 }}>
+            <Tooltip title="Porcentaje del total">
+              <Typography variant="caption" color="text.secondary">
+                {captured > 0 ? `${((committedValue / captured) * 100).toFixed(1)}%` : "0%"}
+              </Typography>
+            </Tooltip>
+            <Tooltip title="Cajas empacadas">
+              <Typography variant="caption" color="text.secondary">
+                {committedValue} cajas
+              </Typography>
+            </Tooltip>
+          </Box>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+};
+
 
 export default function EmpaqueDrawer({
   open,
@@ -318,144 +474,7 @@ export default function EmpaqueDrawer({
     setLines((prev) => ({ ...prev, [key]: Math.max(0, clampInt(prev[key]) + delta) }));
   };
 
-  // Componente de tarjeta de calidad — usa estado local para el input
-  // para evitar re-renders del parent en cada tecla
-  const QualityCard = ({ material, quality }: { material: Material; quality: string }) => {
-    const key = `${material}.${quality}` as LineKey;
-    const committedValue = clampInt(lines[key]);
-    const meta = QUALITY_METADATA[material][quality];
-
-    // Estado local del input — solo se sincroniza al parent en blur/Enter
-    const [localValue, setLocalValue] = useState<string>(committedValue === 0 ? "" : String(committedValue));
-    const inputRef = useRef<HTMLInputElement>(null);
-
-    // Sincronizar hacia abajo cuando el parent cambia (reset, hidratación, distribución)
-    useEffect(() => {
-      const str = committedValue === 0 ? "" : String(committedValue);
-      setLocalValue(str);
-    }, [committedValue]);
-
-    // Commit: aplica el valor local al state global
-    const commit = () => {
-      const newVal = clampInt(localValue);
-      if (newVal !== committedValue) {
-        setLine(key, newVal);
-      }
-    };
-
-    return (
-      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-        <Card
-          variant="outlined"
-          sx={{
-            p: 2,
-            borderRadius: 3,
-            border: `2px solid ${alpha(meta?.color || theme.palette.divider, 0.2)}`,
-            bgcolor: alpha(meta?.color || theme.palette.background.paper, 0.05),
-            transition: "all 0.2s",
-            height: "100%",
-            "&:hover": {
-              borderColor: alpha(meta?.color || theme.palette.primary.main, 0.4),
-              bgcolor: alpha(meta?.color || theme.palette.background.paper, 0.1),
-            },
-          }}
-        >
-          <CardContent sx={{ p: "0 !important", display: "flex", flexDirection: "column", gap: 1 }}>
-            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", mb: 0.5 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 900, lineHeight: 1.2, textAlign: "center" }}>
-                {quality}
-              </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: "block", textAlign: "center" }}>
-                {meta?.description}
-              </Typography>
-            </Box>
-
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <IconButton
-                size="small"
-                disabled={inputsDisabled || committedValue === 0}
-                onClick={() => bumpLine(key, -1)}
-                sx={{
-                  bgcolor: alpha(theme.palette.error.main, 0.1),
-                  "&:hover": { bgcolor: alpha(theme.palette.error.main, 0.2) },
-                }}
-              >
-                <RemoveIcon />
-              </IconButton>
-
-              <TextField
-                inputRef={inputRef}
-                value={localValue}
-                onChange={(e) => setLocalValue(e.target.value)}
-                onBlur={commit}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    commit();
-                    // Move focus to next input for fast data entry
-                    const allInputs = document.querySelectorAll<HTMLInputElement>(
-                      '[data-quality-input="true"]'
-                    );
-                    const idx = Array.from(allInputs).indexOf(e.target as HTMLInputElement);
-                    if (idx >= 0 && idx < allInputs.length - 1) {
-                      allInputs[idx + 1].focus();
-                      allInputs[idx + 1].select();
-                    }
-                  }
-                }}
-                placeholder="0"
-                disabled={inputsDisabled}
-                type="number"
-                inputProps={{
-                  min: 0,
-                  "data-quality-input": "true",
-                  style: {
-                    textAlign: "center",
-                    fontSize: "1.2rem",
-                    fontWeight: "bold",
-                  },
-                }}
-                size="small"
-                fullWidth
-                sx={{
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: 2,
-                    bgcolor: alpha(theme.palette.background.paper, 0.8),
-                  },
-                }}
-              />
-
-              <IconButton
-                size="small"
-                disabled={inputsDisabled}
-                onClick={() => bumpLine(key, +1)}
-                sx={{
-                  bgcolor: alpha(theme.palette.success.main, 0.1),
-                  "&:hover": { bgcolor: alpha(theme.palette.success.main, 0.2) },
-                }}
-              >
-                <AddIcon />
-              </IconButton>
-            </Box>
-
-            <Box sx={{ display: "flex", justifyContent: "space-between", mt: 1.5 }}>
-              <Tooltip title="Porcentaje del total">
-                <Typography variant="caption" color="text.secondary">
-                  {captured > 0 ? `${((committedValue / captured) * 100).toFixed(1)}%` : "0%"}
-                </Typography>
-              </Tooltip>
-              <Tooltip title="Cajas empacadas">
-                <Typography variant="caption" color="text.secondary">
-                  {committedValue} cajas
-                </Typography>
-              </Tooltip>
-            </Box>
-          </CardContent>
-        </Card>
-      </motion.div>
-    );
-  };
-
-  // Componente de indicador de estado
+  // Funciones de utilidad  // Componente de indicador de estado
   const StatusIndicator = () => (
     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
       <Box sx={{ position: "relative", display: "inline-flex" }}>
@@ -1069,7 +1088,16 @@ export default function EmpaqueDrawer({
           >
             {(activeTab === "PLASTICO" ? PLASTIC_QUALITIES : WOOD_QUALITIES).map((quality) => (
               <Box key={quality}>
-                <QualityCard material={activeTab} quality={quality} />
+                <QualityCard 
+                  material={activeTab} 
+                  quality={quality} 
+                  lines={lines} 
+                  inputsDisabled={inputsDisabled} 
+                  captured={captured} 
+                  setLine={setLine} 
+                  bumpLine={bumpLine} 
+                  theme={theme} 
+                />
               </Box>
             ))}
           </Box>

@@ -1,65 +1,99 @@
-name: System Canon Gate
+name: CI
 
 on:
   push:
-    branches: [ "main" ]
   pull_request:
-    branches: [ "main" ]
 
 jobs:
-  backend-checks:
+  release-grade:
     runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_DATABASE: agroproductores_risol
+          MARIADB_USER: risol
+          MARIADB_PASSWORD: risol
+          MARIADB_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mariadb-admin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      DJANGO_DEBUG: "true"
+      DJANGO_SECRET_KEY: ci-secret-key-release-grade
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,testserver
+      DB_NAME: agroproductores_risol
+      DB_USER: risol
+      DB_PASSWORD: risol
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_TEST_NAME: test_agroproductores_risol
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-          cache: 'pip'
+          python-version: "3.12"
 
-      - name: Install Backend Dependencies
-        run: |
-          pip install -r backend/requirements.txt
-        
-      - name: Django Check
-        run: |
-          cd backend
-          python manage.py check
-
-      - name: Architecture Guardrails
-        run: |
-          python check_response_canon.py
-          python check_message_keys_canon.py
-
-  frontend-checks:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node.js 20
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
 
-      - name: Install Frontend Dependencies
+      - name: Install system dependencies
         run: |
-          cd frontend
-          npm ci
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libmariadb-dev
 
-      - name: Typecheck (No Any)
+      - name: Install backend dependencies
         run: |
-          cd frontend
-          npm run typecheck
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
 
-      - name: Build (Vite)
-        run: |
-          cd frontend
-          npm run build
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
 
-      - name: Lint (Guardrails)
-        run: |
-          cd frontend
-          npm run lint
+      - name: Backend migration drift check
+        working-directory: backend
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Backend system check
+        working-directory: backend
+        run: python manage.py check --database default
+
+      - name: Backend migrate
+        working-directory: backend
+        run: python manage.py migrate --noinput
+
+      - name: Backend tests
+        working-directory: backend
+        run: python manage.py test --noinput
+
+      - name: Canon response guard
+        run: python check_response_canon.py
+
+      - name: Canon message keys guard
+        run: python check_message_keys_canon.py
+
+      - name: No React Query guard
+        run: python check_no_react_query.py
+
+      - name: TypeScript core guard
+        run: python check_ts_core_guard.py
+
+      - name: Frontend typecheck
+        working-directory: frontend
+        run: npm run typecheck
+
+      - name: Frontend lint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Frontend build
+        working-directory: frontend
+        run: npm run build

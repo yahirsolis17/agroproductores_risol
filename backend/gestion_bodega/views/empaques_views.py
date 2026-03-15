@@ -1,8 +1,10 @@
 ﻿# backend/gestion_bodega/views/empaques_views.py
 from datetime import timedelta
+from typing import Any, Optional, Dict, List, Tuple, Set
 
 from django.db import transaction
-from django.db.models import Sum, Q
+from django.db.models import Sum, Q, F
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, status, filters, serializers
@@ -14,9 +16,13 @@ from gestion_bodega.models import (
     ClasificacionEmpaque,
     Recepcion,
     CierreSemanal,
+    CompraMadera,
 )
 from gestion_bodega.permissions import HasModulePermission
-from gestion_bodega.serializers import ClasificacionEmpaqueSerializer
+from gestion_bodega.serializers import (
+    ClasificacionEmpaqueSerializer,
+    ClasificacionEmpaqueBulkUpsertSerializer,
+)
 from gestion_bodega.utils.audit import ViewSetAuditMixin
 from agroproductores_risol.utils.notification_handler import NotificationHandler
 from gestion_bodega.utils.semana import semana_cerrada_ids
@@ -25,11 +31,12 @@ from gestion_bodega.services.inventory_service import InventoryService
 
 
 class NotificationMixin:
-    def notify(self, *, key: str, data=None, status_code=status.HTTP_200_OK):
+    def notify(self, *, key: str, data: Optional[Dict[str, Any]]=None, status_code: int=status.HTTP_200_OK, extra_data: Optional[Dict[str, Any]]=None) -> Any:
         return NotificationHandler.generate_response(
             message_key=key,
             data=data or {},
             status_code=status_code,
+            extra_data=extra_data
         )
 
     def get_pagination_meta(self):
@@ -44,14 +51,47 @@ class NotificationMixin:
                 "page_size": None,
                 "total_pages": None,
             }
+        # Uso seguro de getattr para evitar warnings de tipado estricto
+        page_paginator = getattr(page, "paginator", None)
+        req = getattr(self, "request") if hasattr(self, "request") else None
+        get_page_size_fn = getattr(paginator, "get_page_size") if hasattr(paginator, "get_page_size") else None
+
         return {
-            "count": page.paginator.count,
-            "next": paginator.get_next_link(),
-            "previous": paginator.get_previous_link(),
+            "count": getattr(page_paginator, "count", 0) if page_paginator else 0,
+            "next": getattr(paginator, "get_next_link")() if hasattr(paginator, "get_next_link") else None,
+            "previous": getattr(paginator, "get_previous_link")() if hasattr(paginator, "get_previous_link") else None,
             "page": getattr(page, "number", None),
-            "page_size": paginator.get_page_size(self.request) if hasattr(paginator, "get_page_size") else None,
-            "total_pages": getattr(page.paginator, "num_pages", None),
+            "page_size": get_page_size_fn(req) if get_page_size_fn and req else None,
+            "total_pages": getattr(page_paginator, "num_pages", None) if page_paginator else None,
         }
+
+    def validation_error_to_notify(
+        self,
+        exc: serializers.ValidationError,
+        *,
+        default_key: str = "clasificacion_validacion_error",
+    ) -> Tuple[str, Dict[str, Any]]:
+        """
+        Convierte ValidationError a envelope NotificationHandler, soportando
+        message_key embebida dentro del detalle.
+        """
+        detail = getattr(exc, "detail", exc)
+        if isinstance(detail, dict):
+            raw_key = detail.get("message_key")
+            if isinstance(raw_key, (list, tuple)) and raw_key:
+                raw_key = raw_key[0]
+            key = raw_key if isinstance(raw_key, str) and raw_key.strip() else default_key
+
+            if "errors" in detail:
+                payload: Dict[str, Any] = {"errors": detail["errors"]}
+            else:
+                payload = {"errors": {k: v for k, v in detail.items() if k != "message_key"}}
+
+            if "faltantes_cajas" in detail:
+                payload["faltantes_cajas"] = detail["faltantes_cajas"]
+            return key, payload
+
+        return default_key, {"errors": detail}
 
 
 def _resolve_semana_for_fecha(bodega, temporada, fecha):
@@ -104,13 +144,14 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
 
     permission_classes = [IsAuthenticated, HasModulePermission]
     _perm_map = {
-        "list": ["view_clasificacion"],
-        "retrieve": ["view_clasificacion"],
-        "create": ["add_clasificacion"],
-        "update": ["change_clasificacion"],
-        "partial_update": ["change_clasificacion"],
-        "destroy": ["delete_clasificacion"],
-        "bulk_upsert": ["add_clasificacion"],
+        "list": ["view_clasificacionempaque"],
+        "retrieve": ["view_clasificacionempaque"],
+        "create": ["add_clasificacionempaque"],
+        "update": ["change_clasificacionempaque"],
+        "partial_update": ["change_clasificacionempaque"],
+        "destroy": ["delete_clasificacionempaque"],
+        "disponibles": ["view_clasificacionempaque"],
+        "bulk_upsert": ["add_clasificacionempaque"],
     }
 
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
@@ -130,8 +171,8 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
     ordering = ["-fecha", "-id"]
 
     def get_permissions(self):
-        # ✅ default: view_clasificacion si no está mapeada la acción
-        self.required_permissions = self._perm_map.get(self.action, ["view_clasificacion"])
+        # Default seguro: lectura de empaque si no esta mapeada la accion.
+        self.required_permissions = self._perm_map.get(self.action, ["view_clasificacionempaque"])
         return [p() for p in self.permission_classes]
 
     # ───────────────────────────────────────────────────────────────────────
@@ -159,7 +200,7 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
             }
 
         return self.notify(
-            key="data_processed_success",
+            key="clasificacion_listado_consultado",
             data={
                 "results": rows,
                 "meta": meta,
@@ -171,7 +212,7 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
         obj = self.get_object()
         row = self.get_serializer(obj).data
         return self.notify(
-            key="data_processed_success",
+            key="clasificacion_detalle_consultado",
             data={"clasificacion": row},
             status_code=status.HTTP_200_OK,
         )
@@ -189,12 +230,11 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
             semana_id = int(semana_raw) if semana_raw else None
         except (TypeError, ValueError):
              return self.notify(
-                key="validation_error",
+                key="clasificacion_validacion_error",
                 data={"detail": "bodega y temporada requeridos"},
                 status_code=status.HTTP_400_BAD_REQUEST
             )
 
-        from gestion_bodega.services.inventory_service import InventoryService
         results = InventoryService.get_available_stock_for_truck(temporada_id, bodega_id, semana_id=semana_id)
         
         return self.notify(
@@ -213,7 +253,7 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
             ser.is_valid(raise_exception=True)
         except serializers.ValidationError:
             return self.notify(
-                key="validation_error",
+                key="clasificacion_validacion_error",
                 data={"errors": ser.errors},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
@@ -226,19 +266,32 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
         if semana_cerrada_ids(bodega.id, temporada.id, f):
             return self.notify(key="clasificacion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
 
-        with transaction.atomic():
-            obj = ser.save()
+        try:
+            with transaction.atomic():
+                obj = ser.save()
 
-            # Semana: prioriza la semana de la recepción; si no, resuelve por fecha
-            semana = getattr(obj.recepcion, "semana", None) or _resolve_semana_for_fecha(bodega, temporada, f)
-            if semana != obj.semana:
-                obj.semana = semana
-                obj.save(update_fields=["semana", "actualizado_en"])
+                # Semana: prioriza la semana de la recepcion; si no, resuelve por fecha
+                semana = getattr(obj.recepcion, "semana", None) or _resolve_semana_for_fecha(bodega, temporada, f)
+                if semana != obj.semana:
+                    obj.semana = semana
+                    obj.save(update_fields=["semana", "actualizado_en"])
+        except serializers.ValidationError as exc:
+            key, payload = self.validation_error_to_notify(exc)
+            return self.notify(key=key, data=payload, status_code=status.HTTP_400_BAD_REQUEST)
+
+        extra_data = None
+        if obj.material == "MADERA":
+            stock = CompraMadera.objects.filter(
+                bodega=bodega, temporada=temporada, hay_stock=True, is_active=True
+            ).aggregate(t=Sum('stock_actual'))['t'] or 0
+            if stock < 50:
+                extra_data = {"notification": {"message": f"Empaque registrado. ATENCIÓN: Quedan {int(stock)} cajas de madera disponibles.", "type": "warning", "key": "alerta_madera"}}
 
         return self.notify(
             key="clasificacion_creada",
             data={"clasificacion": self.get_serializer(obj).data},
             status_code=status.HTTP_201_CREATED,
+            extra_data=extra_data
         )
 
     # ───────────────────────────────────────────────────────────────────────
@@ -255,7 +308,7 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
             ser.is_valid(raise_exception=True)
         except serializers.ValidationError:
             return self.notify(
-                key="validation_error",
+                key="clasificacion_validacion_error",
                 data={"errors": ser.errors},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
@@ -267,17 +320,32 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
         if semana_cerrada_ids(bodega.id, temporada.id, f):
             return self.notify(key="clasificacion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
 
-        with transaction.atomic():
-            obj = ser.save()
-            semana = getattr(obj.recepcion, "semana", None) or _resolve_semana_for_fecha(bodega, temporada, f)
-            if semana != obj.semana:
-                obj.semana = semana
-                obj.save(update_fields=["semana", "actualizado_en"])
+        try:
+            with transaction.atomic():
+                obj = ser.save()
+                semana = getattr(obj.recepcion, "semana", None) or _resolve_semana_for_fecha(bodega, temporada, f)
+                if semana != obj.semana:
+                    obj.semana = semana
+                    obj.save(update_fields=["semana", "actualizado_en"])
+        except serializers.ValidationError as exc:
+            key, payload = self.validation_error_to_notify(exc)
+            return self.notify(key=key, data=payload, status_code=status.HTTP_400_BAD_REQUEST)
+
+        extra_data = None
+        if obj.material == "MADERA":
+            from gestion_bodega.models import CompraMadera
+            from django.db.models import Sum
+            stock = CompraMadera.objects.filter(
+                bodega=bodega, temporada=temporada, hay_stock=True, is_active=True
+            ).aggregate(t=Sum('stock_actual'))['t'] or 0
+            if stock < 50:
+                extra_data = {"notification": {"message": f"Empaque actualizado. ATENCIÓN: Quedan {int(stock)} cajas de madera disponibles.", "type": "warning", "key": "alerta_madera"}}
 
         return self.notify(
             key="clasificacion_actualizada",
             data={"clasificacion": self.get_serializer(obj).data},
             status_code=status.HTTP_200_OK,
+            extra_data=extra_data
         )
 
     def partial_update(self, request, *args, **kwargs):
@@ -290,7 +358,7 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
             ser.is_valid(raise_exception=True)
         except serializers.ValidationError:
             return self.notify(
-                key="validation_error",
+                key="clasificacion_validacion_error",
                 data={"errors": ser.errors},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
@@ -302,17 +370,30 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
         if semana_cerrada_ids(bodega.id, temporada.id, f):
             return self.notify(key="clasificacion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
 
-        with transaction.atomic():
-            obj = ser.save()
-            semana = getattr(obj.recepcion, "semana", None) or _resolve_semana_for_fecha(bodega, temporada, f)
-            if semana != obj.semana:
-                obj.semana = semana
-                obj.save(update_fields=["semana", "actualizado_en"])
+        try:
+            with transaction.atomic():
+                obj = ser.save()
+                semana = getattr(obj.recepcion, "semana", None) or _resolve_semana_for_fecha(bodega, temporada, f)
+                if semana != obj.semana:
+                    obj.semana = semana
+                    obj.save(update_fields=["semana", "actualizado_en"])
+        except serializers.ValidationError as exc:
+            key, payload = self.validation_error_to_notify(exc)
+            return self.notify(key=key, data=payload, status_code=status.HTTP_400_BAD_REQUEST)
+
+        extra_data = None
+        if obj.material == "MADERA":
+            stock = CompraMadera.objects.filter(
+                bodega=bodega, temporada=temporada, hay_stock=True, is_active=True
+            ).aggregate(t=Sum('stock_actual'))['t'] or 0
+            if stock < 50:
+                extra_data = {"notification": {"message": f"Empaque actualizado. ATENCIÓN: Quedan {int(stock)} cajas de madera disponibles.", "type": "warning", "key": "alerta_madera"}}
 
         return self.notify(
             key="clasificacion_actualizada",
             data={"clasificacion": self.get_serializer(obj).data},
             status_code=status.HTTP_200_OK,
+            extra_data=extra_data
         )
 
     # ───────────────────────────────────────────────────────────────────────
@@ -347,8 +428,8 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
         # -------------------------------------------------------------------
         # FASE 1.1: Validación (Snapshot)
         # -------------------------------------------------------------------
-        payload_map = {}
-        delete_keys = set()
+        payload_map: Dict[Tuple[str, str], int] = {}
+        delete_keys: Set[Tuple[str, str]] = set()
         for item in items_payload:
             material = item["material"]
             calidad = str(item["calidad"]).strip()
@@ -374,7 +455,7 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
         if total_payload > max_cajas:
             # En bulk automático, esto debería prevenir la asignación, pero aquí validamos integridad final.
             return False, self.notify(
-                key="validation_error",
+                key="clasificacion_validacion_error",
                 data={
                     "errors": {"items": f"La suma excede el disponible en recepción {recepcion.id} ({max_cajas})."},
                     "requested_total": total_payload,
@@ -395,7 +476,7 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
                 .filter(recepcion=recepcion_locked, bodega=bodega, temporada=temporada)
             )
 
-            existing = {}
+            existing: Dict[Tuple[str, str], ClasificacionEmpaque] = {}
             for obj in existing_qs:
                 k = (obj.material, str(obj.calidad).strip())
                 existing[k] = obj
@@ -414,10 +495,10 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
                 if (material, calidad) not in existing: continue
                 obj = existing[(material, calidad)]
                 cambio = (
-                    obj.cantidad_cajas != qty
-                    or obj.is_active is False
-                    or obj.fecha != f
-                    or obj.semana_id != (semana.id if semana else None)
+                    getattr(obj, "cantidad_cajas", None) != qty
+                    or getattr(obj, "is_active", None) is False
+                    or getattr(obj, "fecha", None) != f
+                    or getattr(obj, "semana_id", None) != getattr(semana, "id", None)
                     or (str(getattr(obj, "tipo_mango", "") or "").strip() != recepcion_tipo_mango)
                 )
                 if cambio and InventoryService.has_active_consumption(obj):
@@ -437,20 +518,28 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
             # 1) Archivar
             for k in keys_to_archive:
                 obj = existing.get(k)
-                if obj: obj.archivar()
+                if obj: 
+                    # Revertir consumos de madera antes de archivar
+                    if obj.material == "MADERA":
+                        ClasificacionEmpaqueSerializer()._revertir_descuento_madera(obj)
+                    obj.archivar()
 
             # 2) Upsert
             for (material, calidad), qty in payload_map.items():
                 if (material, calidad) in existing:
                     obj = existing[(material, calidad)]
                     changed = (
-                        obj.cantidad_cajas != qty
-                        or obj.is_active is False
-                        or obj.fecha != f
-                        or obj.semana_id != (semana.id if semana else None)
+                        getattr(obj, "cantidad_cajas", None) != qty
+                        or getattr(obj, "is_active", None) is False
+                        or getattr(obj, "fecha", None) != f
+                        or getattr(obj, "semana_id", None) != getattr(semana, "id", None)
                         or (str(getattr(obj, "tipo_mango", "") or "").strip() != recepcion_tipo_mango)
                     )
                     if changed:
+                        # Si es madera, revertimos su estado exacto para recalcular después
+                        if obj.material == "MADERA":
+                            ClasificacionEmpaqueSerializer()._revertir_descuento_madera(obj)
+                            
                         obj.cantidad_cajas = qty
                         obj.is_active = True
                         obj.fecha = f
@@ -458,6 +547,19 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
                         obj.tipo_mango = recepcion_tipo_mango
                         obj.save(update_fields=["cantidad_cajas", "is_active", "fecha", "semana", "tipo_mango", "actualizado_en"])
                         updated_ids.append(obj.id)
+                        
+                        if obj.material == "MADERA":
+                            try:
+                                ClasificacionEmpaqueSerializer()._aplicar_descuento_madera(obj)
+                            except serializers.ValidationError as e:
+                                transaction.set_rollback(True)
+                                key, payload = self.validation_error_to_notify(e)
+                                return False, self.notify(
+                                    key=key,
+                                    data=payload,
+                                    status_code=status.HTTP_400_BAD_REQUEST,
+                                )
+
                 else:
                     obj = ClasificacionEmpaque.objects.create(
                         recepcion=recepcion_locked,
@@ -470,6 +572,18 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
                         tipo_mango=recepcion_tipo_mango,
                         cantidad_cajas=qty,
                     )
+                    if obj.material == "MADERA":
+                        try:
+                            ClasificacionEmpaqueSerializer()._aplicar_descuento_madera(obj)
+                        except serializers.ValidationError as e:
+                            transaction.set_rollback(True)
+                            key, payload = self.validation_error_to_notify(e)
+                            return False, self.notify(
+                                key=key,
+                                data=payload,
+                                status_code=status.HTTP_400_BAD_REQUEST,
+                            )
+                            
                     created_ids.append(obj.id)
 
             # 3) Validación final (Balance Rule P1.2)
@@ -523,15 +637,11 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
         Si 'recepcion' viene: Snapshot normal.
         Si 'recepcion' falta: FIFO automatico (distribuye items en recepciones pendientes).
         """
-        from django.db.models import F
-        from django.db.models.functions import Coalesce
-        from gestion_bodega.serializers import ClasificacionEmpaqueBulkUpsertSerializer
-
         ser = ClasificacionEmpaqueBulkUpsertSerializer(data=request.data)
         try:
             ser.is_valid(raise_exception=True)
         except serializers.ValidationError:
-            return self.notify(key="validation_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
+            return self.notify(key="clasificacion_validacion_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return self.notify(key="unexpected_error", data={"errors": str(e)}, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -589,10 +699,19 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
             if not success:
                 return result # Es un Response de error
             
+            extra_data = None
+            if any(it.get("material") == "MADERA" for it in items):
+                stock = CompraMadera.objects.filter(
+                    bodega=bodega, temporada=temporada, hay_stock=True, is_active=True
+                ).aggregate(t=Sum('stock_actual'))['t'] or 0
+                if stock < 50:
+                    extra_data = {"notification": {"message": f"Cajas empacadas. ATENCIÓN: Quedan solamente {int(stock)} cajas de madera.", "type": "warning", "key": "alerta_madera"}}
+
             return self.notify(
                 key="clasificacion_bulk_upsert_ok",
                 data=result,
                 status_code=status.HTTP_200_OK if result["updated_ids"] else status.HTTP_201_CREATED,
+                extra_data=extra_data
             )
 
         # MODO 2: FIFO AUTOMÁTICO
@@ -609,7 +728,7 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
         )
         
         # 2. Calcular total requerido
-        items_map = {} # (material, calidad) -> qty
+        items_map: Dict[Tuple[str, str], int] = {} # (material, calidad) -> qty
         for it in items:
             key = (it["material"], str(it["calidad"]).strip())
             qty = int(it.get("cantidad_cajas") or 0)
@@ -618,7 +737,7 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
         
         total_req = sum(items_map.values())
         if total_req == 0:
-             return self.notify(key="validation_error", data={"errors": "No hay items para distribuir."}, status_code=status.HTTP_400_BAD_REQUEST)
+             return self.notify(key="clasificacion_validacion_error", data={"errors": "No hay items para distribuir."}, status_code=status.HTTP_400_BAD_REQUEST)
 
         # 3. Distribuir
         # Queremos distribuir proporcionalmente o agotar rec por rec? FIFO => Agotar rec por rec.
@@ -647,12 +766,12 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
             if sum(remaining_items.values()) == 0:
                 break
                 
-            capacity = rec.saldo
+            capacity = int(getattr(rec, "saldo", 0) or 0)
             if capacity <= 0: continue
             
             # Sacar items hasta llenar capacity
-            my_batch = {} # (mat, cal) -> qty
-            filled = 0
+            my_batch: Dict[Tuple[str, str], int] = {} # (mat, cal) -> qty
+            filled: int = 0
             
             # Sort items keys to be deterministic?
             for key in sorted(remaining_items.keys()):
@@ -677,7 +796,7 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
                 # Fetch current items (DB read inside loop ok, transaction implicit in view logic?)
                 # We are not in transaction yet for the whole loop? Ideally yes.
                 current_items = ClasificacionEmpaque.objects.filter(recepcion=rec, is_active=True)
-                current_map = {}
+                current_map: Dict[Tuple[str, str], int] = {}
                 for obj in current_items:
                     k = (obj.material, str(obj.calidad).strip())
                     current_map[k] = current_map.get(k, 0) + obj.cantidad_cajas
@@ -699,7 +818,7 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
 
         if sum(remaining_items.values()) > 0:
              return self.notify(
-                key="validation_error", 
+                key="clasificacion_validacion_error", 
                 data={"errors": f"No hay suficiente saldo en recepciones anteriores a {f}. Faltan {sum(remaining_items.values())} cajas por asignar."}, 
                 status_code=status.HTTP_400_BAD_REQUEST
             )
@@ -715,11 +834,21 @@ class ClasificacionEmpaqueViewSet(ViewSetAuditMixin, NotificationMixin, viewsets
                     return result
                 consolidated_summary.append(result["summary"])
 
+        extra_data = None
+        if any(it.get("material") == "MADERA" for it in items):
+            stock = CompraMadera.objects.filter(
+                bodega=bodega, temporada=temporada, hay_stock=True, is_active=True
+            ).aggregate(t=Sum('stock_actual'))['t'] or 0
+            if stock < 50:
+                extra_data = {"notification": {"message": f"Lotes empacados (FIFO). ATENCIÓN: Quedan únicamente {int(stock)} cajas de madera.", "type": "warning", "key": "alerta_madera"}}
+
         return self.notify(
             key="clasificacion_bulk_fifo_ok",
             data={
                 "distributed_count": len(processed_recs),
                 "summaries": consolidated_summary
             },
-            status_code=status.HTTP_200_OK
+            status_code=status.HTTP_200_OK,
+            extra_data=extra_data
         )
+

@@ -1,4 +1,4 @@
-﻿# gestion_bodega/views/camiones_views.py
+# gestion_bodega/views/camiones_views.py
 from rest_framework import viewsets, status, filters, serializers
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -7,8 +7,8 @@ from django.db import transaction
 from django.core.exceptions import ValidationError as DjangoValidationError
 from datetime import timedelta
 
-from gestion_bodega.models import CamionSalida, CamionItem, CierreSemanal, CamionConsumoEmpaque
-from gestion_bodega.serializers import CamionSalidaSerializer, CamionItemSerializer, CamionConsumoEmpaqueSerializer
+from gestion_bodega.models import CamionSalida, CierreSemanal, CamionConsumoEmpaque
+from gestion_bodega.serializers import CamionSalidaSerializer, CamionConsumoEmpaqueSerializer
 from gestion_bodega.permissions import HasModulePermission
 from gestion_bodega.utils.audit import ViewSetAuditMixin
 from agroproductores_risol.utils.pagination import GenericPagination
@@ -80,15 +80,15 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
 
     permission_classes = [IsAuthenticated, HasModulePermission]
     _perm_map = {
-        "list":     ["view_camion"],
-        "retrieve": ["view_camion"],
-        "create":   ["add_camion"],
-        "update":   ["change_camion"],
-        "partial_update": ["change_camion"],
-        "destroy":  ["delete_camion"],
-        "confirmar": ["confirm_camion"],
-        "add_item": ["change_camion"],
-        "remove_item": ["change_camion"],
+        "list":     ["view_camionsalida"],
+        "retrieve": ["view_camionsalida"],
+        "create":   ["add_camionsalida"],
+        "update":   ["change_camionsalida"],
+        "partial_update": ["change_camionsalida"],
+        "destroy":  ["archive_camionsalida"],
+        "confirmar": ["change_camionsalida"],
+        "add_carga": ["change_camionsalida"],
+        "remove_carga": ["change_camionsalida"],
     }
 
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
@@ -105,20 +105,20 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
     ordering = ["-fecha_salida", "-id"]
 
     def get_permissions(self):
-        self.required_permissions = self._perm_map.get(getattr(self, "action", ""), [])
+        self.required_permissions = self._perm_map.get(getattr(self, "action", ""), ["view_camionsalida"])
         return super().get_permissions()
 
     def retrieve(self, request, *args, **kwargs):
         obj = self.get_object()
         ser = self.get_serializer(obj)
-        return self.notify(key="data_processed_success", data=ser.data, status_code=status.HTTP_200_OK)
+        return self.notify(key="camion_detalle_consultado", data=ser.data, status_code=status.HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
         ser = self.get_serializer(data=request.data)
         try:
             ser.is_valid(raise_exception=True)
         except serializers.ValidationError:
-            return self.notify(key="validation_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
+            return self.notify(key="camion_validacion_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
 
         data = ser.validated_data
         fecha = data.get("fecha_salida")
@@ -131,7 +131,7 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
             semana = _resolve_semana_for_fecha(data["bodega"], data["temporada"], fecha)
             if not semana:
                 return self.notify(
-                    key="validation_error",
+                    key="camion_semana_invalida",
                     data={"errors": {"semana": ["No hay semana activa para la fecha."]}},
                     status_code=status.HTTP_400_BAD_REQUEST,
                 )
@@ -151,7 +151,7 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
         try:
             ser.is_valid(raise_exception=True)
         except serializers.ValidationError:
-            return self.notify(key="validation_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
+            return self.notify(key="camion_validacion_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
 
         data = ser.validated_data
         fecha = data.get("fecha_salida", getattr(obj, "fecha_salida", None))
@@ -175,7 +175,7 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
         try:
             ser.is_valid(raise_exception=True)
         except serializers.ValidationError:
-            return self.notify(key="validation_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
+            return self.notify(key="camion_validacion_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
 
         data = ser.validated_data
         fecha = data.get("fecha_salida", getattr(obj, "fecha_salida", None))
@@ -252,53 +252,7 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
             status_code=status.HTTP_200_OK
         )
 
-    # ----- Items del camión (manifiesto) -----
-    @action(detail=True, methods=["post"], url_path="items/add")
-    def add_item(self, request, pk=None):
-        obj = self.get_object()
-        ser = CamionItemSerializer(data={**request.data, "camion": obj.id})
-        try:
-            ser.is_valid(raise_exception=True)
-        except serializers.ValidationError:
-            return self.notify(key="validation_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
 
-        if _semana_cerrada(obj.bodega_id, obj.temporada_id, obj.fecha_salida):
-            return self.notify(key="camion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
-        
-        # P0.3 Integrity: Seal manifest if confirmed
-        if obj.estado == "CONFIRMADO":
-            return self.notify(key="camion_inmutable", status_code=status.HTTP_409_CONFLICT)
-
-        with transaction.atomic():
-            item = ser.save()
-
-        return self.notify(key="camion_item_creado", data={"item": CamionItemSerializer(item).data}, status_code=status.HTTP_201_CREATED)
-
-    @action(detail=True, methods=["post"], url_path="items/remove")
-    def remove_item(self, request, pk=None):
-        obj = self.get_object()
-        item_id = request.data.get("item_id")
-        if not item_id:
-            return self.notify(key="validation_error", data={"errors": {"item_id": ["Este campo es requerido."]}}, status_code=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            item = obj.items.get(pk=item_id)
-        except CamionItem.DoesNotExist:
-            return self.notify(key="camion_item_no_encontrado", status_code=status.HTTP_404_NOT_FOUND)
-
-        if _semana_cerrada(obj.bodega_id, obj.temporada_id, obj.fecha_salida):
-            return self.notify(key="camion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
-
-        # P0.3 Integrity: Seal manifest if confirmed
-        if obj.estado == "CONFIRMADO":
-            return self.notify(key="camion_inmutable", status_code=status.HTTP_409_CONFLICT)
-
-        with transaction.atomic():
-            item.archivar()
-
-        return self.notify(key="camion_item_archivado", status_code=status.HTTP_200_OK)
-
-    # ----- Cargas reales (consumo de stock) -----
     @action(detail=True, methods=["post"], url_path="cargas/add")
     def add_carga(self, request, pk=None):
         """
@@ -333,7 +287,7 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
             # Validar que vengan todos los campos requeridos
             if not all([calidad, material, tipo_mango, cantidad]):
                 return self.notify(
-                    key="validation_error",
+                    key="camion_carga_validacion_error",
                     data={
                         "errors": {
                             "detail": "Debe enviar clasificacion_id O (calidad + material + tipo_mango + cantidad)"
@@ -348,7 +302,7 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
                     raise ValueError("Cantidad debe ser mayor a 0")
             except (ValueError, TypeError):
                 return self.notify(
-                    key="validation_error",
+                    key="camion_carga_validacion_error",
                     data={"errors": {"cantidad": ["Cantidad inválida"]}},
                     status_code=status.HTTP_400_BAD_REQUEST,
                 )
@@ -369,7 +323,7 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
                 )
             except DjangoValidationError as e:
                 return self.notify(
-                    key="validation_error",
+                    key="camion_carga_validacion_error",
                     data={"errors": {"detail": str(e)}},
                     status_code=status.HTTP_400_BAD_REQUEST,
                 )
@@ -398,7 +352,7 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
         try:
             ser.is_valid(raise_exception=True)
         except serializers.ValidationError:
-            return self.notify(key="validation_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
+            return self.notify(key="camion_carga_validacion_error", data={"errors": ser.errors}, status_code=status.HTTP_400_BAD_REQUEST)
 
         if obj.fecha_salida and _semana_cerrada(obj.bodega_id, obj.temporada_id, obj.fecha_salida):
             return self.notify(key="camion_semana_cerrada", status_code=status.HTTP_409_CONFLICT)
@@ -421,7 +375,7 @@ class CamionSalidaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelVi
         
         carga_id = request.data.get("carga_id")
         if not carga_id:
-            return self.notify(key="validation_error", data={"errors": {"carga_id": ["Requerido"]}}, status_code=status.HTTP_400_BAD_REQUEST)
+            return self.notify(key="camion_carga_id_requerido", data={"errors": {"carga_id": ["Requerido"]}}, status_code=status.HTTP_400_BAD_REQUEST)
 
         try:
             carga = obj.cargas.get(pk=carga_id)

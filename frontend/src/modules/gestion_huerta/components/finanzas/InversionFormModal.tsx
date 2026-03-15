@@ -15,16 +15,17 @@ import {
 } from '../../types/inversionTypes';
 
 import { PermissionButton } from '../../../../components/common/PermissionButton';
-import { handleBackendNotification } from '../../../../global/utils/NotificationEngine';
 import { applyBackendErrorsToFormik } from '../../../../global/validation/backendFieldErrors';
 import { focusFirstError } from '../../../../global/validation/focusFirstError';
 import FormikDateField from '../../../../components/common/form/FormikDateField';
+import FormikNumberField from '../../../../components/common/form/FormikNumberField';
 import FormikTextField from '../../../../components/common/form/FormikTextField';
 import FormAlertBanner from '../../../../components/common/form/FormAlertBanner';
 import useCategoriasInversion from '../../hooks/useCategoriasInversion';
 import { CategoriaInversion } from '../../types/categoriaInversionTypes';
 import CategoriaInversionFormModal from './CategoriaFormModal';
 import CategoriaAutocomplete from './CategoriaAutocomplete';
+import { parseIntegerInput } from '../../../../global/utils/numericInput';
 
 /** YYYY-MM-DD local */
 function formatLocalDateYYYYMMDD(d = new Date()) {
@@ -33,23 +34,6 @@ function formatLocalDateYYYYMMDD(d = new Date()) {
   const day = String(d.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
-
-/** enteros (sin decimales) desde UI con comas */
-function parseMXNumber(input: string): number {
-  if (!input) return 0;
-  const cleaned = input.replace(/\s+/g, '').replace(/,/g, '');
-  const n = Math.trunc(Number(cleaned));
-  return Number.isFinite(n) ? n : 0;
-}
-
-/** enteros formateados es-MX (sin decimales) */
-function formatMX(input: string | number): string {
-  if (input === '' || input === null || input === undefined) return '';
-  const n = typeof input === 'number' ? input : parseMXNumber(input);
-  if (!Number.isFinite(n)) return '';
-  return Math.trunc(n).toLocaleString('es-MX', { maximumFractionDigits: 0 });
-}
-
 
 type FormValues = {
   fecha: string;
@@ -67,21 +51,16 @@ const schema = Yup.object({
   categoria: Yup.number().min(1, 'Selecciona una categoría').required('La categoría es requerida'),
   gastos_insumos: Yup.string()
     .required('El gasto de insumos es requerido')
-    .test('solo-numeros', 'Ingresa solo números y comas', (value?: string) => {
-      if (!value) return false;
-      // allow digits, spaces and commas only
-      const cleaned = value.replace(/[\s,]/g, '');
-      return /^\d+$/.test(cleaned);
-    })
-    .test('mayor-cero', 'Debe ser mayor que 0', (value?: string) => parseMXNumber(value || '') > 0),
+    .test('mayor-cero', 'Debe ser mayor que 0', (value?: string) => {
+      const n = parseIntegerInput(value ?? '');
+      return Number.isFinite(n) && n > 0;
+    }),
   gastos_mano_obra: Yup.string()
     .required('El gasto de mano de obra es requerido')
-    .test('solo-numeros', 'Ingresa solo números y comas', (value?: string) => {
-      if (!value) return false;
-      const cleaned = value.replace(/[\s,]/g, '');
-      return /^\d+$/.test(cleaned);
-    })
-    .test('mayor-cero', 'Debe ser mayor que 0', (value?: string) => parseMXNumber(value || '') > 0),
+    .test('mayor-cero', 'Debe ser mayor que 0', (value?: string) => {
+      const n = parseIntegerInput(value ?? '');
+      return Number.isFinite(n) && n > 0;
+    }),
   descripcion: Yup.string().max(250, 'Máximo 250 caracteres'),
 });
 
@@ -112,8 +91,8 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
   const initialFormValues: FormValues = initialValues ? {
     fecha: initialValues.fecha,
     categoria: initialValues.categoria,
-    gastos_insumos: initialValues.gastos_insumos ? formatMX(initialValues.gastos_insumos) : '',
-    gastos_mano_obra: initialValues.gastos_mano_obra ? formatMX(initialValues.gastos_mano_obra) : '',
+    gastos_insumos: initialValues.gastos_insumos != null ? String(initialValues.gastos_insumos) : '',
+    gastos_mano_obra: initialValues.gastos_mano_obra != null ? String(initialValues.gastos_mano_obra) : '',
     descripcion: initialValues.descripcion ?? '',
   } : {
     fecha: formatLocalDateYYYYMMDD(new Date()),
@@ -132,11 +111,13 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
   };
 
   const handleSubmit = async (vals: FormValues, helpers: FormikHelpers<FormValues>) => {
+    const gastosInsumos = parseIntegerInput(vals.gastos_insumos);
+    const gastosManoObra = parseIntegerInput(vals.gastos_mano_obra);
     const payload: InversionCreateData | InversionUpdateData = {
       fecha: vals.fecha,
       categoria: Number(vals.categoria),
-      gastos_insumos: parseMXNumber(vals.gastos_insumos),
-      gastos_mano_obra: parseMXNumber(vals.gastos_mano_obra),
+      gastos_insumos: Number.isFinite(gastosInsumos) ? gastosInsumos : 0,
+      gastos_mano_obra: Number.isFinite(gastosManoObra) ? gastosManoObra : 0,
       descripcion: vals.descripcion || '',
     };
 
@@ -147,51 +128,9 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
     } catch (err: unknown) {
       const normalized = applyBackendErrorsToFormik(err, helpers);
       setFormErrors(normalized.formErrors);
-      if (!Object.keys(normalized.fieldErrors).length && !normalized.formErrors.length) {
-        const backend = (err as any)?.data || (err as any)?.response?.data || {};
-        handleBackendNotification(backend);
-      }
     } finally {
       helpers.setSubmitting(false);
     }
-  };
-
-  /**
-   * Maneja el cambio en campos de dinero.
-   * Evalúa el valor crudo para detectar caracteres inválidos, negativos o cero.
-   * Formatea el valor para mostrar con comas (es-MX) y registra mensajes de error específicos.
-   */
-  const handleMoneyChange = (
-    field: 'gastos_insumos' | 'gastos_mano_obra',
-    raw: string,
-    setFieldValue: (f: string, v: unknown) => void
-  ) => {
-    let errorMsg: string | undefined;
-    // Detect invalid characters: anything other than digits, spaces or commas
-    if (/[^0-9\s,]/.test(raw)) {
-      errorMsg = 'Ingresa solo números y comas';
-      setFieldValue(field, raw);
-      formikRef.current?.setFieldError(field, errorMsg);
-      return;
-    }
-    // Detect negative sign
-    if (/-/.test(raw)) {
-      errorMsg = 'No se permiten números negativos';
-      setFieldValue(field, raw);
-      formikRef.current?.setFieldError(field, errorMsg);
-      return;
-    }
-    // Remove non-digit characters to parse
-    const cleaned = raw.replace(/[\s,]/g, '');
-    const n = Number(cleaned);
-    // If not a finite number or <= 0, set error
-    if (!Number.isFinite(n) || n <= 0) {
-      errorMsg = 'Debe ser mayor que 0';
-    }
-    // Format display with locale (es-MX) grouping separators
-    const formatted = cleaned ? Math.trunc(n).toLocaleString('es-MX', { maximumFractionDigits: 0 }) : '';
-    setFieldValue(field, formatted);
-    formikRef.current?.setFieldError(field, errorMsg);
   };
 
   return (
@@ -215,7 +154,7 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
           validateOnMount={false}
           onSubmit={handleSubmit}
         >
-          {({ values, isSubmitting, handleChange, handleBlur, setFieldValue, setTouched, validateForm }) => (
+          {({ values, isSubmitting, handleChange, handleBlur, setTouched, validateForm }) => (
             <Form
               onSubmit={async (event) => {
                 event.preventDefault();
@@ -254,14 +193,11 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
                 <CategoriaAutocomplete name="categoria" label="Categoría" />
 
                 {/* Gasto insumos */}
-                <FormikTextField
+                <FormikNumberField
                   label="Gasto insumos"
                   name="gastos_insumos"
-                  value={values.gastos_insumos}
-                  onChange={(e) =>
-                    handleMoneyChange('gastos_insumos', e.target.value, setFieldValue)
-                  }
-                  onBlur={handleBlur}
+                  thousandSeparator
+                  allowDecimal={false}
                   inputMode="numeric"
                   placeholder="Ej. 12,500"
                   margin="normal"
@@ -269,14 +205,11 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
                 />
 
                 {/* Gastos mano de obra */}
-                <FormikTextField
+                <FormikNumberField
                   label="Gasto mano de obra"
                   name="gastos_mano_obra"
-                  value={values.gastos_mano_obra}
-                  onChange={(e) =>
-                    handleMoneyChange('gastos_mano_obra', e.target.value, setFieldValue)
-                  }
-                  onBlur={handleBlur}
+                  thousandSeparator
+                  allowDecimal={false}
                   inputMode="numeric"
                   placeholder="Ej. 8,000"
                   margin="normal"

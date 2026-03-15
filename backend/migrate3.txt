@@ -1,0 +1,185 @@
+﻿Operations to perform:
+  Target specific migration: 0015_remove_pedido_cliente_and_more, from gestion_bodega
+Running pre-migrate handlers for application gestion_usuarios
+Running pre-migrate handlers for application gestion_huerta
+Running pre-migrate handlers for application gestion_bodega
+Running pre-migrate handlers for application admin
+Running pre-migrate handlers for application auth
+Running pre-migrate handlers for application contenttypes
+Running pre-migrate handlers for application sessions
+Running pre-migrate handlers for application rest_framework_simplejwt
+Running pre-migrate handlers for application authtoken
+Running pre-migrate handlers for application token_blacklist
+Running migrations:
+python : Traceback (most recent call last):
+At line:1 char:1
++ python -c "import os, traceback; 
+os.environ['DJANGO_SETTINGS_MODULE'] ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback 
+    (most recent call last)::String) [], RemoteExcept  
+  ion
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSof
+twareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\lo
+cal-packages\Python312\site-packages\django\db\backends
+\utils.py", line 103, in _execute
+    return self.cursor.execute(sql)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSof
+twareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\lo
+cal-packages\Python312\site-packages\django\db\backends
+\mysql\base.py", line 76, in execute
+    return self.cursor.execute(query, args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSof
+twareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\lo
+cal-packages\Python312\site-packages\MySQLdb\cursors.py
+", line 179, in execute
+    res = self._query(mogrified_query)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSof
+twareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\lo
+cal-packages\Python312\site-packages\MySQLdb\cursors.py
+", line 330, in _query
+    db.query(q)
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSof
+twareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\lo
+cal-packages\Python312\site-packages\MySQLdb\connection
+s.py", line 280, in query
+    _mysql.connection.query(self, query)
+MySQLdb.OperationalError: (1072, "Key column 
+'cliente_id' doesn't exist in table")
+
+The above exception was the direct cause of the 
+following exception:
+
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSof
+twareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\lo
+cal-packages\Python312\site-packages\django\core\manage
+ment\__init__.py", line 194, in call_command
+    return command.execute(*args, **defaults)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSof
+twareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\lo
+cal-packages\Python312\site-packages\django\core\manage
+ment\base.py", line 459, in execute
+    output = self.handle(*args, **options)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSof
+twareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\lo
+cal-packages\Python312\site-packages\django\core\manage
+ment\base.py", line 107, in wrapper
+    res = handle_func(*args, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSof
+twareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\lo
+cal-packages\Python312\site-packages\django\core\manage
+ment\commands\migrate.py", line 356, in handle
+    post_migrate_state = executor.migrate(
+                         ^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSof
+twareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\lo
+cal-packages\Python312\site-packages\django\db\migratio
+ns\executor.py", line 135, in migrate
+    state = self._migrate_all_forwards(
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSof
+twareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\lo
+cal-packages\Python312\site-packages\django\db\migratio
+ns\executor.py", line 167, in _migrate_all_forwards
+    state = self.apply_migration(
+            ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSof
+twareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\lo
+cal-packages\Python312\site-packages\django\db\migratio
+ns\executor.py", line 252, in apply_migration
+    state = migration.apply(state, schema_editor)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSof
+twareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\lo
+cal-packages\Python312\site-packages\django\db\migratio
+ns\migration.py", line 132, in apply
+    operation.database_forwards(
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSof
+twareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\lo
+cal-packages\Python312\site-packages\django\db\migratio
+ns\operations\special.py", line 37, in 
+database_forwards
+    database_operation.database_forwards(
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSof
+twareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\lo
+cal-packages\Python312\site-packages\django\db\migratio
+ns\operations\special.py", line 193, in 
+database_forwards
+    self.code(from_state.apps, schema_editor)
+  File "C:\Users\Yahir\agroproductores_risol\backend\ge
+stion_bodega\migrations\0015_remove_pedido_cliente_and_
+more.py", line 60, in safe_drop_fk_and_column
+    cur.execute(f"ALTER TABLE `{table}` DROP COLUMN 
+`{col}`")
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSof
+twareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\lo
+cal-packages\Python312\site-packages\django\db\backends
+\utils.py", line 122, in execute
+    return super().execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSof
+twareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\lo
+cal-packages\Python312\site-packages\django\db\backends
+\utils.py", line 79, in execute
+    return self._execute_with_wrappers(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSof
+twareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\lo
+cal-packages\Python312\site-packages\django\db\backends
+\utils.py", line 92, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSof
+twareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\lo
+cal-packages\Python312\site-packages\django\db\backends
+\utils.py", line 100, in _execute
+    with self.db.wrap_database_errors:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSof
+twareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\lo
+cal-packages\Python312\site-packages\django\db\utils.py
+", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from 
+exc_value
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSof
+twareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\lo
+cal-packages\Python312\site-packages\django\db\backends
+\utils.py", line 103, in _execute
+    return self.cursor.execute(sql)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSof
+twareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\lo
+cal-packages\Python312\site-packages\django\db\backends
+\mysql\base.py", line 76, in execute
+    return self.cursor.execute(query, args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSof
+twareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\lo
+cal-packages\Python312\site-packages\MySQLdb\cursors.py
+", line 179, in execute
+    res = self._query(mogrified_query)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSof
+twareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\lo
+cal-packages\Python312\site-packages\MySQLdb\cursors.py
+", line 330, in _query
+    db.query(q)
+  File "C:\Users\Yahir\AppData\Local\Packages\PythonSof
+twareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\lo
+cal-packages\Python312\site-packages\MySQLdb\connection
+s.py", line 280, in query
+    _mysql.connection.query(self, query)
+django.db.utils.OperationalError: (1072, "Key column 
+'cliente_id' doesn't exist in table")
+  Applying gestion_bodega.0015_remove_pedido_cliente_and_more...
