@@ -96,10 +96,14 @@ def _group_by_date(items: List[Dict[str, Any]], date_key: str, value_key: str) -
 def _validar_permisos_cosecha(usuario, cosecha) -> bool:
     """
     Permite ver reporte si:
-    - superuser/staff, o
+    - role admin, superuser/staff, o
     - tiene permiso `gestion_huerta.view_cosecha`.
     """
-    if getattr(usuario, "is_superuser", False) or getattr(usuario, "is_staff", False):
+    if (
+        getattr(usuario, "role", None) == "admin"
+        or getattr(usuario, "is_superuser", False)
+        or getattr(usuario, "is_staff", False)
+    ):
         return True
     if hasattr(usuario, "has_perm") and usuario.has_perm("gestion_huerta.view_cosecha"):
         return True
@@ -258,20 +262,12 @@ def generar_reporte_cosecha(
     formato: str = "json",
     force_refresh: bool = False,
     cosecha_inst: Optional[Cosecha] = None,
+    skip_permission_check: bool = False,
 ) -> Dict[str, Any]:
     """
     Genera el reporte completo de una cosecha (JSON).
-    Cachea por (cosecha_id, formato, uid). Aísla datos por permisos del solicitante.
+    Cachea por (cosecha_id, formato, uid) después de validar permisos.
     """
-    cache_key = generate_cache_key(
-        "cosecha",
-        {"cosecha_id": cosecha_id, "formato": formato, "uid": getattr(usuario, "id", None)},
-    )
-    if not force_refresh:
-        cached = cache.get(cache_key)
-        if cached:
-            return cached
-
     if cosecha_inst is not None:
         cosecha = cosecha_inst
     else:
@@ -299,8 +295,17 @@ def generar_reporte_cosecha(
         except Cosecha.DoesNotExist:
             raise ValidationError("Cosecha no encontrada")
 
-    if not _validar_permisos_cosecha(usuario, cosecha):
+    if not skip_permission_check and not _validar_permisos_cosecha(usuario, cosecha):
         raise PermissionDenied("Sin permisos para generar este reporte")
+
+    cache_key = generate_cache_key(
+        "cosecha",
+        {"cosecha_id": cosecha_id, "formato": formato, "uid": getattr(usuario, "id", None)},
+    )
+    if not force_refresh:
+        cached = cache.get(cache_key)
+        if cached:
+            return cached
 
     origen = cosecha.huerta or cosecha.huerta_rentada
     origen_nombre = safe_str(getattr(origen, "nombre", None) or safe_str(origen)) if origen else "N/A"

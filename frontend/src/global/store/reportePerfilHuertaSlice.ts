@@ -23,9 +23,9 @@ const initialState: ReportePerfilHuertaState = {
 
 export const fetchReportePerfilHuerta = createAsyncThunk<
   { data: ReporteProduccionData; huertaId?: number; huertaRentadaId?: number; años: number },
-  { huertaId?: number; huertaRentadaId?: number; años?: number },
+  { huertaId?: number; huertaRentadaId?: number; años?: number; forceRefresh?: boolean },
   { rejectValue: string }
->('reportePerfilHuerta/fetch', async ({ huertaId, huertaRentadaId, años }, { rejectWithValue }) => {
+>('reportePerfilHuerta/fetch', async ({ huertaId, huertaRentadaId, años, forceRefresh }, { rejectWithValue }) => {
   try {
     const resp = await withRetry(() =>
       reportesProduccionService.generarReportePerfilHuerta({
@@ -33,6 +33,7 @@ export const fetchReportePerfilHuerta = createAsyncThunk<
         huerta_id: huertaId,
         huerta_rentada_id: huertaRentadaId,
         años: años ?? 5,
+        force_refresh: forceRefresh,
       })
     );
     if (!resp.success) {

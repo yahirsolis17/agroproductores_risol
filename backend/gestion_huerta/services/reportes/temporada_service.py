@@ -29,7 +29,7 @@ from django.core.exceptions import ValidationError, PermissionDenied
 from django.db.models import Prefetch
 from django.utils import timezone
 
-from gestion_huerta.models import Temporada, Cosecha, InversionesHuerta, Venta
+from gestion_huerta.models import Temporada, Cosecha, InversionesHuerta, PreCosecha, Venta
 from gestion_huerta.services.exportacion_service import ExportacionService
 from gestion_huerta.services.reportes.cosecha_service import generar_reporte_cosecha
 from gestion_huerta.utils.cache_keys import (
@@ -90,8 +90,12 @@ def _group_by_date(items: List[Dict[str, Any]], date_key: str, value_key: str) -
     return [{"fecha": k, "valor": Flt(v)} for k, v in sorted(bucket.items())]
 
 def _validar_permisos_temporada(usuario, temporada) -> bool:
-    """Permite ver si superuser/staff o `has_perm('gestion_huerta.view_temporada')`."""
-    if getattr(usuario, "is_superuser", False) or getattr(usuario, "is_staff", False):
+    """Permite ver si role admin, superuser/staff o `has_perm('gestion_huerta.view_temporada')`."""
+    if (
+        getattr(usuario, "role", None) == "admin"
+        or getattr(usuario, "is_superuser", False)
+        or getattr(usuario, "is_staff", False)
+    ):
         return True
     return hasattr(usuario, "has_perm") and usuario.has_perm("gestion_huerta.view_temporada")
 
@@ -141,6 +145,7 @@ def _build_ui_from_temporada(
     rep: Dict[str, Any],
     detalle_inversiones_all: List[Dict[str, Any]],
     detalle_ventas_all: List[Dict[str, Any]],
+    detalle_precosechas_all: List[Dict[str, Any]],
 ) -> Dict[str, Any]:
     """Construye estructura `ui` (KPIs, series, tablas) para frontend."""
     re = rep.get("resumen_ejecutivo", {}) or {}
@@ -148,11 +153,13 @@ def _build_ui_from_temporada(
         {"label": "Inversión Total", "value": re.get("inversion_total", 0.0), "format": "currency"},
         {"label": "Ventas Totales", "value": re.get("ventas_totales", 0.0), "format": "currency"},
         {"label": "Ganancia Neta", "value": re.get("ganancia_neta", 0.0), "format": "currency"},
+        {"label": "Gastos Anticipados", "value": re.get("precosecha_total", 0.0), "format": "currency"},
         {"label": "ROI Temporada", "value": re.get("roi_temporada", 0.0), "format": "percentage"},
         {"label": "Productividad (cajas/ha)", "value": re.get("productividad", 0.0), "format": "number"},
         {"label": "Cajas Totales", "value": re.get("cajas_totales", 0), "format": "number"},
     ]
     series_inv = _group_by_date(detalle_inversiones_all, "fecha", "total")
+    series_pre = _group_by_date(detalle_precosechas_all, "fecha", "total")
     series_ven = _group_by_date(detalle_ventas_all, "fecha", "total_venta")
     series_gan = _group_by_date(
         [{"fecha": v.get("fecha"), "valor": Flt(D(v.get("total_venta")) - D(v.get("gasto")))} for v in detalle_ventas_all],
@@ -169,6 +176,16 @@ def _build_ui_from_temporada(
                 "monto": it.get("total"),
             }
             for it in detalle_inversiones_all
+        ],
+        "precosechas": [
+            {
+                "id": it.get("id"),
+                "fecha": it.get("fecha"),
+                "categoria": it.get("categoria"),
+                "descripcion": it.get("descripcion"),
+                "monto": it.get("total"),
+            }
+            for it in detalle_precosechas_all
         ],
         "ventas": [
             {
@@ -196,7 +213,16 @@ def _build_ui_from_temporada(
             for row in rep.get("comparativo_cosechas", []) or []
         ],
     }
-    return {"kpis": kpis, "series": {"inversiones": series_inv, "ventas": series_ven, "ganancias": series_gan}, "tablas": tablas}
+    return {
+        "kpis": kpis,
+        "series": {
+            "inversiones": series_inv,
+            "precosechas": series_pre,
+            "ventas": series_ven,
+            "ganancias": series_gan,
+        },
+        "tablas": tablas,
+    }
 
 def _validar_integridad_reporte(reporte_data: Dict[str, Any]) -> bool:
     """Valida solo `fecha_generacion` (no >5 min en el futuro) para reportes de temporada."""
@@ -220,19 +246,13 @@ def generar_reporte_temporada(
     formato: str = "json",
     force_refresh: bool = False,
     temporada_inst: Optional[Temporada] = None,
+    skip_permission_check: bool = False,
 ) -> Dict[str, Any]:
     """
     Genera el reporte agregado de la temporada (JSON) sumando sus cosechas.
-    Cachea por (temporada_id, formato, uid). Reutiliza cosechas prefeteadas para evitar roundtrips.
+    Cachea por (temporada_id, formato, uid) después de validar permisos.
+    Reutiliza cosechas prefeteadas para evitar roundtrips.
     """
-    cache_key = generate_cache_key(
-        "temporada", {"temporada_id": temporada_id, "formato": formato, "uid": getattr(usuario, "id", None)}
-    )
-    if not force_refresh:
-        cached = cache.get(cache_key)
-        if cached:
-            return cached
-
     if temporada_inst is not None:
         temporada = temporada_inst
     else:
@@ -260,8 +280,16 @@ def generar_reporte_temporada(
         except Temporada.DoesNotExist:
             raise ValidationError("Temporada no encontrada")
 
-    if not _validar_permisos_temporada(usuario, temporada):
+    if not skip_permission_check and not _validar_permisos_temporada(usuario, temporada):
         raise PermissionDenied("Sin permisos para generar este reporte")
+
+    cache_key = generate_cache_key(
+        "temporada", {"temporada_id": temporada_id, "formato": formato, "uid": getattr(usuario, "id", None)}
+    )
+    if not force_refresh:
+        cached = cache.get(cache_key)
+        if cached:
+            return cached
 
     cosechas = list(temporada.cosechas.all())
     origen = temporada.huerta or temporada.huerta_rentada
@@ -272,14 +300,23 @@ def generar_reporte_temporada(
     total_inversiones = Decimal("0")
     total_ventas = Decimal("0")
     total_gastos_venta = Decimal("0")
+    total_precosecha = Decimal("0")
     total_cajas = 0
     cosechas_data: List[Dict[str, Any]] = []
 
     detalle_inversiones_all: List[Dict[str, Any]] = []
+    detalle_precosechas_all: List[Dict[str, Any]] = []
     detalle_ventas_all: List[Dict[str, Any]] = []
 
     for c in cosechas:
-        rep_c = generar_reporte_cosecha(c.id, usuario, "json", force_refresh=force_refresh, cosecha_inst=c)
+        rep_c = generar_reporte_cosecha(
+            c.id,
+            usuario,
+            "json",
+            force_refresh=force_refresh,
+            cosecha_inst=c,
+            skip_permission_check=True,
+        )
         inv_c = D(rep_c["resumen_financiero"]["total_inversiones"])
         ven_c = D(rep_c["resumen_financiero"]["total_ventas"])
         gas_c = D(rep_c["resumen_financiero"]["total_gastos_venta"])
@@ -318,6 +355,29 @@ def generar_reporte_temporada(
         .select_related("categoria")
     )
     todas_ventas = Venta.objects.filter(is_active=True, cosecha__temporada=temporada)
+    todas_precosechas = (
+        PreCosecha.objects
+        .filter(is_active=True, temporada=temporada)
+        .select_related("categoria")
+        .order_by("-fecha", "-id")
+    )
+
+    for precosecha in todas_precosechas:
+        total = D(precosecha.gastos_insumos) + D(precosecha.gastos_mano_obra)
+        total_precosecha += total
+        detalle_precosechas_all.append(
+            {
+                "id": precosecha.id,
+                "fecha": _date_only(precosecha.fecha),
+                "categoria": safe_str(getattr(getattr(precosecha, "categoria", None), "nombre", "Sin categoría")),
+                "descripcion": safe_str(precosecha.descripcion),
+                "gastos_insumos": Flt(precosecha.gastos_insumos),
+                "gastos_mano_obra": Flt(precosecha.gastos_mano_obra),
+                "total": Flt(total),
+            }
+        )
+
+    ganancia_neta_con_precosecha = ganancia_neta - total_precosecha
 
     fi = _date_only(temporada.fecha_inicio)
     ff = _date_only(temporada.fecha_fin)
@@ -340,6 +400,7 @@ def generar_reporte_temporada(
                 "temporada_año": getattr(temporada, "año", None),
                 "fecha_inicio": fi,
                 "fecha_fin": ff,
+                "estado_operativo": getattr(temporada, "estado_operativo", None),
             },
         },
         "informacion_general": {
@@ -352,14 +413,17 @@ def generar_reporte_temporada(
             "fecha_inicio": fi,
             "fecha_fin": ff,
             "estado": "Finalizada" if getattr(temporada, "finalizada", False) else "Activa",
+            "estado_operativo": getattr(temporada, "estado_operativo", None),
             "total_cosechas": len(cosechas_data),
             "hectareas": Flt(hectareas),
         },
         "resumen_ejecutivo": {
             "inversion_total": Flt(total_inversiones),
+            "precosecha_total": Flt(total_precosecha),
             "ventas_totales": Flt(total_ventas),
             "ventas_netas": Flt(ganancia_bruta),
             "ganancia_neta": Flt(ganancia_neta),
+            "ganancia_neta_con_precosecha": Flt(ganancia_neta_con_precosecha),
             "roi_temporada": Flt(roi_temporada),
             "productividad": Flt(D(total_cajas) / hectareas) if hectareas > 0 else 0.0,
             "cajas_totales": total_cajas,
@@ -371,12 +435,19 @@ def generar_reporte_temporada(
             "ventas_netas": Flt(ganancia_bruta),
             "inversion_total": Flt(total_inversiones),
             "ganancia_neta": Flt(ganancia_neta),
+            "precosecha_total": Flt(total_precosecha),
+            "ganancia_neta_con_precosecha": Flt(ganancia_neta_con_precosecha),
             "roi_porcentaje": Flt(roi_temporada),
         },
         "flags": {
             "tiene_perdida": bool(ganancia_neta < 0),
         },
         "comparativo_cosechas": cosechas_data,
+        "precosechas": {
+            "total": Flt(total_precosecha),
+            "detalle": detalle_precosechas_all,
+            "analisis_categorias": _analizar_categorias_inversiones(todas_precosechas, total_precosecha),
+        },
         "analisis_categorias": _analizar_categorias_inversiones(todas_inversiones, total_inversiones),
         "analisis_variedades": _analizar_variedades_ventas(todas_ventas, total_ventas),
         "metricas_eficiencia": {
@@ -388,7 +459,12 @@ def generar_reporte_temporada(
         },
     }
 
-    reporte["ui"] = _build_ui_from_temporada(reporte, detalle_inversiones_all, detalle_ventas_all)
+    reporte["ui"] = _build_ui_from_temporada(
+        reporte,
+        detalle_inversiones_all,
+        detalle_ventas_all,
+        detalle_precosechas_all,
+    )
     _validar_integridad_reporte(reporte)
 
     cache.set(cache_key, reporte, REPORTES_CACHE_TIMEOUT)

@@ -49,6 +49,10 @@ class Propietario(models.Model):
             models.Index(fields=['nombre', 'apellidos'], name='idx_prop_nom_ape'),
         ]
         ordering = ['-id']
+        permissions = (
+            ("archive_propietario", "Puede archivar propietario"),
+            ("restore_propietario", "Puede restaurar propietario"),
+        )
 
     def __str__(self):
         return f'{self.nombre} {self.apellidos}'
@@ -92,6 +96,12 @@ class Huerta(models.Model):
             models.Index(fields=['is_active'], name='idx_huerta_is_active'),
             models.Index(fields=['propietario', 'archivado_en'], name='idx_huerta_prop_arch'),
         ]
+        permissions = (
+            ("archive_huerta", "Puede archivar huerta"),
+            ("restore_huerta", "Puede restaurar huerta"),
+            ("exportpdf_huerta", "Puede exportar PDF de huerta"),
+            ("exportexcel_huerta", "Puede exportar Excel de huerta"),
+        )
 
     def __str__(self):
         return f"{self.nombre} ({self.propietario})"
@@ -109,13 +119,13 @@ class Huerta(models.Model):
     @transaction.atomic
     def archivar(self) -> dict:
         if not self.is_active:
-            return {'huertas': 0, 'temporadas': 0, 'cosechas': 0, 'inversiones': 0, 'ventas': 0}
+            return {'huertas': 0, 'temporadas': 0, 'cosechas': 0, 'inversiones': 0, 'ventas': 0, 'precosechas': 0}
 
         self.is_active = False
         self.archivado_en = timezone.now()
         self.save(update_fields=['is_active', 'archivado_en'])
 
-        counts = {'huertas': 1, 'temporadas': 0, 'cosechas': 0, 'inversiones': 0, 'ventas': 0}
+        counts = {'huertas': 1, 'temporadas': 0, 'cosechas': 0, 'inversiones': 0, 'ventas': 0, 'precosechas': 0}
         if hasattr(self, 'temporadas'):
             for temporada in self.temporadas.all():
                 c = temporada.archivar(via_cascada=True)
@@ -128,13 +138,13 @@ class Huerta(models.Model):
             raise ValueError("conflicto_unicidad_al_restaurar")
 
         if self.is_active:
-            return {'huertas': 0, 'temporadas': 0, 'cosechas': 0, 'inversiones': 0, 'ventas': 0}
+            return {'huertas': 0, 'temporadas': 0, 'cosechas': 0, 'inversiones': 0, 'ventas': 0, 'precosechas': 0}
 
         self.is_active = True
         self.archivado_en = None
         self.save(update_fields=['is_active', 'archivado_en'])
 
-        counts = {'huertas': 1, 'temporadas': 0, 'cosechas': 0, 'inversiones': 0, 'ventas': 0}
+        counts = {'huertas': 1, 'temporadas': 0, 'cosechas': 0, 'inversiones': 0, 'ventas': 0, 'precosechas': 0}
         if hasattr(self, 'temporadas'):
             for temporada in self.temporadas.all():
                 c = temporada.desarchivar(via_cascada=True)
@@ -169,6 +179,12 @@ class HuertaRentada(models.Model):
             models.Index(fields=['is_active'], name='idx_hr_is_active'),
             models.Index(fields=['propietario', 'archivado_en'], name='idx_hr_prop_arch'),
         ]
+        permissions = (
+            ("archive_huertarentada", "Puede archivar huerta rentada"),
+            ("restore_huertarentada", "Puede restaurar huerta rentada"),
+            ("exportpdf_huertarentada", "Puede exportar PDF de huerta rentada"),
+            ("exportexcel_huertarentada", "Puede exportar Excel de huerta rentada"),
+        )
 
     def __str__(self):
         return f"{self.nombre} (Rentada) ({self.propietario})"
@@ -184,13 +200,13 @@ class HuertaRentada(models.Model):
     @transaction.atomic
     def archivar(self) -> dict:
         if not self.is_active:
-            return {'huertas_rentadas': 0, 'temporadas': 0, 'cosechas': 0, 'inversiones': 0, 'ventas': 0}
+            return {'huertas_rentadas': 0, 'temporadas': 0, 'cosechas': 0, 'inversiones': 0, 'ventas': 0, 'precosechas': 0}
 
         self.is_active = False
         self.archivado_en = timezone.now()
         self.save(update_fields=['is_active', 'archivado_en'])
 
-        counts = {'huertas_rentadas': 1, 'temporadas': 0, 'cosechas': 0, 'inversiones': 0, 'ventas': 0}
+        counts = {'huertas_rentadas': 1, 'temporadas': 0, 'cosechas': 0, 'inversiones': 0, 'ventas': 0, 'precosechas': 0}
         if hasattr(self, 'temporadas'):
             for temporada in self.temporadas.all():
                 c = temporada.archivar(via_cascada=True)
@@ -203,13 +219,13 @@ class HuertaRentada(models.Model):
             raise ValueError("conflicto_unicidad_al_restaurar")
 
         if self.is_active:
-            return {'huertas_rentadas': 0, 'temporadas': 0, 'cosechas': 0, 'inversiones': 0, 'ventas': 0}
+            return {'huertas_rentadas': 0, 'temporadas': 0, 'cosechas': 0, 'inversiones': 0, 'ventas': 0, 'precosechas': 0}
 
         self.is_active = True
         self.archivado_en = None
         self.save(update_fields=['is_active', 'archivado_en'])
 
-        counts = {'huertas_rentadas': 1, 'temporadas': 0, 'cosechas': 0, 'inversiones': 0, 'ventas': 0}
+        counts = {'huertas_rentadas': 1, 'temporadas': 0, 'cosechas': 0, 'inversiones': 0, 'ventas': 0, 'precosechas': 0}
         if hasattr(self, 'temporadas'):
             for temporada in self.temporadas.all():
                 c = temporada.desarchivar(via_cascada=True)
@@ -219,6 +235,10 @@ class HuertaRentada(models.Model):
 
 # ────────────── TEMPORADA ─────────────────────────────────────────────────
 class Temporada(models.Model):
+    class EstadoOperativo(models.TextChoices):
+        PLANIFICADA = "planificada", "Planificada"
+        OPERATIVA = "operativa", "Operativa"
+
     """
     Una temporada representa un año agrícola de una huerta propia o rentada.
     - Solo una temporada por año por huerta (propia o rentada).
@@ -228,6 +248,11 @@ class Temporada(models.Model):
     huerta         = models.ForeignKey("Huerta", on_delete=models.CASCADE, null=True, blank=True, related_name='temporadas')
     huerta_rentada = models.ForeignKey("HuertaRentada", on_delete=models.CASCADE, null=True, blank=True, related_name='temporadas')
 
+    estado_operativo = models.CharField(
+        max_length=20,
+        choices=EstadoOperativo.choices,
+        default=EstadoOperativo.OPERATIVA,
+    )
     fecha_inicio = models.DateField(default=timezone.now)
     fecha_fin    = models.DateField(null=True, blank=True)
     finalizada   = models.BooleanField(default=False)
@@ -244,6 +269,7 @@ class Temporada(models.Model):
             models.Index(fields=['huerta_rentada']),
             models.Index(fields=['is_active']),
             models.Index(fields=['finalizada']),
+            models.Index(fields=['estado_operativo']),
             models.Index(fields=['año', 'huerta']),
             models.Index(fields=['año', 'huerta_rentada']),
         ]
@@ -266,7 +292,23 @@ class Temporada(models.Model):
                 name="uniq_temporada_huerta_rentada_anio",
             ),
         ]
+        permissions = (
+            ("archive_temporada", "Puede archivar temporada"),
+            ("restore_temporada", "Puede restaurar temporada"),
+            ("finalize_temporada", "Puede finalizar temporada"),
+            ("reactivate_temporada", "Puede reactivar temporada"),
+            ("activate_operational_temporada", "Puede activar operacion de temporada"),
+            ("exportpdf_temporada", "Puede exportar PDF de temporada"),
+            ("exportexcel_temporada", "Puede exportar Excel de temporada"),
+        )
 
+    @property
+    def permite_precosecha(self) -> bool:
+        return (
+            self.is_active
+            and not self.finalizada
+            and self.estado_operativo == self.EstadoOperativo.PLANIFICADA
+        )
 
     def clean(self):
         errors = {}
@@ -299,6 +341,22 @@ class Temporada(models.Model):
         if self.huerta_rentada and duplicate_qs.filter(huerta_rentada=self.huerta_rentada, año=self.año).exists():
             errors["año"] = "Ya existe una temporada para esta huerta rentada en ese año."
 
+        if self.estado_operativo not in {self.EstadoOperativo.PLANIFICADA, self.EstadoOperativo.OPERATIVA}:
+            errors["estado_operativo"] = "El estado operativo es invalido."
+
+        if self.estado_operativo == self.EstadoOperativo.OPERATIVA and self.año > actual:
+            errors["estado_operativo"] = "Una temporada futura solo puede estar planificada."
+
+        if (
+            self.estado_operativo == self.EstadoOperativo.OPERATIVA
+            and self.fecha_inicio
+            and self.fecha_inicio > timezone.localdate()
+        ):
+            errors["fecha_inicio"] = "Una temporada operativa no puede tener una fecha de inicio futura."
+
+        if self.estado_operativo == self.EstadoOperativo.PLANIFICADA and self.finalizada:
+            errors["estado_operativo"] = "Una temporada planificada no puede estar finalizada."
+
         if self.fecha_fin and self.fecha_inicio and self.fecha_fin < self.fecha_inicio:
             errors["fecha_fin"] = "La fecha fin no puede ser anterior a la fecha inicio."
 
@@ -317,10 +375,31 @@ class Temporada(models.Model):
             self.fecha_fin  = timezone.now().date()
             self.save(update_fields=['finalizada', 'fecha_fin'])
 
+    def activar_operativa(self):
+        if self.estado_operativo == self.EstadoOperativo.OPERATIVA:
+            return
+        if self.año > timezone.localdate().year:
+            raise ValidationError(
+                {
+                    "estado_operativo": (
+                        "No puedes activar operacion en una temporada futura. "
+                        "Mantenla como planificada hasta que llegue su inicio operativo."
+                    )
+                }
+            )
+        if self.fecha_inicio and self.fecha_inicio > timezone.localdate():
+            raise ValidationError({"fecha_inicio": "No puedes activar operacion antes de la fecha de inicio de la temporada."})
+        self.estado_operativo = self.EstadoOperativo.OPERATIVA
+        try:
+            self.save(update_fields=["estado_operativo"])
+        except ValidationError:
+            self.estado_operativo = self.EstadoOperativo.PLANIFICADA
+            raise
+
     @transaction.atomic
     def archivar(self, via_cascada: bool = False):
         if not self.is_active:
-            return {"temporadas": 0, "cosechas": 0, "inversiones": 0, "ventas": 0}
+            return {"temporadas": 0, "cosechas": 0, "inversiones": 0, "ventas": 0, "precosechas": 0}
 
         now = timezone.now()
         self.is_active = False
@@ -343,15 +422,20 @@ class Temporada(models.Model):
             archivado_en=now,
             archivado_por_cascada=True,
         )
-        return {"temporadas": 1, "cosechas": cosechas, "inversiones": inversiones, "ventas": ventas}
+        precosechas = self.precosechas.filter(is_active=True).update(
+            is_active=False,
+            archivado_en=now,
+            archivado_por_cascada=True,
+        )
+        return {"temporadas": 1, "cosechas": cosechas, "inversiones": inversiones, "ventas": ventas, "precosechas": precosechas}
 
     @transaction.atomic
     def desarchivar(self, via_cascada: bool = False):
         if via_cascada and not self.archivado_por_cascada:
-            return {"temporadas": 0, "cosechas": 0, "inversiones": 0, "ventas": 0}
+            return {"temporadas": 0, "cosechas": 0, "inversiones": 0, "ventas": 0, "precosechas": 0}
 
         if self.is_active:
-            return {"temporadas": 0, "cosechas": 0, "inversiones": 0, "ventas": 0}
+            return {"temporadas": 0, "cosechas": 0, "inversiones": 0, "ventas": 0, "precosechas": 0}
 
         if self.huerta and not self.huerta.is_active:
             raise ValidationError("No se puede desarchivar una temporada ligada a una huerta archivada.")
@@ -387,7 +471,15 @@ class Temporada(models.Model):
             archivado_en=None,
             archivado_por_cascada=False,
         )
-        return {"temporadas": 1, "cosechas": cosechas, "inversiones": inversiones, "ventas": ventas}
+        precosechas = self.precosechas.filter(
+            is_active=False,
+            archivado_por_cascada=True,
+        ).update(
+            is_active=True,
+            archivado_en=None,
+            archivado_por_cascada=False,
+        )
+        return {"temporadas": 1, "cosechas": cosechas, "inversiones": inversiones, "ventas": ventas, "precosechas": precosechas}
 
     def __str__(self):
         origen = self.huerta or self.huerta_rentada
@@ -405,6 +497,10 @@ class CategoriaInversion(models.Model):
     class Meta:
         ordering = ['id']
         indexes  = [models.Index(fields=['nombre'])]
+        permissions = (
+            ("archive_categoriainversion", "Puede archivar categoria de inversion"),
+            ("restore_categoriainversion", "Puede restaurar categoria de inversion"),
+        )
 
     def archivar(self):
         if self.is_active:
@@ -415,6 +511,36 @@ class CategoriaInversion(models.Model):
     def desarchivar(self):
         if not self.is_active:
             self.is_active    = True
+            self.archivado_en = None
+            self.save(update_fields=["is_active", "archivado_en"])
+
+    def __str__(self):
+        return self.nombre
+
+
+class CategoriaPreCosecha(models.Model):
+    nombre       = models.CharField(max_length=100)
+
+    is_active    = models.BooleanField(default=True)
+    archivado_en = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['id']
+        indexes  = [models.Index(fields=['nombre'])]
+        permissions = (
+            ("archive_categoriaprecosecha", "Puede archivar categoria de precosecha"),
+            ("restore_categoriaprecosecha", "Puede restaurar categoria de precosecha"),
+        )
+
+    def archivar(self):
+        if self.is_active:
+            self.is_active = False
+            self.archivado_en = timezone.now()
+            self.save(update_fields=["is_active", "archivado_en"])
+
+    def desarchivar(self):
+        if not self.is_active:
+            self.is_active = True
             self.archivado_en = None
             self.save(update_fields=["is_active", "archivado_en"])
 
@@ -451,6 +577,14 @@ class Cosecha(models.Model):
             models.Index(fields=["is_active"]),
             models.Index(fields=["temporada", "is_active"]),
         ]
+        permissions = (
+            ("archive_cosecha", "Puede archivar cosecha"),
+            ("restore_cosecha", "Puede restaurar cosecha"),
+            ("finalize_cosecha", "Puede finalizar cosecha"),
+            ("reactivate_cosecha", "Puede reactivar cosecha"),
+            ("exportpdf_cosecha", "Puede exportar PDF de cosecha"),
+            ("exportexcel_cosecha", "Puede exportar Excel de cosecha"),
+        )
 
     @property
     def total_ventas(self):
@@ -481,6 +615,8 @@ class Cosecha(models.Model):
                 raise ValidationError("No se pueden crear cosechas en una temporada archivada.")
             if t.finalizada:
                 raise ValidationError("No se pueden crear cosechas en una temporada finalizada.")
+            if t.estado_operativo != Temporada.EstadoOperativo.OPERATIVA:
+                raise ValidationError("No se pueden crear cosechas en una temporada planificada.")
 
         # Consistencia de origen
         if bool(t.huerta_id):
@@ -575,13 +711,6 @@ class Cosecha(models.Model):
         return f"{self.nombre} – {origen} – Temp {self.temporada.año}"
 
 # ────────────── INVERSIONES ───────────────────────────────────────────────
-def _is_only_archival_fields(update_fields):
-    if not update_fields:
-        return False
-    archival = {"is_active", "archivado_en", "archivado_por_cascada"}
-    return set(update_fields).issubset(archival)
-
-
 class InversionesHuerta(models.Model):
     """
     Inversión asociada a una Cosecha. Soporta huerta propia o rentada.
@@ -613,6 +742,10 @@ class InversionesHuerta(models.Model):
             models.Index(fields=['cosecha']),
             models.Index(fields=['temporada']),
         ]
+        permissions = (
+            ("archive_inversioneshuerta", "Puede archivar inversion"),
+            ("restore_inversioneshuerta", "Puede restaurar inversion"),
+        )
 
     @property
     def gastos_totales(self) -> Decimal:
@@ -689,6 +822,18 @@ class Venta(models.Model):
     def total_venta(self) -> int:
         return self.num_cajas * self.precio_por_caja
 
+    class Meta:
+        ordering = ['-fecha_venta', '-id']
+        indexes = [
+            models.Index(fields=['fecha_venta']),
+            models.Index(fields=['cosecha']),
+            models.Index(fields=['temporada']),
+        ]
+        permissions = (
+            ("archive_venta", "Puede archivar venta"),
+            ("restore_venta", "Puede restaurar venta"),
+        )
+
     @property
     def ganancia_neta(self) -> int:
         return self.total_venta - self.gasto
@@ -737,3 +882,104 @@ class Venta(models.Model):
         self.archivado_por_cascada = False
         self.save(update_fields=["is_active", "archivado_en", "archivado_por_cascada"])
         return True
+
+
+class PreCosecha(models.Model):
+    categoria = models.ForeignKey(
+        'CategoriaPreCosecha',
+        on_delete=models.PROTECT,
+        related_name="precosechas",
+    )
+    fecha = models.DateField()
+    descripcion = models.TextField(blank=True, null=True)
+    gastos_insumos = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
+    gastos_mano_obra = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
+
+    temporada = models.ForeignKey('Temporada', on_delete=models.CASCADE, related_name="precosechas")
+    huerta = models.ForeignKey('Huerta', on_delete=models.CASCADE, null=True, blank=True, related_name="precosechas")
+    huerta_rentada = models.ForeignKey('HuertaRentada', on_delete=models.CASCADE, null=True, blank=True, related_name="precosechas")
+
+    is_active = models.BooleanField(default=True)
+    archivado_en = models.DateTimeField(null=True, blank=True)
+    archivado_por_cascada = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-fecha', '-id']
+        indexes = [
+            models.Index(fields=['fecha']),
+            models.Index(fields=['categoria']),
+            models.Index(fields=['temporada']),
+            models.Index(fields=['is_active']),
+        ]
+        permissions = (
+            ("archive_precosecha", "Puede archivar precosecha"),
+            ("restore_precosecha", "Puede restaurar precosecha"),
+        )
+
+    @property
+    def gastos_totales(self) -> Decimal:
+        return (self.gastos_insumos or Decimal('0')) + (self.gastos_mano_obra or Decimal('0'))
+
+    def clean(self):
+        errors = {}
+
+        if self.temporada_id:
+            temporada = self.temporada
+            if not temporada.is_active:
+                errors['temporada'] = 'La temporada debe estar activa.'
+            elif temporada.finalizada:
+                errors['temporada'] = 'La temporada no puede estar finalizada.'
+            elif temporada.estado_operativo != Temporada.EstadoOperativo.PLANIFICADA:
+                errors['temporada'] = 'La temporada debe estar en preparacion para registrar precosecha.'
+
+            if self.fecha and temporada.fecha_inicio and self.fecha >= temporada.fecha_inicio:
+                errors['fecha'] = 'La fecha de precosecha debe ser anterior al inicio operativo de la temporada.'
+
+            if temporada.huerta_id:
+                if self.huerta_rentada_id:
+                    errors['huerta_rentada'] = 'Esta temporada es de huerta propia; no asigne huerta rentada.'
+                self.huerta_id = temporada.huerta_id
+            elif temporada.huerta_rentada_id:
+                if self.huerta_id:
+                    errors['huerta'] = 'Esta temporada es de huerta rentada; no asigne huerta propia.'
+                self.huerta_rentada_id = temporada.huerta_rentada_id
+
+        if self.huerta_id and not self.huerta.is_active:
+            errors['huerta'] = 'No se pueden registrar precosechas en una huerta archivada.'
+        if self.huerta_rentada_id and not self.huerta_rentada.is_active:
+            errors['huerta_rentada'] = 'No se pueden registrar precosechas en una huerta rentada archivada.'
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        update_fields = kwargs.get("update_fields")
+        if not _is_only_archival_fields(update_fields):
+            self.full_clean()
+        return super().save(*args, **kwargs)
+
+    @transaction.atomic
+    def archivar(self, via_cascada: bool = False) -> bool:
+        if not self.is_active:
+            return False
+        self.is_active = False
+        self.archivado_en = timezone.now()
+        self.archivado_por_cascada = via_cascada
+        self.save(update_fields=["is_active", "archivado_en", "archivado_por_cascada"])
+        return True
+
+    @transaction.atomic
+    def desarchivar(self, via_cascada: bool = False) -> bool:
+        if self.is_active:
+            return False
+        if via_cascada and not self.archivado_por_cascada:
+            return False
+        self.is_active = True
+        self.archivado_en = None
+        self.archivado_por_cascada = False
+        self.save(update_fields=["is_active", "archivado_en", "archivado_por_cascada"])
+        return True
+
+    def __str__(self):
+        origen = self.huerta or self.huerta_rentada
+        return f"PreCosecha {self.fecha} - {self.categoria.nombre} - {origen}"

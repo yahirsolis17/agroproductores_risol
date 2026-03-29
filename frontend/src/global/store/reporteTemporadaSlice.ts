@@ -19,12 +19,16 @@ const initialState: ReporteTemporadaState = {
 
 export const fetchReporteTemporada = createAsyncThunk<
   { data: ReporteProduccionData; temporadaId: number },
-  { temporadaId: number },
+  { temporadaId: number; forceRefresh?: boolean },
   { rejectValue: string }
->('reporteTemporada/fetch', async ({ temporadaId }, { rejectWithValue }) => {
+>('reporteTemporada/fetch', async ({ temporadaId, forceRefresh }, { rejectWithValue }) => {
   try {
     const resp = await withRetry(() =>
-      reportesProduccionService.generarReporteTemporada({ temporada_id: temporadaId, formato: 'json' })
+      reportesProduccionService.generarReporteTemporada({
+        temporada_id: temporadaId,
+        formato: 'json',
+        force_refresh: forceRefresh,
+      })
     );
     if (!resp.success) {
       return rejectWithValue(resp.message || 'Error al cargar reporte de temporada');

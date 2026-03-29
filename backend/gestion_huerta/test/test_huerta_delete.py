@@ -2,6 +2,7 @@ from rest_framework.test import APITestCase
 from rest_framework import status
 from django.urls import reverse
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from gestion_huerta.models import Propietario, Huerta, Temporada
 
 
@@ -29,9 +30,11 @@ class HuertaDeleteValidationTests(APITestCase):
             variedades='Tomate',
             hectareas=1.0,
             propietario=self.propietario,
-            is_active=False
         )
         Temporada.objects.create(año=2024, huerta=self.huerta)
+        self.huerta.is_active = False
+        self.huerta.archivado_en = timezone.now()
+        self.huerta.save(update_fields=['is_active', 'archivado_en'])
 
     def test_huerta_with_temporadas_cannot_be_deleted(self):
         url = reverse('huerta:huerta-detail', args=[self.huerta.id])

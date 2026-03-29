@@ -5,6 +5,7 @@ import { Paper, Typography, Box, CircularProgress, Divider, Tabs, Tab, Button } 
 import { m } from 'framer-motion';
 
 import { useAppDispatch } from '../../../global/store/store';
+import { useAuth } from '../../gestion_usuarios/context/AuthContext';
 import { temporadaService } from '../services/temporadaService';
 import { cosechaService } from '../services/cosechaService';
 import { huertaService } from '../services/huertaService';
@@ -43,6 +44,7 @@ type CtxPayload = {
 const FinanzasPorCosecha: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const { hasPerm, isAdmin } = useAuth();
 
   const { temporadaId: tmp, cosechaId: ctm } = useParams<UrlParams>();
   const temporadaId = Number(tmp) || null;
@@ -57,7 +59,19 @@ const FinanzasPorCosecha: React.FC = () => {
   const [cosechaInfo, setCosechaInfo] = useState<Cosecha | null>(null);
   const [loadingTemp, setLoadingTemp] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [tab, setTab] = useState<'inversion' | 'venta'>('inversion');
+  const canViewInversiones = isAdmin || hasPerm('view_inversioneshuerta');
+  const canViewVentas = isAdmin || hasPerm('view_venta');
+  const initialTab: 'inversion' | 'venta' = canViewInversiones ? 'inversion' : 'venta';
+  const [tab, setTab] = useState<'inversion' | 'venta'>(initialTab);
+
+  useEffect(() => {
+    if (tab === 'inversion' && !canViewInversiones && canViewVentas) {
+      setTab('venta');
+    }
+    if (tab === 'venta' && !canViewVentas && canViewInversiones) {
+      setTab('inversion');
+    }
+  }, [tab, canViewInversiones, canViewVentas]);
 
   // Limpieza breadcrumbs al desmontar
   useEffect(() => {
@@ -100,11 +114,11 @@ const FinanzasPorCosecha: React.FC = () => {
           try {
             if (huertaId && inferredTipo === 'propia') {
               const h = await huertaService.getById(huertaId);
-              const det: any = h.data.huerta.propietario_detalle;
+              const det = h.propietario_detalle;
               if (det) propietario = joinDisplayParts([det.nombre, det.apellidos]).trim() || '—';
             } else if (huertaRentadaId && inferredTipo === 'rentada') {
               const hr = await huertaRentadaService.getById(huertaRentadaId);
-              const det: any = hr.data.huerta_rentada.propietario_detalle;
+              const det = hr.propietario_detalle;
               if (det) propietario = joinDisplayParts([det.nombre, det.apellidos]).trim() || '—';
             }
           } catch {
@@ -240,22 +254,34 @@ const FinanzasPorCosecha: React.FC = () => {
           </Box>
         ) : null}
 
-        {!loadingTemp && !loadError && (
+        {!loadingTemp && !loadError && !canViewInversiones && !canViewVentas && (
+          <Typography color="error">
+            No tienes permisos para consultar finanzas de esta cosecha.
+          </Typography>
+        )}
+
+        {!loadingTemp && !loadError && (canViewInversiones || canViewVentas) && (
           <>
-            <Tabs
-              value={tab}
-              onChange={(_, v) => setTab(v)}
-              textColor="primary"
-              indicatorColor="primary"
-              sx={{ mb: 3 }}
-            >
-              <Tab value="inversion" label="Inversiones" />
-              <Tab value="venta" label="Ventas" />
-            </Tabs>
+            {(canViewInversiones && canViewVentas) && (
+              <Tabs
+                value={tab}
+                onChange={(_, v) => setTab(v)}
+                textColor="primary"
+                indicatorColor="primary"
+                sx={{ mb: 3 }}
+              >
+                <Tab value="inversion" label="Inversiones" />
+                <Tab value="venta" label="Ventas" />
+              </Tabs>
+            )}
 
             {tab === 'inversion'
-              ? <Inversion temporadaState={temporadaState} cosechaState={cosechaState} hasContext={hasContext} />
-              : <Venta temporadaState={temporadaState} cosechaState={cosechaState} hasContext={hasContext} />}
+              ? canViewInversiones
+                ? <Inversion temporadaState={temporadaState} cosechaState={cosechaState} hasContext={hasContext} />
+                : null
+              : canViewVentas
+                ? <Venta temporadaState={temporadaState} cosechaState={cosechaState} hasContext={hasContext} />
+                : null}
           </>
         )}
       </Paper>

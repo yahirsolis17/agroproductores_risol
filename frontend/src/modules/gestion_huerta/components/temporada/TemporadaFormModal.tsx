@@ -18,22 +18,9 @@ import { PermissionButton } from '../../../../components/common/PermissionButton
 import { applyBackendErrorsToFormik } from '../../../../global/validation/backendFieldErrors';
 import { focusFirstError } from '../../../../global/validation/focusFirstError';
 import FormAlertBanner from '../../../../components/common/form/FormAlertBanner';
+import { formatDateLongEs, getTodayLocalISO } from '../../../../global/utils/date';
 
-const formatFechaLarga = (iso?: string | null) => {
-  if (!iso) return '-';
-  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
-  const date = match ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])) : new Date(iso);
-  if (Number.isNaN(date.getTime())) return '-';
-
-  let value = new Intl.DateTimeFormat('es-MX', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(date);
-
-  value = value.replace(/ de (\d{4})$/, ' del $1');
-  return value;
-};
+const formatFechaLarga = (iso?: string | null) => (iso ? formatDateLongEs(iso) : '-');
 
 interface TemporadaFormModalProps {
   open: boolean;
@@ -58,7 +45,7 @@ const TemporadaFormModal: React.FC<TemporadaFormModalProps> = ({
 }) => {
   const defaults: TemporadaCreateData = {
     año: currentYear,
-    fecha_inicio: new Date().toISOString().slice(0, 10),
+    fecha_inicio: getTodayLocalISO(),
     huerta: undefined,
     huerta_rentada: undefined,
   };

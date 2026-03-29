@@ -560,9 +560,12 @@ export default function ReporteProduccionViewer({
           <Suspense fallback={<CircularProgress size={24} />}>
             <TablesPanel
               inversiones={data.tablas?.inversiones}
+              precosechas={data.tablas?.precosechas}
               ventas={data.tablas?.ventas}
               comparativo_cosechas={data.tablas?.comparativo_cosechas}
               resumen_historico={data.tablas?.resumen_historico}
+              analisis_categorias={data.tablas?.analisis_categorias}
+              analisis_variedades={data.tablas?.analisis_variedades}
             />
           </Suspense>
         </Box>

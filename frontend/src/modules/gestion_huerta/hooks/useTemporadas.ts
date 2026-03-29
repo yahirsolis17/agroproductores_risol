@@ -9,6 +9,7 @@ import {
   finalizarTemporada,
   archivarTemporada,
   restaurarTemporada,
+  activarOperativaTemporada,
   setPage,
   setYearFilter,
   setHuertaId,
@@ -97,6 +98,9 @@ export function useTemporadas({ enabled = true }: { enabled?: boolean } = {}) {
   const restoreTemporada = (id: number) =>
     dispatch(restaurarTemporada(id)).unwrap().then(refreshWithCurrentFilters);
 
+  const activateOperationalTemporada = (id: number) =>
+    dispatch(activarOperativaTemporada(id)).unwrap().then(refreshWithCurrentFilters);
+
   return {
     temporadas,
     loading,
@@ -121,6 +125,7 @@ export function useTemporadas({ enabled = true }: { enabled?: boolean } = {}) {
     finalizeTemporada,
     archiveTemporada,
     restoreTemporada,
+    activateOperationalTemporada,
   };
 }
 export default useTemporadas;

@@ -11,7 +11,9 @@ from gestion_huerta.views.huerta_views import (
 )
 from gestion_huerta.views.inversiones_views import InversionHuertaViewSet
 from gestion_huerta.views.categoria_inversion_views import CategoriaInversionViewSet
+from gestion_huerta.views.categoria_precosecha_views import CategoriaPreCosechaViewSet
 from gestion_huerta.views.cosechas_views import CosechaViewSet
+from gestion_huerta.views.precosecha_views import PreCosechaViewSet
 from gestion_huerta.views.ventas_views import VentaViewSet
 from gestion_huerta.views.temporadas_views import TemporadaViewSet
 
@@ -29,7 +31,9 @@ router.register(r"huertas", HuertaViewSet, basename="huerta")
 router.register(r"huertas-rentadas", HuertaRentadaViewSet, basename="huerta-rentada")
 router.register(r"cosechas", CosechaViewSet, basename="cosecha")
 router.register(r"categorias-inversion", CategoriaInversionViewSet, basename="categorias-inversion")
+router.register(r"categorias-precosecha", CategoriaPreCosechaViewSet, basename="categorias-precosecha")
 router.register(r"inversiones", InversionHuertaViewSet, basename="inversion")
+router.register(r"precosechas", PreCosechaViewSet, basename="precosecha")
 router.register(r"ventas", VentaViewSet, basename="venta")
 router.register(r"temporadas", TemporadaViewSet, basename="temporada")
 router.register(r"huertas-combinadas", HuertasCombinadasViewSet, basename="huertas-combinadas")

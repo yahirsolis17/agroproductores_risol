@@ -3,13 +3,16 @@ from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.urls import reverse
+from unittest.mock import patch
 
 from rest_framework.test import APIClient
 
 from .models import (
     Propietario,
     Huerta,
+    HuertaRentada,
     Temporada,
     Cosecha,
     CategoriaInversion,
@@ -102,9 +105,9 @@ class TemporadaDesarchivarTests(TestCase):
             for inv in cosecha.inversiones.all():
                 self.assertTrue(inv.is_active)
                 self.assertIsNone(inv.archivado_en)
-        for venta in cosecha.ventas.all():
-            self.assertTrue(venta.is_active)
-            self.assertIsNone(venta.archivado_en)
+            for venta in cosecha.ventas.all():
+                self.assertTrue(venta.is_active)
+                self.assertIsNone(venta.archivado_en)
 
 
 class BloqueoCreacionInversionVentaTests(TestCase):
@@ -218,3 +221,136 @@ class BloqueoCreacionInversionVentaTests(TestCase):
         self.assertEqual(resp_venta.status_code, 400)
         self.assertEqual(resp_venta.json()["notification"]["key"], "venta_contexto_cosecha_finalizada")
         self.assertIn("cosecha", resp_venta.json()["data"]["info"].lower())
+
+
+class PerfilHuertaReportTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            telefono="8888888888",
+            password="pass12345",
+            nombre="Operador",
+            apellido="Huerta",
+            role="usuario",
+        )
+        self.admin = User.objects.create_user(
+            telefono="7777777777",
+            password="pass12345",
+            nombre="Admin",
+            apellido="Reportes",
+            role="admin",
+            is_staff=True,
+        )
+
+        propietario = Propietario.objects.create(
+            nombre="Renta",
+            apellidos="Tester",
+            telefono="2222222222",
+            direccion="Dir",
+        )
+        self.huerta = Huerta.objects.create(
+            nombre="Huerta Base",
+            ubicacion="Ubic",
+            variedades="Var",
+            historial="",
+            hectareas=2,
+            propietario=propietario,
+        )
+        self.huerta_rentada = HuertaRentada.objects.create(
+            nombre="Huerta Rentada",
+            ubicacion="Ubic Rentada",
+            variedades="Var",
+            historial="",
+            hectareas=2,
+            propietario=propietario,
+            monto_renta="1000.00",
+        )
+        self.temporada_rentada = Temporada.objects.create(
+            año=2024,
+            huerta_rentada=self.huerta_rentada,
+            finalizada=True,
+            fecha_fin=timezone.localdate(),
+        )
+        self.perfil_url = "/huerta/reportes/perfil-huerta/"
+
+    def test_perfil_huerta_rentada_funciona_con_permiso_correcto(self):
+        permission = Permission.objects.get(codename="view_huertarentada")
+        self.user.user_permissions.add(permission)
+
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+
+        response = client.post(
+            self.perfil_url,
+            {
+                "huerta_rentada_id": self.huerta_rentada.id,
+                "años": 5,
+                "formato": "json",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["notification"]["key"], "reporte_generado_exitosamente")
+        self.assertEqual(
+            body["data"]["reporte"]["informacion_general"]["huerta_nombre"],
+            self.huerta_rentada.nombre,
+        )
+
+    def test_reporte_cacheado_sigue_validando_permisos_tras_revocacion(self):
+        permission = Permission.objects.get(codename="view_huertarentada")
+        self.user.user_permissions.add(permission)
+
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+
+        first = client.post(
+            self.perfil_url,
+            {
+                "huerta_rentada_id": self.huerta_rentada.id,
+                "años": 5,
+                "formato": "json",
+            },
+            format="json",
+        )
+        self.assertEqual(first.status_code, 200)
+
+        self.user.user_permissions.clear()
+        refreshed_user = get_user_model().objects.get(pk=self.user.pk)
+        client.force_authenticate(user=refreshed_user)
+        second = client.post(
+            self.perfil_url,
+            {
+                "huerta_rentada_id": self.huerta_rentada.id,
+                "años": 5,
+                "formato": "json",
+            },
+            format="json",
+        )
+
+        self.assertEqual(second.status_code, 403)
+        self.assertEqual(second.json()["notification"]["key"], "permission_denied")
+
+    def test_server_error_no_expone_detalle_interno(self):
+        client = APIClient()
+        client.force_authenticate(user=self.admin)
+
+        with patch(
+            "gestion_huerta.views.reportes.perfil_huerta_views.generar_perfil_huerta",
+            side_effect=Exception("boom secreto"),
+        ):
+            response = client.post(
+                self.perfil_url,
+                {
+                    "huerta_id": self.huerta.id,
+                    "años": 5,
+                    "formato": "json",
+                },
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 500)
+        body = response.json()
+        self.assertEqual(body["notification"]["key"], "server_error")
+        self.assertNotIn("boom secreto", str(body))

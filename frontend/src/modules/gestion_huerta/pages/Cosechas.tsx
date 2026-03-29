@@ -215,7 +215,18 @@ useEffect(() => {
   // Navegar a Finanzas por Cosecha
   const handleVerFinanzas = (c: Cosecha) => {
     if (!temporadaId) return;
-    navigate(`/finanzas/${temporadaId}/${c.id}`);
+    const params = new URLSearchParams();
+    if (tempInfo?.huerta_id) params.set('huerta_id', String(tempInfo.huerta_id));
+    if (tempInfo?.huerta_nombre) params.set('huerta_nombre', tempInfo.huerta_nombre);
+    if (tempInfo?.año) params.set('anio', String(tempInfo.año));
+    params.set('temporada_id', String(temporadaId));
+    if (c.nombre) params.set('cosecha_nombre', c.nombre);
+    const tipoFromUrl = searchParams.get('tipo');
+    if (tipoFromUrl) params.set('tipo', tipoFromUrl);
+    const propietarioFromUrl = searchParams.get('propietario');
+    if (propietarioFromUrl) params.set('propietario', propietarioFromUrl);
+
+    navigate(`/finanzas/${temporadaId}/${c.id}?${params.toString()}`);
   };
 
   const verFinanzasDisabled = !temporadaId;
@@ -229,7 +240,7 @@ useEffect(() => {
     const params = new URLSearchParams({
       temporada_id: String(temporadaId),
       huerta_id: String(tempInfo.huerta_id),
-      año: String(tempInfo.año),
+      anio: String(tempInfo.año),
     });
     if (tempInfo.huerta_nombre) params.set('huerta_nombre', tempInfo.huerta_nombre);
     // Propagar tipo y propietario desde la URL para conservar el contexto al volver

@@ -33,7 +33,9 @@ MODEL_CAPABILITIES: Dict[ModelKey, Set[Capability]] = {
     ("gestion_huerta", "cosecha"): {"crud", "archive", "lifecycle", "export"},
     ("gestion_huerta", "propietario"): {"crud", "archive"},
     ("gestion_huerta", "categoriainversion"): {"crud", "archive"},
+    ("gestion_huerta", "categoriaprecosecha"): {"crud", "archive"},
     ("gestion_huerta", "inversioneshuerta"): {"crud", "archive"},
+    ("gestion_huerta", "precosecha"): {"crud", "archive"},
     ("gestion_huerta", "venta"): {"crud", "archive"},
 
     # gestion_bodega
@@ -56,7 +58,7 @@ MODEL_CAPABILITIES: Dict[ModelKey, Set[Capability]] = {
 CAPABILITY_PREFIXES: Dict[Capability, Tuple[str, ...]] = {
     "crud": ("add_", "change_", "delete_", "view_"),
     "archive": ("archive_", "restore_"),
-    "lifecycle": ("finalize_", "reactivate_"),
+    "lifecycle": ("finalize_", "reactivate_", "activate_"),
     "export": ("exportpdf_", "exportexcel_"),
 }
 

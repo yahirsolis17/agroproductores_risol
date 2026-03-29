@@ -25,7 +25,7 @@ import useCategoriasInversion from '../../hooks/useCategoriasInversion';
 import { CategoriaInversion } from '../../types/categoriaInversionTypes';
 import CategoriaInversionFormModal from './CategoriaFormModal';
 import CategoriaAutocomplete from './CategoriaAutocomplete';
-import { parseIntegerInput } from '../../../../global/utils/numericInput';
+import { parseDecimalInput } from '../../../../global/utils/numericInput';
 
 /** YYYY-MM-DD local */
 function formatLocalDateYYYYMMDD(d = new Date()) {
@@ -51,15 +51,15 @@ const schema = Yup.object({
   categoria: Yup.number().min(1, 'Selecciona una categoría').required('La categoría es requerida'),
   gastos_insumos: Yup.string()
     .required('El gasto de insumos es requerido')
-    .test('mayor-cero', 'Debe ser mayor que 0', (value?: string) => {
-      const n = parseIntegerInput(value ?? '');
-      return Number.isFinite(n) && n > 0;
+    .test('no-negativo', 'Debe ser 0 o mayor', (value?: string) => {
+      const n = parseDecimalInput(value ?? '');
+      return Number.isFinite(n) && n >= 0;
     }),
   gastos_mano_obra: Yup.string()
     .required('El gasto de mano de obra es requerido')
-    .test('mayor-cero', 'Debe ser mayor que 0', (value?: string) => {
-      const n = parseIntegerInput(value ?? '');
-      return Number.isFinite(n) && n > 0;
+    .test('no-negativo', 'Debe ser 0 o mayor', (value?: string) => {
+      const n = parseDecimalInput(value ?? '');
+      return Number.isFinite(n) && n >= 0;
     }),
   descripcion: Yup.string().max(250, 'Máximo 250 caracteres'),
 });
@@ -110,9 +110,30 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
     formikRef.current?.setFieldValue('categoria', c.id);
   };
 
+  const validateTotals = (values: FormValues) => {
+    const errors: Partial<Record<keyof FormValues, string>> = {};
+    if (!values.gastos_insumos.trim() || !values.gastos_mano_obra.trim()) {
+      return errors;
+    }
+
+    const gastosInsumos = parseDecimalInput(values.gastos_insumos);
+    const gastosManoObra = parseDecimalInput(values.gastos_mano_obra);
+    const total =
+      (Number.isFinite(gastosInsumos) ? gastosInsumos : 0) +
+      (Number.isFinite(gastosManoObra) ? gastosManoObra : 0);
+
+    if (total <= 0) {
+      const message = 'La suma de insumos y mano de obra debe ser mayor que 0.';
+      errors.gastos_insumos = message;
+      errors.gastos_mano_obra = message;
+    }
+
+    return errors;
+  };
+
   const handleSubmit = async (vals: FormValues, helpers: FormikHelpers<FormValues>) => {
-    const gastosInsumos = parseIntegerInput(vals.gastos_insumos);
-    const gastosManoObra = parseIntegerInput(vals.gastos_mano_obra);
+    const gastosInsumos = parseDecimalInput(vals.gastos_insumos);
+    const gastosManoObra = parseDecimalInput(vals.gastos_mano_obra);
     const payload: InversionCreateData | InversionUpdateData = {
       fecha: vals.fecha,
       categoria: Number(vals.categoria),
@@ -149,6 +170,7 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
           initialValues={initialFormValues}
           enableReinitialize
           validationSchema={schema}
+          validate={validateTotals}
           validateOnChange={false}
           validateOnBlur
           validateOnMount={false}
@@ -197,9 +219,10 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
                   label="Gasto insumos"
                   name="gastos_insumos"
                   thousandSeparator
-                  allowDecimal={false}
-                  inputMode="numeric"
-                  placeholder="Ej. 12,500"
+                  allowDecimal
+                  maxDecimals={2}
+                  inputMode="decimal"
+                  placeholder="Ej. 12,500.50"
                   margin="normal"
                   fullWidth
                 />
@@ -209,9 +232,10 @@ const InversionFormModal: React.FC<Props> = ({ open, onClose, onSubmit, initialV
                   label="Gasto mano de obra"
                   name="gastos_mano_obra"
                   thousandSeparator
-                  allowDecimal={false}
-                  inputMode="numeric"
-                  placeholder="Ej. 8,000"
+                  allowDecimal
+                  maxDecimals={2}
+                  inputMode="decimal"
+                  placeholder="Ej. 8,000.00"
                   margin="normal"
                   fullWidth
                 />

@@ -34,3 +34,9 @@ El repositorio cuenta con gates automatizados en GitHub Actions:
 - **Frontend**: Typecheck, Lint, Build.
 - **Backend**: Django Check.
 - **Guardrails**: `check_response_canon.py`, `check_message_keys_canon.py`.
+
+## Documentacion clave
+
+- [INDEX.md](./INDEX.md) - indice maestro y mapa general del sistema.
+- [SMOKE_PACK.md](./SMOKE_PACK.md) - contrato tecnico base y validaciones canonicas.
+- [precosecha-v1.md](./precosecha-v1.md) - arquitectura, reglas e integracion de `PreCosecha v1`.

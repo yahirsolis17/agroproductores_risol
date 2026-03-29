@@ -15,6 +15,7 @@ import {
 } from '../utils/reportesPayload';
 
 const BASE = '/huerta/reportes';
+const PROFILE_YEARS_KEY = 'a\u00f1os';
 
 const safeHandleBackendNotification = (payload: unknown) => {
   try {
@@ -72,7 +73,11 @@ async function handleExportError(err: any): Promise<ReporteProduccionResponse> {
 export const reportesProduccionService = {
   async generarReporteCosecha(request: ReporteCosechaRequest): Promise<ReporteProduccionResponse> {
     try {
-      const payload = { ...request };
+      const payload: Record<string, unknown> = {
+        cosecha_id: request.cosecha_id,
+        formato: request.formato,
+      };
+      if (request.force_refresh !== undefined) payload.force_refresh = request.force_refresh;
       if (request.formato === 'json') {
         const resp = await apiClient.post(`${BASE}/cosecha/`, payload);
         const unwrapped = unwrapReportePayload(resp.data);
@@ -80,7 +85,7 @@ export const reportesProduccionService = {
       }
 
       const ext: 'pdf' | 'xlsx' = request.formato === 'pdf' ? 'pdf' : 'xlsx';
-      return postBlobAndDownload(`${BASE}/cosecha/`, payload, `reporte_cosecha_${request.cosecha_id}`, ext);
+      return await postBlobAndDownload(`${BASE}/cosecha/`, payload, `reporte_cosecha_${request.cosecha_id}`, ext);
     } catch (err: any) {
       return handleExportError(err);
     }
@@ -88,7 +93,11 @@ export const reportesProduccionService = {
 
   async generarReporteTemporada(request: ReporteTemporadaRequest): Promise<ReporteProduccionResponse> {
     try {
-      const payload = { ...request };
+      const payload: Record<string, unknown> = {
+        temporada_id: request.temporada_id,
+        formato: request.formato,
+      };
+      if (request.force_refresh !== undefined) payload.force_refresh = request.force_refresh;
       if (request.formato === 'json') {
         const resp = await apiClient.post(`${BASE}/temporada/`, payload);
         const unwrapped = unwrapReportePayload(resp.data);
@@ -96,7 +105,7 @@ export const reportesProduccionService = {
       }
 
       const ext: 'pdf' | 'xlsx' = request.formato === 'pdf' ? 'pdf' : 'xlsx';
-      return postBlobAndDownload(
+      return await postBlobAndDownload(
         `${BASE}/temporada/`,
         payload,
         `reporte_temporada_${request.temporada_id}`,
@@ -111,7 +120,7 @@ export const reportesProduccionService = {
     try {
       const payload: Record<string, unknown> = {
         formato: request.formato,
-        años: request.años ?? 5,
+        [PROFILE_YEARS_KEY]: (request as unknown as Record<string, unknown>)[PROFILE_YEARS_KEY] ?? 5,
       };
 
       if (request.force_refresh !== undefined) payload.force_refresh = request.force_refresh;
@@ -126,7 +135,7 @@ export const reportesProduccionService = {
 
       const ext: 'pdf' | 'xlsx' = request.formato === 'pdf' ? 'pdf' : 'xlsx';
       const fileId = request.huerta_id ?? request.huerta_rentada_id ?? 'perfil';
-      return postBlobAndDownload(`${BASE}/perfil-huerta/`, payload, `reporte_perfil_huerta_${fileId}`, ext);
+      return await postBlobAndDownload(`${BASE}/perfil-huerta/`, payload, `reporte_perfil_huerta_${fileId}`, ext);
     } catch (err: any) {
       return handleExportError(err);
     }

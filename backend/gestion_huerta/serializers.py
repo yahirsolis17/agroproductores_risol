@@ -9,7 +9,8 @@ from decimal import Decimal
 
 from gestion_huerta.models import (
     Propietario, Huerta, HuertaRentada,
-    Cosecha, InversionesHuerta, CategoriaInversion, Venta, Temporada
+    Cosecha, InversionesHuerta, CategoriaInversion, Venta, Temporada,
+    CategoriaPreCosecha, PreCosecha,
 )
 
 # -----------------------------
@@ -169,6 +170,7 @@ class HuertaRentadaSerializer(serializers.ModelSerializer):
     propietario_detalle   = PropietarioSerializer(source='propietario', read_only=True)
     propietario_archivado = serializers.SerializerMethodField()
     monto_renta_palabras  = serializers.SerializerMethodField()
+    monto_renta           = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=Decimal("0.01"))
     is_active             = serializers.BooleanField(read_only=True)
     archivado_en          = serializers.DateTimeField(read_only=True)
 
@@ -257,6 +259,10 @@ class TemporadaSerializer(serializers.ModelSerializer):
     is_rentada    = serializers.SerializerMethodField()
     huerta_nombre = serializers.SerializerMethodField()
     huerta_id     = serializers.SerializerMethodField()
+    estado_operativo = serializers.ChoiceField(
+        choices=Temporada.EstadoOperativo.choices,
+        required=False,
+    )
 
     # Nunca requeridos (permite una u otra)
     huerta = serializers.PrimaryKeyRelatedField(
@@ -273,7 +279,7 @@ class TemporadaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Temporada
         fields = [
-            'id', 'año', 'fecha_inicio', 'fecha_fin', 'finalizada',
+            'id', 'año', 'fecha_inicio', 'fecha_fin', 'finalizada', 'estado_operativo',
             'is_active', 'archivado_en',
             'huerta', 'huerta_rentada',
             'is_rentada', 'huerta_nombre', 'huerta_id',
@@ -300,6 +306,17 @@ class TemporadaSerializer(serializers.ModelSerializer):
         huerta         = data.get('huerta', getattr(self.instance, 'huerta', None))
         huerta_rentada = data.get('huerta_rentada', getattr(self.instance, 'huerta_rentada', None))
         año            = data.get('año', getattr(self.instance, 'año', None))
+        fecha_inicio   = data.get('fecha_inicio', getattr(self.instance, 'fecha_inicio', None))
+        actual         = timezone.now().year
+        estado_operativo = data.get('estado_operativo', getattr(self.instance, 'estado_operativo', None))
+
+        if self.instance is None and estado_operativo is None:
+            data['estado_operativo'] = (
+                Temporada.EstadoOperativo.PLANIFICADA
+                if año and año > actual
+                else Temporada.EstadoOperativo.OPERATIVA
+            )
+            estado_operativo = data['estado_operativo']
 
         if not huerta and not huerta_rentada:
             raise serializers.ValidationError("Debe asignar una huerta o una huerta rentada.", code="falta_origen")
@@ -320,6 +337,28 @@ class TemporadaSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Ya existe una temporada para esta huerta en ese año.", code="temporada_duplicada")
         if huerta_rentada and qs.filter(huerta_rentada=huerta_rentada, año=año).exists():
             raise serializers.ValidationError("Ya existe una temporada para esta huerta rentada en ese año.", code="temporada_duplicada")
+
+        if self.instance is not None and 'estado_operativo' in data and data['estado_operativo'] != self.instance.estado_operativo:
+            raise serializers.ValidationError(
+                {"estado_operativo": "Usa la acción de activar operación para cambiar el estado operativo."},
+                code="temporada_estado_operativo_no_editable",
+            )
+
+        if estado_operativo == Temporada.EstadoOperativo.OPERATIVA and año and año > actual:
+            raise serializers.ValidationError(
+                {"estado_operativo": "Una temporada futura solo puede crearse como planificada."},
+                code="temporada_operativa_futura",
+            )
+
+        if (
+            estado_operativo == Temporada.EstadoOperativo.OPERATIVA
+            and fecha_inicio
+            and fecha_inicio > timezone.localdate()
+        ):
+            raise serializers.ValidationError(
+                {"fecha_inicio": "Una temporada operativa no puede tener una fecha de inicio futura."},
+                code="temporada_operativa_fecha_futura",
+            )
 
         return data
 
@@ -413,6 +452,8 @@ class CosechaSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("No se pueden crear cosechas en una temporada archivada.", code="temporada_archivada")
             if temporada.finalizada:
                 raise serializers.ValidationError("No se pueden crear cosechas en una temporada finalizada.", code="temporada_finalizada")
+            if temporada.estado_operativo != Temporada.EstadoOperativo.OPERATIVA:
+                raise serializers.ValidationError("No se pueden crear cosechas en una temporada planificada.", code="temporada_planificada")
             if temporada.cosechas.count() >= 6:
                 raise serializers.ValidationError("Esta temporada ya tiene el máximo de 6 cosechas permitidas.", code="max_cosechas_alcanzado")
 
@@ -450,6 +491,169 @@ class CategoriaInversionSerializer(serializers.ModelSerializer):
         if qs.exists() and not (self.instance and self.instance.nombre.lower() == val.lower()):
             raise serializers.ValidationError("Ya existe una categoría con este nombre.", code="categoria_duplicada")
         return val
+
+class CategoriaPreCosechaSerializer(serializers.ModelSerializer):
+    archivado_en = serializers.DateTimeField(read_only=True)
+    is_active    = serializers.BooleanField(read_only=True)
+    uso_count    = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model  = CategoriaPreCosecha
+        fields = ['id', 'nombre', 'is_active', 'archivado_en', 'uso_count']
+
+    def validate_nombre(self, value: str) -> str:
+        val = (value or '').strip()
+        if len(val) < 3:
+            raise serializers.ValidationError("El nombre de la categoría debe tener al menos 3 caracteres.", code="nombre_muy_corto")
+        qs = CategoriaPreCosecha.objects.filter(nombre__iexact=val)
+        if qs.exists() and not (self.instance and self.instance.nombre.lower() == val.lower()):
+            raise serializers.ValidationError("Ya existe una categoría con este nombre.", code="categoria_duplicada")
+        return val
+
+
+class PreCosechaSerializer(serializers.ModelSerializer):
+    gastos_totales = serializers.DecimalField(read_only=True, max_digits=14, decimal_places=2)
+    gastos_insumos = serializers.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        required=True,
+        allow_null=False,
+        min_value=Decimal("0.00"),
+    )
+    gastos_mano_obra = serializers.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        required=True,
+        allow_null=False,
+        min_value=Decimal("0.00"),
+    )
+
+    categoria_id = serializers.PrimaryKeyRelatedField(
+        queryset=CategoriaPreCosecha.objects.all(),
+        source='categoria',
+        write_only=True,
+    )
+    temporada_id = serializers.PrimaryKeyRelatedField(
+        queryset=Temporada.objects.all(),
+        source='temporada',
+        write_only=True,
+    )
+    huerta_id = serializers.PrimaryKeyRelatedField(
+        queryset=Huerta.objects.all(),
+        source='huerta',
+        write_only=True,
+        required=False,
+        allow_null=True,
+    )
+    huerta_rentada_id = serializers.PrimaryKeyRelatedField(
+        queryset=HuertaRentada.objects.all(),
+        source='huerta_rentada',
+        write_only=True,
+        required=False,
+        allow_null=True,
+    )
+
+    class Meta:
+        model  = PreCosecha
+        fields = [
+            'id',
+            'fecha', 'descripcion',
+            'gastos_insumos', 'gastos_mano_obra', 'gastos_totales',
+            'categoria', 'temporada', 'huerta', 'huerta_rentada',
+            'categoria_id', 'temporada_id', 'huerta_id', 'huerta_rentada_id',
+            'is_active', 'archivado_en',
+        ]
+        read_only_fields = [
+            'gastos_totales', 'categoria', 'temporada', 'huerta', 'huerta_rentada',
+            'is_active', 'archivado_en',
+        ]
+
+    def validate_fecha(self, value):
+        temporada = None
+        temporada_id = self.initial_data.get('temporada_id') if isinstance(self.initial_data, dict) else None
+        if temporada_id:
+            temporada = Temporada.objects.filter(pk=temporada_id).only('fecha_inicio').first()
+        elif self.instance and self.instance.temporada_id:
+            temporada = self.instance.temporada
+
+        if temporada and temporada.fecha_inicio and value >= temporada.fecha_inicio:
+            raise serializers.ValidationError(
+                'La fecha de precosecha debe ser anterior al inicio operativo de la temporada.',
+                code='fecha_posterior_inicio_temporada',
+            )
+        return value
+
+    def validate_gastos_insumos(self, v):
+        if v is None:
+            raise serializers.ValidationError("El gasto en insumos es obligatorio.", code="campo_requerido")
+        if v < 0:
+            raise serializers.ValidationError("No puede ser negativo.", code="valor_negativo")
+        return v
+
+    def validate_gastos_mano_obra(self, v):
+        if v is None:
+            raise serializers.ValidationError("El gasto en mano de obra es obligatorio.", code="campo_requerido")
+        if v < 0:
+            raise serializers.ValidationError("No puede ser negativo.", code="valor_negativo")
+        return v
+
+    def validate(self, data):
+        categoria = data.get('categoria') or getattr(self.instance, 'categoria', None)
+        temporada = data.get('temporada') or getattr(self.instance, 'temporada', None)
+        huerta = data.get('huerta') if 'huerta' in data else getattr(self.instance, 'huerta', None)
+        huerta_rentada = data.get('huerta_rentada') if 'huerta_rentada' in data else getattr(self.instance, 'huerta_rentada', None)
+        fecha = data.get('fecha') or getattr(self.instance, 'fecha', None)
+        gi = data.get('gastos_insumos', getattr(self.instance, 'gastos_insumos', None))
+        gm = data.get('gastos_mano_obra', getattr(self.instance, 'gastos_mano_obra', None))
+
+        if gi is not None and gm is not None and (gi + gm) <= 0:
+            raise serializers.ValidationError({"gastos_insumos": "Los gastos totales deben ser mayores a 0."}, code="gastos_totales_cero")
+
+        if categoria and not categoria.is_active:
+            raise serializers.ValidationError({"categoria_id": "No puedes usar una categoría archivada."}, code="categoria_archivada")
+
+        if not temporada:
+            return data
+
+        if self.instance is not None and 'temporada' in data and data['temporada'] != self.instance.temporada:
+            raise serializers.ValidationError(
+                {"temporada_id": "No puedes reasignar una precosecha a otra temporada."},
+                code="temporada_no_reasignable",
+            )
+
+        if not temporada.is_active:
+            raise serializers.ValidationError({"temporada_id": "La temporada debe estar activa."}, code="temporada_archivada")
+        if temporada.finalizada:
+            raise serializers.ValidationError({"temporada_id": "La temporada no puede estar finalizada."}, code="temporada_finalizada")
+        if temporada.estado_operativo != Temporada.EstadoOperativo.PLANIFICADA:
+            raise serializers.ValidationError({"temporada_id": "Solo puedes registrar precosecha en una temporada planificada."}, code="temporada_no_planificada")
+
+        if fecha and temporada.fecha_inicio and fecha >= temporada.fecha_inicio:
+            raise serializers.ValidationError(
+                {"fecha": "La fecha de precosecha debe ser anterior al inicio operativo de la temporada."},
+                code="fecha_posterior_inicio_temporada",
+            )
+
+        if temporada.huerta_id:
+            if huerta_rentada is not None:
+                raise serializers.ValidationError({"huerta_rentada_id": "Esta temporada es de huerta propia."}, code="origen_rentada_en_propia")
+            huerta = temporada.huerta
+            huerta_rentada = None
+        else:
+            if huerta is not None:
+                raise serializers.ValidationError({"huerta_id": "Esta temporada es de huerta rentada."}, code="origen_propia_en_rentada")
+            huerta = None
+            huerta_rentada = temporada.huerta_rentada
+
+        if huerta and not getattr(huerta, 'is_active', True):
+            raise serializers.ValidationError({"huerta_id": "No se pueden registrar precosechas en una huerta archivada."}, code="huerta_archivada")
+        if huerta_rentada and not getattr(huerta_rentada, 'is_active', True):
+            raise serializers.ValidationError({"huerta_rentada_id": "No se pueden registrar precosechas en una huerta rentada archivada."}, code="huerta_rentada_archivada")
+
+        data['temporada'] = temporada
+        data['huerta'] = huerta
+        data['huerta_rentada'] = huerta_rentada
+        return data
 
 class InversionesHuertaSerializer(serializers.ModelSerializer):
     # Calculado

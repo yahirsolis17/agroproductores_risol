@@ -26,6 +26,7 @@ const mapTemporadaFromApi = (raw: RawTemporada): Temporada => {
     fecha_inicio: asStringOrNull(raw.fecha_inicio) ?? '',
     fecha_fin: asStringOrNull(raw.fecha_fin),
     finalizada: Boolean(raw.finalizada),
+    estado_operativo: (asStringOrNull(raw.estado_operativo) as Temporada['estado_operativo']) ?? 'operativa',
     is_active: Boolean(raw.is_active),
     archivado_en: asStringOrNull(raw.archivado_en),
     huerta: raw.huerta === null || raw.huerta === undefined ? null : asNumber(raw.huerta),
@@ -73,7 +74,15 @@ export const temporadaService = {
     if (año) params['año'] = año;
     if (huertaId) params['huerta'] = huertaId;
     if (huertaRentadaId) params['huerta_rentada'] = huertaRentadaId;
-    if (estado) params['estado'] = estado;
+    if (estado === 'operativas') {
+      params['estado'] = 'activas';
+      params['estado_operativo'] = 'operativas';
+    } else if (estado === 'planificadas') {
+      params['estado'] = 'activas';
+      params['estado_operativo'] = 'planificadas';
+    } else if (estado) {
+      params['estado'] = estado;
+    }
     if (finalizada !== undefined) params['finalizada'] = finalizada;
     if (search) params['search'] = search;
 
@@ -117,6 +126,13 @@ export const temporadaService = {
   async restaurar(id: number) {
     const response = await apiClient.post<ApiEnvelope<{ temporada: Temporada }>>(
       `/huerta/temporadas/${id}/restaurar/`
+    );
+    return response.data;
+  },
+
+  async activarOperativa(id: number) {
+    const response = await apiClient.post<ApiEnvelope<{ temporada: Temporada }>>(
+      `/huerta/temporadas/${id}/activar-operativa/`
     );
     return response.data;
   },

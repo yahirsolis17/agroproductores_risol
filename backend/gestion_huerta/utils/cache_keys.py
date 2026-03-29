@@ -20,12 +20,45 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import time
 from typing import Dict, Any
+
+from django.core.cache import cache
 
 # Config centralizada de cache para reportes (parametrizable por variables de entorno)
 # Defaults más realistas para reportes (ajusta en producción vía envs).
 REPORTES_CACHE_TIMEOUT: int = int(os.getenv("REPORTES_CACHE_TIMEOUT", "300"))  # segundos
 REPORTES_CACHE_VERSION: str = os.getenv("REPORTES_CACHE_VERSION", "1.3.3")
+REPORTES_CACHE_GENERATION_KEY: str = os.getenv(
+    "REPORTES_CACHE_GENERATION_KEY",
+    "gestion_huerta:reportes:generation",
+)
+
+
+def get_reportes_cache_generation() -> str:
+    """
+    Devuelve el token actual de invalidación para reportes.
+    Si no existe aún en cache, inicializa con "1".
+    """
+    generation = cache.get(REPORTES_CACHE_GENERATION_KEY)
+    if generation is None:
+        cache.add(REPORTES_CACHE_GENERATION_KEY, 1, timeout=None)
+        generation = cache.get(REPORTES_CACHE_GENERATION_KEY) or 1
+    return str(generation)
+
+
+def bump_reportes_cache_generation() -> str:
+    """
+    Invalida de forma global los reportes al rotar el token de generación.
+    Evita depender de borrado por patrón del backend de cache.
+    """
+    try:
+        cache.add(REPORTES_CACHE_GENERATION_KEY, 1, timeout=None)
+        generation = cache.incr(REPORTES_CACHE_GENERATION_KEY)
+    except Exception:
+        generation = int(time.time() * 1000)
+        cache.set(REPORTES_CACHE_GENERATION_KEY, generation, timeout=None)
+    return str(generation)
 
 def generate_cache_key(tipo: str, parametros: Dict[str, Any], version: str = REPORTES_CACHE_VERSION) -> str:
     """
@@ -34,7 +67,12 @@ def generate_cache_key(tipo: str, parametros: Dict[str, Any], version: str = REP
       - parametros: discriminantes (IDs/uid/formato/etc.)
       - version: string de versión de esquema/reglas para invalidación global
     """
-    data = {"tipo": tipo, "params": parametros, "version": version}
+    data = {
+        "tipo": tipo,
+        "params": parametros,
+        "version": version,
+        "generation": get_reportes_cache_generation(),
+    }
     s = json.dumps(data, sort_keys=True, default=str)  # tolera datetime/Decimal
     digest = hashlib.md5(s.encode()).hexdigest()
     return f"reporte_{digest}"

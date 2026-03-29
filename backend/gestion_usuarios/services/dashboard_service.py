@@ -257,6 +257,7 @@ def build_dashboard_overview(user: Users) -> dict[str, Any]:
     }
 
     temporadas_qs = Temporada.objects.select_related("huerta", "huerta_rentada").filter(is_active=True, finalizada=False).order_by("-fecha_inicio", "-id")
+    temporadas_qs = temporadas_qs.filter(estado_operativo=Temporada.EstadoOperativo.OPERATIVA)
     featured_temporada = temporadas_qs.first() if access["huerta"] else None
     active_huertas = Huerta.objects.filter(is_active=True).count() + HuertaRentada.objects.filter(is_active=True).count() if access["huerta"] else 0
     active_temporadas = temporadas_qs.count() if access["huerta"] else 0
@@ -451,7 +452,12 @@ def build_dashboard_search(user: Users, query: str) -> dict[str, Any]:
         temporadas_q = Q(huerta__nombre__icontains=term) | Q(huerta_rentada__nombre__icontains=term)
         if term.isdigit():
             temporadas_q |= Q(año=int(term))
-        for item in Temporada.objects.select_related("huerta", "huerta_rentada").filter(is_active=True).filter(temporadas_q)[:4]:
+        for item in (
+            Temporada.objects
+            .select_related("huerta", "huerta_rentada")
+            .filter(is_active=True, estado_operativo=Temporada.EstadoOperativo.OPERATIVA)
+            .filter(temporadas_q)[:4]
+        ):
             results.append({"id": f"temporada-{item.id}", "group": "Temporadas", "kind": "entity", "title": f"Temporada {item.año}", "subtitle": _huerta_origin_name(item) or "Temporada activa", "meta": "Huerta", "to": _temporada_report_link(item.id)})
 
     if access["cosechas"]:

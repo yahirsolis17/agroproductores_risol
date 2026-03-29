@@ -681,9 +681,11 @@ class PDFExporter:
             story.append(Spacer(1, 10))
 
         ganancia_neta = _money(res.get('ganancia_neta'))
+        precosecha_total = _money(res.get('precosecha_total'))
         roi = _pct(res.get('roi_temporada'))
 
         _add_value_box(story, "Inversión Total", f"${_money(res.get('inversion_total')):,.2f}", BRAND_SECONDARY)
+        _add_value_box(story, "Gastos Anticipados", f"${precosecha_total:,.2f}", BRAND_ACCENT)
         _add_value_box(story, "Ventas Totales", f"${_money(res.get('ventas_totales')):,.2f}", BRAND_SUCCESS)
         _add_value_box(story, "Ganancia Neta", f"${ganancia_neta:,.2f}",
                        BRAND_DANGER if ganancia_neta < 0 else BRAND_SUCCESS)
@@ -692,6 +694,29 @@ class PDFExporter:
         _add_value_box(story, "Productividad", f"{_money(res.get('productividad')):.1f} cajas/ha", BRAND_SECONDARY)
 
         story.append(Spacer(1, 15))
+
+        precosechas = ((reporte_data.get("precosechas") or {}).get("detalle") or [])
+        if precosechas:
+            story.append(Paragraph("GASTOS ANTICIPADOS DE PRECOSECHA", heading_style))
+            pre_headers = ["Fecha", "Categoría", "Descripción", "Total"]
+            pre_rows = [pre_headers]
+            for item in precosechas:
+                pre_rows.append([
+                    _safe_str(item.get("fecha")),
+                    _safe_str(item.get("categoria")),
+                    _safe_str(item.get("descripcion")),
+                    f"${_money(item.get('total')):,.2f}",
+                ])
+            header, body = pre_rows[0], pre_rows[1:]
+            for i, chunk in enumerate(_chunk_rows(body, 20)):
+                t = Table([header] + chunk, colWidths=[1.0*inch, 1.6*inch, 2.8*inch, 1.0*inch], repeatRows=1, splitByRow=True)
+                t.setStyle(_table_style_header(BRAND_ACCENT, colors.white))
+                t.setStyle(_table_style_body())
+                story.append(t)
+                if i < (len(body) - 1) // 20:
+                    story.append(PageBreak())
+                else:
+                    story.append(Spacer(1, 10))
 
         # Comparativo por cosecha
         story.append(Paragraph("COMPARATIVO POR COSECHA", heading_style))

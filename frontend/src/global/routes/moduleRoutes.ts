@@ -77,6 +77,13 @@ export const moduleRoutes: ModuleRoute[] = [
     requiredPermissionsAny: ['view_cosecha'],
     element: lazyRoute(() => import('../../modules/gestion_huerta/pages/Cosechas')),
   },
+  {
+    path: '/precosechas/:temporadaId',
+    module: 'gestion_huerta',
+    allowedRoles: ['admin', 'usuario'],
+    requiredPermissionsAny: ['view_precosecha'],
+    element: lazyRoute(() => import('../../modules/gestion_huerta/pages/PreCosechas')),
+  },
 
   // 👉 NUEVA RUTA: Finanzas por Cosecha
   {

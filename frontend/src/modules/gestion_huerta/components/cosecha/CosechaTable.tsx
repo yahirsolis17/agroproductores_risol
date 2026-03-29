@@ -109,14 +109,14 @@ const CosechaTable: React.FC<Props> = ({
             onReporteCosecha={onReporteCosecha ? () => onReporteCosecha(c) : undefined}
             // Integrado: Ver finanzas dentro del menú
             onVerFinanzas={() => onVerFinanzas(c)}
-            permVerFinanzas="view_inversioneshuerta"
+            permVerFinanzas={['view_inversioneshuerta', 'view_venta']}
             verFinanzasDisabled={verFinanzasDisabled}
             verFinanzasTooltip={verFinanzasTooltip}
             /* 👇 permisos necesarios (solo añadidos; nada más cambia) */
             permEdit="change_cosecha"
             permArchiveOrRestore={['archive_cosecha', 'restore_cosecha']}
             permDelete="delete_cosecha"
-            permFinalize={['finalize_cosecha', 'change_cosecha']}
+            permFinalize={['finalize_cosecha', 'reactivate_cosecha']}
             permReporteCosecha="view_cosecha"
           />
           

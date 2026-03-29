@@ -23,13 +23,14 @@ const initialState: ReporteCosechaState = {
 
 export const fetchReporteCosecha = createAsyncThunk<
   { data: ReporteProduccionData; cosechaId: number; from?: string; to?: string },
-  { cosechaId: number; from?: string; to?: string },
+  { cosechaId: number; from?: string; to?: string; forceRefresh?: boolean },
   { rejectValue: string }
->('reporteCosecha/fetch', async ({ cosechaId, from, to }, { rejectWithValue }) => {
+>('reporteCosecha/fetch', async ({ cosechaId, from, to, forceRefresh }, { rejectWithValue }) => {
   try {
     const resp = await reportesProduccionService.generarReporteCosecha({
       cosecha_id: cosechaId,
       formato: 'json',
+      force_refresh: forceRefresh,
     });
     if (!resp.success) {
       return rejectWithValue(resp.message || 'Error al cargar reporte de cosecha');

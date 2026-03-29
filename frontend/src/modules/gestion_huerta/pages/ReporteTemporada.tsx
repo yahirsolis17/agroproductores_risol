@@ -1,4 +1,3 @@
-// reportetemporada.tsx
 import { useMemo, useCallback, useEffect } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { Box, Divider, Alert, CircularProgress } from '@mui/material';
@@ -21,18 +20,24 @@ export default function ReporteTemporada() {
 
   const handleExport = useCallback(async (formato: FormatoReporte) => {
     if (!id) return;
-    await reportesProduccionService.generarReporteTemporada({ temporada_id: id, formato });
+    await reportesProduccionService.generarReporteTemporada({
+      temporada_id: id,
+      formato,
+      force_refresh: true,
+    });
   }, [id]);
 
-  // Breadcrumbs: Huerta seleccionada / Temporada / Reporte de Temporada
   useEffect(() => {
     const qs = new URLSearchParams(search);
     const huertaId = Number(qs.get('huerta_id') || '');
     const huertaName = qs.get('huerta_nombre') || data?.metadata?.infoHuerta?.huerta_nombre || '';
-    const añoFromQS = Number(qs.get('año') || '');
-    const añoFromData = data?.metadata?.periodo?.inicio
-      ? parseLocalDateStrict(data.metadata.periodo.inicio).getFullYear()
-      : undefined;
+    const añoFromQS = Number(qs.get('anio') || qs.get('año') || '');
+    const añoFromInfoHuerta = Number(data?.metadata?.infoHuerta?.temporada_año || '');
+    const añoFromData = Number.isFinite(añoFromInfoHuerta) && añoFromInfoHuerta > 0
+      ? añoFromInfoHuerta
+      : data?.metadata?.periodo?.inicio
+        ? parseLocalDateStrict(data.metadata.periodo.inicio).getFullYear()
+        : undefined;
     const año = añoFromQS || añoFromData;
     const tipo = (qs.get('tipo') as 'propia' | 'rentada' | null) || undefined;
     const propietario = qs.get('propietario') || data?.metadata?.infoHuerta?.propietario || undefined;
@@ -48,8 +53,19 @@ export default function ReporteTemporada() {
         )
       ));
     }
-    return () => { dispatch(clearBreadcrumbs()); };
-  }, [dispatch, search, id, data?.metadata?.infoHuerta?.huerta_nombre, data?.metadata?.periodo?.inicio]);
+
+    return () => {
+      dispatch(clearBreadcrumbs());
+    };
+  }, [
+    dispatch,
+    search,
+    id,
+    data?.metadata?.infoHuerta?.huerta_nombre,
+    data?.metadata?.infoHuerta?.temporada_año,
+    data?.metadata?.periodo?.inicio,
+    data?.metadata?.infoHuerta?.propietario,
+  ]);
 
   return (
     <Box sx={{ p: 2 }}>

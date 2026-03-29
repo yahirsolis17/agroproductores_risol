@@ -3,11 +3,11 @@
 Servicio de Reportes: PERFIL DE HUERTA
 --------------------------------------
 Responsabilidad
-- Generar la foto histórica de una huerta (propia o rentada) sobre N temporadas recientes.
+- Generar la foto histórica de una huerta (propia o rentada) sobre N temporadas recientes cerradas.
 - Consolidar KPIs: ROI promedio, variabilidad, tendencias, proyecciones.
 
 Reglas de negocio
-- Temporadas fuente: `is_active=True`, ordenadas por año (desc), tomando las N últimas.
+- Temporadas fuente: `finalizada=True`, ordenadas por año (desc), tomando las N últimas.
 - Tendencias: CAGR simple entre primer y último año válidos (ventas/ganancia/productividad).
 - Proyecciones: promedio móvil de 3 años (si hay ≥2), alertas por ROI bajo y tendencia decreciente.
 
@@ -61,10 +61,24 @@ def safe_str(x: Any) -> str:
     return "" if x is None else str(x)
 
 def _validar_permisos_huerta(usuario, huerta) -> bool:
-    """Permite ver reporte si superuser/staff o `has_perm('gestion_huerta.view_huerta')`."""
-    if getattr(usuario, "is_superuser", False) or getattr(usuario, "is_staff", False):
+    """
+    Permite ver reporte si role admin, superuser/staff o el permiso de vista que
+    corresponde al origen real (huerta propia vs rentada).
+    """
+    if (
+        getattr(usuario, "role", None) == "admin"
+        or getattr(usuario, "is_superuser", False)
+        or getattr(usuario, "is_staff", False)
+    ):
         return True
-    return hasattr(usuario, "has_perm") and usuario.has_perm("gestion_huerta.view_huerta")
+    if not hasattr(usuario, "has_perm"):
+        return False
+    perm = (
+        "gestion_huerta.view_huertarentada"
+        if isinstance(huerta, HuertaRentada)
+        else "gestion_huerta.view_huerta"
+    )
+    return usuario.has_perm(perm)
 
 def _calcular_tendencias(datos_historicos: List[Dict[str, Any]]) -> Dict[str, float]:
     """
@@ -213,12 +227,32 @@ def generar_perfil_huerta(
     force_refresh: bool = False,
 ) -> Dict[str, Any]:
     """
-    Genera el perfil histórico de una huerta (propia o rentada) sobre las últimas `años` temporadas activas.
+    Genera el perfil histórico de una huerta (propia o rentada) sobre las últimas
+    `años` temporadas finalizadas.
     """
     if not huerta_id and not huerta_rentada_id:
         raise ValidationError("Debe especificar huerta_id o huerta_rentada_id")
 
-    # Cache por usuario (uid) para evitar fugas de datos
+    # Resolver origen y temporadas históricas (últimos N años finalizados)
+    if huerta_id:
+        try:
+            origen = Huerta.objects.select_related("propietario").get(id=huerta_id)
+        except Huerta.DoesNotExist:
+            raise ValidationError("Huerta no encontrada")
+        temporadas = origen.temporadas.filter(finalizada=True).order_by("-año")[:años]
+    else:
+        try:
+            origen = HuertaRentada.objects.select_related("propietario").get(id=huerta_rentada_id)
+        except HuertaRentada.DoesNotExist:
+            raise ValidationError("Huerta rentada no encontrada")
+        temporadas = origen.temporadas.filter(finalizada=True).order_by("-año")[:años]
+
+    if not _validar_permisos_huerta(usuario, origen):
+        raise PermissionDenied("Sin permisos para generar este reporte")
+
+    # Cache por usuario (uid) para evitar fugas de datos.
+    # La validación de permisos ocurre antes del cache hit para no servir
+    # reportes a usuarios que hayan perdido acceso desde la última generación.
     cache_key = generate_cache_key(
         "perfil_huerta",
         {
@@ -234,29 +268,17 @@ def generar_perfil_huerta(
         if cached:
             return cached
 
-    # Resolver origen y temporadas (últimos N años activos)
-    if huerta_id:
-        try:
-            origen = Huerta.objects.select_related("propietario").get(id=huerta_id)
-        except Huerta.DoesNotExist:
-            raise ValidationError("Huerta no encontrada")
-        temporadas = origen.temporadas.filter(is_active=True).order_by("-año")[:años]
-    else:
-        try:
-            origen = HuertaRentada.objects.select_related("propietario").get(id=huerta_rentada_id)
-        except HuertaRentada.DoesNotExist:
-            raise ValidationError("Huerta rentada no encontrada")
-        temporadas = origen.temporadas.filter(is_active=True).order_by("-año")[:años]
-
-    if not _validar_permisos_huerta(usuario, origen):
-        raise PermissionDenied("Sin permisos para generar este reporte")
-
     datos_historicos: List[Dict[str, Any]] = []
     suma_roi = Decimal("0")
     total_años_validos = 0
     for temporada in temporadas:
         rep_t = generar_reporte_temporada(
-            temporada.id, usuario, "json", force_refresh=force_refresh, temporada_inst=temporada
+            temporada.id,
+            usuario,
+            "json",
+            force_refresh=force_refresh,
+            temporada_inst=temporada,
+            skip_permission_check=True,
         )
         datos_historicos.append(
             {

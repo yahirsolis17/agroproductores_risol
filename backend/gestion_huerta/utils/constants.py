@@ -778,6 +778,185 @@ NOTIFICATION_MESSAGES = {
 "reporte_generado_exitosamente": {
     "message": "El reporte se generó exitosamente.",
     "type": "success"
+},
+
+"temporada_operativa_activada": {
+    "message": "La temporada ahora es operativa.",
+    "type": "success"
+},
+"temporada_ya_operativa": {
+    "message": "La temporada ya es operativa.",
+    "type": "info"
+},
+"temporada_planificada_no_finalizar": {
+    "message": "No puedes finalizar una temporada planificada.",
+    "type": "error"
+},
+"temporada_estado_operativo_no_editable": {
+    "message": "El estado operativo no se edita directamente.",
+    "type": "error"
+},
+"temporada_campos_invalidos": {
+    "message": "Revisa los datos de la temporada antes de continuar.",
+    "type": "error"
+},
+"temporada_operativa_futura": {
+    "message": "Una temporada futura solo puede crearse como planificada.",
+    "type": "error"
+},
+"temporada_futura_no_activar_operativa": {
+    "message": "No puedes activar operación en una temporada futura. Mantenla como planificada hasta que llegue su inicio operativo.",
+    "type": "error"
+},
+"temporada_operativa_antes_de_inicio": {
+    "message": "No puedes activar operación antes de la fecha de inicio de la temporada.",
+    "type": "error"
+},
+"temporada_archivada_no_activar_operativa": {
+    "message": "No puedes activar operación en una temporada archivada.",
+    "type": "error"
+},
+"temporada_finalizada_no_activar_operativa": {
+    "message": "No puedes activar operación en una temporada finalizada.",
+    "type": "error"
+},
+"cosecha_temporada_planificada": {
+    "message": "No se pueden crear cosechas en una temporada planificada.",
+    "type": "error"
+},
+
+"categoria_precosecha_create_success": {
+    "message": "Categoría de PreCosecha creada correctamente.",
+    "type": "success"
+},
+"categoria_precosecha_update_success": {
+    "message": "Categoría de PreCosecha actualizada correctamente.",
+    "type": "success"
+},
+"categoria_precosecha_delete_success": {
+    "message": "Categoría de PreCosecha eliminada.",
+    "type": "success"
+},
+"categoria_precosecha_archivada": {
+    "message": "Categoría de PreCosecha archivada.",
+    "type": "success"
+},
+"categoria_precosecha_restaurada": {
+    "message": "Categoría de PreCosecha restaurada.",
+    "type": "success"
+},
+"categoria_precosecha_ya_archivada": {
+    "message": "La categoría de PreCosecha ya está archivada.",
+    "type": "error"
+},
+"categoria_precosecha_no_archivada": {
+    "message": "La categoría de PreCosecha ya está activa.",
+    "type": "info"
+},
+"categoria_precosecha_archivada_no_editar": {
+    "message": "No puedes editar una categoría archivada.",
+    "type": "error"
+},
+"categoria_precosecha_debe_estar_archivada": {
+    "message": "Debes archivar la categoría antes de eliminarla.",
+    "type": "error"
+},
+"categoria_precosecha_con_registros": {
+    "message": "No puedes eliminar la categoría porque tiene registros asociados.",
+    "type": "error"
+},
+"categoria_precosecha_nombre_corto": {
+    "message": "El nombre de la categoría es demasiado corto.",
+    "type": "error"
+},
+"categoria_precosecha_nombre_duplicado": {
+    "message": "Ya existe una categoría de PreCosecha con ese nombre.",
+    "type": "error"
+},
+
+"precosecha_create_success": {
+    "message": "PreCosecha registrada correctamente.",
+    "type": "success"
+},
+"precosecha_update_success": {
+    "message": "PreCosecha actualizada correctamente.",
+    "type": "success"
+},
+"precosecha_delete_success": {
+    "message": "PreCosecha eliminada.",
+    "type": "success"
+},
+"precosecha_archivada": {
+    "message": "PreCosecha archivada.",
+    "type": "success"
+},
+"precosecha_restaurada": {
+    "message": "PreCosecha restaurada.",
+    "type": "success"
+},
+"precosecha_ya_archivada": {
+    "message": "La PreCosecha ya está archivada.",
+    "type": "error"
+},
+"precosecha_no_archivada": {
+    "message": "La PreCosecha ya está activa.",
+    "type": "info"
+},
+"precosecha_archivada_no_editar": {
+    "message": "No puedes editar una PreCosecha archivada.",
+    "type": "error"
+},
+"precosecha_debe_estar_archivada": {
+    "message": "Debes archivar la PreCosecha antes de eliminarla.",
+    "type": "error"
+},
+"precosecha_fecha_fuera_de_temporada": {
+    "message": "La fecha de PreCosecha debe ser anterior al inicio operativo de la temporada.",
+    "type": "error"
+},
+"precosecha_totales_cero": {
+    "message": "Los gastos totales deben ser mayores a 0.",
+    "type": "error"
+},
+"precosecha_field_obligatorio": {
+    "message": "Faltan campos obligatorios en PreCosecha.",
+    "type": "error"
+},
+"precosecha_gasto_negativo": {
+    "message": "No se permiten montos negativos en PreCosecha.",
+    "type": "error"
+},
+"precosecha_temporada_no_planificada": {
+    "message": "Solo puedes registrar PreCosecha en temporadas planificadas.",
+    "type": "error"
+},
+"precosecha_temporada_no_permitida": {
+    "message": "La temporada no permite operaciones de PreCosecha.",
+    "type": "error"
+},
+"precosecha_temporada_congelada": {
+    "message": "La PreCosecha queda en solo lectura cuando la temporada ya es operativa.",
+    "type": "error"
+},
+"precosecha_categoria_archivada": {
+    "message": "No puedes usar una categoría archivada.",
+    "type": "error"
+},
+"precosecha_origen_rentada_en_propia": {
+    "message": "La temporada es de huerta propia; no corresponde huerta rentada.",
+    "type": "error"
+},
+"precosecha_origen_propia_en_rentada": {
+    "message": "La temporada es de huerta rentada; no corresponde huerta propia.",
+    "type": "error"
+},
+"precosecha_huerta_archivada": {
+    "message": "No se pueden registrar PreCosechas en una huerta archivada.",
+    "type": "error"
+},
+"precosecha_huerta_rentada_archivada": {
+    "message": "No se pueden registrar PreCosechas en una huerta rentada archivada.",
+    "type": "error"
 }
     
 }

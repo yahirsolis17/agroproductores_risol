@@ -125,11 +125,13 @@ export interface ReporteProduccionData {
   kpis: KPIData[];
   series: {
     inversiones?: SeriesDataPoint[];
+    precosechas?: SeriesDataPoint[];
     ventas?: SeriesDataPoint[];
     ganancias?: SeriesDataPoint[];
   };
   tablas: {
     inversiones?: TablaInversion[];
+    precosechas?: TablaInversion[];
     ventas?: TablaVenta[];
     /** Para temporadas */
     comparativo_cosechas?: FilaComparativoCosecha[];

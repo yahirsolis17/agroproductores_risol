@@ -27,6 +27,7 @@ Este INDEX.md es la **culminación de toda la documentación del sistema Agropro
 ## RELEASE
 
 - [RELEASE_NOTES.md](./RELEASE_NOTES.md) - Cierre v1.0 con gates validados, cambios de release y backlog no bloqueante
+- [precosecha-v1.md](./precosecha-v1.md) - Documento tecnico de `PreCosecha v1`, lifecycle de temporada y alcance funcional
 
 ### PARTE I: FUNDAMENTOS DEL SISTEMA
 1. [Visión General y Arquitectura](#1-visión-general-y-arquitectura)
@@ -855,7 +856,9 @@ Para el **diagrama ER completo** y **diccionario de datos exhaustivo**, consulta
 #### Módulo: Gestión de Huerta (Campo)
 - **Jerarquía**: Propietario → Huerta → Temporada → Cosecha → (Inversiones + Ventas)
 - **Estado de Cosecha**: ABIERTA/CERRADA (inmutable al cerrar)
+- **Extensión v1**: `PreCosecha` como dominio separado ligado a temporada `planificada`
 - **Ubicación**: `backend/gestion_huerta/`
+- **Documento dedicado**: [precosecha-v1.md](./precosecha-v1.md)
 
 #### Módulo: Gestión de Bodega (Empaque)
 - **Jerarquía**: Bodega → Temporada → Semana → (Recepciones + Clasificaciones)
@@ -1130,13 +1133,14 @@ frontend/src/
 **Lista de Flujos Documentados**:
 
 1. **Inicio de Temporada (Huerta)** → `INFORME_GESTION_BODEGA.md#inicio-temporada`
-2. **Registro de Inversiones y Ventas** → `archivo.md#procedimientos-de-campo`
-3. **Cierre de Cosecha** → `archivo.md#cierre-cosecha`
-4. **Semana de Bodega (Apertura → Cierre)** → `INFORME_GESTION_BODEGA.md#flujo-semana`
-5. **Recepción de Fruta** → `archivo.md#recepcion-camion`
-6. **Clasificación y Empaque** → `archivo.md#registro-empaque`
-7. **Despacho con Trazabilidad** → `walkthrough.md#despacho-camiones`
-8. **Caso Crítico: Semana Vencida (Día 8+)** → `INFORME_GESTION_BODEGA.md#semana-olvidada`
+2. **Preparación de Temporada Futura y PreCosecha** → [precosecha-v1.md](./precosecha-v1.md)
+3. **Registro de Inversiones y Ventas** → `archivo.md#procedimientos-de-campo`
+4. **Cierre de Cosecha** → `archivo.md#cierre-cosecha`
+5. **Semana de Bodega (Apertura → Cierre)** → `INFORME_GESTION_BODEGA.md#flujo-semana`
+6. **Recepción de Fruta** → `archivo.md#recepcion-camion`
+7. **Clasificación y Empaque** → `archivo.md#registro-empaque`
+8. **Despacho con Trazabilidad** → `walkthrough.md#despacho-camiones`
+9. **Caso Crítico: Semana Vencida (Día 8+)** → `INFORME_GESTION_BODEGA.md#semana-olvidada`
 
 ---
 
@@ -1217,6 +1221,7 @@ frontend/src/
 | **fuente_de_la_verdad.md** | Canon técnico supremo | Developers (Backend + Frontend) |
 | **informe_desarrollador.md** | Guía de onboarding | Developers nuevos |
 | **INFORME_GESTION_BODEGA.md** | Análisis profundo del módulo Bodega | Arquitectos, Auditores |
+| **precosecha-v1.md** | Arquitectura funcional y técnica de `PreCosecha v1` | Producto, Arquitectura, Backend, Frontend |
 | **walkthrough.md** | Implementación de Camiones con Trazabilidad | Developers (caso de estudio) |
 | **AUDITORIA_SISTEMA.md** | Inventario técnico exhaustivo | Auditores, Arquitectos |
 | **INDEX.md** (este documento) | Meta-documento consolidador | Todos (fuente suprema) |
@@ -1224,6 +1229,13 @@ frontend/src/
 ---
 
 ## 17. Changelog del Sistema
+
+### Versión 3.1 (Marzo 2026) - PreCosecha v1
+- ✅ `PreCosecha` documentada como dominio separado de gasto anticipado
+- ✅ Lifecycle de `Temporada` extendido con `planificada` y `operativa`
+- ✅ Integración de `PreCosecha` a nivel temporada, no a nivel cosecha
+- ✅ Bloque separado de `PreCosecha` en reportes de temporada y exportaciones
+- ✅ Exclusión de temporadas planificadas del contexto operativo en dashboard y búsqueda
 
 ### Versión 3.0 (Enero 2026) - INDEX.md Supremo
 - ✅ Creación de INDEX.md como fuente de verdad suprema

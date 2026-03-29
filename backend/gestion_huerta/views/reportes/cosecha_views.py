@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 from typing import Optional
+import logging
 
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -15,6 +16,9 @@ from gestion_huerta.services.exportacion_service import ExportacionService
 from agroproductores_risol.utils.notification_handler import NotificationHandler
 from gestion_huerta.utils.activity import registrar_actividad
 from gestion_huerta.permissions import HasHuertaModulePermissionAnd
+
+
+logger = logging.getLogger(__name__)
 
 
 def _as_int(value: Optional[object], field: str) -> int:
@@ -134,9 +138,10 @@ class CosechaReportViewSet(viewsets.GenericViewSet):
                 data={"errors": getattr(e, "message_dict", {"detalle": str(e)})},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
-        except Exception as e:
+        except Exception:
+            logger.exception("Error inesperado al generar reporte de cosecha", extra={"cosecha_id": cosecha_id_raw})
             return NotificationHandler.generate_response(
                 message_key="server_error",
-                data={"error": str(e)},
+                data={},
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

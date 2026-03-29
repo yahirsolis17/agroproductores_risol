@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import status
 from rest_framework.exceptions import (
     AuthenticationFailed,
@@ -55,7 +56,18 @@ def _resolve_message_key(exc: Exception, status_code: int) -> str:
     return CANONICAL_KEYS_BY_STATUS.get(status_code, "server_error")
 
 
+def _coerce_django_validation_error(exc: DjangoValidationError) -> ValidationError:
+    if hasattr(exc, "message_dict"):
+        return ValidationError(detail=exc.message_dict)
+    if hasattr(exc, "messages"):
+        return ValidationError(detail=exc.messages)
+    return ValidationError(detail=str(exc))
+
+
 def canonical_exception_handler(exc: Exception, context: dict[str, Any]) -> Response | None:
+    if isinstance(exc, DjangoValidationError):
+        exc = _coerce_django_validation_error(exc)
+
     response = drf_exception_handler(exc, context)
     if response is None:
         return None

@@ -23,7 +23,11 @@ export default function ReporteCosecha() {
 
   const handleExport = useCallback(async (formato: FormatoReporte) => {
     if (!id) return;
-    await reportesProduccionService.generarReporteCosecha({ cosecha_id: id, formato });
+    await reportesProduccionService.generarReporteCosecha({
+      cosecha_id: id,
+      formato,
+      force_refresh: true,
+    });
   }, [id]);
 
   // Breadcrumbs: Huerta seleccionada / Temporada / Cosechas / Reporte de Cosecha
@@ -33,7 +37,7 @@ export default function ReporteCosecha() {
     const temporadaId = Number(qs.get('temporada_id') || '');
     const huertaName = qs.get('huerta_nombre') || data?.metadata?.infoHuerta?.huerta_nombre || '';
     const cosechaNombre = qs.get('cosecha_nombre') || data?.metadata?.infoHuerta?.cosecha_nombre || undefined;
-    const añoFromQS = Number(qs.get('año') || '');
+    const añoFromQS = Number(qs.get('anio') || qs.get('año') || '');
     const añoFromData = data?.metadata?.periodo?.inicio
       ? parseLocalDateStrict(data.metadata.periodo.inicio).getFullYear()
       : undefined;

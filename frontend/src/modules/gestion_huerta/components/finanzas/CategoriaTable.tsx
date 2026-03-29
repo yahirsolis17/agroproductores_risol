@@ -54,7 +54,7 @@ const CategoriaTable: React.FC<Props> = ({ data, page, pageSize, metaPageSize, c
           onArchiveOrRestore={() => (isArchived ? onRestore(c) : onArchive(c))}
           onDelete={isArchived ? () => onDelete(c) : undefined}
           permEdit="change_categoriainversion"
-          permArchiveOrRestore="archive_categoriainversion"
+          permArchiveOrRestore={['archive_categoriainversion', 'restore_categoriainversion']}
           permDelete="delete_categoriainversion"
         />
       );

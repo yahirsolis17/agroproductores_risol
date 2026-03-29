@@ -57,6 +57,14 @@ interface ActionsMenuProps {
   verFinanzasDisabled?: boolean;
   verFinanzasTooltip?: string;
 
+  onPreCosecha?: () => void;
+  permPreCosecha?: Perm;
+  preCosechaLabel?: string;
+  onActivateOperational?: () => void;
+  permActivateOperational?: Perm;
+  activateOperationalDisabled?: boolean;
+  activateOperationalTooltip?: string;
+
   // 👉 NUEVOS: reportes
   onReporteCosecha?: () => void;
   permReporteCosecha?: Perm;
@@ -92,6 +100,13 @@ const ActionsMenu: React.FC<ActionsMenuProps> = ({
   permVerFinanzas,
   verFinanzasDisabled = false,
   verFinanzasTooltip,
+  onPreCosecha,
+  permPreCosecha,
+  preCosechaLabel,
+  onActivateOperational,
+  permActivateOperational,
+  activateOperationalDisabled = false,
+  activateOperationalTooltip,
 
   // reportes
   onReporteCosecha,
@@ -243,12 +258,56 @@ const ActionsMenu: React.FC<ActionsMenuProps> = ({
           })()
         )}
 
+        {!isArchived && onPreCosecha && (
+          (() => {
+            const allowed = hasPerm(permPreCosecha);
+            return (
+              <Tooltip title={allowed ? '' : 'No tienes permiso'} disableHoverListener={allowed}>
+                <span style={{ display: 'block' }}>
+                  <MenuItem disabled={!allowed} onClick={() => handle(onPreCosecha)}>
+                    <ListItemIcon>
+                      <PaidIcon fontSize="small" />
+                    </ListItemIcon>
+                    <ListItemText primary={preCosechaLabel ?? 'PreCosecha'} />
+                  </MenuItem>
+                </span>
+              </Tooltip>
+            );
+          })()
+        )}
+
+        {!isArchived && onActivateOperational && (
+          (() => {
+            const allowed = hasPerm(permActivateOperational);
+            const disabled = !allowed || activateOperationalDisabled;
+            const tooltip = !allowed
+              ? 'No tienes permiso'
+              : activateOperationalDisabled
+                ? (activateOperationalTooltip ?? 'Acción no disponible')
+                : '';
+            return (
+              <Tooltip title={tooltip} disableHoverListener={!tooltip}>
+                <span style={{ display: 'block' }}>
+                  <MenuItem disabled={disabled} onClick={() => handle(onActivateOperational)}>
+                    <ListItemIcon>
+                      <DoneAllIcon fontSize="small" />
+                    </ListItemIcon>
+                    <ListItemText primary="Activar operación" />
+                  </MenuItem>
+                </span>
+              </Tooltip>
+            );
+          })()
+        )}
+
         {(
           (
             (!hideFinalize && !isArchived && onFinalize) ||
             (!hideTemporadas && !isArchived && onTemporadas) ||
             (!isArchived && onCosechas) ||
-            onVerFinanzas
+            onVerFinanzas ||
+            (!isArchived && onPreCosecha) ||
+            (!isArchived && onActivateOperational)
           ) && (
             (!isArchived && onReporteCosecha) ||
             (!isArchived && onReporteTemporada) ||
@@ -316,6 +375,8 @@ const ActionsMenu: React.FC<ActionsMenuProps> = ({
             (!hideTemporadas && !isArchived && onTemporadas) ||
             (!isArchived && onCosechas) ||
             onVerFinanzas ||
+            (!isArchived && onPreCosecha) ||
+            (!isArchived && onActivateOperational) ||
             (!isArchived && (onReporteCosecha || onReporteTemporada || onReporteHuerta))
           ) && (
             (!hideEdit && !isArchived && onEdit) ||

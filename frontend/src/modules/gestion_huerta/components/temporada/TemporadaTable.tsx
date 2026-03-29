@@ -4,6 +4,7 @@ import { Chip } from '@mui/material';
 import { TableLayout, Column } from '../../../../components/common/TableLayout';
 import ActionsMenu from '../common/ActionsMenu';
 import { Temporada } from '../../types/temporadaTypes';
+import { parseLocalDateStrict } from '../../../../global/utils/date';
 
 
 const formatFechaLarga = (iso?: string | null) => {
@@ -24,6 +25,28 @@ const formatFechaLarga = (iso?: string | null) => {
   return s;
 };
 
+const getActivateOperationalState = (temporada: Temporada): { disabled: boolean; tooltip?: string } => {
+  const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+  if (temporada.año > todayStart.getFullYear()) {
+    return {
+      disabled: true,
+      tooltip: 'No puedes activar operación en una temporada futura. Debe seguir como planificada.',
+    };
+  }
+
+  const startDate = parseLocalDateStrict(temporada.fecha_inicio);
+  if (!Number.isNaN(startDate.getTime()) && startDate > todayStart) {
+    return {
+      disabled: true,
+      tooltip: 'Podrás activar la operación cuando llegue la fecha de inicio de la temporada.',
+    };
+  }
+
+  return { disabled: false };
+};
+
 interface Props {
   data: Temporada[];
   page: number;
@@ -36,6 +59,8 @@ interface Props {
   onDelete: (t: Temporada) => void;
   onConsult: (t: Temporada) => void;
   onFinalize: (t: Temporada) => void;
+  onActivateOperational: (t: Temporada) => void;
+  onPreCosecha: (t: Temporada) => void;
   emptyMessage?: string;
   loading?: boolean;
 
@@ -68,6 +93,17 @@ const columns: Column<Temporada>[] = [
     render: (t) => formatFechaLarga(t.fecha_inicio)
   },
 
+  {
+    label: 'Lifecycle',
+    key: 'estado_operativo',
+    align: 'center',
+    render: (t) =>
+      t.estado_operativo === 'planificada' ? (
+        <Chip label="Planificada" size="small" color="secondary" />
+      ) : (
+        <Chip label="Operativa" size="small" color="success" />
+      ),
+  },
   {
     label: 'Estado',
     key: 'finalizada',
@@ -110,6 +146,8 @@ const TemporadaTable: React.FC<Props> = ({
   onDelete,
   onConsult,
   onFinalize,
+  onActivateOperational,
+  onPreCosecha,
   emptyMessage,
   loading,
 
@@ -134,13 +172,15 @@ const TemporadaTable: React.FC<Props> = ({
     renderActions={(t) => {
       const isArchived = !t.is_active;
       const isFinalized = t.finalizada;
+      const isPlanned = t.estado_operativo === 'planificada';
+      const activationState = getActivateOperationalState(t);
 
       return (
         <ActionsMenu
           isArchived={isArchived}
           isFinalized={isFinalized}
           hideEdit
-          hideFinalize={isArchived}
+          hideFinalize={isArchived || isPlanned}
           onFinalize={() => onFinalize(t)}
           onTemporadas={() => onConsult(t)}
           labelTemporadas="Consultar"
@@ -149,13 +189,20 @@ const TemporadaTable: React.FC<Props> = ({
             isArchived ? onRestore(t) : onArchive(t)
           }
           onDelete={isArchived ? () => onDelete(t) : undefined}
-          permFinalize="change_temporada"
+          permFinalize={['finalize_temporada', 'reactivate_temporada']}
           permTemporadas="view_temporada"
-          permArchiveOrRestore="archive_temporada"
+          permArchiveOrRestore={['archive_temporada', 'restore_temporada']}
           permDelete="delete_temporada"
+          onActivateOperational={!isArchived && !isFinalized && isPlanned ? () => onActivateOperational(t) : undefined}
+          permActivateOperational="activate_operational_temporada"
+          activateOperationalDisabled={activationState.disabled}
+          activateOperationalTooltip={activationState.tooltip}
+          onPreCosecha={() => onPreCosecha(t)}
+          permPreCosecha="view_precosecha"
+          preCosechaLabel={isPlanned ? 'PreCosecha' : 'Consultar PreCosecha'}
 
           // 👇 NUEVOS props para "Ver cosechas"
-          onCosechas={() => onCosechas(t)}
+          onCosechas={!isPlanned ? () => onCosechas(t) : undefined}
           permCosechas="view_cosecha"
           
           // 👇 NUEVO: Reporte de temporada

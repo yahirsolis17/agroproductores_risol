@@ -136,6 +136,18 @@ export const adaptTemporadaToUI = (raw: any): ReporteProduccionData => {
     let ganancias = inversiones.length && ventas.length ? mergeByMonth(inversiones, ventas) : [];
 
     let comparativo_cosechas: FilaComparativoCosecha[] = [];
+    const precosechas =
+      Array.isArray(raw?.ui?.tablas?.precosechas)
+        ? raw.ui.tablas.precosechas
+        : Array.isArray(raw?.precosechas?.detalle)
+          ? raw.precosechas.detalle.map((x: any) => ({
+              id: Number(x.id ?? 0),
+              categoria: String(x.categoria ?? 'Sin categoria'),
+              descripcion: String(x.descripcion ?? ''),
+              monto: Number(x.total ?? x.monto ?? 0),
+              fecha: String(x.fecha ?? ''),
+            }))
+          : [];
     if (raw?.tabla?.rows && Array.isArray(raw.tabla.rows)) {
       comparativo_cosechas = raw.tabla.rows.map((r: any[]) => {
         const cosecha = String(r?.[0] ?? '');
@@ -169,7 +181,7 @@ export const adaptTemporadaToUI = (raw: any): ReporteProduccionData => {
     return {
       kpis,
       series: { inversiones, ventas, ganancias },
-      tablas: { comparativo_cosechas },
+      tablas: { comparativo_cosechas, precosechas },
       metadata: {
         periodo: {
           inicio: raw?.metadata?.periodo?.inicio || '',
@@ -210,6 +222,18 @@ export const adaptTemporadaToUI = (raw: any): ReporteProduccionData => {
   }
 
   const inversiones = toSeriesAny(series.inversiones || []);
+  const precosechas = Array.isArray(raw?.precosechas?.detalle)
+    ? raw.precosechas.detalle.map((x: any) => ({
+        id: Number(x.id ?? 0),
+        categoria: String(x.categoria ?? 'Sin categoria'),
+        descripcion: String(x.descripcion ?? ''),
+        monto: Number(x.total ?? x.monto ?? 0),
+        fecha: String(x.fecha ?? ''),
+      }))
+    : [];
+  const seriesPrecosechas = Array.isArray(raw?.ui?.series?.precosechas)
+    ? toSeriesAny(raw.ui.series.precosechas)
+    : sumByDate(raw?.precosechas?.detalle || [], 'fecha', 'total');
   const ventas = toSeriesAny(series.ventas || []);
   const ganancias = toSeriesAny(series.ganancias || []);
 
@@ -219,8 +243,8 @@ export const adaptTemporadaToUI = (raw: any): ReporteProduccionData => {
       value: num(k?.value ?? 0),
       format: k?.format,
     })),
-    series: { inversiones, ventas, ganancias },
-    tablas: { comparativo_cosechas },
+    series: { inversiones, precosechas: seriesPrecosechas, ventas, ganancias },
+    tablas: { comparativo_cosechas, precosechas },
     metadata: {
       periodo: {
         inicio: raw?.metadata?.periodo?.inicio || '',
@@ -332,7 +356,7 @@ export const adaptCosechaToUI = (reporte: any, filtroFrom?: string, filtroTo?: s
     analisis_categorias: analisisCategoriasUi
       ? analisisCategoriasUi
       : analisisCategoriasRaw.map((x: any) => ({
-          categoria: String(x.categoria ?? 'Sin categoría'),
+          categoria: String(x.categoria ?? 'Sin categoria'),
           monto: Number(x.total ?? x.monto ?? 0),
           porcentaje: Number(x.porcentaje ?? 0),
         })),
@@ -394,17 +418,16 @@ const normalizePerfilHuertaResponse = (rep: any) => {
   const normalizeArray = (arr: any[]) => {
     if (!Array.isArray(arr)) return arr;
     return arr.map((row: any) => {
-      const año =
-        row?.año ??
-        row?.año ??
+      const anio =
         row?.['a\u00F1o'] ??
-        row?.['año'] ??
-        row?.['aï¿½ï¿½o'] ??
-        row?.['añó'] ??
+        row?.['a\\u00F1o'] ??
+        row?.['a\u00C3\u00B1o'] ??
+        row?.['a\u00EF\u00BF\u00BD\u00EF\u00BF\u00BDo'] ??
+        row?.['a\u00F1\u00F3'] ??
         row?.['ano'];
       return {
         ...row,
-        año,
+        ['a\u00F1o']: anio,
       };
     });
   };

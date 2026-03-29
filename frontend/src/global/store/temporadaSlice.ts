@@ -32,7 +32,7 @@ const initialState: TemporadaState = {
   yearFilter: null,
   huertaId: null,
   huertaRentadaId: null,
-  estadoFilter: 'activas',
+  estadoFilter: 'operativas',
   finalizadaFilter: null,
   searchFilter: '',
 };
@@ -167,6 +167,25 @@ export const restaurarTemporada = createAsyncThunk<
   }
 );
 
+export const activarOperativaTemporada = createAsyncThunk<
+  Temporada,
+  number,
+  { rejectValue: ApiError }
+>(
+  'temporada/activarOperativa',
+  async (id, { rejectWithValue }) => {
+    try {
+      const res = await temporadaService.activarOperativa(id);
+      handleBackendNotification(res);
+      return res.data.temporada;
+    } catch (err: unknown) {
+      const apiError = extractApiError(err);
+      handleBackendNotification(apiError);
+      return rejectWithValue(apiError);
+    }
+  }
+);
+
 // ——— Slice ———
 const temporadaSlice = createSlice({
   name: 'temporada',
@@ -254,6 +273,14 @@ const temporadaSlice = createSlice({
         if (idx !== -1) state.items[idx] = payload;
       })
       .addCase(restaurarTemporada.rejected, (state, { payload, error }) => {
+        const msg = extractApiMessage(payload ?? error, 'Error');
+        state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
+      })
+      .addCase(activarOperativaTemporada.fulfilled, (state, { payload }) => {
+        const idx = state.items.findIndex((t) => t.id === payload.id);
+        if (idx !== -1) state.items[idx] = payload;
+      })
+      .addCase(activarOperativaTemporada.rejected, (state, { payload, error }) => {
         const msg = extractApiMessage(payload ?? error, 'Error');
         state.error = typeof msg === 'string' ? msg : JSON.stringify(msg);
       });

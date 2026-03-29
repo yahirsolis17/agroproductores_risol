@@ -14,6 +14,11 @@ def _should_ignore_mysql_drop_error(exc):
 
 
 def _column_exists(connection, table, column):
+    if connection.vendor != "mysql":
+        with connection.cursor() as cur:
+            description = connection.introspection.get_table_description(cur, table)
+        return any(col.name == column for col in description)
+
     with connection.cursor() as cur:
         cur.execute(
             "SELECT COUNT(*) FROM information_schema.columns "
@@ -24,6 +29,9 @@ def _column_exists(connection, table, column):
 
 
 def _table_exists(connection, table):
+    if connection.vendor != "mysql":
+        return table in connection.introspection.table_names()
+
     with connection.cursor() as cur:
         cur.execute(
             "SELECT COUNT(*) FROM information_schema.tables "
@@ -34,6 +42,9 @@ def _table_exists(connection, table):
 
 
 def _drop_foreign_keys(connection, table, column):
+    if connection.vendor != "mysql":
+        return
+
     with connection.cursor() as cur:
         cur.execute(
             "SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE "
@@ -50,6 +61,9 @@ def _drop_foreign_keys(connection, table, column):
 
 
 def _drop_secondary_indexes(connection, table, column):
+    if connection.vendor != "mysql":
+        return
+
     with connection.cursor() as cur:
         cur.execute(
             "SELECT DISTINCT INDEX_NAME FROM information_schema.STATISTICS "

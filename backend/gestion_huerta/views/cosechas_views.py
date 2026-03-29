@@ -33,6 +33,8 @@ def _map_cosecha_validation_errors(errors: dict) -> tuple[str, dict]:
         return "cosecha_temporada_archivada", {"errors": errors}
     if _has_error_code(errors, "temporada_finalizada"):
         return "cosecha_temporada_finalizada", {"errors": errors}
+    if _has_error_code(errors, "temporada_planificada"):
+        return "cosecha_temporada_planificada", {"errors": errors}
     if _has_error_code(errors, "max_cosechas_alcanzado"):
         return "cosecha_limite_temporada", {"errors": errors}
     if _has_error_code(errors, "unique"):

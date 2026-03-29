@@ -1,4 +1,4 @@
-﻿
+
 import React, { useMemo, useState, useEffect } from 'react';
 import {
   Dialog,
@@ -27,7 +27,7 @@ interface CamionFormModalProps {
   bodegaId: number;
   temporadaId: number;
   semanaId?: number | null;
-  camion?: any; // Si es ediciÃ³n
+  camion?: any; // Si es edicion
 }
 
 const validationSchema = yup.object({
@@ -137,8 +137,8 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
           setCurrentCamion(res.data?.camion || res);
         }
 
-        // Si es creaciÃ³n, NO cerramos para permitir agregar cargas
-        // Si es ediciÃ³n, cerramos.
+        // Si es creacion, NO cerramos para permitir agregar cargas
+        // Si es edicion, cerramos.
         // Always refresh parent list
         onSuccess();
         if (isEdit) {
@@ -175,7 +175,7 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
     try {
       const res = await camionesService.confirmar(currentCamion.id);
 
-      // Si backend retorna el camiÃ³n confirmado en res.data.camion, Ãºsalo.
+      // Si backend retorna el camion confirmado en res.data.camion, usalo.
       const maybeCamion = res?.data?.camion ?? res?.data ?? null;
       if (maybeCamion?.id) {
         setCurrentCamion(maybeCamion);
@@ -191,7 +191,7 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
       onClose();
     } catch (err: any) {
       console.error(err);
-      setErrorVal("Error al confirmar camiÃ³n: " + (err.response?.data?.message || err.message));
+      setErrorVal("Error al confirmar camion: " + (err.response?.data?.message || err.message));
       setConfirmDialogOpen(false);
     } finally {
       setLoading(false);
@@ -211,7 +211,7 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
   return (
     <>
       <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-        <DialogTitle>{isEdit ? (isConfirmado ? `CamiÃ³n Confirmado #${currentCamion.numero || ''}` : 'Editar CamiÃ³n') : 'Nuevo CamiÃ³n'}</DialogTitle>
+        <DialogTitle>{isEdit ? (isConfirmado ? `Camion Confirmado #${currentCamion.numero || ''}` : 'Editar Camion') : 'Nuevo Camion'}</DialogTitle>
         <DialogContent dividers>
           {errorVal && <Alert severity="error" sx={{ mb: 2 }}>{errorVal}</Alert>}
           <FormAlertBanner
@@ -341,7 +341,7 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
                 variant="contained"
                 disabled={loading}
               >
-                {isEdit ? 'Guardar Cambios' : 'Crear CamiÃ³n'}
+                {isEdit ? 'Guardar Cambios' : 'Crear Camion'}
               </Button>
 
               {isEdit && (
@@ -366,24 +366,24 @@ const CamionFormModal: React.FC<CamionFormModalProps> = ({
         </DialogTitle>
         <DialogContent sx={{ mt: 2 }}>
           <Typography variant="body1" gutterBottom>
-            Â¿EstÃ¡ seguro de confirmar este camiÃ³n? Esta acciÃ³n:
+            Estas seguro de confirmar este camion? Esta accion:
           </Typography>
           <ul>
-            <li>AsignarÃ¡ un <strong>Folio Consecutivo</strong> permanente.</li>
-            <li>DescontarÃ¡ definitivamente el stock del inventario.</li>
-            <li><strong>BloquearÃ¡</strong> cualquier ediciÃ³n posterior.</li>
+            <li>Asignara un <strong>Folio Consecutivo</strong> permanente.</li>
+            <li>Descontara definitivamente el stock del inventario.</li>
+            <li><strong>Bloqueara</strong> cualquier edicion posterior.</li>
           </ul>
           <Box mt={2} p={2} bgcolor="grey.100" borderRadius={1}>
             <Typography variant="subtitle2">Resumen:</Typography>
             <Typography variant="body2">
-              <strong>Folio:</strong> {currentCamion?.numero ? `#${String(currentCamion.numero).padStart(5, "0")}` : "â€” (se asignarÃ¡ al confirmar)"}
+              <strong>Folio:</strong> {currentCamion?.numero ? `#${String(currentCamion.numero).padStart(5, "0")}` : "- (se asignara al confirmar)"}
             </Typography>
             <Typography variant="body2"><strong>Destino:</strong> {currentCamion?.destino}</Typography>
             <Typography variant="body2"><strong>Chofer:</strong> {currentCamion?.chofer}</Typography>
             <Typography variant="body2"><strong>Total Cargas:</strong> {currentCamion?.cargas?.length || 0} registros</Typography>
             <Typography variant="body2"><strong>Total cajas:</strong> {summary.totalCajas || 0}</Typography>
             <Typography variant="body2">
-              <strong>Tipos de mango:</strong> {summary.tipos.length ? summary.tipos.join(", ") : "â€”"}
+              <strong>Tipos de mango:</strong> {summary.tipos.length ? summary.tipos.join(", ") : "-"}
             </Typography>
           </Box>
         </DialogContent>

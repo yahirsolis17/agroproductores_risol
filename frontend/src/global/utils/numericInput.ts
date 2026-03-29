@@ -74,7 +74,7 @@ export function formatWithThousands(value: string | number, opts: NumericInputOp
 }
 
 export function parseIntegerInput(value: string | number): number {
-  const normalized = normalizeNumericInput(String(value ?? ""), { allowDecimal: false });
+  const normalized = normalizeNumericInput(String(value ?? ""), { allowDecimal: true });
   const n = Number(normalized);
   return Number.isFinite(n) ? Math.trunc(n) : NaN;
 }

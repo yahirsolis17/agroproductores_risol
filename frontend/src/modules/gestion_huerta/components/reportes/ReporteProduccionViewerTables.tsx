@@ -44,6 +44,7 @@ import { formatCurrency, formatNumber } from '../../../../global/utils/formatter
 
 interface Props {
   inversiones?: TablaInversion[];
+  precosechas?: TablaInversion[];
   ventas?: TablaVenta[];
   comparativo_cosechas?: FilaComparativoCosecha[];
   resumen_historico?: FilaResumenHistorico[];
@@ -210,8 +211,25 @@ function stableSort<T>(array: readonly T[], comparator: (a: T, b: T) => number):
 /* =========================================================
    Inversiones
    ========================================================= */
-const InversionesTable: React.FC<{ inversiones: TablaInversion[] }> = ({ inversiones }) => {
+interface InversionesTableProps {
+  inversiones: TablaInversion[];
+  title?: string;
+  subheader?: string;
+  delay?: number;
+  accentColor?: 'primary' | 'secondary' | 'warning';
+  totalLabel?: string;
+}
+
+const InversionesTable: React.FC<InversionesTableProps> = ({
+  inversiones,
+  title = 'Inversiones',
+  subheader = 'Detalle de todos los gastos e inversiones realizadas',
+  delay = 100,
+  accentColor = 'primary',
+  totalLabel = 'Total Invertido',
+}) => {
   const theme = useTheme();
+  const paletteColor = theme.palette[accentColor];
   const [order, setOrder] = useState<Order>('desc');
   const [orderBy, setOrderBy] = useState<keyof TablaInversion>('fecha');
 
@@ -246,15 +264,15 @@ const InversionesTable: React.FC<{ inversiones: TablaInversion[] }> = ({ inversi
   }, [inversiones, subtotal]);
 
   return (
-    <Block delay={100}>
+    <Block delay={delay}>
       <CardHeader
         avatar={
-          <Avatar sx={{ bgcolor: alpha(theme.palette.primary.main, 0.15), width: 48, height: 48 }}>
-            <Inventory sx={{ color: theme.palette.primary.main }} />
+          <Avatar sx={{ bgcolor: alpha(paletteColor.main, 0.15), width: 48, height: 48 }}>
+            <Inventory sx={{ color: paletteColor.main }} />
           </Avatar>
         }
-        title={<TableTitle variant="h5">Inversiones</TableTitle>}
-        subheader="Detalle de todos los gastos e inversiones realizadas"
+        title={<TableTitle variant="h5">{title}</TableTitle>}
+        subheader={subheader}
         action={
           <Tooltip title="Información sobre inversiones">
             <IconButton>
@@ -284,8 +302,8 @@ const InversionesTable: React.FC<{ inversiones: TablaInversion[] }> = ({ inversi
                 sx={{
                   height: 6,
                   borderRadius: 3,
-                  backgroundColor: alpha(theme.palette.primary.main, 0.2),
-                  '& .MuiLinearProgress-bar': { backgroundColor: theme.palette.primary.main, borderRadius: 3 },
+                  backgroundColor: alpha(paletteColor.main, 0.2),
+                  '& .MuiLinearProgress-bar': { backgroundColor: paletteColor.main, borderRadius: 3 },
                 }}
               />
             </Box>
@@ -346,7 +364,7 @@ const InversionesTable: React.FC<{ inversiones: TablaInversion[] }> = ({ inversi
                       align="right"
                       sx={{
                         fontWeight: 600,
-                        color: theme.palette.mode === 'dark' ? theme.palette.primary.light : theme.palette.primary.dark,
+                        color: theme.palette.mode === 'dark' ? paletteColor.light : paletteColor.dark,
                       }}
                     >
                       {formatCurrency(inv.monto)}
@@ -359,7 +377,7 @@ const InversionesTable: React.FC<{ inversiones: TablaInversion[] }> = ({ inversi
             <TableFooter>
               <TableRow>
                 <TableCell colSpan={3} align="right" sx={{ fontWeight: 700, fontSize: '1.1rem' }}>
-                  Total Invertido
+                  {totalLabel}
                 </TableCell>
                 <TableCell align="right" sx={{ fontWeight: 700, fontSize: '1.1rem' }}>
                   {formatCurrency(subtotal)}
@@ -990,6 +1008,7 @@ const ComparativoCosechasTable: React.FC<{ rows: FilaComparativoCosecha[] }> = (
    ========================================================= */
 export default function TablesPanel({
   inversiones,
+  precosechas,
   ventas,
   comparativo_cosechas,
   resumen_historico,
@@ -1002,6 +1021,17 @@ export default function TablesPanel({
       {!!resumen_historico?.length && <ResumenHistoricoTable rows={resumen_historico} />}
 
       {!!inversiones?.length && <InversionesTable inversiones={inversiones} />}
+
+      {!!precosechas?.length && (
+        <InversionesTable
+          inversiones={precosechas}
+          title="PreCosecha"
+          subheader="Gastos anticipados de preparacion para la temporada destino"
+          delay={150}
+          accentColor="warning"
+          totalLabel="Total PreCosecha"
+        />
+      )}
 
       {/** NUEVO: Análisis por Categoría (Inversiones) */}
       {!!analisis_categorias?.length && <AnalisisCategoriasBlock rows={analisis_categorias} />}

@@ -55,8 +55,10 @@ _MODEL_LABELS = {
     'temporada': 'Temporadas',
     'cosecha': 'Cosechas',
     'inversioneshuerta': 'Inversiones',          # 👈 FIX
+    'precosecha': 'PreCosechas',
     'venta': 'Ventas',
     'categoriainversion': 'Categorías de inversión',
+    'categoriaprecosecha': 'Categorías de PreCosecha',
     'propietario': 'Propietarios',
     # gestión de usuarios (si algún permiso se expone)
     'users': 'Usuarios',
@@ -73,6 +75,9 @@ _ACTION_LABELS = {
     'restore': 'Restaurar',
     'finalize': 'Finalizar',
     'reactivate': 'Reactivar',                   # 👈 FIX
+    'activate': 'Activar',
+    'exportpdf': 'Exportar PDF',
+    'exportexcel': 'Exportar Excel',
 }
 
 def _friendly_name_from_codename(codename: str, model_label: str) -> str:
@@ -195,7 +200,7 @@ class CustomTokenRefreshView(TokenRefreshView):
 ALLOWED_APP_LABELS = {'gestion_huerta', 'gestion_bodega'}
 ALLOWED_PREFIXES = (
     'add_', 'change_', 'delete_', 'view_',
-    'archive_', 'restore_', 'finalize_', 'reactivate_',
+    'archive_', 'restore_', 'finalize_', 'reactivate_', 'activate_',
     'exportpdf_', 'exportexcel_',
 )
 
@@ -205,7 +210,7 @@ from gestion_usuarios.permissions_policy import MODEL_CAPABILITIES, is_codename_
 
 def get_filtered_permissions_qs():
     """QuerySet de permisos limitado a apps del dominio y prefijos válidos."""
-    regex = r'^(add_|change_|delete_|view_|archive_|restore_|finalize_|reactivate_|exportpdf_|exportexcel_)'
+    regex = r'^(add_|change_|delete_|view_|archive_|restore_|finalize_|reactivate_|activate_|exportpdf_|exportexcel_)'
     base = (
         Permission.objects.select_related('content_type')
         .filter(

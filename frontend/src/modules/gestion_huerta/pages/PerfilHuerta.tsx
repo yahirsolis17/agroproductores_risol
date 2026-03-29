@@ -1,4 +1,3 @@
-// reportehuertaperfil.tsx
 import { useMemo, useCallback, useEffect } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { Box, Divider, Alert, CircularProgress } from '@mui/material';
@@ -11,7 +10,6 @@ import { useDispatch } from 'react-redux';
 import { setBreadcrumbs, clearBreadcrumbs } from '../../../global/store/breadcrumbsSlice';
 import { breadcrumbRoutes } from '../../../global/constants/breadcrumbRoutes';
 
-/** TASK-FE-005: Renamed from useQuery to avoid semantic confusion with React Query */
 function useURLSearchParams() {
   const { search } = useLocation();
   return useMemo(() => new URLSearchParams(search), [search]);
@@ -21,13 +19,12 @@ export default function ReportePerfilHuerta() {
   const { huertaId: huertaIdParam } = useParams<{ huertaId: string }>();
   const query = useURLSearchParams();
   const isRentada = query.get('rentada') === '1';
-  const años = Number(query.get('años') || '5');
+  const años = Number(query.get('años') || query.get('anios') || '5');
 
   const huertaId = !isRentada ? Number(huertaIdParam) : undefined;
   const huertaRentadaId = isRentada ? Number(huertaIdParam) : undefined;
 
   const { data, loading, error, refetch } = useReportePerfilHuerta(huertaId, huertaRentadaId, años);
-
   const dispatch = useDispatch();
 
   const handleExport = useCallback(async (formato: FormatoReporte) => {
@@ -35,11 +32,11 @@ export default function ReportePerfilHuerta() {
       formato,
       huerta_id: huertaId,
       huerta_rentada_id: huertaRentadaId,
-      // años omitido (opcional en backend)
+      años,
+      force_refresh: true,
     });
-  }, [huertaId, huertaRentadaId]);
+  }, [huertaId, huertaRentadaId, años]);
 
-  // Breadcrumbs: Huerta seleccionada / Reporte de Huerta (perfil)
   useEffect(() => {
     const id = Number(huertaIdParam);
     const nameFromQS = query.get('huerta_nombre') || undefined;
@@ -49,19 +46,19 @@ export default function ReportePerfilHuerta() {
     if (id) {
       dispatch(setBreadcrumbs(breadcrumbRoutes.reporteHuertaPerfil(id, huertaName)));
     }
-    return () => { dispatch(clearBreadcrumbs()); };
+    return () => {
+      dispatch(clearBreadcrumbs());
+    };
   }, [dispatch, huertaIdParam, query, data?.metadata?.infoHuerta?.huerta_nombre]);
 
   return (
     <Box sx={{ p: 2 }}>
-
-
       <ReportesProduccionToolbar
         loading={loading}
         onRefresh={refetch}
         onExport={handleExport}
-        permExportPdf={["exportpdf_huerta", "exportpdf_huertarentada"]}
-        permExportExcel={["exportexcel_huerta", "exportexcel_huertarentada"]}
+        permExportPdf={['exportpdf_huerta', 'exportpdf_huertarentada']}
+        permExportExcel={['exportexcel_huerta', 'exportexcel_huertarentada']}
       />
 
       <Divider sx={{ my: 2 }} />

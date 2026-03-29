@@ -1,4 +1,3 @@
-// useReportePerfilHuerta.ts
 import { useCallback, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../../global/store/store';
 import { fetchReportePerfilHuerta } from '../../../global/store/reportePerfilHuertaSlice';
@@ -14,7 +13,7 @@ export const useReportePerfilHuerta = (
 
   const fetchData = useCallback(() => {
     if (!huertaId && !huertaRentadaId) return;
-    dispatch(fetchReportePerfilHuerta({ huertaId, huertaRentadaId, años }));
+    dispatch(fetchReportePerfilHuerta({ huertaId, huertaRentadaId, años, forceRefresh: true }));
   }, [dispatch, huertaId, huertaRentadaId, años]);
 
   useEffect(() => {

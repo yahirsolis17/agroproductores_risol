@@ -10,7 +10,7 @@ export const useReporteTemporada = (id?: number) => {
 
   const fetchData = useCallback(() => {
     if (!id) return;
-    dispatch(fetchReporteTemporada({ temporadaId: id }));
+    dispatch(fetchReporteTemporada({ temporadaId: id, forceRefresh: true }));
   }, [dispatch, id]);
 
   useEffect(() => {

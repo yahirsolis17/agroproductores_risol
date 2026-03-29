@@ -18,8 +18,10 @@
 # ---------------------------------------------------------------------------
 
 from django.db import transaction
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Q, CharField
 from django.db.models.functions import Cast
+from django.utils import timezone
 from rest_framework import viewsets, status, serializers
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -51,6 +53,12 @@ def _map_temporada_validation_errors(errors: dict) -> tuple[str, dict]:
         return "huerta_rentada_archivada", {"errors": errors}
     if _has_error_code(errors, "anio_invalido"):
         return "validation_error", {"errors": errors}
+    if _has_error_code(errors, "temporada_estado_operativo_no_editable"):
+        return "temporada_estado_operativo_no_editable", {"errors": errors}
+    if _has_error_code(errors, "temporada_operativa_futura"):
+        return "temporada_operativa_futura", {"errors": errors}
+    if _has_error_code(errors, "temporada_operativa_fecha_futura"):
+        return "temporada_operativa_fecha_futura", {"errors": errors}
 
     return "temporada_campos_invalidos", {"errors": errors}
 
@@ -64,6 +72,14 @@ def _has_perm(user, codename: str) -> bool:
     if getattr(user, "role", None) == "admin":
         return True
     return user.has_perm(f"gestion_huerta.{codename}")
+
+
+def _normalize_django_validation_errors(exc: DjangoValidationError) -> dict:
+    if hasattr(exc, "message_dict"):
+        return exc.message_dict
+    if hasattr(exc, "messages"):
+        return {"detail": exc.messages}
+    return {"detail": [str(exc)]}
 
 
 # ---------------------------------------------------------------------------
@@ -89,6 +105,7 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         "destroy":        ["delete_temporada"],
         "archivar":       ["archive_temporada"],
         "restaurar":      ["restore_temporada"],
+        "activar_operativa": ["activate_operational_temporada"],
         # 'finalizar' se resuelve de forma CONTEXTUAL más abajo
     }
 
@@ -126,7 +143,7 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         params = self.request.query_params
 
         # Para acciones de detalle, no aplicamos filtros de lista (evita 404 por filtros)
-        if self.action in ["archivar", "restaurar", "retrieve", "destroy", "finalizar", "update", "partial_update"]:
+        if self.action in ["archivar", "restaurar", "retrieve", "destroy", "finalizar", "update", "partial_update", "activar_operativa"]:
             return qs
 
         # Filtro por año (acepta 'año', 'anio' y 'year')
@@ -164,6 +181,12 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
                 qs = qs.filter(finalizada=True)
             elif low in ("false", "0"):
                 qs = qs.filter(finalizada=False)
+
+        estado_operativo = (params.get("estado_operativo") or params.get("lifecycle") or "").strip().lower()
+        if estado_operativo in ("planificada", "planificadas", "preparacion", "en_preparacion"):
+            qs = qs.filter(estado_operativo=Temporada.EstadoOperativo.PLANIFICADA)
+        elif estado_operativo in ("operativa", "operativas"):
+            qs = qs.filter(estado_operativo=Temporada.EstadoOperativo.OPERATIVA)
 
         # Búsqueda rica (año como texto + nombres de huertas/propietarios)
         if (search := params.get("search")):
@@ -287,10 +310,10 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
                 data={"errors": {"detail": "Debes finalizar la temporada antes de eliminarla."}},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
-        if temp.cosechas.exists():
+        if temp.cosechas.exists() or temp.precosechas.exists():
             return self.notify(
                 key="temporada_con_dependencias",
-                data={"errors": {"detail": "No se puede eliminar. Tiene cosechas asociadas."}},
+                data={"errors": {"detail": "No se puede eliminar. Tiene dependencias asociadas."}},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -331,6 +354,15 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
             )
 
         if not temp.finalizada:
+            if temp.estado_operativo != Temporada.EstadoOperativo.OPERATIVA:
+                return self.notify(
+                    key="temporada_planificada_no_finalizar",
+                    data={
+                        "errors": {"detail": "No puedes finalizar una temporada planificada."},
+                        "info": "No puedes finalizar una temporada planificada.",
+                    },
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
             temp.finalizar()
             registrar_actividad(request.user, f"Finalizó la temporada {temp.año}")
             key = "temporada_finalizada"
@@ -448,5 +480,78 @@ class TemporadaViewSet(ViewSetAuditMixin, NotificationMixin, viewsets.ModelViewS
         return self.notify(
             key="temporada_restaurada",
             data={"temporada": self.get_serializer(temp).data, "affected": affected},
+            status_code=status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=["post"], url_path="activar-operativa")
+    def activar_operativa(self, request, pk=None):
+        if not _has_perm(request.user, "activate_operational_temporada"):
+            return self.notify(
+                key="permission_denied",
+                data={
+                    "errors": {"detail": "No tienes permiso para activar temporadas operativas."},
+                    "info": "No tienes permiso para activar temporadas operativas.",
+                },
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
+        temp = self.get_object()
+        if not temp.is_active:
+            return self.notify(
+                key="temporada_archivada_no_activar_operativa",
+                data={"errors": {"detail": "No puedes activar operación en una temporada archivada."}},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        if temp.finalizada:
+            return self.notify(
+                key="temporada_finalizada_no_activar_operativa",
+                data={"errors": {"detail": "No puedes activar operación en una temporada finalizada."}},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        if temp.estado_operativo == Temporada.EstadoOperativo.OPERATIVA:
+            return self.notify(
+                key="temporada_ya_operativa",
+                data={"temporada": self.get_serializer(temp).data},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        if temp.año > timezone.localdate().year:
+            return self.notify(
+                key="temporada_futura_no_activar_operativa",
+                data={
+                    "errors": {
+                        "estado_operativo": (
+                            "No puedes activar operación en una temporada futura. "
+                            "Mantenla como planificada hasta que llegue su inicio operativo."
+                        )
+                    }
+                },
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        if temp.fecha_inicio and temp.fecha_inicio > timezone.localdate():
+            return self.notify(
+                key="temporada_operativa_antes_de_inicio",
+                data={"errors": {"fecha_inicio": "No puedes activar operacion antes de la fecha de inicio de la temporada."}},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            temp.activar_operativa()
+        except DjangoValidationError as exc:
+            errors = _normalize_django_validation_errors(exc)
+            if "estado_operativo" in errors and temp.año > timezone.localdate().year:
+                key = "temporada_futura_no_activar_operativa"
+            elif "fecha_inicio" in errors:
+                key = "temporada_operativa_antes_de_inicio"
+            else:
+                key = "temporada_campos_invalidos"
+            return self.notify(
+                key=key,
+                data={"errors": errors},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        registrar_actividad(request.user, f"Activó operación de temporada {temp.año}")
+        return self.notify(
+            key="temporada_operativa_activada",
+            data={"temporada": self.get_serializer(temp).data},
             status_code=status.HTTP_200_OK,
         )

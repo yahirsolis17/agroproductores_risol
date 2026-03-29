@@ -335,10 +335,12 @@ class ExcelExporter:
         _ws_section_title(ws, row, "RESUMEN EJECUTIVO")
         res_rows = [
             ("Inversión Total", _money(res.get("inversion_total")), "#,##0.00"),
+            ("Gastos Anticipados", _money(res.get("precosecha_total")), "#,##0.00"),
             ("Ventas Totales", _money(res.get("ventas_totales")), "#,##0.00"),
             ("Gastos de Venta", _money(res.get("total_gastos_venta")), "#,##0.00"),
             ("Ventas Netas", _money(res.get("ventas_netas")), "#,##0.00"),
             ("Ganancia Neta", _money(res.get("ganancia_neta")), "#,##0.00"),
+            ("Ganancia Neta con PreCosecha", _money(res.get("ganancia_neta_con_precosecha")), "#,##0.00"),
             ("ROI Temporada (%)", _pct(res.get("roi_temporada")), "0.0"),
             ("Productividad (cajas/ha)", _money(res.get("productividad")), "#,##0.00"),
             ("Cajas Totales", _money(res.get("cajas_totales")), "0"),
@@ -356,7 +358,7 @@ class ExcelExporter:
                     return 8
             labels = [
                 "Huerta", "Ubicación", "Propietario", "Temporada", "Estado", "Hectáreas", "Total Cosechas",
-                "Inversión Total", "Ventas Totales", "Gastos de Venta", "Ventas Netas", "Ganancia Neta",
+                "Inversión Total", "Gastos Anticipados", "Ventas Totales", "Gastos de Venta", "Ventas Netas", "Ganancia Neta",
                 "ROI Temporada (%)", "Productividad (cajas/ha)", "Cajas Totales",
             ]
             col1 = max(12, max(_len_any(x) for x in labels))
@@ -365,7 +367,7 @@ class ExcelExporter:
             try:
                 vals = [
                     fi, ff, info.get("huerta_nombre"), info.get("ubicacion"), info.get("propietario"),
-                    f"{_money(res.get('inversion_total')):,.2f}", f"{_money(res.get('ventas_totales')):,.2f}",
+                    f"{_money(res.get('inversion_total')):,.2f}", f"{_money(res.get('precosecha_total')):,.2f}", f"{_money(res.get('ventas_totales')):,.2f}",
                     f"{_money(res.get('total_gastos_venta')):,.2f}", f"{_money(res.get('ventas_netas')):,.2f}",
                     f"{_money(res.get('ganancia_neta')):,.2f}", f"{_pct(res.get('roi_temporada')):.1f}%",
                     f"{_money(res.get('productividad')):,.2f}", f"{_money(res.get('cajas_totales')):,.0f}",
@@ -421,6 +423,27 @@ class ExcelExporter:
             _set_column_widths(ws_comp, widths)
         except Exception:
             _set_column_widths(ws_comp, [28, 18, 18, 18, 12, 12])
+
+        ws_pre = wb.create_sheet("PreCosecha")
+        ws_pre.append([
+            _woc(ws_pre, "Fecha", font=header_font, fill=blue_fill),
+            _woc(ws_pre, "Categoría", font=header_font, fill=blue_fill),
+            _woc(ws_pre, "Descripción", font=header_font, fill=blue_fill),
+            _woc(ws_pre, "Insumos", font=header_font, fill=blue_fill),
+            _woc(ws_pre, "Mano de Obra", font=header_font, fill=blue_fill),
+            _woc(ws_pre, "Total", font=header_font, fill=blue_fill),
+        ])
+        for item in ((reporte_data.get("precosechas") or {}).get("detalle") or []):
+            ws_pre.append([
+                _woc(ws_pre, _safe_str(item.get("fecha"))),
+                _woc(ws_pre, _safe_str(item.get("categoria"))),
+                _woc(ws_pre, _safe_str(item.get("descripcion"))),
+                _woc(ws_pre, _money(item.get("gastos_insumos")), number_format="#,##0.00"),
+                _woc(ws_pre, _money(item.get("gastos_mano_obra")), number_format="#,##0.00"),
+                _woc(ws_pre, _money(item.get("total")), number_format="#,##0.00"),
+            ])
+        ws_pre.freeze_panes = "A2"
+        _set_column_widths(ws_pre, [14, 24, 40, 16, 16, 16])
 
         # Metadata
         _add_metadata_sheet(wb, reporte_data, "REPORTE DE PRODUCCIÓN - TEMPORADA COMPLETA")

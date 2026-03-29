@@ -9,8 +9,10 @@ import { InversionHuerta } from '../../types/inversionTypes';
 const money = (n: number | string) => {
   const num = typeof n === 'string' ? Number(n.replace(/,/g, '')) : n;
   if (!Number.isFinite(num)) return '—';
-  // SIN decimales; separador de miles
-  return Math.trunc(num).toLocaleString('es-MX', { maximumFractionDigits: 0 });
+  return num.toLocaleString('es-MX', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 };
 
 const MoneyCell: React.FC<{ value: number | string }> = ({ value }) => (

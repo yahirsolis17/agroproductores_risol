@@ -2,7 +2,8 @@
 /**
  * Estado de filtro para Temporadas (NO confundir con Estado de Huertas).
  */
-export type EstadoTemporada = 'activas' | 'archivadas' | 'todas';
+export type EstadoTemporada = 'operativas' | 'planificadas' | 'archivadas' | 'todas';
+export type EstadoOperativoTemporada = 'planificada' | 'operativa';
 
 /**
  * Representa una temporada agrícola de una huerta propia o rentada.
@@ -13,6 +14,7 @@ export interface Temporada {
   fecha_inicio: string;
   fecha_fin: string | null;
   finalizada: boolean;
+  estado_operativo: EstadoOperativoTemporada;
   is_active: boolean;
   archivado_en: string | null;           // <- ya no opcional, puede venir null
 
@@ -34,4 +36,5 @@ export interface TemporadaCreateData {
   huerta?: number;
   huerta_rentada?: number;
   fecha_inicio?: string;
+  estado_operativo?: EstadoOperativoTemporada;
 }

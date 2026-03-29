@@ -10,7 +10,7 @@ export const useReporteCosecha = (id?: number, from?: string, to?: string) => {
 
   const fetchData = useCallback(() => {
     if (!id) return;
-    dispatch(fetchReporteCosecha({ cosechaId: id, from, to }));
+    dispatch(fetchReporteCosecha({ cosechaId: id, from, to, forceRefresh: true }));
   }, [dispatch, id, from, to]);
 
   useEffect(() => {
