@@ -258,15 +258,25 @@ El reporte de temporada agrega:
 
 - `precosecha_total`
 - `ganancia_neta_con_precosecha`
+- `ganancia_operativa_acumulada`
+- `recuperado_precosecha`
+- `pendiente_precosecha`
+- `porcentaje_recuperado_precosecha`
+- `excedente_post_precosecha`
+- `estado_recuperacion_precosecha`
 - bloque `precosechas.detalle`
+- bloque `recuperacion_precosecha`
 - tabla separada de precosechas
 - serie temporal separada
 - KPI de gastos anticipados
+- KPIs de recuperacion de precosecha
 
 Exportacion:
 
 - PDF con seccion dedicada de `PreCosecha`
+- PDF con seccion dedicada de recuperacion de precosecha
 - Excel con hoja separada `PreCosecha`
+- Excel con resumen ejecutivo que incluye recuperado, pendiente, porcentaje y estado
 
 ## Dashboard, cache y operacion actual
 
@@ -317,6 +327,53 @@ Se deja deliberadamente fuera de esta version:
 - redistribucion financiera automatica
 - inclusion en dashboard operativo
 - inclusion en reportes de cosecha
+
+## Recuperacion de precosecha en v1
+
+La recuperacion de `PreCosecha` ya existe en v1, pero solo a nivel temporada.
+
+### Regla oficial
+
+La `PreCosecha` se recupera con la ganancia operativa acumulada de toda la temporada.
+
+No se reparte por cosecha.
+No modifica la ganancia individual de cada cosecha.
+No entra en `FinanzasPorCosecha`.
+
+### Base contable usada
+
+- `ganancia_operativa_acumulada = ganancia_neta`
+
+Donde `ganancia_neta` ya representa:
+
+- ventas totales
+- menos gastos de venta
+- menos inversiones operativas
+
+### Calculos derivados
+
+- `recuperado_precosecha = min(max(ganancia_operativa_acumulada, 0), precosecha_total)`
+- `pendiente_precosecha = max(precosecha_total - recuperado_precosecha, 0)`
+- `porcentaje_recuperado_precosecha = recuperado_precosecha / precosecha_total * 100`
+- `excedente_post_precosecha = max(ganancia_operativa_acumulada - precosecha_total, 0)`
+
+### Estados de recuperacion
+
+- `sin_precosecha`
+- `sin_recuperacion`
+- `recuperando`
+- `recuperada`
+- `con_excedente`
+
+### Exposicion actual
+
+La recuperacion se expone en:
+
+- JSON del reporte de temporada
+- KPIs del viewer de temporada
+- tarjeta visual de recuperacion en frontend
+- PDF de temporada
+- Excel de temporada
 
 ## Archivos clave
 

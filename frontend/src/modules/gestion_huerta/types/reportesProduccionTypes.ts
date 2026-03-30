@@ -121,6 +121,24 @@ export interface FilaComparativoCosecha {
   cajas: number;
 }
 
+export interface RecuperacionPrecosechaData {
+  tiene_precosecha: boolean;
+  total_invertido: number;
+  ganancia_operativa_acumulada: number;
+  recuperado: number;
+  pendiente: number;
+  porcentaje: number;
+  excedente: number;
+  estado:
+    | 'sin_precosecha'
+    | 'sin_recuperacion'
+    | 'recuperando'
+    | 'recuperada'
+    | 'con_excedente';
+  estado_label: string;
+  formula: string;
+}
+
 export interface ReporteProduccionData {
   kpis: KPIData[];
   series: {
@@ -155,4 +173,5 @@ export interface ReporteProduccionData {
     generado_por: string;
     infoHuerta?: InfoHuerta;
   };
+  recuperacion_precosecha?: RecuperacionPrecosechaData;
 }

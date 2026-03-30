@@ -671,6 +671,7 @@ class PDFExporter:
         # Resumen ejecutivo
         story.append(Paragraph("RESUMEN EJECUTIVO", heading_style))
         res = reporte_data.get("resumen_ejecutivo", {}) or {}
+        recuperacion = reporte_data.get("recuperacion_precosecha", {}) or {}
 
         flags = (reporte_data.get("flags") or {})
         if flags.get("tiene_perdida"):
@@ -694,6 +695,35 @@ class PDFExporter:
         _add_value_box(story, "Productividad", f"{_money(res.get('productividad')):.1f} cajas/ha", BRAND_SECONDARY)
 
         story.append(Spacer(1, 15))
+
+        story.append(Paragraph("RECUPERACION DE PRECOSECHA", heading_style))
+        if recuperacion.get("tiene_precosecha"):
+            recuperado = _money(recuperacion.get("recuperado"))
+            pendiente = _money(recuperacion.get("pendiente"))
+            porcentaje = _pct(recuperacion.get("porcentaje"))
+            excedente = _money(recuperacion.get("excedente"))
+            ganancia_operativa = _money(recuperacion.get("ganancia_operativa_acumulada"))
+
+            _add_value_box(story, "Ganancia Operativa Acumulada", f"${ganancia_operativa:,.2f}",
+                           BRAND_DANGER if ganancia_operativa < 0 else BRAND_SUCCESS)
+            _add_value_box(story, "Recuperado", f"${recuperado:,.2f}", BRAND_SUCCESS)
+            _add_value_box(story, "Pendiente", f"${pendiente:,.2f}",
+                           BRAND_DANGER if pendiente > 0 else BRAND_SUCCESS)
+            _add_value_box(story, "Avance Recuperacion", f"{porcentaje:.1f}%",
+                           BRAND_SUCCESS if porcentaje >= 100 else BRAND_ACCENT)
+            _add_value_box(story, "Excedente Post-PreCosecha", f"${excedente:,.2f}",
+                           BRAND_SUCCESS if excedente > 0 else BRAND_SECONDARY)
+            story.append(Paragraph(
+                f"Estado actual: <b>{_safe_str(recuperacion.get('estado_label') or recuperacion.get('estado'))}</b>.",
+                note_style,
+            ))
+        else:
+            story.append(Paragraph(
+                "Sin precosecha registrada. No hay recuperacion pendiente para esta temporada.",
+                note_style,
+            ))
+
+        story.append(Spacer(1, 12))
 
         precosechas = ((reporte_data.get("precosechas") or {}).get("detalle") or [])
         if precosechas:

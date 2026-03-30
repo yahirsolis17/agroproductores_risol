@@ -6,6 +6,7 @@ import type {
   InfoHuerta,
   FilaComparativoCosecha,
   FilaResumenHistorico,
+  RecuperacionPrecosechaData,
 } from '../types/reportesProduccionTypes';
 
 const num = (x: any, d = 0) => {
@@ -89,6 +90,22 @@ const sumByDate = (items: any[], dateKey: string, valueKey: string) => {
 const sortISO = (arr: SeriesDataPoint[]) =>
   [...arr].sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
 
+const toRecuperacionPrecosecha = (raw: any): RecuperacionPrecosechaData | undefined => {
+  if (!raw || typeof raw !== 'object') return undefined;
+  return {
+    tiene_precosecha: Boolean(raw.tiene_precosecha),
+    total_invertido: Number(raw.total_invertido ?? 0),
+    ganancia_operativa_acumulada: Number(raw.ganancia_operativa_acumulada ?? 0),
+    recuperado: Number(raw.recuperado ?? 0),
+    pendiente: Number(raw.pendiente ?? 0),
+    porcentaje: Number(raw.porcentaje ?? 0),
+    excedente: Number(raw.excedente ?? 0),
+    estado: (raw.estado ?? 'sin_precosecha') as RecuperacionPrecosechaData['estado'],
+    estado_label: String(raw.estado_label ?? 'Sin precosecha registrada'),
+    formula: String(raw.formula ?? ''),
+  };
+};
+
 export const withRetry = async <T,>(fn: () => Promise<T>, retries = 2, baseDelay = 350): Promise<T> => {
   try {
     return await fn();
@@ -112,9 +129,12 @@ export const adaptTemporadaToUI = (raw: any): ReporteProduccionData => {
     },
   };
   if (!raw || typeof raw !== 'object') return empty;
+  const ui = raw?.ui && typeof raw.ui === 'object' ? raw.ui : {};
+  const recovery = toRecuperacionPrecosecha(raw?.recuperacion_precosecha);
 
   if (Array.isArray(raw.kpis) || raw.tabla) {
-    const kpis: KPIData[] = (raw.kpis || []).map((k: any) => {
+    const kpisSource = Array.isArray(raw.kpis) ? raw.kpis : Array.isArray(ui.kpis) ? ui.kpis : [];
+    const kpis: KPIData[] = kpisSource.map((k: any) => {
       const label = String(k?.label ?? k?.id ?? '');
       const value = k?.value;
       let format: KPIData['format'] | undefined;
@@ -137,8 +157,8 @@ export const adaptTemporadaToUI = (raw: any): ReporteProduccionData => {
 
     let comparativo_cosechas: FilaComparativoCosecha[] = [];
     const precosechas =
-      Array.isArray(raw?.ui?.tablas?.precosechas)
-        ? raw.ui.tablas.precosechas
+      Array.isArray(ui?.tablas?.precosechas)
+        ? ui.tablas.precosechas
         : Array.isArray(raw?.precosechas?.detalle)
           ? raw.precosechas.detalle.map((x: any) => ({
               id: Number(x.id ?? 0),
@@ -196,6 +216,7 @@ export const adaptTemporadaToUI = (raw: any): ReporteProduccionData => {
         generado_por: raw?.metadata?.generado_por || '',
         infoHuerta,
       },
+      recuperacion_precosecha: recovery,
     };
   }
 
@@ -236,9 +257,11 @@ export const adaptTemporadaToUI = (raw: any): ReporteProduccionData => {
     : sumByDate(raw?.precosechas?.detalle || [], 'fecha', 'total');
   const ventas = toSeriesAny(series.ventas || []);
   const ganancias = toSeriesAny(series.ganancias || []);
+  const kpisSource = Array.isArray(ui?.kpis) ? ui.kpis : Array.isArray(resumen.kpis) ? resumen.kpis : [];
+  const infoHuerta: InfoHuerta | undefined = raw?.infoHuerta || raw?.metadata?.infoHuerta;
 
   return {
-    kpis: (resumen.kpis || []).map((k: any) => ({
+    kpis: kpisSource.map((k: any) => ({
       label: String(k?.label ?? k?.id ?? ''),
       value: num(k?.value ?? 0),
       format: k?.format,
@@ -257,7 +280,9 @@ export const adaptTemporadaToUI = (raw: any): ReporteProduccionData => {
       },
       generado_en: raw?.metadata?.generado_en || new Date().toISOString(),
       generado_por: raw?.metadata?.generado_por || '',
+      infoHuerta,
     },
+    recuperacion_precosecha: recovery,
   };
 };
 

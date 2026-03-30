@@ -308,6 +308,7 @@ class ExcelExporter:
 
         info = reporte_data.get("informacion_general", {}) or {}
         res = reporte_data.get("resumen_ejecutivo", {}) or {}
+        recuperacion = reporte_data.get("recuperacion_precosecha", {}) or {}
 
         # Se calcula pero NO se muestra
         fi = _first(info.get("fecha_inicio")); ff = _first(info.get("fecha_fin"))
@@ -336,6 +337,7 @@ class ExcelExporter:
         res_rows = [
             ("Inversión Total", _money(res.get("inversion_total")), "#,##0.00"),
             ("Gastos Anticipados", _money(res.get("precosecha_total")), "#,##0.00"),
+            ("Ganancia Operativa Acumulada", _money(res.get("ganancia_operativa_acumulada", res.get("ganancia_neta"))), "#,##0.00"),
             ("Ventas Totales", _money(res.get("ventas_totales")), "#,##0.00"),
             ("Gastos de Venta", _money(res.get("total_gastos_venta")), "#,##0.00"),
             ("Ventas Netas", _money(res.get("ventas_netas")), "#,##0.00"),
@@ -345,8 +347,19 @@ class ExcelExporter:
             ("Productividad (cajas/ha)", _money(res.get("productividad")), "#,##0.00"),
             ("Cajas Totales", _money(res.get("cajas_totales")), "0"),
         ]
+        if recuperacion.get("tiene_precosecha"):
+            res_rows.extend([
+                ("Recuperado PreCosecha", _money(recuperacion.get("recuperado")), "#,##0.00"),
+                ("Pendiente PreCosecha", _money(recuperacion.get("pendiente")), "#,##0.00"),
+                ("Avance Recuperación (%)", _pct(recuperacion.get("porcentaje")), "0.0"),
+                ("Excedente Post-PreCosecha", _money(recuperacion.get("excedente")), "#,##0.00"),
+                ("Estado Recuperación", _safe_str(recuperacion.get("estado_label")), None),
+            ])
         for label, value, fmt in res_rows:
-            ws.append([_woc(ws, label, font=Font(bold=True)), _woc(ws, value, number_format=fmt)])
+            if fmt is None:
+                ws.append([_woc(ws, label, font=Font(bold=True)), _woc(ws, value)])
+            else:
+                ws.append([_woc(ws, label, font=Font(bold=True)), _woc(ws, value, number_format=fmt)])
         ws.freeze_panes = "A4"
         # Autoajuste básico de anchos para hoja Resumen Ejecutivo (2 columnas)
         try:
@@ -358,20 +371,40 @@ class ExcelExporter:
                     return 8
             labels = [
                 "Huerta", "Ubicación", "Propietario", "Temporada", "Estado", "Hectáreas", "Total Cosechas",
-                "Inversión Total", "Gastos Anticipados", "Ventas Totales", "Gastos de Venta", "Ventas Netas", "Ganancia Neta",
+                "Inversión Total", "Gastos Anticipados", "Ganancia Operativa Acumulada",
+                "Ventas Totales", "Gastos de Venta", "Ventas Netas", "Ganancia Neta",
                 "ROI Temporada (%)", "Productividad (cajas/ha)", "Cajas Totales",
             ]
+            if recuperacion.get("tiene_precosecha"):
+                labels.extend([
+                    "Recuperado PreCosecha",
+                    "Pendiente PreCosecha",
+                    "Avance Recuperación (%)",
+                    "Excedente Post-PreCosecha",
+                    "Estado Recuperación",
+                ])
             col1 = max(12, max(_len_any(x) for x in labels))
             # estimado para valores
             col2 = 12
             try:
                 vals = [
                     fi, ff, info.get("huerta_nombre"), info.get("ubicacion"), info.get("propietario"),
-                    f"{_money(res.get('inversion_total')):,.2f}", f"{_money(res.get('precosecha_total')):,.2f}", f"{_money(res.get('ventas_totales')):,.2f}",
+                    f"{_money(res.get('inversion_total')):,.2f}",
+                    f"{_money(res.get('precosecha_total')):,.2f}",
+                    f"{_money(res.get('ganancia_operativa_acumulada', res.get('ganancia_neta'))):,.2f}",
+                    f"{_money(res.get('ventas_totales')):,.2f}",
                     f"{_money(res.get('total_gastos_venta')):,.2f}", f"{_money(res.get('ventas_netas')):,.2f}",
                     f"{_money(res.get('ganancia_neta')):,.2f}", f"{_pct(res.get('roi_temporada')):.1f}%",
                     f"{_money(res.get('productividad')):,.2f}", f"{_money(res.get('cajas_totales')):,.0f}",
                 ]
+                if recuperacion.get("tiene_precosecha"):
+                    vals.extend([
+                        f"{_money(recuperacion.get('recuperado')):,.2f}",
+                        f"{_money(recuperacion.get('pendiente')):,.2f}",
+                        f"{_pct(recuperacion.get('porcentaje')):.1f}%",
+                        f"{_money(recuperacion.get('excedente')):,.2f}",
+                        _safe_str(recuperacion.get("estado_label")),
+                    ])
                 col2 = max(12, max(len(_safe_str(v)) for v in vals))
             except Exception:
                 pass

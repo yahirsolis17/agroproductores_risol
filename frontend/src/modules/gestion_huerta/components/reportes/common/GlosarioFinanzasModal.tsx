@@ -129,6 +129,19 @@ const GlosarioFinanzasModal: React.FC<Props> = ({ open, onClose }) => {
           />
 
           <Row
+            icon={<Calculate color="info" />}
+            title="Recuperación de precosecha"
+            desc={
+              <>
+                Mide cuánto de la inversión anticipada de <strong>PreCosecha</strong> ya fue cubierto por la
+                <strong> ganancia operativa acumulada de la temporada</strong>.
+                <br />
+                <em>No se reparte por cosecha y no usa ventas brutas; usa la utilidad operativa total de la temporada.</em>
+              </>
+            }
+          />
+
+          <Row
             icon={<Percent color="info" />}
             title="ROI (Retorno de inversión)"
             desc={

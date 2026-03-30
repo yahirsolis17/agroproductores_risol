@@ -141,6 +141,60 @@ def _analizar_variedades_ventas(ventas_qs, total_ventas: Decimal) -> List[Dict[s
         )
     return sorted(out, key=lambda x: x["total_venta"], reverse=True)
 
+def _calcular_recuperacion_precosecha(
+    ganancia_operativa_acumulada: Decimal,
+    total_precosecha: Decimal,
+) -> Dict[str, Any]:
+    """Calcula la recuperacion de precosecha usando la ganancia operativa acumulada."""
+    total_precosecha = D(total_precosecha)
+    ganancia_operativa_acumulada = D(ganancia_operativa_acumulada)
+    ganancia_operativa_positiva = max(ganancia_operativa_acumulada, Decimal("0"))
+
+    if total_precosecha <= 0:
+        return {
+            "tiene_precosecha": False,
+            "total_invertido": 0.0,
+            "ganancia_operativa_acumulada": Flt(ganancia_operativa_acumulada),
+            "recuperado": 0.0,
+            "pendiente": 0.0,
+            "porcentaje": 0.0,
+            "excedente": Flt(max(ganancia_operativa_acumulada, Decimal("0"))),
+            "estado": "sin_precosecha",
+            "estado_label": "Sin precosecha registrada",
+            "formula": "Recuperacion calculada con la ganancia operativa acumulada de la temporada.",
+        }
+
+    recuperado = min(ganancia_operativa_positiva, total_precosecha)
+    pendiente = max(total_precosecha - recuperado, Decimal("0"))
+    porcentaje = (recuperado / total_precosecha * Decimal(100)) if total_precosecha > 0 else Decimal("0")
+    excedente = max(ganancia_operativa_positiva - total_precosecha, Decimal("0"))
+
+    if recuperado <= 0:
+        estado = "sin_recuperacion"
+        estado_label = "Sin recuperacion"
+    elif recuperado < total_precosecha:
+        estado = "recuperando"
+        estado_label = "Recuperando inversion inicial"
+    elif excedente > 0:
+        estado = "con_excedente"
+        estado_label = "Ganancia sobre inversion recuperada"
+    else:
+        estado = "recuperada"
+        estado_label = "Precosecha recuperada"
+
+    return {
+        "tiene_precosecha": True,
+        "total_invertido": Flt(total_precosecha),
+        "ganancia_operativa_acumulada": Flt(ganancia_operativa_acumulada),
+        "recuperado": Flt(recuperado),
+        "pendiente": Flt(pendiente),
+        "porcentaje": Flt(porcentaje),
+        "excedente": Flt(excedente),
+        "estado": estado,
+        "estado_label": estado_label,
+        "formula": "Recuperacion calculada con la ganancia operativa acumulada de la temporada.",
+    }
+
 def _build_ui_from_temporada(
     rep: Dict[str, Any],
     detalle_inversiones_all: List[Dict[str, Any]],
@@ -149,6 +203,7 @@ def _build_ui_from_temporada(
 ) -> Dict[str, Any]:
     """Construye estructura `ui` (KPIs, series, tablas) para frontend."""
     re = rep.get("resumen_ejecutivo", {}) or {}
+    recuperacion = rep.get("recuperacion_precosecha", {}) or {}
     kpis = [
         {"label": "Inversión Total", "value": re.get("inversion_total", 0.0), "format": "currency"},
         {"label": "Ventas Totales", "value": re.get("ventas_totales", 0.0), "format": "currency"},
@@ -158,6 +213,13 @@ def _build_ui_from_temporada(
         {"label": "Productividad (cajas/ha)", "value": re.get("productividad", 0.0), "format": "number"},
         {"label": "Cajas Totales", "value": re.get("cajas_totales", 0), "format": "number"},
     ]
+    if recuperacion.get("tiene_precosecha"):
+        kpis.extend([
+            {"label": "Recuperado PreCosecha", "value": recuperacion.get("recuperado", 0.0), "format": "currency"},
+            {"label": "Pendiente PreCosecha", "value": recuperacion.get("pendiente", 0.0), "format": "currency"},
+            {"label": "Avance Recuperacion", "value": recuperacion.get("porcentaje", 0.0), "format": "percentage"},
+            {"label": "Excedente Post-PreCosecha", "value": recuperacion.get("excedente", 0.0), "format": "currency"},
+        ])
     series_inv = _group_by_date(detalle_inversiones_all, "fecha", "total")
     series_pre = _group_by_date(detalle_precosechas_all, "fecha", "total")
     series_ven = _group_by_date(detalle_ventas_all, "fecha", "total_venta")
@@ -378,6 +440,7 @@ def generar_reporte_temporada(
         )
 
     ganancia_neta_con_precosecha = ganancia_neta - total_precosecha
+    recuperacion_precosecha = _calcular_recuperacion_precosecha(ganancia_neta, total_precosecha)
 
     fi = _date_only(temporada.fecha_inicio)
     ff = _date_only(temporada.fecha_fin)
@@ -422,8 +485,14 @@ def generar_reporte_temporada(
             "precosecha_total": Flt(total_precosecha),
             "ventas_totales": Flt(total_ventas),
             "ventas_netas": Flt(ganancia_bruta),
+            "ganancia_operativa_acumulada": Flt(ganancia_neta),
             "ganancia_neta": Flt(ganancia_neta),
             "ganancia_neta_con_precosecha": Flt(ganancia_neta_con_precosecha),
+            "recuperado_precosecha": recuperacion_precosecha["recuperado"],
+            "pendiente_precosecha": recuperacion_precosecha["pendiente"],
+            "porcentaje_recuperado_precosecha": recuperacion_precosecha["porcentaje"],
+            "excedente_post_precosecha": recuperacion_precosecha["excedente"],
+            "estado_recuperacion_precosecha": recuperacion_precosecha["estado"],
             "roi_temporada": Flt(roi_temporada),
             "productividad": Flt(D(total_cajas) / hectareas) if hectareas > 0 else 0.0,
             "cajas_totales": total_cajas,
@@ -434,9 +503,15 @@ def generar_reporte_temporada(
             "gastos_venta": Flt(total_gastos_venta),
             "ventas_netas": Flt(ganancia_bruta),
             "inversion_total": Flt(total_inversiones),
+            "ganancia_operativa_acumulada": Flt(ganancia_neta),
             "ganancia_neta": Flt(ganancia_neta),
             "precosecha_total": Flt(total_precosecha),
             "ganancia_neta_con_precosecha": Flt(ganancia_neta_con_precosecha),
+            "recuperado_precosecha": recuperacion_precosecha["recuperado"],
+            "pendiente_precosecha": recuperacion_precosecha["pendiente"],
+            "porcentaje_recuperado_precosecha": recuperacion_precosecha["porcentaje"],
+            "excedente_post_precosecha": recuperacion_precosecha["excedente"],
+            "estado_recuperacion_precosecha": recuperacion_precosecha["estado"],
             "roi_porcentaje": Flt(roi_temporada),
         },
         "flags": {
@@ -448,6 +523,7 @@ def generar_reporte_temporada(
             "detalle": detalle_precosechas_all,
             "analisis_categorias": _analizar_categorias_inversiones(todas_precosechas, total_precosecha),
         },
+        "recuperacion_precosecha": recuperacion_precosecha,
         "analisis_categorias": _analizar_categorias_inversiones(todas_inversiones, total_inversiones),
         "analisis_variedades": _analizar_variedades_ventas(todas_ventas, total_ventas),
         "metricas_eficiencia": {

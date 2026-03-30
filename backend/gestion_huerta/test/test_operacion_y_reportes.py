@@ -82,6 +82,82 @@ class OperacionCrudYReportesTests(TestCase):
             descripcion="Preparacion futura",
         )
 
+    def _generar_reporte_temporada_con_recuperacion(
+        self,
+        *,
+        nombre_huerta: str,
+        precosecha_total: str,
+        inversion_total: str,
+        venta_total: str,
+        gasto_venta: str,
+    ):
+        huerta_recovery = Huerta.objects.create(
+            nombre=nombre_huerta,
+            ubicacion=f"Zona {nombre_huerta}",
+            variedades="Ataulfo",
+            historial="",
+            hectareas=5,
+            propietario=self.huerta.propietario,
+        )
+        temporada = Temporada.objects.create(
+            **{"a\u00f1o": self.today.year},
+            fecha_inicio=self.today + timedelta(days=10),
+            estado_operativo=Temporada.EstadoOperativo.PLANIFICADA,
+            huerta=huerta_recovery,
+        )
+        PreCosecha.objects.create(
+            temporada=temporada,
+            huerta=huerta_recovery,
+            categoria=self.categoria_precosecha,
+            fecha=temporada.fecha_inicio - timedelta(days=3),
+            gastos_insumos=Decimal(precosecha_total),
+            gastos_mano_obra=Decimal("0.00"),
+            descripcion=f"Preparacion {nombre_huerta}",
+        )
+        temporada.fecha_inicio = self.today
+        temporada.save(update_fields=["fecha_inicio"])
+        temporada.activar_operativa()
+
+        cosecha = Cosecha.objects.create(
+            nombre=f"Cosecha {nombre_huerta}",
+            temporada=temporada,
+            huerta=huerta_recovery,
+            fecha_inicio=timezone.now() - timedelta(days=1),
+        )
+        InversionesHuerta.objects.create(
+            categoria=self.categoria_inversion,
+            fecha=self.today,
+            descripcion=f"Operacion {nombre_huerta}",
+            gastos_insumos=Decimal(inversion_total),
+            gastos_mano_obra=Decimal("0.00"),
+            cosecha=cosecha,
+            temporada=temporada,
+            huerta=huerta_recovery,
+        )
+        Venta.objects.create(
+            fecha_venta=self.today,
+            num_cajas=1,
+            precio_por_caja=Decimal(venta_total),
+            tipo_mango="Ataulfo",
+            descripcion=f"Venta {nombre_huerta}",
+            gasto=Decimal(gasto_venta),
+            cosecha=cosecha,
+            temporada=temporada,
+            huerta=huerta_recovery,
+        )
+
+        response = self.client.post(
+            "/huerta/reportes/temporada/",
+            {
+                "temporada_id": temporada.id,
+                "formato": "json",
+                "force_refresh": True,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        return response.json()["data"]["reporte"]
+
     def test_inversion_crud_filtros_archivo_restauracion_y_borrado(self):
         create_response = self.client.post(
             "/huerta/inversiones/",
@@ -309,6 +385,11 @@ class OperacionCrudYReportesTests(TestCase):
         self.assertEqual(operativa_report.status_code, 200)
         operativa_payload = operativa_report.json()["data"]["reporte"]
         self.assertEqual(operativa_payload["precosechas"]["total"], 0.0)
+        self.assertFalse(operativa_payload["recuperacion_precosecha"]["tiene_precosecha"])
+        self.assertEqual(operativa_payload["recuperacion_precosecha"]["estado"], "sin_precosecha")
+        self.assertEqual(operativa_payload["resumen_ejecutivo"]["recuperado_precosecha"], 0.0)
+        self.assertEqual(operativa_payload["resumen_ejecutivo"]["pendiente_precosecha"], 0.0)
+        self.assertEqual(operativa_payload["resumen_ejecutivo"]["porcentaje_recuperado_precosecha"], 0.0)
 
     def test_exportes_de_temporada_y_cosecha_generan_archivos_validos(self):
         temporada_excel = self.client.post(
@@ -327,6 +408,16 @@ class OperacionCrudYReportesTests(TestCase):
         )
         workbook = load_workbook(BytesIO(temporada_excel.content))
         self.assertIn("PreCosecha", workbook.sheetnames)
+        resumen_sheet = workbook["Resumen Ejecutivo"]
+        resumen_rows = {
+            row[0]: row[1]
+            for row in resumen_sheet.iter_rows(min_row=1, values_only=True)
+            if row and row[0]
+        }
+        self.assertEqual(resumen_rows["Recuperado PreCosecha"], 0)
+        self.assertEqual(resumen_rows["Pendiente PreCosecha"], 120)
+        self.assertEqual(resumen_rows["Avance Recuperación (%)"], 0)
+        self.assertEqual(resumen_rows["Estado Recuperación"], "Sin recuperacion")
 
         cosecha_pdf = self.client.post(
             "/huerta/reportes/cosecha/",
@@ -340,3 +431,63 @@ class OperacionCrudYReportesTests(TestCase):
         self.assertEqual(cosecha_pdf.status_code, 200)
         self.assertEqual(cosecha_pdf["Content-Type"], "application/pdf")
         self.assertTrue(cosecha_pdf.content.startswith(b"%PDF"))
+
+    def test_reporte_temporada_calcula_recuperacion_parcial_de_precosecha(self):
+        reporte = self._generar_reporte_temporada_con_recuperacion(
+            nombre_huerta="Huerta Recovery Parcial",
+            precosecha_total="120.00",
+            inversion_total="80.00",
+            venta_total="150.00",
+            gasto_venta="20.00",
+        )
+        self.assertEqual(reporte["resumen_ejecutivo"]["ganancia_operativa_acumulada"], 50.0)
+        self.assertEqual(reporte["resumen_ejecutivo"]["recuperado_precosecha"], 50.0)
+        self.assertEqual(reporte["resumen_ejecutivo"]["pendiente_precosecha"], 70.0)
+        self.assertAlmostEqual(
+            reporte["resumen_ejecutivo"]["porcentaje_recuperado_precosecha"],
+            41.67,
+            places=2,
+        )
+        self.assertEqual(reporte["resumen_ejecutivo"]["excedente_post_precosecha"], 0.0)
+        self.assertEqual(reporte["recuperacion_precosecha"]["estado"], "recuperando")
+        self.assertEqual(
+            reporte["recuperacion_precosecha"]["estado_label"],
+            "Recuperando inversion inicial",
+        )
+
+    def test_reporte_temporada_calcula_precosecha_recuperada_exacta(self):
+        reporte = self._generar_reporte_temporada_con_recuperacion(
+            nombre_huerta="Huerta Recovery Cien",
+            precosecha_total="100.00",
+            inversion_total="50.00",
+            venta_total="170.00",
+            gasto_venta="20.00",
+        )
+
+        self.assertEqual(reporte["resumen_ejecutivo"]["ganancia_operativa_acumulada"], 100.0)
+        self.assertEqual(reporte["resumen_ejecutivo"]["recuperado_precosecha"], 100.0)
+        self.assertEqual(reporte["resumen_ejecutivo"]["pendiente_precosecha"], 0.0)
+        self.assertEqual(reporte["resumen_ejecutivo"]["porcentaje_recuperado_precosecha"], 100.0)
+        self.assertEqual(reporte["resumen_ejecutivo"]["excedente_post_precosecha"], 0.0)
+        self.assertEqual(reporte["recuperacion_precosecha"]["estado"], "recuperada")
+        self.assertEqual(reporte["recuperacion_precosecha"]["estado_label"], "Precosecha recuperada")
+
+    def test_reporte_temporada_calcula_precosecha_con_excedente(self):
+        reporte = self._generar_reporte_temporada_con_recuperacion(
+            nombre_huerta="Huerta Recovery Excedente",
+            precosecha_total="100.00",
+            inversion_total="40.00",
+            venta_total="200.00",
+            gasto_venta="20.00",
+        )
+
+        self.assertEqual(reporte["resumen_ejecutivo"]["ganancia_operativa_acumulada"], 140.0)
+        self.assertEqual(reporte["resumen_ejecutivo"]["recuperado_precosecha"], 100.0)
+        self.assertEqual(reporte["resumen_ejecutivo"]["pendiente_precosecha"], 0.0)
+        self.assertEqual(reporte["resumen_ejecutivo"]["porcentaje_recuperado_precosecha"], 100.0)
+        self.assertEqual(reporte["resumen_ejecutivo"]["excedente_post_precosecha"], 40.0)
+        self.assertEqual(reporte["recuperacion_precosecha"]["estado"], "con_excedente")
+        self.assertEqual(
+            reporte["recuperacion_precosecha"]["estado_label"],
+            "Ganancia sobre inversion recuperada",
+        )

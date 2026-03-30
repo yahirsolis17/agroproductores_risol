@@ -49,6 +49,7 @@ const TablesPanel = lazy(() => import('./ReporteProduccionViewerTables'));
 // Componentes auxiliares
 import DesgloseGananciaCard from './common/DesgloseGananciaCard';
 import GlosarioFinanzasModal from './common/GlosarioFinanzasModal';
+import RecuperacionPrecosechaCard from './common/RecuperacionPrecosechaCard';
 
 // --------------------------
 // Animaciones y estilos
@@ -343,6 +344,7 @@ export default function ReporteProduccionViewer({
   const gananciaNetaCalc = ventasNetas - inversionTotal;
   const roiKpi = getKpiVal(/\broi\b|roi\s*temporada/i);
   const roiCalc = inversionTotal ? (gananciaNetaCalc / inversionTotal) * 100 : 0;
+  const recovery = data.recuperacion_precosecha;
 
   return (
     <MainContainer>
@@ -481,6 +483,8 @@ export default function ReporteProduccionViewer({
 
           </Box>
 
+          <RecuperacionPrecosechaCard data={recovery} />
+
           <AnimatedGrid
             sx={{
               display: 'grid',
@@ -536,6 +540,21 @@ export default function ReporteProduccionViewer({
                       <Typography component="span" variant="body2" color="text.secondary"> &nbsp;(KPI informado: {formatNumber(roiKpi)}%)</Typography>
                     )}
                   </Typography>
+                  {recovery?.tiene_precosecha && (
+                    <Typography variant="body2">
+                      <strong>Recuperado PreCosecha</strong> = min(max(Ganancia operativa acumulada, 0), Precosecha total) = min(max({formatCurrency(recovery.ganancia_operativa_acumulada)}, 0), {formatCurrency(recovery.total_invertido)}) = <strong>{formatCurrency(recovery.recuperado)}</strong>
+                    </Typography>
+                  )}
+                  {recovery?.tiene_precosecha && (
+                    <Typography variant="body2">
+                      <strong>Pendiente</strong> = Precosecha total − Recuperado = {formatCurrency(recovery.total_invertido)} − {formatCurrency(recovery.recuperado)} = <strong>{formatCurrency(recovery.pendiente)}</strong>
+                    </Typography>
+                  )}
+                  {recovery?.tiene_precosecha && (
+                    <Typography variant="body2">
+                      <strong>Avance de recuperación</strong> = Recuperado / Precosecha total × 100 = <strong>{formatNumber(recovery.porcentaje)}%</strong>
+                    </Typography>
+                  )}
                   <Typography variant="body2" color="text.secondary">
                     <strong>Productividad</strong> = Cajas por hectárea (cajas/ha). Si tu huerta es más grande/pequeña, esta métrica permite comparar de forma justa.
                   </Typography>
